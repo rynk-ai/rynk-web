@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { dbService, type Conversation, type Message } from "@/lib/services/indexeddb"
+import { dbService, type Conversation, type Message, type Group } from "@/lib/services/indexeddb"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
 import {
   filesToBase64,
@@ -17,6 +17,7 @@ export function useChat() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [groups, setGroups] = useState<Group[]>([])
 
   const currentConversation = conversations.find(c => c.id === currentConversationId) || null
 
@@ -30,9 +31,20 @@ export function useChat() {
     }
   }, [])
 
+  const loadGroups = useCallback(async () => {
+    try {
+      const all = await dbService.getAllGroups()
+      setGroups(all.reverse())
+    } catch (err) {
+      console.error('Failed to load groups:', err)
+      setError('Failed to load groups')
+    }
+  }, [])
+
   useEffect(() => {
     loadConversations()
-  }, [loadConversations])
+    loadGroups()
+  }, [loadConversations, loadGroups])
 
   const createConversation = useCallback(async () => {
     try {
@@ -385,7 +397,70 @@ export function useChat() {
     }
   }, [])
 
+  // Group management methods
+
+  const createGroup = useCallback(async (
+    name: string,
+    description?: string,
+    conversationIds?: string[]
+  ) => {
+    try {
+      const group = await dbService.createGroup(name, description, conversationIds)
+      await loadGroups()
+      return group
+    } catch (err) {
+      console.error('Failed to create group:', err)
+      setError('Failed to create group')
+      throw err
+    }
+  }, [loadGroups])
+
+  const updateGroup = useCallback(async (groupId: string, updates: Partial<Group>) => {
+    try {
+      await dbService.updateGroup(groupId, updates)
+      await loadGroups()
+    } catch (err) {
+      console.error('Failed to update group:', err)
+      setError('Failed to update group')
+      throw err
+    }
+  }, [loadGroups])
+
+  const deleteGroup = useCallback(async (groupId: string) => {
+    try {
+      await dbService.deleteGroup(groupId)
+      await loadGroups()
+    } catch (err) {
+      console.error('Failed to delete group:', err)
+      setError('Failed to delete group')
+      throw err
+    }
+  }, [loadGroups])
+
+  const addConversationToGroup = useCallback(async (groupId: string, conversationId: string) => {
+    try {
+      await dbService.addConversationToGroup(groupId, conversationId)
+      await loadGroups()
+    } catch (err) {
+      console.error('Failed to add conversation to group:', err)
+      setError('Failed to add conversation to group')
+      throw err
+    }
+  }, [loadGroups])
+
+  const removeConversationFromGroup = useCallback(async (groupId: string, conversationId: string) => {
+    try {
+      await dbService.removeConversationFromGroup(groupId, conversationId)
+      await loadGroups()
+    } catch (err) {
+      console.error('Failed to remove conversation from group:', err)
+      setError('Failed to remove conversation from group')
+      throw err
+    }
+  }, [loadGroups])
+
   return {
+    // Conversations
     conversations,
     currentConversation,
     currentConversationId,
@@ -403,5 +478,13 @@ export function useChat() {
     deleteMessage,
     switchToMessageVersion,
     getMessageVersions,
+    // Groups
+    groups,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    addConversationToGroup,
+    removeConversationFromGroup,
+    loadGroups,
   }
 }

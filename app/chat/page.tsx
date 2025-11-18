@@ -17,8 +17,11 @@ import { ChatProvider } from "@/lib/hooks/chat-context";
 import type {
   Message as ChatMessage,
   Conversation,
+  Group,
 } from "@/lib/services/indexeddb";
 import { TagDialog } from "@/components/tag-dialog";
+import { AddToGroupDialog } from "@/components/add-to-group-dialog";
+import { ConversationList } from "@/components/conversation-list";
 import {
   Copy,
   Pencil,
@@ -33,6 +36,9 @@ import {
   Trash,
   Check,
   X,
+  Users,
+  MessageSquare,
+  MoreHorizontal,
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -41,48 +47,14 @@ import { FilePreviewList } from "@/components/file-preview";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { dbService } from "@/lib/services/indexeddb";
 import { VersionIndicator } from "@/components/ui/version-indicator";
-
-function groupConversationsByTime(conversations: Conversation[]) {
-  const now = Date.now();
-  const groups: Record<string, Conversation[]> = {
-    today: [],
-    yesterday: [],
-    last7Days: [],
-    lastMonth: [],
-  };
-
-  conversations.forEach((conv) => {
-    const updatedAt = conv.updatedAt || conv.createdAt;
-    const diff = now - updatedAt;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      groups.today.push(conv);
-    } else if (days === 1) {
-      groups.yesterday.push(conv);
-    } else if (days <= 7) {
-      groups.last7Days.push(conv);
-    } else {
-      groups.lastMonth.push(conv);
-    }
-  });
-
-  const result: { period: string; conversations: Conversation[] }[] = [];
-  if (groups.today.length > 0) {
-    result.push({ period: "Today", conversations: groups.today });
-  }
-  if (groups.yesterday.length > 0) {
-    result.push({ period: "Yesterday", conversations: groups.yesterday });
-  }
-  if (groups.last7Days.length > 0) {
-    result.push({ period: "Last 7 days", conversations: groups.last7Days });
-  }
-  if (groups.lastMonth.length > 0) {
-    result.push({ period: "Last month", conversations: groups.lastMonth });
-  }
-
-  return result;
-}
+import { GroupDialog } from "@/components/group-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function ChatSidebar() {
   const {
@@ -95,6 +67,12 @@ function ChatSidebar() {
     togglePinConversation,
     updateConversationTags,
     getAllTags,
+    groups,
+    addConversationToGroup,
+    removeConversationFromGroup,
+    deleteGroup,
+    loadGroups,
+    loadConversations,
   } = useChatContext();
 
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
@@ -102,6 +80,12 @@ function ChatSidebar() {
     string | null
   >(null);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [addToGroupDialogOpen, setAddToGroupDialogOpen] = useState(false);
+  const [selectedConversationForGroup, setSelectedConversationForGroup] =
+    useState<string | null>(null);
+  const [groupsForAddToGroup, setGroupsForAddToGroup] = useState<Group[]>([]);
 
   useEffect(() => {
     loadTags();
@@ -134,163 +118,303 @@ function ChatSidebar() {
     }
   };
 
+  const handleDeleteSimple = async (conversationId: string) => {
+    if (confirm("Are you sure you want to delete this conversation?")) {
+      await deleteConversation(conversationId);
+    }
+  };
+
   const handlePin = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await togglePinConversation(conversationId);
   };
 
-  const groupedConversations = groupConversationsByTime(conversations);
+  const handleCreateGroup = () => {
+    setSelectedGroup(null);
+    setGroupDialogOpen(true);
+  };
+
+  const handleEditGroup = (group: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedGroup(group);
+    setGroupDialogOpen(true);
+  };
+
+  const handleDeleteGroup = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Are you sure you want to delete this group?")) {
+      await deleteGroup(groupId);
+    }
+  };
+
+  const handleAddToGroup = (conversationId: string) => {
+    setSelectedConversationForGroup(conversationId);
+    setGroupsForAddToGroup(groups);
+    setAddToGroupDialogOpen(true);
+  };
+
+  const handleUpdateGroupMembership = async (
+    conversationId: string,
+    newGroupIds: string[],
+  ) => {
+    // Find groups that currently contain this conversation
+    const currentGroupIds = groups
+      .filter((g) => g.conversationIds.includes(conversationId))
+      .map((g) => g.id);
+
+    // Groups to add to (in newGroupIds but not in currentGroupIds)
+    const groupsToAdd = newGroupIds.filter(
+      (id) => !currentGroupIds.includes(id),
+    );
+
+    // Groups to remove from (in currentGroupIds but not in newGroupIds)
+    const groupsToRemove = currentGroupIds.filter(
+      (id) => !newGroupIds.includes(id),
+    );
+
+    // Add to new groups
+    for (const groupId of groupsToAdd) {
+      await addConversationToGroup(groupId, conversationId);
+    }
+
+    // Remove from unselected groups
+    for (const groupId of groupsToRemove) {
+      await removeConversationFromGroup(groupId, conversationId);
+    }
+
+    await loadGroups();
+    await loadConversations();
+  };
+
+  const handleSaveGroup = async (group: any) => {
+    // Groups are saved in the dialog component
+    // Refresh the groups and conversations
+    await loadGroups();
+    await loadConversations();
+    setGroupDialogOpen(false);
+    setSelectedGroup(null);
+  };
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-card">
-      <div className="flex flex-row items-center justify-between gap-2 px-2 py-4">
-        <div className="flex flex-row items-center gap-2 px-2">
-          <Button
-            variant="outline"
-            className=" flex w-full items-center gap-2"
-            onClick={createConversation}
-          >
-            <PlusIcon className="size-4" />
-            <span>New Chat</span>
-          </Button>
-          <Button variant="ghost" className="size-8">
-            <Search className="size-4" />
-          </Button>
-        </div>
+      <div className="flex flex-col gap-2 p-3">
+        <Button
+          variant="default"
+          className="w-full items-center gap-2 bg-primary hover:bg-primary/90"
+          onClick={createConversation}
+        >
+          <PlusIcon className="size-4" />
+          <span>New Chat</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full items-center gap-2"
+          onClick={handleCreateGroup}
+        >
+          <Users className="size-4" />
+          <span>New Group</span>
+        </Button>
+        <Button variant="ghost" size="icon" className="w-full mt-1">
+          <Search className="size-4 mr-2" />
+          <span className="text-sm">Search</span>
+        </Button>
       </div>
       <div className="flex-1 overflow-auto pt-4">
         <div className="px-4"></div>
 
-        {/* Tag Filter */}
-        <div className="px-4">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="mb-2 px-2 text-xs font-medium text-muted-foreground">
-              Tags
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => {
-                if (currentConversationId) {
-                  handleTagClick(currentConversationId);
-                }
-              }}
-              disabled={!currentConversationId}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {allTags.slice(0, 10).map((tag) => {
-              const count = conversations.filter((c) =>
-                c.tags?.includes(tag),
-              ).length;
-              return (
-                <Button
-                  key={tag}
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => {
-                    const filtered = conversations.filter((c) =>
-                      c.tags?.includes(tag),
-                    );
-                    if (filtered.length > 0) {
-                      selectConversation(filtered[0].id);
-                    }
-                  }}
-                >
-                  {tag} ({count})
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-
-        {groupedConversations.length === 0 ? (
-          <div className="px-4 text-sm text-muted-foreground">
-            No conversations yet
-          </div>
-        ) : (
-          groupedConversations.map((group) => (
-            <div key={group.period} className="my-2 px-2">
-              <div className="mb-2 px-2 text-xs font-medium text-muted-foreground">
-                {group.period}
+        {/* Tag Filter - Only show if there are tags */}
+        {allTags.length > 0 && (
+          <div className="px-4 mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="px-2 text-xs font-medium text-muted-foreground">
+                Tags
               </div>
-              <div className="space-y-2 px-2 ">
-                {group.conversations.map((conversation) => (
-                  <div key={conversation.id} className="group relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  if (currentConversationId) {
+                    handleTagClick(currentConversationId);
+                  }
+                }}
+                disabled={!currentConversationId}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {allTags.slice(0, 10).map((tag) => {
+                const count = conversations.filter((c) =>
+                  c.tags?.includes(tag),
+                ).length;
+                return (
+                  <Button
+                    key={tag}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      const filtered = conversations.filter((c) =>
+                        c.tags?.includes(tag),
+                      );
+                      if (filtered.length > 0) {
+                        selectConversation(filtered[0].id);
+                      }
+                    }}
+                  >
+                    {tag} ({count})
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Visual separator */}
+        {(groups.length > 0 ||
+          (() => {
+            const groupedConversationIds = new Set(
+              groups.flatMap((g) => g.conversationIds),
+            );
+            const ungroupedConversations = conversations.filter(
+              (c) => !groupedConversationIds.has(c.id),
+            );
+            return ungroupedConversations.length > 0;
+          })()) && (
+          <div className="px-4 py-2">
+            <div className="border-t border-border"></div>
+          </div>
+        )}
+
+        {/* Groups Section - Show grouped conversations */}
+        {groups.map((group) => {
+          const groupConversations = conversations.filter((c) =>
+            group.conversationIds.includes(c.id),
+          );
+
+          if (groupConversations.length === 0) return null;
+
+          return (
+            <div key={group.id} className="my-2 px-2">
+              <div className="mb-2 flex items-center justify-between px-2 group">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span>{group.name}</span>
+                  <span className="text-xs text-muted-foreground font-normal">
+                    ({groupConversations.length})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 hover:bg-muted"
+                    onClick={(e) => handleEditGroup(group, e)}
+                    title="Edit group"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 hover:bg-muted text-destructive hover:text-destructive"
+                    onClick={(e) => handleDeleteGroup(group.id, e)}
+                    title="Delete group"
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1 pl-6">
+                {groupConversations.map((conversation) => (
+                  <div key={conversation.id} className="group/convo relative">
                     <button
                       className={cn(
-                        "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-20",
-                        currentConversationId === conversation.id && "bg-muted",
+                        "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
+                        currentConversationId === conversation.id &&
+                          "bg-muted border border-primary/20",
                       )}
                       onClick={() => selectConversation(conversation.id)}
                     >
                       <div className="flex w-full flex-col gap-1">
                         <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
                           <span className="truncate">{conversation.title}</span>
+                          {conversation.isPinned && (
+                            <PinIcon className="h-3 w-3 text-primary shrink-0" />
+                          )}
                         </div>
-                        {conversation.tags?.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {conversation.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-muted-foreground"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTagClick(conversation.id);
-                                }}
-                              >
-                                <Tag className="h-2.5 w-2.5" />
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </button>
 
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => handlePin(conversation.id, e)}
-                      >
-                        {conversation.isPinned ? (
-                          <PinIcon className="h-4 w-4 text-primary" />
-                        ) : (
-                          <Pin className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTagClick(conversation.id);
-                        }}
-                      >
-                        <Tag className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => handleDelete(conversation.id, e)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onClick={() => togglePinConversation(conversation.id)}
+                        >
+                          {conversation.isPinned ? (
+                            <>
+                              <PinIcon className="h-4 w-4 mr-2" />
+                              Unpin conversation
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="h-4 w-4 mr-2" />
+                              Pin conversation
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleAddToGroup(conversation.id)}
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          Add to group
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleTagClick(conversation.id)}
+                        >
+                          <Tag className="h-4 w-4 mr-2" />
+                          Edit tags
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteSimple(conversation.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash className="h-4 w-4 mr-2" />
+                          Delete conversation
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
               </div>
             </div>
-          ))
-        )}
+          );
+        })}
+
+        {/* Time-based conversation sections (Today, Yesterday, etc.) - Only show ungrouped */}
+        <ConversationList
+          conversations={conversations}
+          groups={groups}
+          currentConversationId={currentConversationId}
+          onSelectConversation={selectConversation}
+          onTogglePin={togglePinConversation}
+          onAddToGroup={handleAddToGroup}
+          onEditTags={handleTagClick}
+          onDelete={handleDeleteSimple}
+        />
       </div>
 
       {tagDialogOpen && selectedConversationId && (
@@ -306,6 +430,39 @@ function ChatSidebar() {
             setTagDialogOpen(false);
             setSelectedConversationId(null);
           }}
+        />
+      )}
+
+      {groupDialogOpen && (
+        <GroupDialog
+          open={groupDialogOpen}
+          onClose={() => {
+            setGroupDialogOpen(false);
+            setSelectedGroup(null);
+          }}
+          onSave={handleSaveGroup}
+          currentGroup={selectedGroup}
+          allConversations={conversations}
+        />
+      )}
+
+      {addToGroupDialogOpen && selectedConversationForGroup && (
+        <AddToGroupDialog
+          open={addToGroupDialogOpen}
+          onClose={() => {
+            setAddToGroupDialogOpen(false);
+            setSelectedConversationForGroup(null);
+          }}
+          onSave={async (groupIds: string[]) => {
+            await handleUpdateGroupMembership(
+              selectedConversationForGroup,
+              groupIds,
+            );
+            setAddToGroupDialogOpen(false);
+            setSelectedConversationForGroup(null);
+          }}
+          conversationId={selectedConversationForGroup}
+          existingGroups={groupsForAddToGroup}
         />
       )}
     </div>
@@ -329,7 +486,9 @@ function ChatContent() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]); // Loaded from path
-  const [messageVersions, setMessageVersions] = useState<Map<string, ChatMessage[]>>(new Map());
+  const [messageVersions, setMessageVersions] = useState<
+    Map<string, ChatMessage[]>
+  >(new Map());
 
   const isLoading = isSending || isEditing || !!isDeleting || contextIsLoading;
 

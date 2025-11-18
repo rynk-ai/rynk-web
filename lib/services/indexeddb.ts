@@ -35,6 +35,15 @@ interface Conversation {
   branches: Branch[]       // All branches for this conversation
 }
 
+interface Group {
+  id: string
+  name: string
+  description?: string
+  createdAt: number
+  updatedAt: number
+  conversationIds: string[] // Array of conversation IDs in this group
+}
+
 interface ChatDB extends DBSchema {
   messages: {
     key: string           // message.id
@@ -48,12 +57,20 @@ interface ChatDB extends DBSchema {
     value: Conversation
     indexes: { 'by-updated': number }
   }
+  groups: {
+    key: string           // group.id
+    value: Group
+    indexes: {
+      'by-updated': number
+    }
+  }
 }
 
 const DB_NAME = 'simplechat-db'
-const DB_VERSION = 6  // Increment for new schema (added version tracking)
+const DB_VERSION = 7  // Increment for new schema (added group support)
 const MESSAGES_STORE = 'messages'
 const CONVERSATIONS_STORE = 'conversations'
+const GROUPS_STORE = 'groups'
 
 class IndexedDBService {
   private db: IDBPDatabase<ChatDB> | null = null
@@ -91,6 +108,14 @@ class IndexedDBService {
           })
           store.createIndex('by-updated', 'updatedAt')
         }
+
+        // Create groups store if it doesn't exist (version 7+)
+        if (!db.objectStoreNames.contains(GROUPS_STORE)) {
+          const store = db.createObjectStore(GROUPS_STORE, {
+            keyPath: 'id',
+          })
+          store.createIndex('by-updated', 'updatedAt')
+        }
       },
     })
 
@@ -99,8 +124,9 @@ class IndexedDBService {
   }
 
   private async migrate(db: IDBPDatabase<ChatDB>) {
-    console.log('✅ Database initialized - version 6')
-    // No migration needed - clean implementation
+    console.log('✅ Database initialized - version 7')
+    // Migration from version 6 to 7: added groups support
+    // No data migration needed - groups are a new feature
   }
 
   // Conversation CRUD operations
@@ -709,7 +735,130 @@ class IndexedDBService {
 
     return Array.from(tagSet).sort()
   }
+
+  // Group CRUD operations
+
+  async createGroup(
+    name: string,
+    description?: string,
+    conversationIds?: string[]
+  ): Promise<Group> {
+    const db = await this.init()
+    const id = crypto.randomUUID()
+    const now = Date.now()
+
+    const group: Group = {
+      id,
+      name,
+      description,
+      conversationIds: conversationIds || [],
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    await db.add(GROUPS_STORE, group)
+    return group
+  }
+
+  async getGroup(id: string): Promise<Group | undefined> {
+    const db = await this.init()
+    return db.get(GROUPS_STORE, id)
+  }
+
+  async getAllGroups(): Promise<Group[]> {
+    const db = await this.init()
+    return db.getAllFromIndex(GROUPS_STORE, 'by-updated')
+  }
+
+  async updateGroup(id: string, updates: Partial<Group>): Promise<void> {
+    const db = await this.init()
+    const tx = db.transaction(GROUPS_STORE, 'readwrite')
+    const store = tx.objectStore(GROUPS_STORE)
+
+    const existing = await store.get(id)
+    if (!existing) {
+      throw new Error(`Group ${id} not found`)
+    }
+
+    const updated = {
+      ...existing,
+      ...updates,
+      updatedAt: Date.now(),
+    }
+
+    await store.put(updated)
+    await tx.done
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    const db = await this.init()
+
+    // Get the group
+    const group = await db.get(GROUPS_STORE, id)
+    if (!group) {
+      throw new Error(`Group ${id} not found`)
+    }
+
+    // Delete the group
+    await db.delete(GROUPS_STORE, id)
+  }
+
+  async addConversationToGroup(groupId: string, conversationId: string): Promise<void> {
+    const db = await this.init()
+    const group = await db.get(GROUPS_STORE, groupId)
+    if (!group) {
+      throw new Error(`Group ${groupId} not found`)
+    }
+
+    if (!group.conversationIds.includes(conversationId)) {
+      group.conversationIds.push(conversationId)
+      group.updatedAt = Date.now()
+      await db.put(GROUPS_STORE, group)
+    }
+  }
+
+  async removeConversationFromGroup(groupId: string, conversationId: string): Promise<void> {
+    const db = await this.init()
+    const group = await db.get(GROUPS_STORE, groupId)
+    if (!group) {
+      throw new Error(`Group ${groupId} not found`)
+    }
+
+    group.conversationIds = group.conversationIds.filter(id => id !== conversationId)
+    group.updatedAt = Date.now()
+    await db.put(GROUPS_STORE, group)
+  }
+
+  async getConversationsByGroup(groupId: string): Promise<Conversation[]> {
+    const group = await this.getGroup(groupId)
+    if (!group) return []
+
+    const db = await this.init()
+    const conversations: Conversation[] = []
+
+    for (const convId of group.conversationIds) {
+      const conv = await db.get(CONVERSATIONS_STORE, convId)
+      if (conv) {
+        conversations.push(conv)
+      }
+    }
+
+    return conversations
+  }
+
+  async getGroupByConversation(conversationId: string): Promise<Group | undefined> {
+    const db = await this.init()
+    const groups = await db.getAll(GROUPS_STORE)
+
+    for (const group of groups) {
+      if (group.conversationIds.includes(conversationId)) {
+        return group
+      }
+    }
+
+    return undefined
+  }
 }
 
 export const dbService = new IndexedDBService()
-export type { Conversation, Message }
+export type { Conversation, Message, Group }

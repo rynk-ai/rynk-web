@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext } from "react"
 import { useChat } from "./use-chat"
-import type { Conversation, Message } from "@/lib/services/indexeddb"
+import type { Conversation, Message, Group } from "@/lib/services/indexeddb"
 
 interface ChatContextValue {
   conversations: Conversation[]
@@ -22,6 +22,15 @@ interface ChatContextValue {
   deleteMessage: (messageId: string) => Promise<void>
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
+  // Groups
+  groups: Group[]
+  createGroup: (name: string, description?: string, conversationIds?: string[]) => Promise<Group>
+  updateGroup: (groupId: string, updates: Partial<Group>) => Promise<void>
+  deleteGroup: (groupId: string) => Promise<void>
+  addConversationToGroup: (groupId: string, conversationId: string) => Promise<void>
+  removeConversationFromGroup: (groupId: string, conversationId: string) => Promise<void>
+  loadGroups: () => Promise<void>
+  loadConversations: () => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
