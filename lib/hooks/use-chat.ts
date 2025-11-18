@@ -283,7 +283,7 @@ export function useChat() {
       setIsLoading(true)
       setError(null)
 
-      console.log('✏️ EDITING MESSAGE:', {
+      console.log('✏️ EDITING MESSAGE (with versioning):', {
         messageId,
         currentConversationId,
         newContent: newContent.substring(0, 50)
@@ -300,31 +300,15 @@ export function useChat() {
         throw new Error('Message not found in conversation path')
       }
 
-      // Update the edited message
-      await dbService.updateMessage(messageId, {
-        content: newContent,
-        attachments: newAttachments,
-      })
+      // Create a new version of the message instead of editing in place
+      const { newMessage } = await dbService.createMessageVersion(
+        currentConversationId,
+        messageId,
+        newContent,
+        newAttachments
+      )
 
-      console.log('✅ Message updated successfully')
-
-      // Remove all messages after the edited message (including AI responses)
-      const messagesToRemove = conversation.path.slice(messageIndex + 1)
-      if (messagesToRemove.length > 0) {
-        console.log('🗑️ Removing', messagesToRemove.length, 'subsequent messages')
-
-        for (const msgId of messagesToRemove) {
-          await dbService.deleteMessage(msgId)
-        }
-
-        // Update conversation path to only include messages up to the edited one
-        conversation.path = conversation.path.slice(0, messageIndex + 1)
-        await dbService.updateConversation(currentConversationId, {
-          path: conversation.path
-        })
-
-        console.log('✅ Subsequent messages removed, conversation truncated')
-      }
+      console.log('✅ New version created:', newMessage.id)
 
       await loadConversations()
       console.log('✅ Conversations reloaded')
@@ -365,6 +349,42 @@ export function useChat() {
     }
   }, [currentConversationId, loadConversations])
 
+  const switchToMessageVersion = useCallback(async (messageId: string) => {
+    if (!currentConversationId) {
+      throw new Error('To current conversation')
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      console.log('🔀 Switching to message version:', messageId)
+
+      await dbService.switchToMessageVersion(currentConversationId, messageId)
+      await loadConversations()
+
+      // Force reload of message versions by clearing the cache
+      // The useEffect will detect the conversation change and reload
+      console.log('✅ Switched to version successfully')
+    } catch (err) {
+      console.error('Failed to switch to message version:', err)
+      setError(err instanceof Error ? err.message : 'Failed to switch version')
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentConversationId, loadConversations])
+
+  const getMessageVersions = useCallback(async (originalMessageId: string) => {
+    try {
+      return await dbService.getMessageVersions(originalMessageId)
+    } catch (err) {
+      console.error('Failed to get message versions:', err)
+      setError(err instanceof Error ? err.message : 'Failed to get versions')
+      throw err
+    }
+  }, [])
+
   return {
     conversations,
     currentConversation,
@@ -381,5 +401,7 @@ export function useChat() {
     getAllTags,
     editMessage,
     deleteMessage,
+    switchToMessageVersion,
+    getMessageVersions,
   }
 }

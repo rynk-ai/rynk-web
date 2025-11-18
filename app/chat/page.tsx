@@ -40,6 +40,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { FilePreviewList } from "@/components/file-preview";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { dbService } from "@/lib/services/indexeddb";
+import { VersionIndicator } from "@/components/ui/version-indicator";
 
 function groupConversationsByTime(conversations: Conversation[]) {
   const now = Date.now();
@@ -318,6 +319,8 @@ function ChatContent() {
     currentConversationId,
     editMessage,
     deleteMessage,
+    switchToMessageVersion,
+    getMessageVersions,
     isLoading: contextIsLoading,
   } = useChatContext();
   const [isSending, setIsSending] = useState(false);
@@ -326,6 +329,7 @@ function ChatContent() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]); // Loaded from path
+  const [messageVersions, setMessageVersions] = useState<Map<string, ChatMessage[]>>(new Map());
 
   const isLoading = isSending || isEditing || !!isDeleting || contextIsLoading;
 
@@ -401,6 +405,7 @@ function ChatContent() {
     const loadMessages = async () => {
       if (!currentConversation) {
         setMessages([]);
+        setMessageVersions(new Map());
         return;
       }
 
@@ -413,9 +418,21 @@ function ChatContent() {
         );
         console.log("✅ Loaded", loadedMessages.length, "messages");
         setMessages(loadedMessages);
+
+        // Load versions for each message
+        const versionsMap = new Map<string, ChatMessage[]>();
+        for (const message of loadedMessages) {
+          const rootId = message.versionOf || message.id;
+          if (!versionsMap.has(rootId)) {
+            const versions = await getMessageVersions(rootId);
+            versionsMap.set(rootId, versions);
+          }
+        }
+        setMessageVersions(versionsMap);
       } catch (err) {
         console.error("Failed to load messages:", err);
         setMessages([]);
+        setMessageVersions(new Map());
       }
     };
 
@@ -597,6 +614,20 @@ function ChatContent() {
                             "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
                           )}
                         >
+                          {/* Version indicator - show for messages with versions */}
+                          {(() => {
+                            const rootId = message.versionOf || message.id;
+                            const versions = messageVersions.get(rootId) || [];
+                            return (
+                              <VersionIndicator
+                                message={message}
+                                versions={versions}
+                                onSwitchVersion={switchToMessageVersion}
+                                isLoading={isLoading}
+                              />
+                            );
+                          })()}
+
                           <MessageAction tooltip="Edit" delayDuration={100}>
                             <Button
                               variant="ghost"

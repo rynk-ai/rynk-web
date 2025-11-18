@@ -20,6 +20,8 @@ interface ChatContextValue {
   getAllTags: () => Promise<string[]>
   editMessage: (messageId: string, newContent: string, newAttachments?: File[]) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
+  switchToMessageVersion: (messageId: string) => Promise<void>
+  getMessageVersions: (originalMessageId: string) => Promise<Message[]>
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
