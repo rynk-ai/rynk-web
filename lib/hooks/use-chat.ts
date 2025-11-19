@@ -360,11 +360,11 @@ export function useChat() {
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that generates conversation titles. Generate a short, poetic, haiku-style title (3-6 words) for the conversation based on the user\'s message. Do not use quotes. Do not include "Haiku" in the title.'
+            content: 'Analyze this conversation and generate a concise, descriptive title (3-7 words) that captures the main topic or purpose. The title should:\n- Be specific enough to distinguish this chat from others\n- Use natural language, not formal or robotic phrasing\n- Focus on the core subject matter or task\n- Avoid generic phrases like "Help with" or "Question about"\n- Use title case\n\nExamples:\n- "Python Web Scraping Tutorial"\n- "Marketing Strategy for Tech Startup"\n- "Debugging React Component Error"\n- "Mediterranean Diet Meal Plan"'
           },
           {
             role: 'user',
-            content: `Generate a title for this message: ${messageContent}`
+            content: `Conversation:\n${messageContent}\n\nReturn only the title, nothing else.`
           }
         ]
       })

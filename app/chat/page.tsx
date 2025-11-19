@@ -860,9 +860,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                  )}
                </div>
             ) : (
-                <div className="text-center w-full text-sm md:text-base">
-                  New Chat
-                  </div>
+                <></>
              )}
           </div>
         </div>
@@ -1195,6 +1193,7 @@ function FullChatApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   return (
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
     <ChatProvider>
       <div className="flex h-screen w-full overflow-hidden">
         {/* Desktop Sidebar - Hidden on mobile */}
@@ -1203,12 +1202,10 @@ function FullChatApp() {
         </div>
         
         {/* Mobile Sidebar - Drawer */}
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTitle>{""}</SheetTitle>
           <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 md:hidden">
             <ChatSidebar onConversationSelect={() => setMobileMenuOpen(false)} />
           </SheetContent>
-        </Sheet>
         
         {/* Main Content Area */}
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -1216,6 +1213,7 @@ function FullChatApp() {
         </div>
       </div>
     </ChatProvider>
+        </Sheet>
   );
 }
 
