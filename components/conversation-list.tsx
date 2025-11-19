@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { type Conversation, type Group } from "@/lib/services/indexeddb"
+import { type Conversation, type Folder } from "@/lib/services/indexeddb"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,23 +12,25 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import {
-  MessageSquare,
-  Pin,
   PinIcon,
-  Users,
-  Tag,
-  Trash,
   MoreHorizontal,
 } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface ConversationListProps {
   conversations: Conversation[]
-  groups: Group[]
+  folders: Folder[]
   currentConversationId: string | null
   onSelectConversation: (id: string) => void
   onTogglePin: (id: string) => void
-  onAddToGroup: (id: string) => void
+  onAddToFolder: (id: string) => void
   onEditTags: (id: string) => void
+  onRename: (id: string) => void
   onDelete: (id: string) => void
 }
 
@@ -76,17 +78,18 @@ function groupConversationsByTime(conversations: Conversation[]): GroupedByTime[
 
 export function ConversationList({
   conversations,
-  groups,
+  folders,
   currentConversationId,
   onSelectConversation,
   onTogglePin,
-  onAddToGroup,
+  onAddToFolder,
   onEditTags,
+  onRename,
   onDelete,
 }: ConversationListProps) {
-  // Get all conversation IDs that are in groups
+  // Get all conversation IDs that are in folders
   const groupedConversationIds = new Set(
-    groups.flatMap((g) => g.conversationIds)
+    folders.flatMap((f) => f.conversationIds)
   )
 
   // Filter out grouped conversations
@@ -118,69 +121,90 @@ export function ConversationList({
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
                     currentConversationId === conversation.id &&
-                      "bg-muted border border-primary/20"
+                      "bg-muted"
                   )}
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <div className="flex w-full flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="truncate">{conversation.title}</span>
+                      <span className="truncate pl-1">{conversation.title}</span>
                       {conversation.isPinned && (
                         <PinIcon className="h-3 w-3 text-primary shrink-0" />
                       )}
                     </div>
                     {conversation.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {conversation.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-muted-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onEditTags(conversation.id)
-                            }}
-                          >
-                            <Tag className="h-2.5 w-2.5" />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-wrap gap-1">
+                              {conversation.tags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-muted-foreground"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                              {conversation.tags.length > 3 && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-muted-foreground">
+                                  +{conversation.tags.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="p-2" side="right">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-medium text-muted-foreground px-1">Tags</span>
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {conversation.tags.map((tag) => (
+                                  <span key={tag} className="inline-flex items-center rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 </button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => onTogglePin(conversation.id)}>
-                      {conversation.isPinned ? (
-                        <>
-                          <PinIcon className="h-4 w-4 mr-2" />
-                          Unpin conversation
-                        </>
-                      ) : (
-                        <>
-                          <Pin className="h-4 w-4 mr-2" />
-                          Pin conversation
-                        </>
-                      )}
-                    </DropdownMenuItem>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onTogglePin(conversation.id)
+                    }}
+                    title={conversation.isPinned ? "Unpin conversation" : "Pin conversation"}
+                  >
+                    <PinIcon className={cn("h-4 w-4", conversation.isPinned && "fill-current")} />
+                  </Button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onAddToGroup(conversation.id)}>
-                      <Users className="h-4 w-4 mr-2" />
-                      Add to group
+                    <DropdownMenuItem onClick={() => onAddToFolder(conversation.id)}>
+                      Add to folder
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onRename(conversation.id)}>
+                      Rename
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onEditTags(conversation.id)}>
-                      <Tag className="h-4 w-4 mr-2" />
                       Edit tags
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -188,7 +212,6 @@ export function ConversationList({
                       onClick={() => onDelete(conversation.id)}
                       className="text-destructive focus:text-destructive"
                     >
-                      <Trash className="h-4 w-4 mr-2" />
                       Delete conversation
                     </DropdownMenuItem>
                   </DropdownMenuContent>

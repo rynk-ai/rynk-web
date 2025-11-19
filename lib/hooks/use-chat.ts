@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { dbService, type Conversation, type Message, type Group } from "@/lib/services/indexeddb"
+import { dbService, type Conversation, type Message, type Folder, type Project } from "@/lib/services/indexeddb"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
 import {
   filesToBase64,
@@ -17,7 +17,8 @@ export function useChat() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [groups, setGroups] = useState<Group[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
 
   const currentConversation = conversations.find(c => c.id === currentConversationId) || null
 
@@ -31,24 +32,35 @@ export function useChat() {
     }
   }, [])
 
-  const loadGroups = useCallback(async () => {
+  const loadFolders = useCallback(async () => {
     try {
-      const all = await dbService.getAllGroups()
-      setGroups(all.reverse())
+      const all = await dbService.getAllFolders()
+      setFolders(all.reverse())
     } catch (err) {
-      console.error('Failed to load groups:', err)
-      setError('Failed to load groups')
+      console.error('Failed to load folders:', err)
+      setError('Failed to load folders')
+    }
+  }, [])
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const all = await dbService.getAllProjects()
+      setProjects(all.reverse())
+    } catch (err) {
+      console.error('Failed to load projects:', err)
+      setError('Failed to load projects')
     }
   }, [])
 
   useEffect(() => {
     loadConversations()
-    loadGroups()
-  }, [loadConversations, loadGroups])
+    loadFolders()
+    loadProjects()
+  }, [loadConversations, loadFolders, loadProjects])
 
-  const createConversation = useCallback(async () => {
+  const createConversation = useCallback(async (projectId?: string) => {
     try {
-      const conversation = await dbService.createConversation()
+      const conversation = await dbService.createConversation(undefined, projectId)
       await loadConversations()
       setCurrentConversationId(conversation.id)
       return conversation.id
@@ -73,10 +85,12 @@ export function useChat() {
     }
   }, [currentConversationId, loadConversations])
 
-  const selectConversation = useCallback((id: string) => {
+  const selectConversation = useCallback((id: string | null) => {
     setCurrentConversationId(id)
-    loadConversations()
-  }, [currentConversationId, loadConversations])
+    if (id) {
+      loadConversations()
+    }
+  }, [loadConversations])
 
   const generateAIResponse = useCallback(async (conversationId: string) => {
     try {
@@ -86,9 +100,67 @@ export function useChat() {
         throw new Error('Messages not found')
       }
 
+      const conversation = await dbService.getConversation(conversationId)
+      const project = conversation?.projectId ? await dbService.getProject(conversation.projectId) : null
+
       // Format messages for API - convert files to base64 for multimodal models
       const apiMessages: ApiMessage[] = []
       for (const msg of messages) {
+        // Inject context if referenced conversations or groups exist
+        if (msg.role === 'user' && ((msg.referencedConversations && msg.referencedConversations.length > 0) || (msg.referencedFolders && msg.referencedFolders.length > 0))) {
+          const contextParts: string[] = [];
+
+          // Handle referenced conversations
+          if (msg.referencedConversations && msg.referencedConversations.length > 0) {
+            const conversationContexts = await Promise.all(
+              msg.referencedConversations.map(async (c) => {
+                const refMessages = await dbService.getConversationMessages(c.id);
+                const formatted = refMessages
+                  .sort((a, b) => a.timestamp - b.timestamp)
+                  .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+                  .join("\n");
+                return `[Reference Conversation: ${c.title}]\n${formatted}`;
+              })
+            );
+            contextParts.push(...conversationContexts);
+          }
+
+          // Handle referenced folders
+          if (msg.referencedFolders && msg.referencedFolders.length > 0) {
+            const folderContexts = await Promise.all(
+              msg.referencedFolders.map(async (f) => {
+                const folders = await dbService.getAllFolders();
+                const folder = folders.find(fol => fol.id === f.id);
+                
+                if (!folder) return `[Reference Folder: ${f.name} (Not Found)]`;
+
+                const folderConversations = await Promise.all(
+                  folder.conversationIds.map(async (cid) => {
+                    const conv = await dbService.getConversation(cid);
+                    const msgs = await dbService.getConversationMessages(cid);
+                    const formatted = msgs
+                      .sort((a, b) => a.timestamp - b.timestamp)
+                      .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+                      .join("\n");
+                    return `Conversation: ${conv?.title || 'Untitled'}\n${formatted}`;
+                  })
+                );
+                
+                return `[Reference Folder: ${f.name}]\n${folderConversations.join("\n\n---\n\n")}`;
+              })
+            );
+            contextParts.push(...folderContexts);
+          }
+
+          const contextContent = contextParts.join("\n\n---\n\n");
+          
+          // Add context as a SYSTEM message before the user message
+          apiMessages.push({
+            role: 'system',
+            content: `Context from previous conversations/folders:\n${contextContent}`
+          });
+        }
+
         if (msg.role === 'assistant' || msg.role === 'system') {
           // Assistant and system messages are plain text
           apiMessages.push({
@@ -99,11 +171,11 @@ export function useChat() {
           // User messages may have attachments
           if (msg.attachments && msg.attachments.length > 0) {
             // Create multimodal message content
-            const content: any[] = []
+            const multimodalContent: any[] = []
 
             // Add text if present
             if (msg.content.trim()) {
-              content.push({
+              multimodalContent.push({
                 type: 'text' as const,
                 text: msg.content,
               })
@@ -114,7 +186,7 @@ export function useChat() {
               if (isImageFile(file)) {
                 // Direct image - convert to base64
                 const base64 = await fileToBase64(file)
-                content.push({
+                multimodalContent.push({
                   type: 'image_url' as const,
                   image_url: {
                     url: base64,
@@ -126,7 +198,7 @@ export function useChat() {
                 try {
                   const pdfImages = await pdfToBase64Images(file)
                   for (const imageBase64 of pdfImages) {
-                    content.push({
+                    multimodalContent.push({
                       type: 'image_url' as const,
                       image_url: {
                         url: imageBase64,
@@ -144,9 +216,9 @@ export function useChat() {
 
             apiMessages.push({
               role: 'user',
-              content: content.length === 1 && content[0].type === 'text'
-                ? content[0].text // If only text, use simple string format
-                : content,
+              content: multimodalContent.length === 1 && multimodalContent[0].type === 'text'
+                ? multimodalContent[0].text // If only text, use simple string format
+                : multimodalContent,
             })
           } else {
             // No attachments, plain text
@@ -164,6 +236,73 @@ export function useChat() {
           role: 'system',
           content: 'You are a helpful AI assistant. Provide clear and concise responses.',
         })
+      }
+
+      // Inject Project Context
+      if (project) {
+        const projectContextParts = []
+        if (project.description) projectContextParts.push(`Project Description: ${project.description}`)
+        if (project.instructions) projectContextParts.push(`Project Instructions: ${project.instructions}`)
+        
+        if (projectContextParts.length > 0) {
+          apiMessages.unshift({
+            role: 'system',
+            content: `Current Project Context (${project.name}):\n${projectContextParts.join('\n\n')}`
+          })
+        }
+
+        // Handle project attachments
+        if (project.attachments && project.attachments.length > 0) {
+           const attachmentContent: any[] = []
+           attachmentContent.push({
+             type: 'text',
+             text: `Project Attachments for ${project.name}:`
+           })
+
+           for (const file of project.attachments) {
+              if (isImageFile(file)) {
+                const base64 = await fileToBase64(file)
+                attachmentContent.push({
+                  type: 'image_url',
+                  image_url: { url: base64, detail: 'auto' }
+                })
+              } else if (isPDFFile(file)) {
+                 try {
+                   const pdfImages = await pdfToBase64Images(file)
+                   for (const imageBase64 of pdfImages) {
+                     attachmentContent.push({
+                       type: 'image_url',
+                       image_url: { url: imageBase64, detail: 'auto' }
+                     })
+                   }
+                 } catch (e) {
+                   console.error('Failed to process PDF attachment in project:', e)
+                 }
+              } else {
+                 // For text files, we could try to read them, but for now let's skip or just mention them
+                 // Ideally we should read text files too.
+                 // Let's try to read text content if possible, or just leave it for now as the file-converter might not support text reading directly here easily without more utils.
+                 // Assuming file-converter handles images/pdfs mostly.
+              }
+           }
+           
+           if (attachmentContent.length > 1) {
+             // Insert after system messages but before user messages
+             // Find index of first user message
+             const firstUserIndex = apiMessages.findIndex(m => m.role === 'user')
+             if (firstUserIndex !== -1) {
+               apiMessages.splice(firstUserIndex, 0, {
+                 role: 'user',
+                 content: attachmentContent
+               })
+             } else {
+                apiMessages.push({
+                  role: 'user',
+                  content: attachmentContent
+                })
+             }
+           }
+        }
       }
 
       const openrouter = getOpenRouter()
@@ -214,9 +353,36 @@ export function useChat() {
     }
   }, [loadConversations])
 
+  const generateTitle = useCallback(async (conversationId: string, messageContent: string) => {
+    try {
+      const openrouter = getOpenRouter()
+      const title = await openrouter.sendMessageOnce({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that generates conversation titles. Generate a short, poetic, haiku-style title (3-6 words) for the conversation based on the user\'s message. Do not use quotes. Do not include "Haiku" in the title.'
+          },
+          {
+            role: 'user',
+            content: `Generate a title for this message: ${messageContent}`
+          }
+        ]
+      })
+
+      if (title) {
+        await dbService.updateConversation(conversationId, { title: title.trim().replace(/^["']|["']$/g, '') })
+        await loadConversations()
+      }
+    } catch (error) {
+      console.error('Failed to generate title:', error)
+    }
+  }, [loadConversations])
+
   const sendMessage = useCallback(async (
     content: string,
-    files?: File[]
+    files?: File[],
+    referencedConversations?: { id: string; title: string }[],
+    referencedFolders?: { id: string; name: string }[]
   ) => {
     if (!content.trim() && (!files || files.length === 0)) return
 
@@ -231,17 +397,27 @@ export function useChat() {
       }
 
       // Add user message
-      await dbService.addMessage(conversationId, {
+      const newMessage = await dbService.addMessage(conversationId, {
         role: 'user',
         content,
         attachments: files,
+        referencedConversations,
+        referencedFolders
       })
 
       await loadConversations()
 
+      // Generate Title if it's a new conversation or title is default
+      // We don't await this so it runs in parallel with AI response generation
+      const conversation = await dbService.getConversation(conversationId)
+      if (conversation && (conversation.title === 'New Conversation' || conversation.path.length <= 1)) {
+         generateTitle(conversationId, content)
+      }
+
       // Generate AI response
       await generateAIResponse(conversationId)
 
+      return newMessage
     } catch (err) {
       console.error('Failed to send message:', err)
       setError(err instanceof Error ? err.message : 'Failed to send message')
@@ -272,6 +448,17 @@ export function useChat() {
     }
   }, [loadConversations])
 
+  const renameConversation = useCallback(async (id: string, newTitle: string) => {
+    try {
+      await dbService.updateConversation(id, { title: newTitle })
+      await loadConversations()
+    } catch (err) {
+      console.error('Failed to rename conversation:', err)
+      setError('Failed to rename conversation')
+      throw err
+    }
+  }, [loadConversations])
+
   const getAllTags = useCallback(async (): Promise<string[]> => {
     try {
       return await dbService.getAllTags()
@@ -285,7 +472,9 @@ export function useChat() {
   const editMessage = useCallback(async (
     messageId: string,
     newContent: string,
-    newAttachments?: File[]
+    newAttachments?: File[],
+    referencedConversations?: { id: string; title: string }[],
+    referencedFolders?: { id: string; name: string }[]
   ) => {
     if (!currentConversationId) {
       throw new Error('No current conversation')
@@ -317,7 +506,9 @@ export function useChat() {
         currentConversationId,
         messageId,
         newContent,
-        newAttachments
+        newAttachments,
+        referencedConversations,
+        referencedFolders
       )
 
       console.log('✅ New version created:', newMessage.id)
@@ -397,67 +588,140 @@ export function useChat() {
     }
   }, [])
 
-  // Group management methods
+  // Folder management methods
 
-  const createGroup = useCallback(async (
+  const createFolder = useCallback(async (
     name: string,
     description?: string,
     conversationIds?: string[]
   ) => {
     try {
-      const group = await dbService.createGroup(name, description, conversationIds)
-      await loadGroups()
-      return group
+      const folder = await dbService.createFolder(name, description, conversationIds)
+      await loadFolders()
+      return folder
     } catch (err) {
-      console.error('Failed to create group:', err)
-      setError('Failed to create group')
+      console.error('Failed to create folder:', err)
+      setError('Failed to create folder')
       throw err
     }
-  }, [loadGroups])
+  }, [loadFolders])
 
-  const updateGroup = useCallback(async (groupId: string, updates: Partial<Group>) => {
+  const updateFolder = useCallback(async (folderId: string, updates: Partial<Folder>) => {
     try {
-      await dbService.updateGroup(groupId, updates)
-      await loadGroups()
+      await dbService.updateFolder(folderId, updates)
+      await loadFolders()
     } catch (err) {
-      console.error('Failed to update group:', err)
-      setError('Failed to update group')
+      console.error('Failed to update folder:', err)
+      setError('Failed to update folder')
       throw err
     }
-  }, [loadGroups])
+  }, [loadFolders])
 
-  const deleteGroup = useCallback(async (groupId: string) => {
+  const deleteFolder = useCallback(async (folderId: string) => {
     try {
-      await dbService.deleteGroup(groupId)
-      await loadGroups()
+      await dbService.deleteFolder(folderId)
+      await loadFolders()
     } catch (err) {
-      console.error('Failed to delete group:', err)
-      setError('Failed to delete group')
+      console.error('Failed to delete folder:', err)
+      setError('Failed to delete folder')
       throw err
     }
-  }, [loadGroups])
+  }, [loadFolders])
 
-  const addConversationToGroup = useCallback(async (groupId: string, conversationId: string) => {
+  const addConversationToFolder = useCallback(async (folderId: string, conversationId: string) => {
     try {
-      await dbService.addConversationToGroup(groupId, conversationId)
-      await loadGroups()
+      await dbService.addConversationToFolder(folderId, conversationId)
+      await loadFolders()
     } catch (err) {
-      console.error('Failed to add conversation to group:', err)
-      setError('Failed to add conversation to group')
+      console.error('Failed to add conversation to folder:', err)
+      setError('Failed to add conversation to folder')
       throw err
     }
-  }, [loadGroups])
+  }, [loadFolders])
 
-  const removeConversationFromGroup = useCallback(async (groupId: string, conversationId: string) => {
+  const removeConversationFromFolder = useCallback(async (folderId: string, conversationId: string) => {
     try {
-      await dbService.removeConversationFromGroup(groupId, conversationId)
-      await loadGroups()
+      await dbService.removeConversationFromFolder(folderId, conversationId)
+      await loadFolders()
     } catch (err) {
-      console.error('Failed to remove conversation from group:', err)
-      setError('Failed to remove conversation from group')
+      console.error('Failed to remove conversation from folder:', err)
+      setError('Failed to remove conversation from folder')
       throw err
     }
-  }, [loadGroups])
+  }, [loadFolders])
+
+  // Project management methods
+
+  const createProject = useCallback(async (
+    name: string,
+    description: string,
+    instructions?: string,
+    attachments?: File[]
+  ) => {
+    try {
+      const project = await dbService.createProject(name, description, instructions, attachments)
+      await loadProjects()
+      return project
+    } catch (err) {
+      console.error('Failed to create project:', err)
+      setError('Failed to create project')
+      throw err
+    }
+  }, [loadProjects])
+
+  const updateProject = useCallback(async (projectId: string, updates: Partial<Project>) => {
+    try {
+      await dbService.updateProject(projectId, updates)
+      await loadProjects()
+    } catch (err) {
+      console.error('Failed to update project:', err)
+      setError('Failed to update project')
+      throw err
+    }
+  }, [loadProjects])
+
+  const deleteProject = useCallback(async (projectId: string) => {
+    try {
+      await dbService.deleteProject(projectId)
+      await loadProjects()
+      // Also reload conversations to reflect unlinking
+      await loadConversations()
+    } catch (err) {
+      console.error('Failed to delete project:', err)
+      setError('Failed to delete project')
+      throw err
+    }
+  }, [loadProjects, loadConversations])
+
+  const branchConversation = useCallback(async (messageId: string) => {
+    if (!currentConversationId) {
+      throw new Error('No current conversation')
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      console.log('🌿 Branching conversation from message:', messageId)
+
+      // Create the branched conversation
+      const newConversation = await dbService.branchConversation(currentConversationId, messageId)
+      
+      // Reload conversations list
+      await loadConversations()
+
+      // Navigate to the new conversation
+      setCurrentConversationId(newConversation.id)
+
+      console.log('✅ Branch created and navigated:', newConversation.id)
+    } catch (err) {
+      console.error('Failed to branch conversation:', err)
+      setError(err instanceof Error ? err.message : 'Failed to branch conversation')
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentConversationId, loadConversations])
 
   return {
     // Conversations
@@ -473,18 +737,26 @@ export function useChat() {
     loadConversations,
     togglePinConversation,
     updateConversationTags,
+    renameConversation,
     getAllTags,
     editMessage,
     deleteMessage,
     switchToMessageVersion,
     getMessageVersions,
-    // Groups
-    groups,
-    createGroup,
-    updateGroup,
-    deleteGroup,
-    addConversationToGroup,
-    removeConversationFromGroup,
-    loadGroups,
+    // Folders
+    folders,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    addConversationToFolder,
+    removeConversationFromFolder,
+    loadFolders,
+    // Projects
+    projects,
+    createProject,
+    updateProject,
+    deleteProject,
+    loadProjects,
+    branchConversation,
   }
 }

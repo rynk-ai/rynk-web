@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, stream = true } = await request.json();
+    const { text } = await request.json();
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!text) {
       return new Response(
-        JSON.stringify({ error: "Messages array is required" }),
+        JSON.stringify({ error: "Text is required" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
+      "https://openrouter.ai/api/v1/embeddings",
       {
         method: "POST",
         headers: {
@@ -32,13 +32,8 @@ export async function POST(request: NextRequest) {
           "X-Title": "SimpleChat",
         },
         body: JSON.stringify({
-          // Use a multimodal-capable model like Claude 3 Haiku or GPT-4V
-          // "anthropic/claude-3-haiku" - fast and multimodal
-          // "openai/gpt-4-vision-preview" - multimodal
-          // "google/gemini-pro-vision" - multimodal
-          model: "openai/gpt-5.1-codex-mini",
-          messages,
-          stream,
+          model: "text-embedding-3-small", // Or another available embedding model on OpenRouter
+          input: text,
         }),
       },
     );
@@ -59,24 +54,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (stream) {
-      return new Response(response.body, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
-    } else {
-      const data = await response.json();
-      return new Response(JSON.stringify(data), {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    const data = await response.json();
+    
+    // OpenRouter/OpenAI response format: { data: [{ embedding: [...] }] }
+    const embedding = data.data?.[0]?.embedding;
+
+    if (!embedding) {
+      return new Response(
+        JSON.stringify({ error: "Failed to generate embedding" }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
     }
+
+    return new Response(JSON.stringify({ embedding }), {
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
-    console.error("Chat API error:", error);
+    console.error("Embedding API error:", error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

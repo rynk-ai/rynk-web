@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { dbService, type Group, type Conversation } from "@/lib/services/indexeddb"
+import { dbService, type Folder, type Conversation } from "@/lib/services/indexeddb"
 import {
   Dialog,
   DialogContent,
@@ -17,37 +17,37 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { MessageSquare } from "lucide-react"
 
-interface GroupDialogProps {
+interface FolderDialogProps {
   open: boolean
   onClose: () => void
-  onSave: (group: Group) => void
-  currentGroup?: Group | null
+  onSave: (folder: Folder) => void
+  currentFolder?: Folder | null
   allConversations: Conversation[]
 }
 
-export function GroupDialog({
+export function FolderDialog({
   open,
   onClose,
   onSave,
-  currentGroup,
+  currentFolder,
   allConversations,
-}: GroupDialogProps) {
+}: FolderDialogProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (currentGroup) {
-      setName(currentGroup.name)
-      setDescription(currentGroup.description || "")
-      setSelectedConversationIds([...currentGroup.conversationIds])
+    if (currentFolder) {
+      setName(currentFolder.name)
+      setDescription(currentFolder.description || "")
+      setSelectedConversationIds([...currentFolder.conversationIds])
     } else {
       setName("")
       setDescription("")
       setSelectedConversationIds([])
     }
-  }, [currentGroup])
+  }, [currentFolder])
 
   const handleToggleConversation = (conversationId: string) => {
     setSelectedConversationIds(prev =>
@@ -62,26 +62,26 @@ export function GroupDialog({
 
     setIsLoading(true)
     try {
-      let group: Group
+      let folder: Folder
 
-      if (currentGroup) {
-        // Update existing group
-        await dbService.updateGroup(currentGroup.id, {
+      if (currentFolder) {
+        // Update existing folder
+        await dbService.updateFolder(currentFolder.id, {
           name,
           description,
           conversationIds: selectedConversationIds,
         })
-        group = await dbService.getGroup(currentGroup.id) as Group
+        folder = await dbService.getFolder(currentFolder.id) as Folder
       } else {
-        // Create new group
-        group = await dbService.createGroup(name, description, selectedConversationIds)
+        // Create new folder
+        folder = await dbService.createFolder(name, description, selectedConversationIds)
       }
 
-      onSave(group)
+      onSave(folder)
       onClose()
     } catch (err) {
-      console.error('Failed to save group:', err)
-      alert('Failed to save group')
+      console.error('Failed to save folder:', err)
+      alert('Failed to save folder')
     } finally {
       setIsLoading(false)
     }
@@ -92,23 +92,23 @@ export function GroupDialog({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>
-            {currentGroup ? "Edit Group" : "Create New Group"}
+            {currentFolder ? "Edit Folder" : "Create New Folder"}
           </DialogTitle>
           <DialogDescription>
-            {currentGroup
-              ? "Update group information and select conversations."
-              : "Create a new group to organize your chats."}
+            {currentFolder
+              ? "Update folder information and select conversations."
+              : "Create a new folder to organize your chats."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Group Name</Label>
+            <Label htmlFor="name">Folder Name</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter group name"
+              placeholder="Enter folder name"
             />
           </div>
 
@@ -118,7 +118,7 @@ export function GroupDialog({
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter group description"
+              placeholder="Enter folder description"
               rows={3}
             />
           </div>
@@ -128,7 +128,7 @@ export function GroupDialog({
             <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
               {allConversations.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
-                  No conversations yet. Create a chat first to add it to a group.
+                  No conversations yet. Create a chat first to add it to a folder.
                 </div>
               ) : (
                 allConversations.map((conversation) => (
@@ -160,7 +160,7 @@ export function GroupDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!name.trim() || isLoading}>
-            {isLoading ? "Saving..." : currentGroup ? "Update" : "Create"}
+            {isLoading ? "Saving..." : currentFolder ? "Update" : "Create"}
           </Button>
         </DialogFooter>
       </DialogContent>

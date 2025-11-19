@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { dbService, type Group } from "@/lib/services/indexeddb"
+import { dbService, type Folder } from "@/lib/services/indexeddb"
 import {
   Dialog,
   DialogContent,
@@ -13,51 +13,51 @@ import {
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Users } from "lucide-react"
+import { Folder as FolderIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface AddToGroupDialogProps {
+interface AddToFolderDialogProps {
   open: boolean
   onClose: () => void
-  onSave: (groupIds: string[]) => void
+  onSave: (folderIds: string[]) => void
   conversationId: string
-  existingGroups: Group[]
+  existingFolders: Folder[]
 }
 
-export function AddToGroupDialog({
+export function AddToFolderDialog({
   open,
   onClose,
   onSave,
   conversationId,
-  existingGroups,
-}: AddToGroupDialogProps) {
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
+  existingFolders,
+}: AddToFolderDialogProps) {
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  // Pre-select groups that already contain this conversation
+  // Pre-select folders that already contain this conversation
   useEffect(() => {
-    const groupsContainingConversation = existingGroups
-      .filter(group => group.conversationIds.includes(conversationId))
-      .map(group => group.id);
-    setSelectedGroupIds(groupsContainingConversation);
-  }, [existingGroups, conversationId])
+    const foldersContainingConversation = existingFolders
+      .filter(folder => folder.conversationIds.includes(conversationId))
+      .map(folder => folder.id);
+    setSelectedFolderIds(foldersContainingConversation);
+  }, [existingFolders, conversationId])
 
-  const handleToggleGroup = (groupId: string) => {
-    setSelectedGroupIds(prev =>
-      prev.includes(groupId)
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
+  const handleToggleFolder = (folderId: string) => {
+    setSelectedFolderIds(prev =>
+      prev.includes(folderId)
+        ? prev.filter(id => id !== folderId)
+        : [...prev, folderId]
     )
   }
 
   const handleSave = async () => {
     setIsLoading(true)
     try {
-      onSave(selectedGroupIds)
+      onSave(selectedFolderIds)
       onClose()
     } catch (err) {
-      console.error('Failed to update group memberships:', err)
-      alert('Failed to update group memberships')
+      console.error('Failed to update folder memberships:', err)
+      alert('Failed to update folder memberships')
     } finally {
       setIsLoading(false)
     }
@@ -67,46 +67,46 @@ export function AddToGroupDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add to Groups</DialogTitle>
+          <DialogTitle>Add to Folders</DialogTitle>
           <DialogDescription>
-            Manage which groups this conversation belongs to. Select or deselect groups as needed.
+            Manage which folders this conversation belongs to. Select or deselect folders as needed.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label>Select Groups</Label>
+            <Label>Select Folders</Label>
             <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
-              {existingGroups.length === 0 ? (
+              {existingFolders.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
-                  No groups yet. Create a group first to add conversations.
+                  No folders yet. Create a folder first to add conversations.
                 </div>
               ) : (
-                existingGroups.map((group) => {
-                  const isAlreadyInGroup = group.conversationIds.includes(conversationId);
+                existingFolders.map((folder) => {
+                  const isAlreadyInFolder = folder.conversationIds.includes(conversationId);
                   return (
                     <div
-                      key={group.id}
+                      key={folder.id}
                       className={cn(
                         "flex items-center gap-3 rounded-md p-2 hover:bg-muted",
-                        isAlreadyInGroup && "bg-primary/5"
+                        isAlreadyInFolder && "bg-primary/5"
                       )}
                     >
                       <Checkbox
-                        id={`group-${group.id}`}
-                        checked={selectedGroupIds.includes(group.id)}
-                        onCheckedChange={() => handleToggleGroup(group.id)}
+                        id={`folder-${folder.id}`}
+                        checked={selectedFolderIds.includes(folder.id)}
+                        onCheckedChange={() => handleToggleFolder(folder.id)}
                       />
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <FolderIcon className="h-4 w-4 text-muted-foreground" />
                       <Label
-                        htmlFor={`group-${group.id}`}
+                        htmlFor={`folder-${folder.id}`}
                         className="flex-1 cursor-pointer text-sm font-normal"
                       >
-                        {group.name}
+                        {folder.name}
                         <span className="text-xs text-muted-foreground ml-2">
-                          ({group.conversationIds.length} conversations)
+                          ({folder.conversationIds.length} conversations)
                         </span>
-                        {isAlreadyInGroup && (
+                        {isAlreadyInFolder && (
                           <span className="ml-2 text-xs text-primary font-medium">
                             • Already added
                           </span>

@@ -112,6 +112,24 @@ class OpenRouterService {
     const data = await response.json()
     return data.choices?.[0]?.message?.content || ''
   }
+
+  async getEmbeddings(text: string): Promise<number[]> {
+    const response = await fetch('/api/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
+      throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.embedding
+  }
 }
 
 // Create a singleton instance

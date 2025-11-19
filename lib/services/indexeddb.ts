@@ -12,6 +12,8 @@ interface Message {
   versionOf?: string        // ID of the original message this is a version of
   versionNumber: number     // Version number (1 for original, 2 for first edit, etc.)
   branchId?: string         // Optional branch identifier for grouping
+  referencedConversations?: { id: string; title: string }[] // References to other conversations
+  referencedFolders?: { id: string; name: string }[] // References to folders of conversations
 }
 
 interface Branch {
@@ -33,15 +35,35 @@ interface Conversation {
   isPinned: boolean
   activeBranchId?: string  // Which branch is currently active
   branches: Branch[]       // All branches for this conversation
+  projectId?: string       // Optional project ID
 }
 
-interface Group {
+interface Folder {
   id: string
   name: string
   description?: string
   createdAt: number
   updatedAt: number
-  conversationIds: string[] // Array of conversation IDs in this group
+  conversationIds: string[] // Array of conversation IDs in this folder
+}
+
+export interface Project {
+  id: string
+  name: string
+  description: string
+  instructions?: string
+  attachments?: File[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface Embedding {
+  id: string
+  messageId: string
+  conversationId: string
+  content: string
+  vector: number[]
+  timestamp: number
 }
 
 interface ChatDB extends DBSchema {
@@ -58,8 +80,23 @@ interface ChatDB extends DBSchema {
     indexes: { 'by-updated': number }
   }
   groups: {
-    key: string           // group.id
-    value: Group
+    key: string           // folder.id
+    value: Folder
+    indexes: {
+      'by-updated': number
+    }
+  }
+  embeddings: {
+    key: string           // id (uuid)
+    value: Embedding
+    indexes: {
+      'by-conversation': string
+      'by-message': string
+    }
+  }
+  projects: {
+    key: string           // project.id
+    value: Project
     indexes: {
       'by-updated': number
     }
@@ -67,10 +104,12 @@ interface ChatDB extends DBSchema {
 }
 
 const DB_NAME = 'simplechat-db'
-const DB_VERSION = 7  // Increment for new schema (added group support)
+const DB_VERSION = 10  // Increment to ensure indexes are created
 const MESSAGES_STORE = 'messages'
 const CONVERSATIONS_STORE = 'conversations'
-const GROUPS_STORE = 'groups'
+const FOLDERS_STORE = 'groups' // Keeping the store name as 'groups' for backward compatibility
+const PROJECTS_STORE = 'projects'
+const EMBEDDINGS_STORE = 'embeddings'
 
 class IndexedDBService {
   private db: IDBPDatabase<ChatDB> | null = null
@@ -90,7 +129,7 @@ class IndexedDBService {
 
   private async _initInternal(): Promise<IDBPDatabase<ChatDB>> {
     const db = await openDB<ChatDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
+      upgrade(db, oldVersion, newVersion, tx) {
         console.log('🔄 Upgrading database from version', oldVersion, 'to', DB_VERSION)
 
         // Create messages store if it doesn't exist
@@ -99,6 +138,12 @@ class IndexedDBService {
             keyPath: 'id',
           })
           store.createIndex('by-conversation', 'conversationId')
+        } else {
+          // Ensure index exists
+          const store = tx.objectStore(MESSAGES_STORE)
+          if (!store.indexNames.contains('by-conversation')) {
+            store.createIndex('by-conversation', 'conversationId')
+          }
         }
 
         // Create conversations store if it doesn't exist
@@ -107,14 +152,58 @@ class IndexedDBService {
             keyPath: 'id',
           })
           store.createIndex('by-updated', 'updatedAt')
+        } else {
+          // Ensure index exists
+          const store = tx.objectStore(CONVERSATIONS_STORE)
+          if (!store.indexNames.contains('by-updated')) {
+            store.createIndex('by-updated', 'updatedAt')
+          }
         }
 
-        // Create groups store if it doesn't exist (version 7+)
-        if (!db.objectStoreNames.contains(GROUPS_STORE)) {
-          const store = db.createObjectStore(GROUPS_STORE, {
+        // Create folders store if it doesn't exist
+        if (!db.objectStoreNames.contains(FOLDERS_STORE)) {
+          const store = db.createObjectStore(FOLDERS_STORE, {
             keyPath: 'id',
           })
           store.createIndex('by-updated', 'updatedAt')
+        } else {
+          // Ensure index exists
+          const store = tx.objectStore(FOLDERS_STORE)
+          if (!store.indexNames.contains('by-updated')) {
+            store.createIndex('by-updated', 'updatedAt')
+          }
+        }
+
+        // Create embeddings store if it doesn't exist
+        if (!db.objectStoreNames.contains(EMBEDDINGS_STORE)) {
+          const store = db.createObjectStore(EMBEDDINGS_STORE, {
+            keyPath: 'id',
+          })
+          store.createIndex('by-conversation', 'conversationId')
+          store.createIndex('by-message', 'messageId')
+        } else {
+          // Ensure indexes exist
+          const store = tx.objectStore(EMBEDDINGS_STORE)
+          if (!store.indexNames.contains('by-conversation')) {
+            store.createIndex('by-conversation', 'conversationId')
+          }
+          if (!store.indexNames.contains('by-message')) {
+            store.createIndex('by-message', 'messageId')
+          }
+        }
+
+        // Create projects store if it doesn't exist
+        if (!db.objectStoreNames.contains(PROJECTS_STORE)) {
+          const store = db.createObjectStore(PROJECTS_STORE, {
+            keyPath: 'id',
+          })
+          store.createIndex('by-updated', 'updatedAt')
+        } else {
+          // Ensure index exists
+          const store = tx.objectStore(PROJECTS_STORE)
+          if (!store.indexNames.contains('by-updated')) {
+            store.createIndex('by-updated', 'updatedAt')
+          }
         }
       },
     })
@@ -124,14 +213,14 @@ class IndexedDBService {
   }
 
   private async migrate(db: IDBPDatabase<ChatDB>) {
-    console.log('✅ Database initialized - version 7')
-    // Migration from version 6 to 7: added groups support
-    // No data migration needed - groups are a new feature
+    console.log('✅ Database initialized - version 8')
+    // Migration from version 7 to 8: added embeddings support
+    // No data migration needed - embeddings are a new feature
   }
 
   // Conversation CRUD operations
 
-  async createConversation(title?: string): Promise<Conversation> {
+  async createConversation(title?: string, projectId?: string): Promise<Conversation> {
     const db = await this.init()
     const id = crypto.randomUUID()
     const now = Date.now()
@@ -145,6 +234,7 @@ class IndexedDBService {
       tags: [],
       isPinned: false,
       branches: [], // Initialize branches array
+      projectId,
     }
 
     await db.add(CONVERSATIONS_STORE, conversation)
@@ -194,11 +284,166 @@ class IndexedDBService {
     }
   }
 
+  /**
+   * Branch a conversation from a specific message
+   * Creates a new conversation with a copy of all messages up to and including the specified message
+   */
+  async branchConversation(
+    sourceConversationId: string,
+    branchFromMessageId: string
+  ): Promise<Conversation> {
+    console.log('🌿 Branching conversation from message:', branchFromMessageId)
+
+    const db = await this.init()
+    const tx = db.transaction([CONVERSATIONS_STORE, MESSAGES_STORE], 'readwrite')
+    const conversationsStore = tx.objectStore(CONVERSATIONS_STORE)
+    const messagesStore = tx.objectStore(MESSAGES_STORE)
+
+    // Get source conversation
+    const sourceConversation = await conversationsStore.get(sourceConversationId)
+    if (!sourceConversation) {
+      throw new Error(`Source conversation ${sourceConversationId} not found`)
+    }
+
+    // Find the index of the branch point message in the path
+    const branchPointIndex = sourceConversation.path.indexOf(branchFromMessageId)
+    if (branchPointIndex === -1) {
+      throw new Error('Branch point message not found in conversation path')
+    }
+
+    // Get all message IDs up to and including the branch point
+    const messageIdsToCopy = sourceConversation.path.slice(0, branchPointIndex + 1)
+
+    // Create new conversation
+    const now = Date.now()
+    const newConversationId = crypto.randomUUID()
+    const newConversation: Conversation = {
+      id: newConversationId,
+      title: `Branch: ${sourceConversation.title}`,
+      path: [],
+      createdAt: now,
+      updatedAt: now,
+      tags: [...sourceConversation.tags],
+      isPinned: false,
+      branches: [],
+      projectId: sourceConversation.projectId,
+    }
+
+    // Copy each message to the new conversation
+    for (const oldMessageId of messageIdsToCopy) {
+      const oldMessage = await messagesStore.get(oldMessageId)
+      if (!oldMessage) {
+        console.warn(`Message ${oldMessageId} not found, skipping`)
+        continue
+      }
+
+      // Create new message with new ID but same content
+      const newMessageId = crypto.randomUUID()
+      const newMessage: Message = {
+        ...oldMessage,
+        id: newMessageId,
+        conversationId: newConversationId,
+        timestamp: now,
+        // Reset branching-related fields for the new conversation
+        parentMessageId: undefined,
+        versionOf: undefined,
+        branchId: undefined,
+      }
+
+      // Save the new message
+      await messagesStore.put(newMessage)
+      
+      // Add to new conversation path
+      newConversation.path.push(newMessageId)
+    }
+
+    // Save the new conversation
+    await conversationsStore.put(newConversation)
+    await tx.done
+
+    console.log('✅ Branched conversation created:', newConversationId, 'with', newConversation.path.length, 'messages')
+
+    return newConversation
+  }
+
+  // Project CRUD operations
+
+  async createProject(
+    name: string,
+    description: string,
+    instructions?: string,
+    attachments?: File[]
+  ): Promise<Project> {
+    const db = await this.init()
+    const id = crypto.randomUUID()
+    const now = Date.now()
+
+    const project: Project = {
+      id,
+      name,
+      description,
+      instructions,
+      attachments,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    await db.add(PROJECTS_STORE, project)
+    return project
+  }
+
+  async getProject(id: string): Promise<Project | undefined> {
+    const db = await this.init()
+    return db.get(PROJECTS_STORE, id)
+  }
+
+  async getAllProjects(): Promise<Project[]> {
+    const db = await this.init()
+    return db.getAllFromIndex(PROJECTS_STORE, 'by-updated')
+  }
+
+  async updateProject(id: string, updates: Partial<Project>): Promise<void> {
+    const db = await this.init()
+    const tx = db.transaction(PROJECTS_STORE, 'readwrite')
+    const store = tx.objectStore(PROJECTS_STORE)
+
+    const existing = await store.get(id)
+    if (!existing) {
+      throw new Error(`Project ${id} not found`)
+    }
+
+    const updated = {
+      ...existing,
+      ...updates,
+      updatedAt: Date.now(),
+    }
+
+    await store.put(updated)
+    await tx.done
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    const db = await this.init()
+
+    // Delete project
+    await db.delete(PROJECTS_STORE, id)
+
+    // Update conversations to remove project reference
+    // We don't delete conversations, just unlink them
+    const conversations = await db.getAllFromIndex(CONVERSATIONS_STORE, 'by-updated')
+    const projectConversations = conversations.filter(c => c.projectId === id)
+    
+    for (const conv of projectConversations) {
+      conv.projectId = undefined
+      await db.put(CONVERSATIONS_STORE, conv)
+    }
+  }
+
   // Message operations
 
   async addMessage(
     conversationId: string,
-    message: Omit<Message, 'id' | 'conversationId' | 'timestamp'>
+    message: Omit<Message, 'id' | 'conversationId' | 'timestamp' | 'versionNumber'>
   ): Promise<Message> {
     const db = await this.init()
     const tx = db.transaction([CONVERSATIONS_STORE, MESSAGES_STORE], 'readwrite')
@@ -228,10 +473,13 @@ class IndexedDBService {
     conversation.updatedAt = Date.now()
 
     // Update conversation title if this is the first user message
+    // Title generation is now handled asynchronously by the AI in useChat
+    /* 
     if (message.role === 'user') {
       const title = message.content.slice(0, 50)
       conversation.title = title + (message.content.length > 50 ? '...' : '')
     }
+    */
 
     // Update active branch path to include the new message
     if (conversation.activeBranchId && conversation.branches) {
@@ -334,7 +582,9 @@ class IndexedDBService {
     conversationId: string,
     messageId: string,
     newContent: string,
-    newAttachments?: File[]
+    newAttachments?: File[],
+    referencedConversations?: { id: string; title: string }[],
+    referencedFolders?: { id: string; name: string }[]
   ): Promise<{ newMessage: Message; conversationPath: string[] }> {
     console.log('🌿 Creating new version of message:', messageId)
 
@@ -368,6 +618,8 @@ class IndexedDBService {
       id: newMessageId,
       content: newContent,
       attachments: newAttachments,
+      referencedConversations,
+      referencedFolders,
       timestamp: Date.now(),
       parentMessageId: messageId,
       versionOf: originalMessage.versionOf || messageId,
@@ -543,7 +795,7 @@ class IndexedDBService {
         console.log('🔧 Version not in branch, reconstructing path...')
 
         // Get all messages in the conversation
-        const allMessages = await messagesStore.getAllFromIndex('by-conversation', conversationId)
+        const allMessages = await messagesStore.index('by-conversation').getAll(conversationId)
 
         // Find the parent version (the one we're editing)
         const parentMessage = allMessages.find(m => m.id === versionMessage.parentMessageId)
@@ -655,7 +907,16 @@ class IndexedDBService {
     return db.getAllFromIndex(MESSAGES_STORE, 'by-conversation', conversationId)
   }
 
-  async deleteMessage(messageId: string): Promise<void> {
+  /**
+   * Get all messages in the database
+   */
+  async getAllMessages(): Promise<Message[]> {
+    const db = await this.init()
+    return db.getAll(MESSAGES_STORE)
+  }
+
+    async deleteMessage(messageId: string): Promise<void> {
+    console.log('🗑️ deleteMessage called for:', messageId)
     const db = await this.init()
     const tx = db.transaction([CONVERSATIONS_STORE, MESSAGES_STORE], 'readwrite')
     const conversationsStore = tx.objectStore(CONVERSATIONS_STORE)
@@ -663,21 +924,102 @@ class IndexedDBService {
 
     const message = await messagesStore.get(messageId)
     if (!message) {
-      throw new Error(`Message ${messageId} not found`)
+       console.error('❌ Message not found:', messageId)
+       throw new Error(`Message ${messageId} not found`)
     }
+    console.log('✅ Message found, conversationId:', message.conversationId)
 
-    // Remove from conversation path
     const conversation = await conversationsStore.get(message.conversationId)
     if (conversation) {
-      conversation.path = conversation.path.filter(id => id !== messageId)
-      conversation.updatedAt = Date.now()
-      await conversationsStore.put(conversation)
+      // Check if this is a version of another message (has a parent)
+      if (message.parentMessageId) {
+        console.log('🔄 Message is a version (v' + message.versionNumber + '), reverting to parent:', message.parentMessageId)
+        
+        // 1. Find the branch that contains the parent message at the same position (or just switch to a branch containing it)
+        // Actually, we want to switch to the branch where parentMessageId was the "active" one.
+        // We can look for a branch that *ends* with parentMessageId, OR a branch where parentMessageId is followed by something else (if we had replies to v1).
+        
+        // Simplest approach: Find a branch that contains parentMessageId.
+        // Ideally, we want the branch that was active *before* this version was created.
+        // When we created this version, we saved the OLD path as a branch.
+        // That branch should contain parentMessageId.
+        
+        const targetBranch = conversation.branches?.find(b => b.path.includes(message.parentMessageId!))
+        
+        if (targetBranch) {
+             console.log('✅ Found target branch to revert to:', targetBranch.id)
+             conversation.path = [...targetBranch.path]
+             conversation.activeBranchId = targetBranch.id
+             conversation.updatedAt = Date.now()
+             await conversationsStore.put(conversation)
+             
+             // Delete the current message version since user explicitly deleted it
+             await messagesStore.delete(messageId)
+             console.log('🗑️ Deleted the rejected version:', messageId)
+             
+             await tx.done
+             return
+        } else {
+            console.warn('⚠️ Could not find a branch containing parent message, falling back to cascade delete')
+        }
+      }
+
+      // Fallback / Standard Logic: Cascade Delete (for root messages or if branch not found)
+      const index = conversation.path.indexOf(messageId)
+      console.log('📍 Message index in path:', index, 'Path length:', conversation.path.length)
+      
+      // 1. Determine which messages are being removed from the CURRENT path
+      let messagesToRemoveFromPath: string[] = []
+      
+      if (index !== -1) {
+        // Cascade delete: remove this message and everything after it from the active path
+        messagesToRemoveFromPath = conversation.path.slice(index)
+        console.log('📉 Cascade deleting:', messagesToRemoveFromPath.length, 'messages')
+        
+        // Update the conversation path
+        const newPath = conversation.path.slice(0, index)
+        conversation.path = newPath
+        conversation.updatedAt = Date.now()
+        await conversationsStore.put(conversation)
+        console.log('✅ Conversation path updated. New length:', newPath.length)
+      } else {
+        // Message is not in the active path, but we still want to try deleting it
+        console.warn('⚠️ Message not found in active path, deleting only the message record')
+        messagesToRemoveFromPath = [messageId]
+      }
+
+      // 2. Safely delete message records
+      // Only delete a message if it is NOT used in any other branch
+      const allBranchPaths = conversation.branches?.map(b => b.path) || []
+      const allUsedMessageIds = new Set<string>()
+      
+      // Collect all message IDs used in ALL branches (excluding the current path which we just updated)
+      // Note: conversation.path is already updated, so we don't need to exclude it specifically, 
+      // but we should check if the message exists in any *stored* branch definition.
+      // Actually, 'conversation.branches' contains the history of branches.
+      
+      allBranchPaths.forEach(path => {
+        path.forEach(id => allUsedMessageIds.add(id))
+      })
+
+      for (const id of messagesToRemoveFromPath) {
+        if (!allUsedMessageIds.has(id)) {
+          // Safe to delete: not used in any other branch
+          await messagesStore.delete(id)
+          console.log('🗑️ Deleted message record:', id)
+        } else {
+          console.log(`⚠️ Skipping delete for message ${id} as it is used in another branch`)
+        }
+      }
+      
+    } else {
+        console.error('❌ Conversation not found:', message.conversationId)
+        // Conversation not found, just delete message
+        await messagesStore.delete(messageId)
     }
 
-    // Delete message
-    await messagesStore.delete(messageId)
-
     await tx.done
+    console.log('✅ deleteMessage transaction complete')
   }
 
   // Utility operations
@@ -736,18 +1078,18 @@ class IndexedDBService {
     return Array.from(tagSet).sort()
   }
 
-  // Group CRUD operations
+  // Folder CRUD operations
 
-  async createGroup(
+  async createFolder(
     name: string,
     description?: string,
     conversationIds?: string[]
-  ): Promise<Group> {
+  ): Promise<Folder> {
     const db = await this.init()
     const id = crypto.randomUUID()
     const now = Date.now()
 
-    const group: Group = {
+    const folder: Folder = {
       id,
       name,
       description,
@@ -756,28 +1098,28 @@ class IndexedDBService {
       updatedAt: now,
     }
 
-    await db.add(GROUPS_STORE, group)
-    return group
+    await db.add(FOLDERS_STORE, folder)
+    return folder
   }
 
-  async getGroup(id: string): Promise<Group | undefined> {
+  async getFolder(id: string): Promise<Folder | undefined> {
     const db = await this.init()
-    return db.get(GROUPS_STORE, id)
+    return db.get(FOLDERS_STORE, id)
   }
 
-  async getAllGroups(): Promise<Group[]> {
+  async getAllFolders(): Promise<Folder[]> {
     const db = await this.init()
-    return db.getAllFromIndex(GROUPS_STORE, 'by-updated')
+    return db.getAllFromIndex(FOLDERS_STORE, 'by-updated')
   }
 
-  async updateGroup(id: string, updates: Partial<Group>): Promise<void> {
+  async updateFolder(id: string, updates: Partial<Folder>): Promise<void> {
     const db = await this.init()
-    const tx = db.transaction(GROUPS_STORE, 'readwrite')
-    const store = tx.objectStore(GROUPS_STORE)
+    const tx = db.transaction(FOLDERS_STORE, 'readwrite')
+    const store = tx.objectStore(FOLDERS_STORE)
 
     const existing = await store.get(id)
     if (!existing) {
-      throw new Error(`Group ${id} not found`)
+      throw new Error(`Folder ${id} not found`)
     }
 
     const updated = {
@@ -790,53 +1132,107 @@ class IndexedDBService {
     await tx.done
   }
 
-  async deleteGroup(id: string): Promise<void> {
+  async deleteFolder(id: string): Promise<void> {
     const db = await this.init()
 
-    // Get the group
-    const group = await db.get(GROUPS_STORE, id)
-    if (!group) {
-      throw new Error(`Group ${id} not found`)
+    const folder = await db.get(FOLDERS_STORE, id)
+    if (!folder) {
+      throw new Error(`Folder ${id} not found`)
     }
 
-    // Delete the group
-    await db.delete(GROUPS_STORE, id)
+    await db.delete(FOLDERS_STORE, id)
   }
 
-  async addConversationToGroup(groupId: string, conversationId: string): Promise<void> {
+  // Embedding operations
+
+  async addEmbedding(embedding: Omit<Embedding, 'id' | 'timestamp'>): Promise<void> {
     const db = await this.init()
-    const group = await db.get(GROUPS_STORE, groupId)
-    if (!group) {
-      throw new Error(`Group ${groupId} not found`)
+    const id = crypto.randomUUID()
+    
+    await db.add(EMBEDDINGS_STORE, {
+      ...embedding,
+      id,
+      timestamp: Date.now(),
+    })
+  }
+
+  async getEmbeddingByMessageId(messageId: string): Promise<Embedding | undefined> {
+    const db = await this.init()
+    const index = db.transaction(EMBEDDINGS_STORE).store.index('by-message')
+    return index.get(messageId)
+  }
+
+  async searchEmbeddings(queryVector: number[], limit: number = 5, minScore: number = 0.3): Promise<{ embedding: Embedding; score: number }[]> {
+    const db = await this.init()
+    const allEmbeddings = await db.getAll(EMBEDDINGS_STORE)
+    
+    const results = allEmbeddings.map(embedding => {
+      const score = this.cosineSimilarity(queryVector, embedding.vector)
+      return { embedding, score }
+    })
+    
+    // Filter by min score and sort by score descending
+    return results
+      .filter(r => r.score >= minScore)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+  }
+
+  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+    let dotProduct = 0
+    let normA = 0
+    let normB = 0
+    
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i]
+      normA += vecA[i] * vecA[i]
+      normB += vecB[i] * vecB[i]
+    }
+    
+    if (normA === 0 || normB === 0) return 0
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+  }
+
+  async addConversationToFolder(folderId: string, conversationId: string): Promise<void> {
+    const db = await this.init()
+
+    const folder = await db.get(FOLDERS_STORE, folderId)
+    if (!folder) {
+      throw new Error(`Folder ${folderId} not found`)
     }
 
-    if (!group.conversationIds.includes(conversationId)) {
-      group.conversationIds.push(conversationId)
-      group.updatedAt = Date.now()
-      await db.put(GROUPS_STORE, group)
+    if (!folder.conversationIds.includes(conversationId)) {
+      folder.conversationIds.push(conversationId)
+      folder.updatedAt = Date.now()
+      await db.put(FOLDERS_STORE, folder)
     }
   }
 
-  async removeConversationFromGroup(groupId: string, conversationId: string): Promise<void> {
+  async removeConversationFromFolder(folderId: string, conversationId: string): Promise<void> {
     const db = await this.init()
-    const group = await db.get(GROUPS_STORE, groupId)
-    if (!group) {
-      throw new Error(`Group ${groupId} not found`)
+
+    const folder = await db.get(FOLDERS_STORE, folderId)
+    if (!folder) {
+      throw new Error(`Folder ${folderId} not found`)
     }
 
-    group.conversationIds = group.conversationIds.filter(id => id !== conversationId)
-    group.updatedAt = Date.now()
-    await db.put(GROUPS_STORE, group)
+    if (folder.conversationIds.includes(conversationId)) {
+      folder.conversationIds = folder.conversationIds.filter(id => id !== conversationId)
+      folder.updatedAt = Date.now()
+      await db.put(FOLDERS_STORE, folder)
+    }
   }
 
-  async getConversationsByGroup(groupId: string): Promise<Conversation[]> {
-    const group = await this.getGroup(groupId)
-    if (!group) return []
-
+  async getConversationsByFolder(folderId: string): Promise<Conversation[]> {
     const db = await this.init()
+    const folder = await db.get(FOLDERS_STORE, folderId)
+    
+    if (!folder) {
+      return []
+    }
+
     const conversations: Conversation[] = []
-
-    for (const convId of group.conversationIds) {
+    for (const convId of folder.conversationIds) {
       const conv = await db.get(CONVERSATIONS_STORE, convId)
       if (conv) {
         conversations.push(conv)
@@ -846,19 +1242,13 @@ class IndexedDBService {
     return conversations
   }
 
-  async getGroupByConversation(conversationId: string): Promise<Group | undefined> {
+  async getFolderByConversation(conversationId: string): Promise<Folder | undefined> {
     const db = await this.init()
-    const groups = await db.getAll(GROUPS_STORE)
-
-    for (const group of groups) {
-      if (group.conversationIds.includes(conversationId)) {
-        return group
-      }
-    }
-
-    return undefined
+    const folders = await db.getAll(FOLDERS_STORE)
+    
+    return folders.find(g => g.conversationIds.includes(conversationId))
   }
 }
 
 export const dbService = new IndexedDBService()
-export type { Conversation, Message, Group }
+export type { Message, Conversation, Folder, Branch }

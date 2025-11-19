@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext } from "react"
 import { useChat } from "./use-chat"
-import type { Conversation, Message, Group } from "@/lib/services/indexeddb"
+import type { Conversation, Message, Folder, Project } from "@/lib/services/indexeddb"
 
 interface ChatContextValue {
   conversations: Conversation[]
@@ -10,27 +10,35 @@ interface ChatContextValue {
   currentConversationId: string | null
   isLoading: boolean
   error: string | null
-  createConversation: () => Promise<string>
+  createConversation: (projectId?: string) => Promise<string>
   deleteConversation: (id: string) => Promise<void>
-  selectConversation: (id: string) => void
-  sendMessage: (content: string, files?: File[]) => Promise<void>
+  selectConversation: (id: string | null) => void
+  sendMessage: (content: string, files?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<Message | undefined>
   loadConversations: () => Promise<void>
   togglePinConversation: (id: string) => Promise<void>
   updateConversationTags: (id: string, tags: string[]) => Promise<void>
+  renameConversation: (id: string, newTitle: string) => Promise<void>
   getAllTags: () => Promise<string[]>
-  editMessage: (messageId: string, newContent: string, newAttachments?: File[]) => Promise<void>
+  editMessage: (messageId: string, newContent: string, newAttachments?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
-  // Groups
-  groups: Group[]
-  createGroup: (name: string, description?: string, conversationIds?: string[]) => Promise<Group>
-  updateGroup: (groupId: string, updates: Partial<Group>) => Promise<void>
-  deleteGroup: (groupId: string) => Promise<void>
-  addConversationToGroup: (groupId: string, conversationId: string) => Promise<void>
-  removeConversationFromGroup: (groupId: string, conversationId: string) => Promise<void>
-  loadGroups: () => Promise<void>
-  loadConversations: () => Promise<void>
+  // Folders
+  folders: Folder[]
+  createFolder: (name: string, description?: string, conversationIds?: string[]) => Promise<Folder>
+  updateFolder: (folderId: string, updates: Partial<Folder>) => Promise<void>
+  deleteFolder: (folderId: string) => Promise<void>
+  addConversationToFolder: (folderId: string, conversationId: string) => Promise<void>
+  removeConversationFromFolder: (folderId: string, conversationId: string) => Promise<void>
+  loadFolders: () => Promise<void>
+  // Projects
+  projects: Project[]
+  createProject: (name: string, description: string, instructions?: string, attachments?: File[]) => Promise<Project>
+  updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>
+  deleteProject: (projectId: string) => Promise<void>
+  loadProjects: () => Promise<void>
+  branchConversation: (messageId: string) => Promise<void>
+
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)

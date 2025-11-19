@@ -5,60 +5,111 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================
+   ENHANCED COLOR SYSTEM
+   Vibrant, modern palette with better contrast
+   ============================================ */
+
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 240 10% 3.9%;
+        /* Backgrounds */
+        --background: 0 0% 99%;
+        --foreground: 222 15% 12%;
+        
+        /* Card/Surface */
         --card: 0 0% 100%;
-        --card-foreground: 240 10% 3.9%;
+        --card-foreground: 222 15% 12%;
+        
+        /* Popover */
         --popover: 0 0% 100%;
-        --popover-foreground: 240 10% 3.9%;
-        --primary: 240 9% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 240 4.8% 95.9%;
-        --secondary-foreground: 240 5.9% 10%;
-        --muted: 240 4.8% 95.9%;
-        --muted-foreground: 240 3.8% 46.1%;
-        --accent: 240 4.8% 95.9%;
-        --accent-foreground: 240 5.9% 10%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 240 5.9% 90%;
-        --input: 240 5.9% 90%;
-        --ring: 240 10% 3.9%;
-        --radius: 0.5rem;
+        --popover-foreground: 222 15% 12%;
+        
+        /* Primary - Rich Purple-Blue */
+        --primary: 250 85% 60%;
+        --primary-foreground: 0 0% 100%;
+        
+        /* Secondary */
+        --secondary: 220 15% 96%;
+        --secondary-foreground: 222 15% 12%;
+        
+        /* Muted */
+        --muted: 220 15% 96%;
+        --muted-foreground: 220 10% 45%;
+        
+        /* Accent - Vibrant Teal */
+        --accent: 180 75% 55%;
+        --accent-foreground: 0 0% 100%;
+        
+        /* Destructive */
+        --destructive: 0 85% 60%;
+        --destructive-foreground: 0 0% 100%;
+        
+        /* Borders & Inputs */
+        --border: 220 15% 88%;
+        --input: 220 15% 88%;
+        --ring: 250 85% 60%;
+        
+        /* Radius */
+        --radius: 0.75rem;
     }
 
     .dark {
-        --background: 240 10% 3.9%;
+        /* Backgrounds - Deep OLED-friendly */
+        --background: 222 25% 8%;
         --foreground: 0 0% 98%;
-        --card: 240 10% 3.9%;
+        
+        /* Card/Surface */
+        --card: 222 20% 10%;
         --card-foreground: 0 0% 98%;
-        --popover: 240 10% 3.9%;
+        
+        /* Popover */
+        --popover: 222 20% 12%;
         --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 240 5.9% 10%;
-        --secondary: 240 3.7% 15.9%;
+        
+        /* Primary - Brighter in dark mode */
+        --primary: 250 90% 65%;
+        --primary-foreground: 0 0% 100%;
+        
+        /* Secondary */
+        --secondary: 222 20% 15%;
         --secondary-foreground: 0 0% 98%;
-        --muted: 240 3.7% 15.9%;
-        --muted-foreground: 240 5% 64.9%;
-        --accent: 240 3.7% 15.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 240 3.7% 15.9%;
-        --input: 240 3.7% 15.9%;
-        --ring: 240 4.9% 83.9%;
+        
+        /* Muted */
+        --muted: 222 20% 15%;
+        --muted-foreground: 220 10% 65%;
+        
+        /* Accent */
+        --accent: 180 80% 60%;
+        --accent-foreground: 0 0% 100%;
+        
+        /* Destructive */
+        --destructive: 0 75% 58%;
+        --destructive-foreground: 0 0% 100%;
+        
+        /* Borders & Inputs */
+        --border: 222 20% 20%;
+        --input: 222 20% 18%;
+        --ring: 250 90% 65%;
     }
 }
 
+/* ============================================
+   BASE STYLES WITH SMOOTH TRANSITIONS
+   ============================================ */
+
 @layer base {
     * {
-        border-color: hsl(var(--border));
+        @apply border-border outline-ring/50;
     }
+    
     body {
-        background: hsl(var(--background));
-        color: hsl(var(--foreground));
+        @apply bg-background text-foreground antialiased;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+    
+    /* Smooth transitions for interactive elements */
+    button, a, [role="button"] {
+        @apply transition-colors duration-200 ease-out;
     }
 }
 
@@ -197,6 +248,114 @@
         opacity: 0;
     }
 }
+
+/* ============================================
+   MODERN UI ANIMATIONS
+   Smooth entrance and interaction effects
+   ============================================ */
+
+@keyframes fade-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ============================================
+   TYPOGRAPHY SYSTEM
+   Consistent text hierarchy
+   ============================================ */
+
+@layer utilities {
+    .text-display {
+        @apply text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight;
+    }
+    
+    .text-heading {
+        @apply text-2xl md:text-3xl font-semibold tracking-tight;
+    }
+    
+    .text-title {
+        @apply text-xl md:text-2xl font-semibold;
+    }
+    
+    .text-body {
+        @apply text-base leading-relaxed;
+    }
+    
+    .text-label {
+        @apply text-sm font-medium;
+    }
+    
+    .text-caption {
+        @apply text-xs text-muted-foreground;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   Reusable components for modern UI
+   ============================================ */
+
+@layer utilities {
+    /* Interactive elements with smooth scale */
+    .interactive {
+        @apply transition-all duration-200 hover:scale-[1.02] active:scale-[0.98];
+    }
+    
+    /* Glassmorphism effect */
+    .glass {
+        @apply backdrop-blur-xl bg-background/80 border border-border/50;
+    }
+    
+    /* Card hover effect */
+    .card-hover {
+        @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    }
+    
+    /* Smooth fade entrance */
+    .animate-fade-slide-up {
+        animation: fade-slide-up 0.3s ease-out;
+    }
+    
+    .animate-fade-slide-down {
+        animation: fade-slide-down 0.3s ease-out;
+    }
+    
+    .animate-scale-in {
+        animation: scale-in 0.2s ease-out;
+    }
+}
+
+/* ============================================
+   LEGACY VARIABLES (Can be removed eventually)
+   ============================================ */
 
 :root {
     --sidebar: oklch(0.985 0 0);
