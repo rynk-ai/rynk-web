@@ -199,3 +199,12 @@ export async function getEmbeddingsByConversations(conversationIds: string[]) {
   
   return cloudDb.getEmbeddingsByConversationIds(conversationIds)
 }
+
+export async function branchConversation(conversationId: string, messageId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  const newConversation = await cloudDb.branchConversation(conversationId, messageId)
+  revalidatePath('/')
+  return newConversation
+}

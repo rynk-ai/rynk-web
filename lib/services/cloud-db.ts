@@ -396,5 +396,100 @@ export const cloudDb = {
       ...(result as any),
       vector: JSON.parse((result as any).vector)
     } as CloudEmbedding
+  },
+
+  async branchConversation(sourceConversationId: string, branchFromMessageId: string) {
+    const db = getDB()
+    
+    // 1. Get source conversation
+    const sourceConversation = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(sourceConversationId).first()
+    if (!sourceConversation) {
+      throw new Error(`Source conversation ${sourceConversationId} not found`)
+    }
+
+    const sourcePath = JSON.parse(sourceConversation.path as string || '[]') as string[]
+    const branchPointIndex = sourcePath.indexOf(branchFromMessageId)
+    
+    if (branchPointIndex === -1) {
+      throw new Error('Branch point message not found in conversation path')
+    }
+
+    // 2. Get messages to copy
+    const messageIdsToCopy = sourcePath.slice(0, branchPointIndex + 1)
+    
+    // 3. Create new conversation
+    const newConversationId = crypto.randomUUID()
+    const userId = sourceConversation.userId as string
+    const now = Date.now()
+    const newTitle = `Branch: ${sourceConversation.title}`
+    
+    // 4. Copy messages
+    const newPath: string[] = []
+    
+    // We need to fetch all messages to copy first
+    // Optimization: Fetch all in one query if possible, or loop
+    // D1 doesn't support WHERE IN with array binding easily in one go without constructing query string
+    // Let's fetch one by one or fetch all from conversation and filter (better if conversation isn't huge)
+    const allSourceMessages = await db.prepare('SELECT * FROM messages WHERE conversationId = ?').bind(sourceConversationId).all()
+    const sourceMsgMap = new Map(allSourceMessages.results.map((m: any) => [m.id as string, m]))
+
+    const batch = []
+
+    for (const oldMsgId of messageIdsToCopy) {
+      const oldMsg = sourceMsgMap.get(oldMsgId)
+      if (!oldMsg) continue
+
+      const newMsgId = crypto.randomUUID()
+      newPath.push(newMsgId)
+
+      batch.push(
+        db.prepare(
+          'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+          newMsgId,
+          newConversationId,
+          oldMsg.role,
+          oldMsg.content,
+          oldMsg.attachments, // Keep original attachments (JSON string)
+          oldMsg.referencedConversations,
+          oldMsg.referencedFolders,
+          now,
+          now
+        )
+      )
+    }
+
+    // Insert new conversation
+    batch.push(
+      db.prepare(
+        'INSERT INTO conversations (id, userId, projectId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        newConversationId,
+        userId,
+        sourceConversation.projectId,
+        newTitle,
+        JSON.stringify(newPath),
+        sourceConversation.tags, // Copy tags
+        0, // Not pinned
+        '[]', // No branches initially
+        now,
+        now
+      )
+    )
+
+    await db.batch(batch)
+
+    return {
+      id: newConversationId,
+      userId,
+      projectId: sourceConversation.projectId,
+      title: newTitle,
+      path: newPath,
+      tags: JSON.parse(sourceConversation.tags as string || '[]'),
+      isPinned: false,
+      branches: [],
+      createdAt: now,
+      updatedAt: now
+    }
   }
 }

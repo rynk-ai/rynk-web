@@ -23,7 +23,8 @@ import {
   createProject as createProjectAction,
   updateProject as updateProjectAction,
   deleteProject as deleteProjectAction,
-  getEmbeddingsByConversations
+  getEmbeddingsByConversations,
+  branchConversation as branchConversationAction
 } from "@/app/actions"
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
@@ -120,10 +121,63 @@ export function useChat() {
       const messages = await getMessagesAction(conversationId)
       
       // Convert to OpenRouter format
-      let apiMessages: ApiMessage[] = messages.map(m => ({
-        role: m.role,
-        content: m.content
-      }))
+      // We need to resolve all promises for base64 conversion
+      let apiMessages: ApiMessage[] = await Promise.all(messages.map(async (m) => {
+        // If message has attachments (images), format as multimodal content
+        if (m.attachments && m.attachments.length > 0) {
+          const content: any[] = [
+            { type: 'text', text: m.content }
+          ];
+          
+          await Promise.all(m.attachments.map(async (att: any) => {
+            // Check if it's an image based on type or extension
+            const isImage = att.type?.startsWith('image/') || 
+                           att.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+            
+            if (isImage && att.url) {
+              try {
+                // Fetch the image and convert to base64
+                // This works for both local dev and prod because the browser fetches it
+                const response = await fetch(att.url);
+                const blob = await response.blob();
+                
+                // Convert blob to base64
+                const base64 = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+                
+                content.push({
+                  type: 'image_url',
+                  image_url: {
+                    url: base64 // Pass the base64 data URL directly
+                  }
+                });
+              } catch (err) {
+                console.error('Failed to convert image to base64 for AI:', err);
+                // Fallback to URL if fetch fails (though unlikely if it's our own API)
+                content.push({
+                  type: 'image_url',
+                  image_url: {
+                    url: att.url
+                  }
+                });
+              }
+            }
+          }));
+          
+          return {
+            role: m.role,
+            content: content
+          };
+        }
+        
+        return {
+          role: m.role,
+          content: m.content
+        };
+      }));
 
       // Check if last user message has referenced conversations or folders
       const lastUserMessage = messages.filter(m => m.role === 'user').pop()
@@ -389,9 +443,35 @@ export function useChat() {
     referencedConversations?: { id: string; title: string }[],
     referencedFolders?: { id: string; name: string }[]
   ) => {
-    // TODO: Implement editMessage action
-    console.log('Edit message not implemented yet')
-  }, [])
+    try {
+      // Handle attachment uploads if any
+      let uploadedAttachments: any[] = []
+      if (newAttachments && newAttachments.length > 0) {
+        uploadedAttachments = await Promise.all(newAttachments.map(async (file) => {
+          const formData = new FormData()
+          formData.append('file', file)
+          return await uploadFileAction(formData)
+        }))
+      }
+
+      const updates: any = {
+        content: newContent,
+        referencedConversations,
+        referencedFolders
+      }
+
+      if (uploadedAttachments.length > 0) {
+        updates.attachments = uploadedAttachments
+      }
+
+      await updateMessageAction(messageId, updates)
+      await loadConversations()
+    } catch (err) {
+      console.error('Failed to edit message:', err)
+      setError('Failed to edit message')
+      throw err
+    }
+  }, [loadConversations])
 
 
   const deleteMessage = useCallback(async (messageId: string) => {
@@ -531,9 +611,17 @@ export function useChat() {
   }, [loadProjects, loadConversations])
 
   const branchConversation = useCallback(async (messageId: string) => {
-    // TODO: Implement branchConversation action
-    console.log('Branch conversation not implemented yet')
-  }, [])
+    try {
+      const newConversation = await branchConversationAction(currentConversationId!, messageId)
+      await loadConversations()
+      setCurrentConversationId(newConversation.id)
+      return newConversation.id
+    } catch (err) {
+      console.error('Failed to branch conversation:', err)
+      setError('Failed to branch conversation')
+      throw err
+    }
+  }, [currentConversationId, loadConversations])
 
   const getMessages = useCallback(async (conversationId: string) => {
     try {
