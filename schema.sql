@@ -108,9 +108,27 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
+-- Embeddings for semantic search
+CREATE TABLE IF NOT EXISTS embeddings (
+  id TEXT PRIMARY KEY,
+  messageId TEXT NOT NULL UNIQUE,
+  conversationId TEXT NOT NULL,
+  userId TEXT NOT NULL,
+  content TEXT NOT NULL,
+  vector TEXT NOT NULL, -- JSON array of floats
+  timestamp INTEGER,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (messageId) REFERENCES messages(id) ON DELETE CASCADE,
+  FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_message_conversation ON messages(conversationId);
 CREATE INDEX IF NOT EXISTS idx_conversation_user ON conversations(userId);
 CREATE INDEX IF NOT EXISTS idx_conversation_project ON conversations(projectId);
 CREATE INDEX IF NOT EXISTS idx_folder_user ON folders(userId);
 CREATE INDEX IF NOT EXISTS idx_project_user ON projects(userId);
+CREATE INDEX IF NOT EXISTS idx_embedding_message ON embeddings(messageId);
+CREATE INDEX IF NOT EXISTS idx_embedding_conversation ON embeddings(conversationId);
+CREATE INDEX IF NOT EXISTS idx_embedding_user ON embeddings(userId);

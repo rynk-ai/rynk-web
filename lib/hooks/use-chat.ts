@@ -22,10 +22,12 @@ import {
   getProjects as getProjectsAction,
   createProject as createProjectAction,
   updateProject as updateProjectAction,
-  deleteProject as deleteProjectAction
+  deleteProject as deleteProjectAction,
+  getEmbeddingsByConversations
 } from "@/app/actions"
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
+import { searchEmbeddings } from "@/lib/utils/vector"
 import {
   filesToBase64,
   fileToBase64,
@@ -118,10 +120,100 @@ export function useChat() {
       const messages = await getMessagesAction(conversationId)
       
       // Convert to OpenRouter format
-      const apiMessages: ApiMessage[] = messages.map(m => ({
+      let apiMessages: ApiMessage[] = messages.map(m => ({
         role: m.role,
         content: m.content
       }))
+
+      // Check if last user message has referenced conversations or folders
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop()
+      if (lastUserMessage) {
+        const hasReferences = (lastUserMessage.referencedConversations?.length ?? 0) > 0 ||
+                             (lastUserMessage.referencedFolders?.length ?? 0) > 0
+        
+        if (hasReferences) {
+          console.log('🔍 Using semantic search for context retrieval...')
+          
+          try {
+            // 1. Generate embedding for user query
+            const openrouter = getOpenRouter()
+            const queryEmbedding = await openrouter.getEmbeddings(lastUserMessage.content)
+            
+            // 2. Collect all conversation IDs to search
+            const conversationIds: string[] = []
+            
+            if (lastUserMessage.referencedConversations) {
+              conversationIds.push(...lastUserMessage.referencedConversations.map(r => r.id))
+            }
+            
+            if (lastUserMessage.referencedFolders) {
+              for (const folderRef of lastUserMessage.referencedFolders) {
+                const allFolders = await getFoldersAction()
+                const folder = allFolders.find(f => f.id === folderRef.id)
+                if (folder?.conversationIds) {
+                  conversationIds.push(...folder.conversationIds.slice(0, 5)) // Max 5 conversations per folder
+                }
+              }
+            }
+            
+            if (conversationIds.length > 0) {
+              // 3. Fetch all embeddings for these conversations
+              const embeddings = await getEmbeddingsByConversations(conversationIds)
+              
+              if (embeddings.length > 0) {
+                // 4. Perform semantic search
+                const relevantMessages = searchEmbeddings(queryEmbedding, embeddings, {
+                  limit: 15, // Top 15 most relevant messages
+                  minScore: 0.35 // Only include messages with >35% similarity
+                })
+                
+                console.log(`✅ Found ${relevantMessages.length} semantically relevant messages (scores: ${relevantMessages.map(r => (r.score * 100).toFixed(0) + '%').join(', ')})`)
+                
+                // 5. Build context from relevant messages
+                if (relevantMessages.length > 0) {
+                  let contextText = ''
+                  
+                  // Group by conversation for better organization
+                  const byConversation = new Map<string, typeof relevantMessages>()
+                  for (const result of relevantMessages) {
+                    if (!byConversation.has(result.conversationId)) {
+                      byConversation.set(result.conversationId, [])
+                    }
+                    byConversation.get(result.conversationId)!.push(result)
+                  }
+                  
+                  // Format context
+                  for (const [convId, results] of byConversation) {
+                    const allConvs = await getConversations()
+                    const convTitle = allConvs.find(c => c.id === convId)?.title || 'Untitled'
+                    
+                    contextText += `\n### From: "${convTitle}"\n\n`
+                    for (const result of results) {
+                      const preview = result.content.length > 400 
+                        ? result.content.slice(0, 400) + '...' 
+                        : result.content
+                      contextText += `- (${(result.score * 100).toFixed(0)}% relevant) ${preview}\n\n`
+                    }
+                  }
+                  
+                  const contextMessage: ApiMessage = {
+                    role: 'system',
+                    content: `Here are the most relevant messages from the referenced conversations (ordered by semantic relevance to the user's question). Use this context to provide an accurate answer:\n${contextText}`
+                  }
+                  
+                  apiMessages = [contextMessage, ...apiMessages]
+                  console.log(`✅ Added semantic context to prompt (${relevantMessages.length} messages from ${byConversation.size} conversations)`)
+                }
+              } else {
+                console.log('ℹ️ No embeddings found for referenced conversations (embeddings may not be generated yet)')
+              }
+            }
+          } catch (err) {
+            console.error('❌ Semantic search failed:', err)
+            console.log('⚠️ Continuing without context')
+          }
+        }
+      }
 
       // Create placeholder assistant message
       const assistantMsg = await addMessageAction(conversationId, {
@@ -215,7 +307,8 @@ export function useChat() {
         attachments: uploadedAttachments,
         referencedConversations,
         referencedFolders
-      })
+      });
+
 
       await loadConversations()
 

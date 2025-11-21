@@ -184,3 +184,18 @@ export async function getUserCredits() {
   return await cloudDb.getUserCredits(session.user.id)
 }
 
+// --- Embeddings ---
+
+export async function addEmbedding(messageId: string, conversationId: string, content: string, vector: number[]) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  return cloudDb.addEmbedding(messageId, conversationId, session.user.id, content, vector)
+}
+
+export async function getEmbeddingsByConversations(conversationIds: string[]) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  return cloudDb.getEmbeddingsByConversationIds(conversationIds)
+}

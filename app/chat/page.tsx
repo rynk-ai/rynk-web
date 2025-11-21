@@ -627,6 +627,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     renameConversation,
     branchConversation,
     getMessages,
+    conversations,
+    folders,
   } = useChatContext();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -673,21 +675,31 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .map(c => ({ id: c.id, name: c.title }));
 
       const newMessage = await sendMessage(text, files, referencedConversations, referencedFolders);
-      
-       // Generate embedding for the new message in background
-       // TODO: Migrate embeddings to Vectorize/D1
-       /*
-       if (newMessage && newMessage.role === 'user') {
-          getOpenRouter().getEmbeddings(newMessage.content).then(embedding => {
-             dbService.addEmbedding({
-               messageId: newMessage.id,
-               conversationId: newMessage.conversationId,
-               content: newMessage.content,
-               vector: embedding
-             }).catch(err => console.error("Failed to save embedding:", err));
-          }).catch(err => console.error("Failed to generate embedding:", err));
+       
+       // Generate embedding for semantic search (async, don't block UI)
+       // Note: This only runs client-side, but embeddings can also be generated server-side
+       if (text.trim() && currentConversationId) {
+         const { getOpenRouter } = await import('@/lib/services/openrouter')
+         const { addEmbedding } = await import('@/app/actions')
+         
+         // Get the message we just sent
+         const messages = await getMessages(currentConversationId)
+         const justSentMessage = messages[messages.length - 1]
+         
+         if (justSentMessage && justSentMessage.role === 'user') {
+           getOpenRouter()
+             .getEmbeddings(text)
+             .then(embedding => {
+               return addEmbedding(justSentMessage.id, currentConversationId!, text, embedding)
+             })
+             .then(() => {
+               console.log('✅ Embedding generated for message')
+             })
+             .catch(err => {
+               console.warn('⚠️ Failed to generate embedding:', err)
+             })
+         }
        }
-       */
       
       setContext([]); // Clear context after sending
     } finally {
@@ -1025,6 +1037,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                       <ContextPicker
                         selectedItems={editContext}
                         onSelectionChange={setEditContext}
+                        conversations={conversations}
+                        folders={folders}
                         currentConversationId={currentConversationId}
                         trigger={
                           <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground">
@@ -1068,7 +1082,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 <div key={i} className="relative group/file">
                   {file.type.startsWith('image/') ? (
                     <div className="relative rounded-lg overflow-hidden border border-border/50 shadow-sm">
-                      <img src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-auto object-cover transition-transform hover:scale-105" />
+                      <img 
+                        src={file instanceof File ? URL.createObjectURL(file) : file.url} 
+                        alt={file.name} 
+                        className="h-20 w-auto object-cover transition-transform hover:scale-105" 
+                      />
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 bg-muted/50 border border-border/50 px-3 py-2 rounded-lg text-xs text-muted-foreground">
@@ -1182,6 +1200,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             context={context}
             onContextChange={setContext}
             currentConversationId={currentConversationId}
+            conversations={conversations}
+            folders={folders}
           />
         </div>
 

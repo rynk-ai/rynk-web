@@ -6,7 +6,7 @@ export const runtime = 'edge'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ key: string }> }
+  { params }: { params: Promise<{ key: string[] }> }
 ) {
   const { key } = await params
   const session = await auth()
@@ -14,7 +14,8 @@ export async function GET(
     return new NextResponse("Unauthorized", { status: 401 })
   }
 
-  const object = await cloudStorage.getFile(key)
+  const fileKey = key.join('/')
+  const object = await cloudStorage.getFile(fileKey)
 
   if (!object) {
     return new NextResponse("File not found", { status: 404 })

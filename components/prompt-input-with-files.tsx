@@ -28,6 +28,8 @@ type PromptInputWithFilesProps = {
   context?: ContextItem[];
   onContextChange?: (context: ContextItem[]) => void;
   currentConversationId?: string | null;
+  conversations?: any[];
+  folders?: any[];
 };
 
 export function PromptInputWithFiles({
@@ -39,6 +41,8 @@ export function PromptInputWithFiles({
   context = [],
   onContextChange,
   currentConversationId,
+  conversations = [],
+  folders = [],
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -265,6 +269,8 @@ export function PromptInputWithFiles({
                 <ContextPicker
                   selectedItems={context}
                   onSelectionChange={onContextChange || (() => {})}
+                  conversations={conversations}
+                  folders={folders}
                   currentConversationId={currentConversationId}
                   tooltip="Add Context"
                   trigger={

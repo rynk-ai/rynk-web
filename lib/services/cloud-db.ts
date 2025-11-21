@@ -52,6 +52,18 @@ export interface Project {
   updatedAt: number
 }
 
+export interface CloudEmbedding {
+  id: string
+  messageId: string
+  conversationId: string
+  userId: string
+  content: string
+  vector: number[]
+  timestamp: number
+  createdAt: string
+}
+
+
 export const cloudDb = {
   async getUser(email: string) {
     const db = getDB()
@@ -345,5 +357,44 @@ export const cloudDb = {
   async deleteProject(projectId: string) {
     const db = getDB()
     await db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId).run()
+  },
+
+  // --- Embeddings ---
+
+  async addEmbedding(messageId: string, conversationId: string, userId: string, content: string, vector: number[]) {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const timestamp = Date.now()
+    
+    await db.prepare(
+      'INSERT INTO embeddings (id, messageId, conversationId, userId, content, vector, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, messageId, conversationId, userId, content, JSON.stringify(vector), timestamp).run()
+  },
+
+  async getEmbeddingsByConversationIds(conversationIds: string[]): Promise<CloudEmbedding[]> {
+    if (conversationIds.length === 0) return []
+    
+    const db = getDB()
+    const placeholders = conversationIds.map(() => '?').join(',')
+    const result = await db.prepare(
+      `SELECT * FROM embeddings WHERE conversationId IN (${placeholders}) ORDER BY timestamp DESC`
+    ).bind(...conversationIds).all()
+
+    return result.results.map((row: any) => ({
+      ...row,
+      vector: JSON.parse(row.vector as string)
+    })) as CloudEmbedding[]
+  },
+
+  async getEmbeddingByMessageId(messageId: string): Promise<CloudEmbedding | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM embeddings WHERE messageId = ?').bind(messageId).first()
+
+    if (!result) return null
+
+    return {
+      ...(result as any),
+      vector: JSON.parse((result as any).vector)
+    } as CloudEmbedding
   }
 }
