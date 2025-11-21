@@ -41,7 +41,7 @@ class OpenRouterService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
+      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any
       throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
     }
 
@@ -105,11 +105,11 @@ class OpenRouterService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
+      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any
       throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = await response.json() as any
     return data.choices?.[0]?.message?.content || ''
   }
 
@@ -123,11 +123,11 @@ class OpenRouterService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
+      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any
       throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = await response.json() as any
     return data.embedding
   }
 }

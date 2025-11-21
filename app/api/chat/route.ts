@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
-    const { messages, stream = true } = await request.json();
+    const { messages, stream = true } = await request.json() as { messages: any[]; stream?: boolean }
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const error = await response
         .json()
-        .catch(() => ({ error: { message: "Unknown error" } }));
+        .catch(() => ({ error: { message: "Unknown error" } })) as any;
       return new Response(
         JSON.stringify({
           error:

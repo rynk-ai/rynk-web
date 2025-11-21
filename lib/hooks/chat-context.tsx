@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext } from "react"
 import { useChat } from "./use-chat"
-import type { Conversation, Message, Folder, Project } from "@/lib/services/indexeddb"
+import type { CloudConversation as Conversation, CloudMessage as Message, Folder, Project } from "@/lib/services/cloud-db"
 
 interface ChatContextValue {
   conversations: Conversation[]
@@ -23,6 +23,7 @@ interface ChatContextValue {
   deleteMessage: (messageId: string) => Promise<void>
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
+  getMessages: (conversationId: string) => Promise<Message[]>
   // Folders
   folders: Folder[]
   createFolder: (name: string, description?: string, conversationIds?: string[]) => Promise<Folder>

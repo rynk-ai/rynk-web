@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
-    const { text } = await request.json();
+    const { text } = await request.json() as { text: string }
 
     if (!text) {
       return new Response(
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const error = await response
         .json()
-        .catch(() => ({ error: { message: "Unknown error" } }));
+        .catch(() => ({ error: { message: "Unknown error" } })) as any;
       return new Response(
         JSON.stringify({
           error:
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     
     // OpenRouter/OpenAI response format: { data: [{ embedding: [...] }] }
     const embedding = data.data?.[0]?.embedding;

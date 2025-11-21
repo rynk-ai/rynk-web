@@ -16,10 +16,10 @@ import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
 import { useChatContext } from "@/lib/hooks/chat-context";
 import { ChatProvider } from "@/lib/hooks/chat-context";
 import type {
-  Message as ChatMessage,
-  Conversation,
+  CloudMessage as ChatMessage,
+  CloudConversation as Conversation,
   Folder,
-} from "@/lib/services/indexeddb";
+} from "@/lib/services/cloud-db";
 import { TagDialog } from "@/components/tag-dialog";
 import { SearchDialog } from "@/components/search-dialog";
 import { AddToFolderDialog } from "@/components/add-to-folder-dialog";
@@ -619,6 +619,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     isLoading: contextIsLoading,
     renameConversation,
     branchConversation,
+    getMessages,
   } = useChatContext();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -666,17 +667,20 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const newMessage = await sendMessage(text, files, referencedConversations, referencedFolders);
       
-      // Generate embedding for the new message in background
-      if (newMessage && newMessage.role === 'user') {
-         getOpenRouter().getEmbeddings(newMessage.content).then(embedding => {
-            dbService.addEmbedding({
-              messageId: newMessage.id,
-              conversationId: newMessage.conversationId,
-              content: newMessage.content,
-              vector: embedding
-            }).catch(err => console.error("Failed to save embedding:", err));
-         }).catch(err => console.error("Failed to generate embedding:", err));
-      }
+       // Generate embedding for the new message in background
+       // TODO: Migrate embeddings to Vectorize/D1
+       /*
+       if (newMessage && newMessage.role === 'user') {
+          getOpenRouter().getEmbeddings(newMessage.content).then(embedding => {
+             dbService.addEmbedding({
+               messageId: newMessage.id,
+               conversationId: newMessage.conversationId,
+               content: newMessage.content,
+               vector: embedding
+             }).catch(err => console.error("Failed to save embedding:", err));
+          }).catch(err => console.error("Failed to generate embedding:", err));
+       }
+       */
       
       setContext([]); // Clear context after sending
     } finally {
@@ -791,9 +795,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       console.log("🔍 Path:", currentConversation.path);
 
       try {
-        const loadedMessages = await dbService.getConversationMessages(
-          currentConversation.id,
-        );
+        const loadedMessages = await getMessages(currentConversation.id);
         console.log("✅ Loaded", loadedMessages.length, "messages");
         setMessages(loadedMessages);
 
