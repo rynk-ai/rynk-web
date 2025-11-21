@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { dbService, type Folder, type Conversation } from "@/lib/services/indexeddb"
+import { useChatContext } from "@/lib/hooks/chat-context"
+import type { CloudConversation as Conversation, Folder } from "@/lib/services/cloud-db"
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ export function FolderDialog({
   currentFolder,
   allConversations,
 }: FolderDialogProps) {
+  const { createFolder, updateFolder } = useChatContext()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([])
@@ -66,15 +68,22 @@ export function FolderDialog({
 
       if (currentFolder) {
         // Update existing folder
-        await dbService.updateFolder(currentFolder.id, {
+        await updateFolder(currentFolder.id, {
           name,
           description,
           conversationIds: selectedConversationIds,
         })
-        folder = await dbService.getFolder(currentFolder.id) as Folder
+        // Mock the folder object for onSave callback
+        folder = {
+          ...currentFolder,
+          name,
+          description,
+          conversationIds: selectedConversationIds,
+          updatedAt: Date.now()
+        } as Folder
       } else {
         // Create new folder
-        folder = await dbService.createFolder(name, description, selectedConversationIds)
+        folder = await createFolder(name, description, selectedConversationIds)
       }
 
       onSave(folder)

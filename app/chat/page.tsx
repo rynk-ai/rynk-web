@@ -70,6 +70,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
+import { UserProfileDropdown } from "@/components/user-profile-dropdown";
+
 
 interface ChatSidebarProps {
   onConversationSelect?: () => void;
@@ -247,6 +249,11 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
 
   return (
     <div className="flex h-full w-full md:w-72 lg:w-80 flex-col border-r bg-card">
+      {/* User Profile Section */}
+      <div className="border-b">
+        <UserProfileDropdown />
+      </div>
+      
       <div className="flex flex-col gap-2 p-3">
         <div className="flex gap-2">
           <Button

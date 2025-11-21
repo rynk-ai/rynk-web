@@ -82,8 +82,7 @@ export function useChat() {
 
   const createConversation = useCallback(async (projectId?: string) => {
     try {
-      const conversation = await createConversationAction()
-      // TODO: Handle projectId if supported in action
+      const conversation = await createConversationAction(projectId)
       await loadConversations()
       setCurrentConversationId(conversation.id)
       return conversation.id
@@ -110,10 +109,8 @@ export function useChat() {
 
   const selectConversation = useCallback((id: string | null) => {
     setCurrentConversationId(id)
-    if (id) {
-      loadConversations()
-    }
-  }, [loadConversations])
+    // No need to reload conversations on selection - data hasn't changed
+  }, [])
 
   const generateAIResponse = useCallback(async (conversationId: string) => {
     try {

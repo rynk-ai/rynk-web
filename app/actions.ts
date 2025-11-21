@@ -11,10 +11,10 @@ export async function getConversations() {
   return await cloudDb.getConversations(session.user.id)
 }
 
-export async function createConversation() {
+export async function createConversation(projectId?: string) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
-  const conv = await cloudDb.createConversation(session.user.id)
+  const conv = await cloudDb.createConversation(session.user.id, undefined, projectId)
   revalidatePath('/')
   return conv
 }
@@ -177,3 +177,10 @@ export async function deleteProject(projectId: string) {
   await cloudDb.deleteProject(projectId)
   revalidatePath('/')
 }
+
+export async function getUserCredits() {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("Unauthorized")
+  return await cloudDb.getUserCredits(session.user.id)
+}
+

@@ -55,19 +55,19 @@ export interface Project {
 export const cloudDb = {
   async getUser(email: string) {
     const db = getDB()
-    return await db.prepare('SELECT * FROM User WHERE email = ?').bind(email).first()
+    return await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first()
   },
 
   async createUser(email: string, name?: string, image?: string) {
     const db = getDB()
     const id = crypto.randomUUID()
-    await db.prepare('INSERT INTO User (id, email, name, image) VALUES (?, ?, ?, ?)').bind(id, email, name, image).run()
+    await db.prepare('INSERT INTO users (id, email, name, image) VALUES (?, ?, ?, ?)').bind(id, email, name, image).run()
     return id
   },
 
   async getConversations(userId: string) {
     const db = getDB()
-    const results = await db.prepare('SELECT * FROM Conversation WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
+    const results = await db.prepare('SELECT * FROM conversations WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
     return results.results.map((c: any) => ({
       ...c,
       path: JSON.parse(c.path as string || '[]'),
@@ -77,28 +77,28 @@ export const cloudDb = {
     })) as CloudConversation[]
   },
 
-  async createConversation(userId: string, title: string = 'New Conversation') {
+  async createConversation(userId: string, title: string = 'New Conversation', projectId?: string) {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = Date.now()
     await db.prepare(
-      'INSERT INTO Conversation (id, userId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, userId, title, '[]', '[]', 0, '[]', now, now).run()
+      'INSERT INTO conversations (id, userId, projectId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, userId, projectId || null, title, '[]', '[]', 0, '[]', now, now).run()
     
-    return { id, userId, title, path: [], tags: [], isPinned: false, branches: [], createdAt: now, updatedAt: now }
+    return { id, userId, projectId, title, path: [], tags: [], isPinned: false, branches: [], createdAt: now, updatedAt: now }
   },
 
   async getMessages(conversationId: string) {
     const db = getDB()
     // First get conversation to know the path
-    const conversation = await db.prepare('SELECT path FROM Conversation WHERE id = ?').bind(conversationId).first()
+    const conversation = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
     if (!conversation) return []
     
     const path = JSON.parse(conversation.path as string || '[]') as string[]
     if (path.length === 0) return []
 
     // Get messages in the path
-    const messages = await db.prepare('SELECT * FROM Message WHERE conversationId = ?').bind(conversationId).all()
+    const messages = await db.prepare('SELECT * FROM messages WHERE conversationId = ?').bind(conversationId).all()
     
     const msgMap = new Map(messages.results.map((m: any) => [m.id as string, m]))
     
@@ -123,7 +123,7 @@ export const cloudDb = {
     
     // 1. Insert Message
     await db.prepare(
-      'INSERT INTO Message (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       id, 
       conversationId, 
@@ -137,11 +137,11 @@ export const cloudDb = {
     ).run()
 
     // 2. Update Conversation Path
-    const conversation = await db.prepare('SELECT path FROM Conversation WHERE id = ?').bind(conversationId).first()
+    const conversation = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
     const path = JSON.parse(conversation?.path as string || '[]') as string[]
     path.push(id)
     
-    await db.prepare('UPDATE Conversation SET path = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), now, conversationId).run()
+    await db.prepare('UPDATE conversations SET path = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), now, conversationId).run()
 
     return { ...message, id, timestamp: now }
   },
@@ -157,7 +157,7 @@ export const cloudDb = {
       return (typeof val === 'object') ? JSON.stringify(val) : val
     })
     
-    await db.prepare(`UPDATE Message SET ${setClause} WHERE id = ?`).bind(...values, messageId).run()
+    await db.prepare(`UPDATE messages SET ${setClause} WHERE id = ?`).bind(...values, messageId).run()
   },
 
   async updateConversation(conversationId: string, updates: any) {
@@ -172,13 +172,13 @@ export const cloudDb = {
     })
     
     // Always update updatedAt
-    await db.prepare(`UPDATE Conversation SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), conversationId).run()
+    await db.prepare(`UPDATE conversations SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), conversationId).run()
   },
 
   async updateCredits(userId: string, amount: number) {
     const db = getDB()
     // amount can be negative to deduct
-    await db.prepare('UPDATE User SET credits = credits + ? WHERE id = ?').bind(amount, userId).run()
+    await db.prepare('UPDATE users SET credits = credits + ? WHERE id = ?').bind(amount, userId).run()
   },
 
   async deleteConversation(conversationId: string) {
@@ -186,13 +186,13 @@ export const cloudDb = {
     // Delete conversation (cascade should handle messages if set up, but D1 foreign keys might need explicit enable)
     // PRAGMA foreign_keys = ON; is needed in D1 usually, or we delete manually.
     // Let's delete manually to be safe.
-    await db.prepare('DELETE FROM Message WHERE conversationId = ?').bind(conversationId).run()
-    await db.prepare('DELETE FROM Conversation WHERE id = ?').bind(conversationId).run()
+    await db.prepare('DELETE FROM messages WHERE conversationId = ?').bind(conversationId).run()
+    await db.prepare('DELETE FROM conversations WHERE id = ?').bind(conversationId).run()
   },
   
   async getUserCredits(userId: string) {
     const db = getDB()
-    const user = await db.prepare('SELECT credits FROM User WHERE id = ?').bind(userId).first()
+    const user = await db.prepare('SELECT credits FROM users WHERE id = ?').bind(userId).first()
     return user?.credits as number || 0
   },
 
@@ -202,26 +202,26 @@ export const cloudDb = {
     // This is expensive as we need to find which conversation has this message
     // A better schema would have conversationId indexed on Message (which we do)
     // So we can find the conversationId from the message
-    const message = await db.prepare('SELECT conversationId FROM Message WHERE id = ?').bind(messageId).first()
+    const message = await db.prepare('SELECT conversationId FROM messages WHERE id = ?').bind(messageId).first()
     if (!message) return
 
     const conversationId = message.conversationId as string
     
     // Remove from Message table
-    await db.prepare('DELETE FROM Message WHERE id = ?').bind(messageId).run()
+    await db.prepare('DELETE FROM messages WHERE id = ?').bind(messageId).run()
 
     // Update Conversation path
-    const conversation = await db.prepare('SELECT path FROM Conversation WHERE id = ?').bind(conversationId).first()
+    const conversation = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
     if (conversation) {
       let path = JSON.parse(conversation.path as string || '[]') as string[]
       path = path.filter(id => id !== messageId)
-      await db.prepare('UPDATE Conversation SET path = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), Date.now(), conversationId).run()
+      await db.prepare('UPDATE conversations SET path = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), Date.now(), conversationId).run()
     }
   },
 
   async getAllTags(userId: string) {
     const db = getDB()
-    const results = await db.prepare('SELECT tags FROM Conversation WHERE userId = ?').bind(userId).all()
+    const results = await db.prepare('SELECT tags FROM conversations WHERE userId = ?').bind(userId).all()
     const tags = new Set<string>()
     results.results.forEach((r: any) => {
       const t = JSON.parse(r.tags as string || '[]') as string[]
@@ -234,18 +234,31 @@ export const cloudDb = {
 
   async getFolders(userId: string) {
     const db = getDB()
-    const folders = await db.prepare('SELECT * FROM Folder WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
+    const folders = await db.prepare('SELECT * FROM folders WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
     
-    // For each folder, get conversation IDs
-    const result = []
-    for (const folder of folders.results) {
-      const convs = await db.prepare('SELECT conversationId FROM FolderConversation WHERE folderId = ?').bind(folder.id).all()
-      result.push({
-        ...folder,
-        conversationIds: convs.results.map((c: any) => c.conversationId)
-      })
-    }
-    return result
+    if (folders.results.length === 0) return []
+    
+    // Get all folder conversations in one query instead of N queries
+    const folderIds = folders.results.map((f: any) => f.id)
+    const placeholders = folderIds.map(() => '?').join(',')
+    const allConvs = await db.prepare(
+      `SELECT folderId, conversationId FROM folder_conversations WHERE folderId IN (${placeholders})`
+    ).bind(...folderIds).all()
+    
+    // Group by folderId
+    const convsByFolder = new Map<string, string[]>()
+    allConvs.results.forEach((c: any) => {
+      if (!convsByFolder.has(c.folderId)) {
+        convsByFolder.set(c.folderId, [])
+      }
+      convsByFolder.get(c.folderId)!.push(c.conversationId)
+    })
+    
+    // Map folders with their conversations
+    return folders.results.map((folder: any) => ({
+      ...folder,
+      conversationIds: convsByFolder.get(folder.id) || []
+    }))
   },
 
   async createFolder(userId: string, name: string, description?: string, conversationIds: string[] = []) {
@@ -253,10 +266,10 @@ export const cloudDb = {
     const id = crypto.randomUUID()
     const now = Date.now()
     
-    await db.prepare('INSERT INTO Folder (id, userId, name, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)').bind(id, userId, name, description, now, now).run()
+    await db.prepare('INSERT INTO folders (id, userId, name, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)').bind(id, userId, name, description, now, now).run()
 
     if (conversationIds.length > 0) {
-      const stmt = db.prepare('INSERT INTO FolderConversation (folderId, conversationId) VALUES (?, ?)')
+      const stmt = db.prepare('INSERT INTO folder_conversations (folderId, conversationId) VALUES (?, ?)')
       const batch = conversationIds.map(cid => stmt.bind(id, cid))
       await db.batch(batch)
     }
@@ -271,32 +284,32 @@ export const cloudDb = {
     if (keys.length > 0) {
       const setClause = keys.map(k => `${k} = ?`).join(', ')
       const values = keys.map(k => updates[k])
-      await db.prepare(`UPDATE Folder SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), folderId).run()
+      await db.prepare(`UPDATE folders SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), folderId).run()
     }
   },
 
   async deleteFolder(folderId: string) {
     const db = getDB()
-    await db.prepare('DELETE FROM Folder WHERE id = ?').bind(folderId).run()
+    await db.prepare('DELETE FROM folders WHERE id = ?').bind(folderId).run()
     // FolderConversation should cascade delete if FK set up, but let's be safe?
     // The schema has ON DELETE CASCADE, so it should be fine.
   },
 
   async addConversationToFolder(folderId: string, conversationId: string) {
     const db = getDB()
-    await db.prepare('INSERT OR IGNORE INTO FolderConversation (folderId, conversationId) VALUES (?, ?)').bind(folderId, conversationId).run()
+    await db.prepare('INSERT OR IGNORE INTO folder_conversations (folderId, conversationId) VALUES (?, ?)').bind(folderId, conversationId).run()
   },
 
   async removeConversationFromFolder(folderId: string, conversationId: string) {
     const db = getDB()
-    await db.prepare('DELETE FROM FolderConversation WHERE folderId = ? AND conversationId = ?').bind(folderId, conversationId).run()
+    await db.prepare('DELETE FROM folder_conversations WHERE folderId = ? AND conversationId = ?').bind(folderId, conversationId).run()
   },
 
   // --- Projects ---
 
   async getProjects(userId: string) {
     const db = getDB()
-    const projects = await db.prepare('SELECT * FROM Project WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
+    const projects = await db.prepare('SELECT * FROM projects WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
     return projects.results.map((p: any) => ({
       ...p,
       attachments: JSON.parse(p.attachments as string || '[]')
@@ -309,7 +322,7 @@ export const cloudDb = {
     const now = Date.now()
     
     await db.prepare(
-      'INSERT INTO Project (id, userId, name, description, instructions, attachments, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO projects (id, userId, name, description, instructions, attachments, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(id, userId, name, description, instructions, JSON.stringify(attachments), now, now).run()
 
     return { id, userId, name, description, instructions, attachments, createdAt: now, updatedAt: now }
@@ -326,11 +339,11 @@ export const cloudDb = {
       return (typeof val === 'object') ? JSON.stringify(val) : val
     })
     
-    await db.prepare(`UPDATE Project SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), projectId).run()
+    await db.prepare(`UPDATE projects SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), projectId).run()
   },
 
   async deleteProject(projectId: string) {
     const db = getDB()
-    await db.prepare('DELETE FROM Project WHERE id = ?').bind(projectId).run()
+    await db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId).run()
   }
 }

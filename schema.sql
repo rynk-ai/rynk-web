@@ -1,5 +1,5 @@
--- Auth.js Tables
-CREATE TABLE IF NOT EXISTS User (
+-- Auth.js Tables (lowercase for compatibility)
+CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT,
   email TEXT NOT NULL UNIQUE,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS User (
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS Account (
+CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY,
   userId TEXT NOT NULL,
   type TEXT NOT NULL,
@@ -23,19 +23,21 @@ CREATE TABLE IF NOT EXISTS Account (
   scope TEXT,
   id_token TEXT,
   session_state TEXT,
-  FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE,
+  oauth_token_secret TEXT,
+  oauth_token TEXT,
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE(provider, providerAccountId)
 );
 
-CREATE TABLE IF NOT EXISTS Session (
+CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   sessionToken TEXT NOT NULL UNIQUE,
   userId TEXT NOT NULL,
   expires DATETIME NOT NULL,
-  FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS VerificationToken (
+CREATE TABLE IF NOT EXISTS verification_tokens (
   identifier TEXT NOT NULL,
   token TEXT NOT NULL UNIQUE,
   expires DATETIME NOT NULL,
@@ -43,8 +45,7 @@ CREATE TABLE IF NOT EXISTS VerificationToken (
 );
 
 -- Application Tables
-
-CREATE TABLE IF NOT EXISTS Project (
+CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   userId TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -53,10 +54,10 @@ CREATE TABLE IF NOT EXISTS Project (
   attachments TEXT, -- JSON array of file metadata
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS Conversation (
+CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   userId TEXT NOT NULL,
   projectId TEXT,
@@ -68,29 +69,29 @@ CREATE TABLE IF NOT EXISTS Conversation (
   branches TEXT, -- JSON array of Branch objects
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE,
-  FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE SET NULL
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE SET NULL
 );
 
-CREATE TABLE IF NOT EXISTS Folder (
+CREATE TABLE IF NOT EXISTS folders (
   id TEXT PRIMARY KEY,
   userId TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS FolderConversation (
+CREATE TABLE IF NOT EXISTS folder_conversations (
   folderId TEXT NOT NULL,
   conversationId TEXT NOT NULL,
   PRIMARY KEY (folderId, conversationId),
-  FOREIGN KEY (folderId) REFERENCES Folder(id) ON DELETE CASCADE,
-  FOREIGN KEY (conversationId) REFERENCES Conversation(id) ON DELETE CASCADE
+  FOREIGN KEY (folderId) REFERENCES folders(id) ON DELETE CASCADE,
+  FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS Message (
+CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
   conversationId TEXT NOT NULL,
   role TEXT NOT NULL, -- 'user', 'assistant', 'system'
@@ -104,12 +105,12 @@ CREATE TABLE IF NOT EXISTS Message (
   referencedFolders TEXT, -- JSON
   timestamp INTEGER, -- Store original timestamp if needed, or use createdAt
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (conversationId) REFERENCES Conversation(id) ON DELETE CASCADE
+  FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_message_conversation ON Message(conversationId);
-CREATE INDEX IF NOT EXISTS idx_conversation_user ON Conversation(userId);
-CREATE INDEX IF NOT EXISTS idx_conversation_project ON Conversation(projectId);
-CREATE INDEX IF NOT EXISTS idx_folder_user ON Folder(userId);
-CREATE INDEX IF NOT EXISTS idx_project_user ON Project(userId);
+CREATE INDEX IF NOT EXISTS idx_message_conversation ON messages(conversationId);
+CREATE INDEX IF NOT EXISTS idx_conversation_user ON conversations(userId);
+CREATE INDEX IF NOT EXISTS idx_conversation_project ON conversations(projectId);
+CREATE INDEX IF NOT EXISTS idx_folder_user ON folders(userId);
+CREATE INDEX IF NOT EXISTS idx_project_user ON projects(userId);
