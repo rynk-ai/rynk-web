@@ -13,8 +13,6 @@ database_id = "6025d865-6566-4aaa-a184-14fb606fe2ff"
 binding = "BUCKET"
 bucket_name = "simplechat-assets"
 
-# Environment variables (use .dev.vars for local development)
-[vars]
-# OPENROUTER_API_KEY will be set via .dev.vars locally and Cloudflare Dashboard for production
-GOOGLE_CLIENT_SECRET = "" # To be set in Cloudflare Dashboard or .dev.vars
-NEXTAUTH_SECRET = ""      # To be set in Cloudflare Dashboard or .dev.vars
+# Environment variables for local development only
+# Production environment variables should be set in Cloudflare Dashboard
+# Do NOT put sensitive values here - use .dev.vars instead
