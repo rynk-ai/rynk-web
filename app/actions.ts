@@ -35,6 +35,20 @@ export async function sendMessage(conversationId: string, message: any) {
   await cloudDb.updateCredits(session.user.id, -1)
 
   const msg = await cloudDb.addMessage(conversationId, message)
+  
+  // Generate embedding for user messages
+  if (message.role === 'user' && message.content && message.content.trim()) {
+    try {
+      const { getOpenRouter } = await import('@/lib/services/openrouter')
+      const openrouter = getOpenRouter()
+      const vector = await openrouter.getEmbeddings(message.content)
+      await cloudDb.addEmbedding(msg.id, conversationId, session.user.id, message.content, vector)
+    } catch (error) {
+      console.error('Failed to generate embedding:', error)
+      // Don't fail the message send if embedding fails
+    }
+  }
+
   revalidatePath('/')
   return msg
 }
@@ -50,6 +64,24 @@ export async function updateMessage(messageId: string, updates: any) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
   await cloudDb.updateMessage(messageId, updates)
+  
+  // Generate embedding if content was updated
+  if (updates.content && typeof updates.content === 'string' && updates.content.trim()) {
+    try {
+      // Fetch message to check role and get conversationId
+      const message = await cloudDb.getMessage(messageId)
+      
+      if (message && message.role === 'assistant') {
+        const { getOpenRouter } = await import('@/lib/services/openrouter')
+        const openrouter = getOpenRouter()
+        const vector = await openrouter.getEmbeddings(updates.content)
+        await cloudDb.addEmbedding(messageId, message.conversationId, session.user.id, updates.content, vector)
+      }
+    } catch (error) {
+      console.error('Failed to generate embedding for assistant message:', error)
+    }
+  }
+
   revalidatePath('/')
 }
 
@@ -125,6 +157,18 @@ export async function createMessageVersion(
     referencedConversations,
     referencedFolders
   )
+  
+  // Generate embedding for the new message version
+  if (result.newMessage && result.newMessage.role === 'user' && newContent && newContent.trim()) {
+    try {
+      const { getOpenRouter } = await import('@/lib/services/openrouter')
+      const openrouter = getOpenRouter()
+      const vector = await openrouter.getEmbeddings(newContent)
+      await cloudDb.addEmbedding(result.newMessage.id, conversationId, session.user.id, newContent, vector)
+    } catch (error) {
+      console.error('Failed to generate embedding for message version:', error)
+    }
+  }
   
   revalidatePath('/chat')
   return result

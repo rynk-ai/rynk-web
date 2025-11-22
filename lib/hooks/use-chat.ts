@@ -27,7 +27,8 @@ import {
   branchConversation as branchConversationAction,
   createMessageVersion as createMessageVersionAction,
   getMessageVersions as getMessageVersionsAction,
-  switchToMessageVersion as switchToMessageVersionAction
+  switchToMessageVersion as switchToMessageVersionAction,
+  addEmbedding
 } from "@/app/actions"
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
@@ -215,8 +216,54 @@ export function useChat() {
             
             if (conversationIds.length > 0) {
               // 3. Fetch all embeddings for these conversations
-              const embeddings = await getEmbeddingsByConversations(conversationIds)
+              let embeddings = await getEmbeddingsByConversations(conversationIds)
               
+              // CHECK FOR MISSING EMBEDDINGS
+              // If we have referenced conversations but few/no embeddings, we might need to generate them.
+              // Simple heuristic: If we have 0 embeddings for a conversation that definitely has messages, generate them.
+              
+              const missingEmbeddingConvIds: string[] = []
+              
+              for (const convId of conversationIds) {
+                 const hasEmbeddings = embeddings.some(e => e.conversationId === convId)
+                 if (!hasEmbeddings) {
+                    missingEmbeddingConvIds.push(convId)
+                 }
+              }
+              
+              if (missingEmbeddingConvIds.length > 0) {
+                 console.log(`⚠️ Missing embeddings for ${missingEmbeddingConvIds.length} conversations. Generating now...`)
+                 
+                 // Generate embeddings in parallel
+                 await Promise.all(missingEmbeddingConvIds.map(async (convId) => {
+                    try {
+                       const messages = await getMessagesAction(convId)
+                       // Filter for user messages or assistant messages that have content
+                       const validMessages = messages.filter(m => m.content && m.content.trim().length > 0)
+                       
+                       console.log(`Generating embeddings for ${validMessages.length} messages in conversation ${convId}...`)
+                       
+                       const openrouter = getOpenRouter()
+                       
+                       // Process in serial to avoid rate limits if many
+                       for (const msg of validMessages) {
+                          try {
+                             const vector = await openrouter.getEmbeddings(msg.content)
+                             await addEmbedding(msg.id, convId, msg.content, vector)
+                          } catch (e) {
+                             console.warn(`Failed to generate embedding for message ${msg.id}`, e)
+                          }
+                       }
+                    } catch (err) {
+                       console.error(`Failed to generate embeddings for conversation ${convId}`, err)
+                    }
+                 }))
+                 
+                 // Refresh embeddings after generation
+                 embeddings = await getEmbeddingsByConversations(conversationIds)
+                 console.log(`✅ Generated new embeddings. Total count: ${embeddings.length}`)
+              }
+
               if (embeddings.length > 0) {
                 // 4. Perform semantic search
                 const relevantMessages = searchEmbeddings(queryEmbedding, embeddings, {
@@ -262,7 +309,7 @@ export function useChat() {
                   console.log(`✅ Added semantic context to prompt (${relevantMessages.length} messages from ${byConversation.size} conversations)`)
                 }
               } else {
-                console.log('ℹ️ No embeddings found for referenced conversations (embeddings may not be generated yet)')
+                console.log('ℹ️ No embeddings found for referenced conversations (even after generation attempt)')
               }
             }
           } catch (err) {

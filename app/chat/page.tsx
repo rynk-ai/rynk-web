@@ -677,30 +677,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const newMessage = await sendMessage(text, files, referencedConversations, referencedFolders);
        
-       // Generate embedding for semantic search (async, don't block UI)
-       // Note: This only runs client-side, but embeddings can also be generated server-side
-       if (text.trim() && currentConversationId) {
-         const { getOpenRouter } = await import('@/lib/services/openrouter')
-         const { addEmbedding } = await import('@/app/actions')
-         
-         // Get the message we just sent
-         const messages = await getMessages(currentConversationId)
-         const justSentMessage = messages[messages.length - 1]
-         
-         if (justSentMessage && justSentMessage.role === 'user') {
-           getOpenRouter()
-             .getEmbeddings(text)
-             .then(embedding => {
-               return addEmbedding(justSentMessage.id, currentConversationId!, text, embedding)
-             })
-             .then(() => {
-               console.log('✅ Embedding generated for message')
-             })
-             .catch(err => {
-               console.warn('⚠️ Failed to generate embedding:', err)
-             })
-         }
-       }
+       // Embedding generation is now handled server-side in the sendMessage action
       
       setContext([]); // Clear context after sending
     } finally {

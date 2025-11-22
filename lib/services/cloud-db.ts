@@ -135,6 +135,20 @@ export const cloudDb = {
     }).filter(Boolean) as CloudMessage[]
   },
 
+  async getMessage(messageId: string) {
+    const db = getDB()
+    const message = await db.prepare('SELECT * FROM messages WHERE id = ?').bind(messageId).first()
+    if (!message) return null
+    return {
+      ...message,
+      attachments: JSON.parse(message.attachments as string || '[]'),
+      referencedConversations: JSON.parse(message.referencedConversations as string || '[]'),
+      referencedFolders: JSON.parse(message.referencedFolders as string || '[]'),
+      timestamp: message.createdAt,
+      versionNumber: message.versionNumber || 1
+    } as CloudMessage
+  },
+
   async addMessage(conversationId: string, message: any) {
     const db = getDB()
     const id = crypto.randomUUID()
@@ -473,6 +487,7 @@ export const cloudDb = {
       newMessage: {
         ...originalMessage,
         id: newMessageId,
+        role: originalMessage.role,
         content: newContent,
         versionNumber: newVersionNumber,
         branchId: newBranchId,
