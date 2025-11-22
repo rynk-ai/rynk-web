@@ -1,5 +1,7 @@
 "use server"
 
+
+
 import { auth } from "@/lib/auth"
 import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
@@ -73,11 +75,11 @@ export async function deleteConversation(conversationId: string) {
   revalidatePath('/')
 }
 
-export async function deleteMessage(messageId: string) {
+export async function deleteMessage(conversationId: string, messageId: string) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
-  await cloudDb.deleteMessage(messageId)
-  revalidatePath('/')
+  await cloudDb.deleteMessage(conversationId, messageId)
+  revalidatePath('/chat')
 }
 
 export async function getAllTags() {
@@ -102,6 +104,45 @@ export async function uploadFile(formData: FormData) {
     type: file.type,
     size: file.size
   }
+}
+
+export async function createMessageVersion(
+  conversationId: string,
+  messageId: string,
+  newContent: string,
+  newAttachments?: any[],
+  referencedConversations?: any[],
+  referencedFolders?: any[]
+) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  const result = await cloudDb.createMessageVersion(
+    conversationId,
+    messageId,
+    newContent,
+    newAttachments,
+    referencedConversations,
+    referencedFolders
+  )
+  
+  revalidatePath('/chat')
+  return result
+}
+
+export async function getMessageVersions(originalMessageId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  return await cloudDb.getMessageVersions(originalMessageId)
+}
+
+export async function switchToMessageVersion(conversationId: string, versionMessageId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  await cloudDb.switchToMessageVersion(conversationId, versionMessageId)
+  revalidatePath('/chat')
 }
 
 // --- Folders ---

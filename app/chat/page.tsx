@@ -627,6 +627,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     renameConversation,
     branchConversation,
     getMessages,
+    generateAIResponse,
     conversations,
     folders,
   } = useChatContext();
@@ -759,10 +760,28 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .filter(c => c.type === 'folder')
         .map(c => ({ id: c.id, name: c.title }));
 
+      // Find the message being edited to check its role
+      const editingMessage = messages.find(m => m.id === editingMessageId);
+
+      // Edit the message and wait for conversation to be updated
       await editMessage(editingMessageId, editContent, undefined, referencedConversations, referencedFolders);
+      
+      // If editing a user message, trigger AI regeneration
+      if (editingMessage?.role === 'user' && currentConversationId) {
+        try {
+          await generateAIResponse(currentConversationId);
+        } catch (aiError) {
+          console.error('Failed to generate AI response:', aiError);
+          // Don't fail the whole edit if AI generation fails
+        }
+      }
+      
       setEditingMessageId(null);
       setEditContent("");
       setEditContext([]);
+    } catch (error) {
+      console.error('Failed to save edit:', error);
+      // Keep edit state open so user can retry
     } finally {
       setIsEditing(false);
     }

@@ -24,6 +24,7 @@ interface ChatContextValue {
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
   getMessages: (conversationId: string) => Promise<Message[]>
+  generateAIResponse: (conversationId: string) => Promise<void>
   // Folders
   folders: Folder[]
   createFolder: (name: string, description?: string, conversationIds?: string[]) => Promise<Folder>
@@ -38,7 +39,7 @@ interface ChatContextValue {
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>
   deleteProject: (projectId: string) => Promise<void>
   loadProjects: () => Promise<void>
-  branchConversation: (messageId: string) => Promise<void>
+  branchConversation: (messageId: string) => Promise<string>
 
 }
 

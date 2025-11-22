@@ -53,12 +53,6 @@ export function UserProfileDropdown() {
               {user.email}
             </div>
           </div>
-          {credits !== null && (
-            <div className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-              <Coins className="h-3 w-3" />
-              <span className="font-medium">{credits}</span>
-            </div>
-          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">

@@ -14,6 +14,7 @@ export interface CloudConversation {
   tags: string[]
   projectId?: string
   branches: any[] // Required for UI compatibility
+  activeBranchId?: string
 }
 
 export interface CloudMessage {
@@ -29,6 +30,8 @@ export interface CloudMessage {
   timestamp: number // Required for UI compatibility
   versionNumber: number
   versionOf?: string
+  branchId?: string
+  parentMessageId?: string
 }
 
 export interface Folder {
@@ -109,11 +112,15 @@ export const cloudDb = {
     const path = JSON.parse(conversation.path as string || '[]') as string[]
     if (path.length === 0) return []
 
-    // Get messages in the path
-    const messages = await db.prepare('SELECT * FROM messages WHERE conversationId = ?').bind(conversationId).all()
+    // Optimized: Only fetch messages that are in the path using IN clause
+    const placeholders = path.map(() => '?').join(',')
+    const messages = await db.prepare(
+      `SELECT * FROM messages WHERE id IN (${placeholders})`
+    ).bind(...path).all()
     
     const msgMap = new Map(messages.results.map((m: any) => [m.id as string, m]))
     
+    // Return messages in path order
     return path.map(id => {
       const m = msgMap.get(id)
       if (!m) return null
@@ -125,7 +132,7 @@ export const cloudDb = {
         timestamp: m.createdAt, // Populate timestamp alias
         versionNumber: m.versionNumber || 1 // Default to 1
       }
-    }) as CloudMessage[]
+    }).filter(Boolean) as CloudMessage[]
   },
 
   async addMessage(conversationId: string, message: any) {
@@ -133,9 +140,13 @@ export const cloudDb = {
     const id = crypto.randomUUID()
     const now = Date.now()
     
+    // Get conversation to check for active branch
+    const conversation = await db.prepare('SELECT activeBranchId, branches FROM conversations WHERE id = ?').bind(conversationId).first()
+    const activeBranchId = conversation?.activeBranchId as string | undefined
+    
     // 1. Insert Message
     await db.prepare(
-      'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, branchId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       id, 
       conversationId, 
@@ -145,17 +156,28 @@ export const cloudDb = {
       JSON.stringify(message.referencedConversations || []),
       JSON.stringify(message.referencedFolders || []),
       now,
-      now
+      now,
+      1, // Default version 1
+      activeBranchId || null
     ).run()
 
     // 2. Update Conversation Path
-    const conversation = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
-    const path = JSON.parse(conversation?.path as string || '[]') as string[]
+    const convData = await db.prepare('SELECT path, branches FROM conversations WHERE id = ?').bind(conversationId).first()
+    const path = JSON.parse(convData?.path as string || '[]') as string[]
     path.push(id)
     
-    await db.prepare('UPDATE conversations SET path = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), now, conversationId).run()
+    // Also update active branch path if exists
+    let branches = JSON.parse(convData?.branches as string || '[]')
+    if (activeBranchId && branches.length > 0) {
+      const activeBranch = branches.find((b: any) => b.id === activeBranchId)
+      if (activeBranch) {
+        activeBranch.path.push(id)
+      }
+    }
+    
+    await db.prepare('UPDATE conversations SET path = ?, branches = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), JSON.stringify(branches), now, conversationId).run()
 
-    return { ...message, id, timestamp: now }
+    return { ...message, id, timestamp: now, versionNumber: 1, branchId: activeBranchId }
   },
 
   async updateMessage(messageId: string, updates: any) {
@@ -208,26 +230,116 @@ export const cloudDb = {
     return user?.credits as number || 0
   },
 
-  async deleteMessage(messageId: string) {
+  // Helper function to find all descendant messages (messages that follow this one)
+  async findDescendants(conversationId: string, messageId: string): Promise<string[]> {
     const db = getDB()
-    // We also need to remove it from the conversation path
-    // This is expensive as we need to find which conversation has this message
-    // A better schema would have conversationId indexed on Message (which we do)
-    // So we can find the conversationId from the message
-    const message = await db.prepare('SELECT conversationId FROM messages WHERE id = ?').bind(messageId).first()
-    if (!message) return
-
-    const conversationId = message.conversationId as string
     
-    // Remove from Message table
-    await db.prepare('DELETE FROM messages WHERE id = ?').bind(messageId).run()
+    // Get all messages in this conversation
+    const allMessages = await db.prepare(
+      'SELECT id, parentMessageId FROM messages WHERE conversationId = ?'
+    ).bind(conversationId).all()
+    
+    const messageMap = new Map<string, string[]>() // parentId -> [childIds]
+    
+    // Build parent-child map
+    for (const msg of allMessages.results) {
+      const parentId = msg.parentMessageId as string | null
+      if (parentId) {
+        if (!messageMap.has(parentId)) {
+          messageMap.set(parentId, [])
+        }
+        messageMap.get(parentId)!.push(msg.id as string)
+      }
+    }
+    
+    // Recursively find all descendants
+    const descendants: string[] = []
+    const queue = [messageId]
+    const visited = new Set<string>()
+    
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      if (visited.has(current)) continue
+      visited.add(current)
+      
+      const children = messageMap.get(current) || []
+      for (const child of children) {
+        descendants.push(child)
+        queue.push(child)
+      }
+    }
+    
+    return descendants
+  },
 
-    // Update Conversation path
-    const conversation = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
-    if (conversation) {
-      let path = JSON.parse(conversation.path as string || '[]') as string[]
-      path = path.filter(id => id !== messageId)
-      await db.prepare('UPDATE conversations SET path = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), Date.now(), conversationId).run()
+  async deleteMessage(conversationId: string, messageId: string) {
+    const db = getDB()
+    
+    // Get conversation with branches
+    const conversation = await db.prepare('SELECT path, branches FROM conversations WHERE id = ?')
+      .bind(conversationId).first()
+    if (!conversation) return
+    
+    const currentPath = JSON.parse(conversation.path as string || '[]') as string[]
+    const messageIndex = currentPath.indexOf(messageId)
+    
+    if (messageIndex === -1) return // Message not in path
+    
+    // Get all versions of this message
+    const versions = await this.getMessageVersions(messageId)
+    
+    // Find another version (not the one being deleted)
+    const otherVersion = versions.find(v => v.id !== messageId)
+    
+    let newPath: string[]
+    let newActiveBranchId: string | undefined | null
+    
+    if (otherVersion) {
+      // Try to find branches containing the other version
+      const branches = JSON.parse(conversation.branches as string || '[]')
+      const matchingBranches = branches.filter((b: any) => b.path.includes(otherVersion.id))
+      
+      if (matchingBranches.length > 0) {
+        // Pick the best branch: prefer longer branches, then more recent
+        const targetBranch = matchingBranches.sort((a: any, b: any) => {
+          if (a.path.length !== b.path.length) {
+            return b.path.length - a.path.length // Longer branch first
+          }
+          return b.createdAt - a.createdAt // More recent first
+        })[0]
+        
+        newPath = targetBranch.path
+        newActiveBranchId = targetBranch.id
+      } else {
+        // No branch found - reconstruct path with version and its descendants
+        newPath = currentPath.slice(0, messageIndex)
+        newPath.push(otherVersion.id)
+        
+        // Find all descendant messages
+        const descendants = await this.findDescendants(conversationId, otherVersion.id)
+        newPath.push(...descendants)
+        
+        newActiveBranchId = otherVersion.branchId || null
+      }
+    } else {
+      // No other versions - truncate
+      newPath = currentPath.slice(0, messageIndex)
+      newActiveBranchId = null
+    }
+    
+    // Delete messages from old path (from deletion point onwards)
+    const messagesToDelete = currentPath.slice(messageIndex)
+    for (const msgId of messagesToDelete) {
+      await db.prepare('DELETE FROM messages WHERE id = ?').bind(msgId).run()
+    }
+    
+    // Update conversation with new path and active branch
+    if (newActiveBranchId) {
+      await db.prepare('UPDATE conversations SET path = ?, activeBranchId = ?, updatedAt = ? WHERE id = ?')
+        .bind(JSON.stringify(newPath), newActiveBranchId, Date.now(), conversationId).run()
+    } else {
+      await db.prepare('UPDATE conversations SET path = ?, activeBranchId = NULL, updatedAt = ? WHERE id = ?')
+        .bind(JSON.stringify(newPath), Date.now(), conversationId).run()
     }
   },
 
@@ -242,121 +354,199 @@ export const cloudDb = {
     return Array.from(tags)
   },
 
-  // --- Folders ---
-
-  async getFolders(userId: string) {
+  async createMessageVersion(
+    conversationId: string,
+    messageId: string,
+    newContent: string,
+    newAttachments?: any[],
+    referencedConversations?: any[],
+    referencedFolders?: any[]
+  ) {
     const db = getDB()
-    const folders = await db.prepare('SELECT * FROM folders WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
     
-    if (folders.results.length === 0) return []
-    
-    // Get all folder conversations in one query instead of N queries
-    const folderIds = folders.results.map((f: any) => f.id)
-    const placeholders = folderIds.map(() => '?').join(',')
-    const allConvs = await db.prepare(
-      `SELECT folderId, conversationId FROM folder_conversations WHERE folderId IN (${placeholders})`
-    ).bind(...folderIds).all()
-    
-    // Group by folderId
-    const convsByFolder = new Map<string, string[]>()
-    allConvs.results.forEach((c: any) => {
-      if (!convsByFolder.has(c.folderId)) {
-        convsByFolder.set(c.folderId, [])
-      }
-      convsByFolder.get(c.folderId)!.push(c.conversationId)
-    })
-    
-    // Map folders with their conversations
-    return folders.results.map((folder: any) => ({
-      ...folder,
-      conversationIds: convsByFolder.get(folder.id) || []
-    }))
-  },
-
-  async createFolder(userId: string, name: string, description?: string, conversationIds: string[] = []) {
-    const db = getDB()
-    const id = crypto.randomUUID()
+    // 1. Get original message
+    const originalMessage = await db.prepare('SELECT * FROM messages WHERE id = ?').bind(messageId).first()
+    if (!originalMessage) throw new Error(`Message ${messageId} not found`)
+      
+    // 2. Get conversation
+    const conversation = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(conversationId).first()
+    if (!conversation) throw new Error(`Conversation ${conversationId} not found`)
+      
+    const path = JSON.parse(conversation.path as string || '[]') as string[]
+    const messageIndex = path.indexOf(messageId)
+    if (messageIndex === -1) throw new Error('Message not found in conversation path')
+      
+    // 3. Create new message version
+    const newMessageId = crypto.randomUUID()
     const now = Date.now()
+    const originalVersionNumber = (originalMessage.versionNumber as number) || 1
+    const newVersionNumber = originalVersionNumber + 1
     
-    await db.prepare('INSERT INTO folders (id, userId, name, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)').bind(id, userId, name, description, now, now).run()
-
-    if (conversationIds.length > 0) {
-      const stmt = db.prepare('INSERT INTO folder_conversations (folderId, conversationId) VALUES (?, ?)')
-      const batch = conversationIds.map(cid => stmt.bind(id, cid))
-      await db.batch(batch)
-    }
-
-    return { id, userId, name, description, conversationIds, createdAt: now, updatedAt: now }
-  },
-
-  async updateFolder(folderId: string, updates: any) {
-    const db = getDB()
-    const keys = Object.keys(updates).filter(k => k !== 'conversationIds')
+    // 4. Handle Branching Logic
+    // This logic mimics the IndexedDB implementation
     
-    if (keys.length > 0) {
-      const setClause = keys.map(k => `${k} = ?`).join(', ')
-      const values = keys.map(k => updates[k])
-      await db.prepare(`UPDATE folders SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), folderId).run()
+    // Create IDs for branches
+    const originalBranchId = (originalMessage.branchId as string) || crypto.randomUUID() // Use existing or new
+    const newBranchId = crypto.randomUUID()
+    
+    // Define branches
+    const originalPath = [...path]
+    const newPath = path.slice(0, messageIndex)
+    newPath.push(newMessageId)
+    
+    const originalBranch = {
+      id: originalBranchId,
+      name: `Branch from v${originalVersionNumber}`,
+      path: originalPath,
+      createdAt: now,
+      parentVersionId: messageId
     }
-  },
-
-  async deleteFolder(folderId: string) {
-    const db = getDB()
-    await db.prepare('DELETE FROM folders WHERE id = ?').bind(folderId).run()
-    // FolderConversation should cascade delete if FK set up, but let's be safe?
-    // The schema has ON DELETE CASCADE, so it should be fine.
-  },
-
-  async addConversationToFolder(folderId: string, conversationId: string) {
-    const db = getDB()
-    await db.prepare('INSERT OR IGNORE INTO folder_conversations (folderId, conversationId) VALUES (?, ?)').bind(folderId, conversationId).run()
-  },
-
-  async removeConversationFromFolder(folderId: string, conversationId: string) {
-    const db = getDB()
-    await db.prepare('DELETE FROM folder_conversations WHERE folderId = ? AND conversationId = ?').bind(folderId, conversationId).run()
-  },
-
-  // --- Projects ---
-
-  async getProjects(userId: string) {
-    const db = getDB()
-    const projects = await db.prepare('SELECT * FROM projects WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
-    return projects.results.map((p: any) => ({
-      ...p,
-      attachments: JSON.parse(p.attachments as string || '[]')
-    }))
-  },
-
-  async createProject(userId: string, name: string, description: string, instructions?: string, attachments: any[] = []) {
-    const db = getDB()
-    const id = crypto.randomUUID()
-    const now = Date.now()
+    
+    const newBranch = {
+      id: newBranchId,
+      name: `Branch from v${newVersionNumber}`,
+      path: newPath,
+      createdAt: now,
+      parentVersionId: messageId
+    }
+    
+    // 5. Save new message
+    await db.prepare(
+      'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, versionOf, parentMessageId, branchId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      newMessageId,
+      conversationId,
+      originalMessage.role,
+      newContent,
+      JSON.stringify(newAttachments || JSON.parse(originalMessage.attachments as string || '[]')),
+      JSON.stringify(referencedConversations || JSON.parse(originalMessage.referencedConversations as string || '[]')),
+      JSON.stringify(referencedFolders || JSON.parse(originalMessage.referencedFolders as string || '[]')),
+      now,
+      now,
+      newVersionNumber,
+      (originalMessage.versionOf as string) || messageId,
+      messageId,
+      newBranchId
+    ).run()
+    
+    // 6. Update original message branchId if it was null (implicit main branch)
+    if (!originalMessage.branchId) {
+       await db.prepare('UPDATE messages SET branchId = ? WHERE id = ?').bind(originalBranchId, messageId).run()
+       // Also update all messages in the original path to have this branchId if they don't have one?
+       // For simplicity, we might skip bulk update unless necessary for strict consistency.
+       // The IndexedDB implementation updated ALL messages in path.
+       // Let's try to update at least the ones in the path.
+       // But doing a loop of updates is slow.
+       // We can leave them as is, relying on the branch record's path.
+    }
+    
+    // 7. Update Conversation
+    let branches = JSON.parse(conversation.branches as string || '[]')
+    
+    // Only add original branch if it doesn't already exist (prevents duplicates after deletion)
+    const originalBranchExists = branches.some((b: any) => b.id === originalBranchId)
+    if (!originalBranchExists) {
+      branches.push(originalBranch)
+    }
+    
+    branches.push(newBranch)
+    
+    // Prune old branches to prevent unbounded growth
+    const MAX_BRANCHES = 20
+    if (branches.length > MAX_BRANCHES) {
+      // Keep most recent branches (sorted by createdAt)
+      branches.sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0))
+      branches = branches.slice(0, MAX_BRANCHES)
+    }
     
     await db.prepare(
-      'INSERT INTO projects (id, userId, name, description, instructions, attachments, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, userId, name, description, instructions, JSON.stringify(attachments), now, now).run()
-
-    return { id, userId, name, description, instructions, attachments, createdAt: now, updatedAt: now }
-  },
-
-  async updateProject(projectId: string, updates: any) {
-    const db = getDB()
-    const keys = Object.keys(updates)
-    if (keys.length === 0) return
-
-    const setClause = keys.map(k => `${k} = ?`).join(', ')
-    const values = keys.map(k => {
-      const val = updates[k]
-      return (typeof val === 'object') ? JSON.stringify(val) : val
-    })
+      'UPDATE conversations SET path = ?, branches = ?, activeBranchId = ?, updatedAt = ? WHERE id = ?'
+    ).bind(
+      JSON.stringify(newPath),
+      JSON.stringify(branches),
+      newBranchId,
+      now,
+      conversationId
+    ).run()
     
-    await db.prepare(`UPDATE projects SET ${setClause}, updatedAt = ? WHERE id = ?`).bind(...values, Date.now(), projectId).run()
+    return {
+      newMessage: {
+        ...originalMessage,
+        id: newMessageId,
+        content: newContent,
+        versionNumber: newVersionNumber,
+        branchId: newBranchId,
+        attachments: newAttachments || JSON.parse(originalMessage.attachments as string || '[]')
+      },
+      conversationPath: newPath
+    }
   },
 
-  async deleteProject(projectId: string) {
+  async getMessageVersions(originalMessageId: string) {
     const db = getDB()
-    await db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId).run()
+    // Find the root version ID
+    const message = await db.prepare('SELECT versionOf, id FROM messages WHERE id = ?').bind(originalMessageId).first()
+    if (!message) return []
+    
+    const rootId = (message.versionOf as string) || message.id as string
+    
+    // Get all messages with this root ID (including the root itself)
+    const versions = await db.prepare(
+      'SELECT * FROM messages WHERE versionOf = ? OR id = ? ORDER BY versionNumber ASC'
+    ).bind(rootId, rootId).all()
+    
+    return versions.results.map((m: any) => ({
+      ...m,
+      attachments: JSON.parse(m.attachments as string || '[]'),
+      referencedConversations: JSON.parse(m.referencedConversations as string || '[]'),
+      referencedFolders: JSON.parse(m.referencedFolders as string || '[]')
+    })) as CloudMessage[]
+  },
+
+  async switchToMessageVersion(conversationId: string, versionMessageId: string) {
+    const db = getDB()
+    
+    const conversation = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(conversationId).first()
+    if (!conversation) throw new Error(`Conversation ${conversationId} not found`)
+      
+    const message = await db.prepare('SELECT branchId FROM messages WHERE id = ?').bind(versionMessageId).first()
+    if (!message) throw new Error(`Message ${versionMessageId} not found`)
+      
+    const branches = JSON.parse(conversation.branches as string || '[]')
+    const targetBranchId = message.branchId as string
+    
+    let newPath: string[] = []
+    let activeBranchId = targetBranchId
+    
+    if (targetBranchId) {
+      const branch = branches.find((b: any) => b.id === targetBranchId)
+      if (branch) {
+        newPath = branch.path
+      } else {
+        // Fallback: try to find a branch that contains this message
+        const containingBranch = branches.find((b: any) => b.path.includes(versionMessageId))
+        if (containingBranch) {
+          newPath = containingBranch.path
+          activeBranchId = containingBranch.id
+        }
+      }
+    }
+    
+    if (newPath.length === 0) {
+      // Fallback if no branch info found (shouldn't happen if created correctly)
+      // Just use current path but truncated? No, that's dangerous.
+      console.warn('Could not find branch for version, aborting switch')
+      return
+    }
+    
+    await db.prepare(
+      'UPDATE conversations SET path = ?, activeBranchId = ?, updatedAt = ? WHERE id = ?'
+    ).bind(
+      JSON.stringify(newPath),
+      activeBranchId,
+      Date.now(),
+      conversationId
+    ).run()
   },
 
   // --- Embeddings ---
@@ -399,52 +589,61 @@ export const cloudDb = {
   },
 
   async branchConversation(sourceConversationId: string, branchFromMessageId: string) {
-    const db = getDB()
-    
-    // 1. Get source conversation
-    const sourceConversation = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(sourceConversationId).first()
-    if (!sourceConversation) {
-      throw new Error(`Source conversation ${sourceConversationId} not found`)
-    }
-
-    const sourcePath = JSON.parse(sourceConversation.path as string || '[]') as string[]
-    const branchPointIndex = sourcePath.indexOf(branchFromMessageId)
-    
-    if (branchPointIndex === -1) {
-      throw new Error('Branch point message not found in conversation path')
-    }
-
-    // 2. Get messages to copy
-    const messageIdsToCopy = sourcePath.slice(0, branchPointIndex + 1)
-    
-    // 3. Create new conversation
-    const newConversationId = crypto.randomUUID()
-    const userId = sourceConversation.userId as string
-    const now = Date.now()
-    const newTitle = `Branch: ${sourceConversation.title}`
-    
-    // 4. Copy messages
-    const newPath: string[] = []
-    
-    // We need to fetch all messages to copy first
-    // Optimization: Fetch all in one query if possible, or loop
-    // D1 doesn't support WHERE IN with array binding easily in one go without constructing query string
-    // Let's fetch one by one or fetch all from conversation and filter (better if conversation isn't huge)
-    const allSourceMessages = await db.prepare('SELECT * FROM messages WHERE conversationId = ?').bind(sourceConversationId).all()
-    const sourceMsgMap = new Map(allSourceMessages.results.map((m: any) => [m.id as string, m]))
-
-    const batch = []
-
-    for (const oldMsgId of messageIdsToCopy) {
-      const oldMsg = sourceMsgMap.get(oldMsgId)
-      if (!oldMsg) continue
-
-      const newMsgId = crypto.randomUUID()
-      newPath.push(newMsgId)
-
-      batch.push(
-        db.prepare(
-          'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    try {
+      const db = getDB()
+      if (!db) {
+        console.error('Database binding (process.env.DB) is missing')
+        throw new Error('Database binding not found')
+      }
+      
+      if (typeof crypto === 'undefined' || !crypto.randomUUID) {
+        console.error('Crypto API is missing')
+        throw new Error('Crypto API not available')
+      }
+      
+      // 1. Get source conversation
+      const sourceConversation = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(sourceConversationId).first()
+      if (!sourceConversation) {
+        throw new Error(`Source conversation ${sourceConversationId} not found`)
+      }
+  
+      const sourcePath = JSON.parse(sourceConversation.path as string || '[]') as string[]
+      const branchPointIndex = sourcePath.indexOf(branchFromMessageId)
+      
+      if (branchPointIndex === -1) {
+        throw new Error('Branch point message not found in conversation path')
+      }
+  
+      // 2. Get messages to copy
+      const messageIdsToCopy = sourcePath.slice(0, branchPointIndex + 1)
+      
+      // 3. Create new conversation
+      const newConversationId = crypto.randomUUID()
+      const userId = sourceConversation.userId as string
+      const now = Date.now()
+      const newTitle = `Branch: ${sourceConversation.title}`
+      
+      // 4. Copy messages
+      const newPath: string[] = []
+      
+      // We need to fetch all messages to copy first
+      // Optimization: Fetch all in one query if possible, or loop
+      // D1 doesn't support WHERE IN with array binding easily in one go without constructing query string
+      // Let's fetch one by one or fetch all from conversation and filter (better if conversation isn't huge)
+      const allSourceMessages = await db.prepare('SELECT * FROM messages WHERE conversationId = ?').bind(sourceConversationId).all()
+      const sourceMsgMap = new Map(allSourceMessages.results.map((m: any) => [m.id as string, m]))
+  
+      let previousNewMsgId: string | null = null
+  
+      for (const oldMsgId of messageIdsToCopy) {
+        const oldMsg = sourceMsgMap.get(oldMsgId)
+        if (!oldMsg) continue
+  
+        const newMsgId = crypto.randomUUID()
+        newPath.push(newMsgId)
+  
+        await db.prepare(
+          'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, versionOf, branchId, parentMessageId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           newMsgId,
           newConversationId,
@@ -454,14 +653,18 @@ export const cloudDb = {
           oldMsg.referencedConversations,
           oldMsg.referencedFolders,
           now,
-          now
-        )
-      )
-    }
-
-    // Insert new conversation
-    batch.push(
-      db.prepare(
+          now,
+          1, // versionNumber - reset to 1 for branched conversation
+          null, // versionOf - null for root messages
+          null, // branchId - null initially
+          previousNewMsgId // Link to previous message in the new chain
+        ).run()
+  
+        previousNewMsgId = newMsgId
+      }
+  
+      // Insert new conversation
+      await db.prepare(
         'INSERT INTO conversations (id, userId, projectId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newConversationId,
@@ -474,22 +677,207 @@ export const cloudDb = {
         '[]', // No branches initially
         now,
         now
-      )
-    )
-
-    await db.batch(batch)
-
-    return {
-      id: newConversationId,
-      userId,
-      projectId: sourceConversation.projectId,
-      title: newTitle,
-      path: newPath,
-      tags: JSON.parse(sourceConversation.tags as string || '[]'),
-      isPinned: false,
-      branches: [],
-      createdAt: now,
-      updatedAt: now
+      ).run()
+  
+      return {
+        id: newConversationId,
+        userId,
+        projectId: sourceConversation.projectId,
+        title: newTitle,
+        path: newPath,
+        tags: JSON.parse(sourceConversation.tags as string || '[]'),
+        isPinned: false,
+        branches: [],
+        createdAt: now,
+        updatedAt: now
+      } as CloudConversation
+    } catch (error) {
+      console.error('Error in branchConversation:', error)
+      throw error
     }
+  },
+
+  // Folder management
+  async getFolders(userId: string): Promise<Folder[]> {
+    const db = getDB()
+    
+    // Get all folders for user
+    const folders = await db.prepare('SELECT * FROM folders WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
+    
+    // For each folder, get conversation IDs
+    const result: Folder[] = []
+    for (const folder of folders.results) {
+      const convs = await db.prepare('SELECT conversationId FROM folder_conversations WHERE folderId = ?').bind(folder.id).all()
+      result.push({
+        id: folder.id as string,
+        userId: folder.userId as string,
+        name: folder.name as string,
+        description: folder.description as string | undefined,
+        createdAt: new Date(folder.createdAt as string).getTime(),
+        updatedAt: new Date(folder.updatedAt as string).getTime(),
+        conversationIds: convs.results.map((c: any) => c.conversationId as string)
+      })
+    }
+    
+    return result
+  },
+
+  async createFolder(userId: string, name: string, description?: string, conversationIds?: string[]): Promise<Folder> {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    
+    await db.prepare(
+      'INSERT INTO folders (id, userId, name, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, userId, name, description || null, now, now).run()
+    
+    // Add conversations if provided
+    if (conversationIds && conversationIds.length > 0) {
+      const batch = conversationIds.map(convId =>
+        db.prepare('INSERT INTO folder_conversations (folderId, conversationId) VALUES (?, ?)').bind(id, convId)
+      )
+      await db.batch(batch)
+    }
+    
+    return {
+      id,
+      userId,
+      name,
+      description,
+      createdAt: new Date(now).getTime(),
+      updatedAt: new Date(now).getTime(),
+      conversationIds: conversationIds || []
+    }
+  },
+
+  async updateFolder(folderId: string, updates: Partial<Folder>): Promise<void> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    
+    const fields: string[] = []
+    const values: any[] = []
+    
+    if (updates.name !== undefined) {
+      fields.push('name = ?')
+      values.push(updates.name)
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?')
+      values.push(updates.description)
+    }
+    
+    fields.push('updatedAt = ?')
+    values.push(now)
+    values.push(folderId)
+    
+    if (fields.length > 1) { // More than just updatedAt
+      await db.prepare(
+        `UPDATE folders SET ${fields.join(', ')} WHERE id = ?`
+      ).bind(...values).run()
+    }
+  },
+
+  async deleteFolder(folderId: string): Promise<void> {
+    const db = getDB()
+    // Cascade delete handled by foreign key
+    await db.prepare('DELETE FROM folders WHERE id = ?').bind(folderId).run()
+  },
+
+  async addConversationToFolder(folderId: string, conversationId: string): Promise<void> {
+    const db = getDB()
+    await db.prepare('INSERT OR IGNORE INTO folder_conversations (folderId, conversationId) VALUES (?, ?)').bind(folderId, conversationId).run()
+  },
+
+  async removeConversationFromFolder(folderId: string, conversationId: string): Promise<void> {
+    const db = getDB()
+    await db.prepare('DELETE FROM folder_conversations WHERE folderId = ? AND conversationId = ?').bind(folderId, conversationId).run()
+  },
+
+  // Project management
+  async getProjects(userId: string): Promise<Project[]> {
+    const db = getDB()
+    const projects = await db.prepare('SELECT * FROM projects WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
+    
+    return projects.results.map((p: any) => ({
+      id: p.id as string,
+      userId: p.userId as string,
+      name: p.name as string,
+      description: p.description as string,
+      instructions: p.instructions as string | undefined,
+      attachments: p.attachments ? JSON.parse(p.attachments as string) : undefined,
+      createdAt: new Date(p.createdAt as string).getTime(),
+      updatedAt: new Date(p.updatedAt as string).getTime()
+    }))
+  },
+
+  async createProject(userId: string, name: string, description: string, instructions?: string, attachments?: any[]): Promise<Project> {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    
+    await db.prepare(
+      'INSERT INTO projects (id, userId, name, description, instructions, attachments, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      id,
+      userId,
+      name,
+      description,
+      instructions || null,
+      attachments ? JSON.stringify(attachments) : null,
+      now,
+      now
+    ).run()
+    
+    return {
+      id,
+      userId,
+      name,
+      description,
+      instructions,
+      attachments,
+      createdAt: new Date(now).getTime(),
+      updatedAt: new Date(now).getTime()
+    }
+  },
+
+  async updateProject(projectId: string, updates: Partial<Project>): Promise<void> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    
+    const fields: string[] = []
+    const values: any[] = []
+    
+    if (updates.name !== undefined) {
+      fields.push('name = ?')
+      values.push(updates.name)
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?')
+      values.push(updates.description)
+    }
+    if (updates.instructions !== undefined) {
+      fields.push('instructions = ?')
+      values.push(updates.instructions)
+    }
+    if (updates.attachments !== undefined) {
+      fields.push('attachments = ?')
+      values.push(JSON.stringify(updates.attachments))
+    }
+    
+    fields.push('updatedAt = ?')
+    values.push(now)
+    values.push(projectId)
+    
+    if (fields.length > 1) {
+      await db.prepare(
+        `UPDATE projects SET ${fields.join(', ')} WHERE id = ?`
+      ).bind(...values).run()
+    }
+  },
+
+  async deleteProject(projectId: string): Promise<void> {
+    const db = getDB()
+    // Set projectId to NULL for conversations (handled by ON DELETE SET NULL foreign key)
+    await db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId).run()
   }
 }

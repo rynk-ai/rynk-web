@@ -24,7 +24,10 @@ import {
   updateProject as updateProjectAction,
   deleteProject as deleteProjectAction,
   getEmbeddingsByConversations,
-  branchConversation as branchConversationAction
+  branchConversation as branchConversationAction,
+  createMessageVersion as createMessageVersionAction,
+  getMessageVersions as getMessageVersionsAction,
+  switchToMessageVersion as switchToMessageVersionAction
 } from "@/app/actions"
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
@@ -202,7 +205,7 @@ export function useChat() {
             
             if (lastUserMessage.referencedFolders) {
               for (const folderRef of lastUserMessage.referencedFolders) {
-                const allFolders = await getFoldersAction()
+                const allFolders = await getFoldersAction() as Folder[]
                 const folder = allFolders.find(f => f.id === folderRef.id)
                 if (folder?.conversationIds) {
                   conversationIds.push(...folder.conversationIds.slice(0, 5)) // Max 5 conversations per folder
@@ -444,54 +447,75 @@ export function useChat() {
     referencedFolders?: { id: string; name: string }[]
   ) => {
     try {
-      // Handle attachment uploads if any
-      let uploadedAttachments: any[] = []
+      // Upload new attachments if any
+      let uploadedAttachments: any[] | undefined;
       if (newAttachments && newAttachments.length > 0) {
         uploadedAttachments = await Promise.all(newAttachments.map(async (file) => {
           const formData = new FormData()
           formData.append('file', file)
-          return await uploadFileAction(formData)
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          })
+          if (!response.ok) throw new Error('Failed to upload file')
+          const data = await response.json() as { url: string }
+          return {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url: data.url
+          }
         }))
       }
 
-      const updates: any = {
-        content: newContent,
+      // Call server action to create new version
+      await createMessageVersionAction(
+        currentConversationId!,
+        messageId,
+        newContent,
+        uploadedAttachments,
         referencedConversations,
         referencedFolders
-      }
+      )
 
-      if (uploadedAttachments.length > 0) {
-        updates.attachments = uploadedAttachments
-      }
-
-      await updateMessageAction(messageId, updates)
+      // Reload conversations to update the path and trigger message reload in UI
       await loadConversations()
-    } catch (err) {
-      console.error('Failed to edit message:', err)
-      setError('Failed to edit message')
-      throw err
+      
+    } catch (error) {
+      console.error('Failed to edit message:', error)
+      throw error // Re-throw so caller knows it failed
     }
-  }, [loadConversations])
+  }, [currentConversationId, loadConversations])
 
 
   const deleteMessage = useCallback(async (messageId: string) => {
+    if (!currentConversationId) return
     try {
-      await deleteMessageAction(messageId)
+      await deleteMessageAction(currentConversationId, messageId)
       await loadConversations()
     } catch (err) {
       console.error('Failed to delete message:', err)
       setError('Failed to delete message')
     }
-  }, [loadConversations])
+  }, [currentConversationId, loadConversations])
 
   const switchToMessageVersion = useCallback(async (messageId: string) => {
-    // TODO: Implement switchToMessageVersion action
-    console.log('Switch version not implemented yet')
-  }, [])
+    if (!currentConversationId) return
+    try {
+      await switchToMessageVersionAction(currentConversationId, messageId)
+      await loadConversations()
+    } catch (error) {
+      console.error('Failed to switch message version:', error)
+    }
+  }, [currentConversationId, loadConversations])
 
   const getMessageVersions = useCallback(async (originalMessageId: string) => {
-    // TODO: Implement getMessageVersions action
-    return []
+    try {
+      return await getMessageVersionsAction(originalMessageId)
+    } catch (error) {
+      console.error('Failed to get message versions:', error)
+      return []
+    }
   }, [])
 
   // Folder management methods
@@ -654,6 +678,7 @@ export function useChat() {
     switchToMessageVersion,
     getMessageVersions,
     getMessages,
+    generateAIResponse,
     // Folders
     folders,
     createFolder,
