@@ -293,3 +293,101 @@ export async function branchConversation(conversationId: string, messageId: stri
   revalidatePath('/')
   return newConversation
 }
+
+// --- AI Response with RAG ---
+
+export async function generateAIResponseAction(
+  conversationId: string,
+  referencedConversations?: { id: string; title: string }[],
+  referencedFolders?: { id: string; name: string }[]
+) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  // 1. Get messages from current conversation
+  const messages = await cloudDb.getMessages(conversationId)
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop()
+  if (!lastUserMessage) throw new Error('No user message found')
+  
+  // 2. Check if user has credits
+  const credits = await cloudDb.getUserCredits(session.user.id)
+  if (credits <= 0) throw new Error('Insufficient credits')
+  
+  // 3. Build context from referenced conversations (RAG)
+  let contextText = ''
+  
+  const hasReferences = (referencedConversations?.length ?? 0) > 0 || (referencedFolders?.length ?? 0) > 0
+  
+  if (hasReferences) {
+    try {
+      const { getOpenRouter } = await import('@/lib/services/openrouter')
+      const { searchEmbeddings } = await import('@/lib/utils/vector')
+      const openrouter = getOpenRouter()
+      
+      // Generate query embedding from user's question
+      const queryEmbedding = await openrouter.getEmbeddings(lastUserMessage.content)
+      
+      // Collect conversation IDs
+      const conversationIds: string[] = []
+      if (referencedConversations) {
+        conversationIds.push(...referencedConversations.map(r => r.id))
+      }
+      if (referencedFolders) {
+        for (const folderRef of referencedFolders) {
+          const allFolders = await getFolders()
+          const folder = allFolders.find(f => f.id === folderRef.id)
+          if (folder?.conversationIds) {
+            conversationIds.push(...folder.conversationIds.slice(0, 5))
+          }
+        }
+      }
+      
+      if (conversationIds.length > 0) {
+        // Fetch embeddings
+        const embeddings = await cloudDb.getEmbeddingsByConversationIds(conversationIds)
+        
+        if (embeddings.length > 0) {
+          // Perform semantic search
+          const relevantMessages = searchEmbeddings(queryEmbedding, embeddings, {
+            limit: 15,
+            minScore: 0.35
+          })
+          
+          if (relevantMessages.length > 0) {
+            // Build context
+            const byConversation = new Map()
+            
+            for (const result of relevantMessages) {
+              if (!byConversation.has(result.conversationId)) {
+                byConversation.set(result.conversationId, [])
+              }
+              byConversation.get(result.conversationId)!.push(result)
+            }
+            
+            for (const [convId, results] of byConversation) {
+              const allConvs = await getConversations()
+              const convTitle = allConvs.find((c: any) => c.id === convId)?.title || 'Untitled'
+              
+              contextText += `\n### From: "${convTitle}"\n\n`
+              for (const result of results) {
+                const preview = result.content.length > 400 
+                  ? result.content.slice(0, 400) + '...' 
+                  : result.content
+                contextText += `- (${(result.score * 100).toFixed(0)}% relevant) ${preview}\n\n`
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('RAG context retrieval failed:', err)
+      // Continue without context rather than failing
+    }
+  }
+  
+  return {
+    contextText,
+    success: true
+  }
+}
+

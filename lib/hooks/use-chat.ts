@@ -181,140 +181,35 @@ export function useChat() {
           role: m.role,
           content: m.content
         };
-      }));
+      }))
 
-      // Check if last user message has referenced conversations or folders
+      // Check if last user message has referenced conversations or folders - If so, get context from backend
       const lastUserMessage = messages.filter(m => m.role === 'user').pop()
       if (lastUserMessage) {
         const hasReferences = (lastUserMessage.referencedConversations?.length ?? 0) > 0 ||
                              (lastUserMessage.referencedFolders?.length ?? 0) > 0
         
         if (hasReferences) {
-          console.log('🔍 Using semantic search for context retrieval...')
-          
           try {
-            // 1. Generate embedding for user query
-            const openrouter = getOpenRouter()
-            const queryEmbedding = await openrouter.getEmbeddings(lastUserMessage.content)
+            console.log('🔍 Fetching RAG context from backend...')
+            const { generateAIResponseAction } = await import('@/app/actions')
+            const result = await generateAIResponseAction(
+              conversationId,
+              lastUserMessage.referencedConversations,
+              lastUserMessage.referencedFolders
+            )
             
-            // 2. Collect all conversation IDs to search
-            const conversationIds: string[] = []
-            
-            if (lastUserMessage.referencedConversations) {
-              conversationIds.push(...lastUserMessage.referencedConversations.map(r => r.id))
-            }
-            
-            if (lastUserMessage.referencedFolders) {
-              for (const folderRef of lastUserMessage.referencedFolders) {
-                const allFolders = await getFoldersAction() as Folder[]
-                const folder = allFolders.find(f => f.id === folderRef.id)
-                if (folder?.conversationIds) {
-                  conversationIds.push(...folder.conversationIds.slice(0, 5)) // Max 5 conversations per folder
-                }
-              }
-            }
-            
-            if (conversationIds.length > 0) {
-              // 3. Fetch all embeddings for these conversations
-              let embeddings = await getEmbeddingsByConversations(conversationIds)
-              
-              // CHECK FOR MISSING EMBEDDINGS
-              // If we have referenced conversations but few/no embeddings, we might need to generate them.
-              // Simple heuristic: If we have 0 embeddings for a conversation that definitely has messages, generate them.
-              
-              const missingEmbeddingConvIds: string[] = []
-              
-              for (const convId of conversationIds) {
-                 const hasEmbeddings = embeddings.some(e => e.conversationId === convId)
-                 if (!hasEmbeddings) {
-                    missingEmbeddingConvIds.push(convId)
-                 }
-              }
-              
-              if (missingEmbeddingConvIds.length > 0) {
-                 console.log(`⚠️ Missing embeddings for ${missingEmbeddingConvIds.length} conversations. Generating now...`)
-                 
-                 // Generate embeddings in parallel
-                 await Promise.all(missingEmbeddingConvIds.map(async (convId) => {
-                    try {
-                       const messages = await getMessagesAction(convId)
-                       // Filter for user messages or assistant messages that have content
-                       const validMessages = messages.filter(m => m.content && m.content.trim().length > 0)
-                       
-                       console.log(`Generating embeddings for ${validMessages.length} messages in conversation ${convId}...`)
-                       
-                       const openrouter = getOpenRouter()
-                       
-                       // Process in serial to avoid rate limits if many
-                       for (const msg of validMessages) {
-                          try {
-                             const vector = await openrouter.getEmbeddings(msg.content)
-                             await addEmbedding(msg.id, convId, msg.content, vector)
-                          } catch (e) {
-                             console.warn(`Failed to generate embedding for message ${msg.id}`, e)
-                          }
-                       }
-                    } catch (err) {
-                       console.error(`Failed to generate embeddings for conversation ${convId}`, err)
-                    }
-                 }))
-                 
-                 // Refresh embeddings after generation
-                 embeddings = await getEmbeddingsByConversations(conversationIds)
-                 console.log(`✅ Generated new embeddings. Total count: ${embeddings.length}`)
-              }
-
-              if (embeddings.length > 0) {
-                // 4. Perform semantic search
-                const relevantMessages = searchEmbeddings(queryEmbedding, embeddings, {
-                  limit: 15, // Top 15 most relevant messages
-                  minScore: 0.35 // Only include messages with >35% similarity
-                })
-                
-                console.log(`✅ Found ${relevantMessages.length} semantically relevant messages (scores: ${relevantMessages.map(r => (r.score * 100).toFixed(0) + '%').join(', ')})`)
-                
-                // 5. Build context from relevant messages
-                if (relevantMessages.length > 0) {
-                  let contextText = ''
-                  
-                  // Group by conversation for better organization
-                  const byConversation = new Map<string, typeof relevantMessages>()
-                  for (const result of relevantMessages) {
-                    if (!byConversation.has(result.conversationId)) {
-                      byConversation.set(result.conversationId, [])
-                    }
-                    byConversation.get(result.conversationId)!.push(result)
-                  }
-                  
-                  // Format context
-                  for (const [convId, results] of byConversation) {
-                    const allConvs = await getConversations()
-                    const convTitle = allConvs.find(c => c.id === convId)?.title || 'Untitled'
-                    
-                    contextText += `\n### From: "${convTitle}"\n\n`
-                    for (const result of results) {
-                      const preview = result.content.length > 400 
-                        ? result.content.slice(0, 400) + '...' 
-                        : result.content
-                      contextText += `- (${(result.score * 100).toFixed(0)}% relevant) ${preview}\n\n`
-                    }
-                  }
-                  
-                  const contextMessage: ApiMessage = {
-                    role: 'system',
-                    content: `Here are the most relevant messages from the referenced conversations (ordered by semantic relevance to the user's question). Use this context to provide an accurate answer:\n${contextText}`
-                  }
-                  
-                  apiMessages = [contextMessage, ...apiMessages]
-                  console.log(`✅ Added semantic context to prompt (${relevantMessages.length} messages from ${byConversation.size} conversations)`)
-                }
-              } else {
-                console.log('ℹ️ No embeddings found for referenced conversations (even after generation attempt)')
-              }
+            if (result.contextText) {
+              // Prepend context as system message
+              apiMessages.unshift({
+                role: 'system',
+                content: `Here is relevant context from referenced conversations:\n\n${result.contextText}`
+              })
+              console.log(`✅ Added RAG context (${result.contextText.length} chars)`)
             }
           } catch (err) {
-            console.error('❌ Semantic search failed:', err)
-            console.log('⚠️ Continuing without context')
+            console.error('RAG context retrieval failed:', err)
+            // Continue without context
           }
         }
       }
@@ -346,6 +241,8 @@ export function useChat() {
     } catch (err) {
       console.error('Failed to generate AI response:', err)
       throw err
+    } finally {
+      setIsLoading(false)
     }
   }, [loadConversations])
 
