@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   isPinned BOOLEAN DEFAULT 0,
   activeBranchId TEXT,
   branches TEXT, -- JSON array of Branch objects
+  activeReferencedConversations TEXT, -- JSON array for persistent context
+  activeReferencedFolders TEXT, -- JSON array for persistent context
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,

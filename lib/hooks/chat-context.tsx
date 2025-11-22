@@ -24,7 +24,7 @@ interface ChatContextValue {
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
   getMessages: (conversationId: string) => Promise<Message[]>
-  generateAIResponse: (conversationId: string) => Promise<void>
+  generateAIResponse: (conversationId: string, onStreamUpdate?: (content: string) => void) => Promise<{ messages: Message[], assistantMessageId: string } | undefined>
   // Folders
   folders: Folder[]
   createFolder: (name: string, description?: string, conversationIds?: string[]) => Promise<Folder>
@@ -40,6 +40,12 @@ interface ChatContextValue {
   deleteProject: (projectId: string) => Promise<void>
   loadProjects: () => Promise<void>
   branchConversation: (messageId: string) => Promise<string>
+  setConversationContext: (
+    conversationId: string,
+    referencedConversations?: { id: string; title: string }[],
+    referencedFolders?: { id: string; name: string }[]
+  ) => Promise<void>
+  clearConversationContext: (conversationId: string) => Promise<void>
 
 }
 

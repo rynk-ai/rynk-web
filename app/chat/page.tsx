@@ -51,7 +51,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
 import { FilePreviewList } from "@/components/file-preview";
@@ -71,7 +71,6 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { UserProfileDropdown } from "@/components/user-profile-dropdown";
-
 
 interface ChatSidebarProps {
   onConversationSelect?: () => void;
@@ -100,6 +99,8 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
     deleteProject,
     loadProjects,
     renameConversation,
+    setConversationContext,
+    clearConversationContext,
   } = useChatContext();
 
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
@@ -113,27 +114,41 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
   const [addToFolderDialogOpen, setAddToFolderDialogOpen] = useState(false);
   const [selectedConversationForFolder, setSelectedConversationForFolder] =
     useState<string | null>(null);
-  const [foldersForAddToFolder, setFoldersForAddToFolder] = useState<Folder[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [foldersForAddToFolder, setFoldersForAddToFolder] = useState<Folder[]>(
+    []
+  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null
+  );
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [conversationToRename, setConversationToRename] = useState<string | null>(null);
+  const [conversationToRename, setConversationToRename] = useState<
+    string | null
+  >(null);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  useEffect(() => {
-    loadTags();
-  }, []);
-
-  const loadTags = async () => {
+  const loadTags = useCallback(async () => {
     try {
       const tags = await getAllTags();
       setAllTags(tags);
     } catch (err) {
       console.error("Failed to load tags:", err);
     }
-  };
+  }, [getAllTags]);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const tags = await getAllTags();
+        setAllTags(tags);
+      } catch (err) {
+        console.error("Failed to load tags:", err);
+      }
+    };
+    fetchTags();
+  }, [getAllTags]);
 
   const handleTagClick = (conversationId: string) => {
     setSelectedConversationId(conversationId);
@@ -201,7 +216,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
 
   const handleUpdateFolderMembership = async (
     conversationId: string,
-    newFolderIds: string[],
+    newFolderIds: string[]
   ) => {
     // Find folders that currently contain this conversation
     const currentFolderIds = folders
@@ -210,12 +225,12 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
 
     // Folders to add to (in newFolderIds but not in currentFolderIds)
     const foldersToAdd = newFolderIds.filter(
-      (id) => !currentFolderIds.includes(id),
+      (id) => !currentFolderIds.includes(id)
     );
 
     // Folders to remove from (in currentFolderIds but not in newFolderIds)
     const foldersToRemove = currentFolderIds.filter(
-      (id) => !newFolderIds.includes(id),
+      (id) => !newFolderIds.includes(id)
     );
 
     // Add to new folders
@@ -253,7 +268,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
       <div className="border-b">
         <UserProfileDropdown />
       </div>
-      
+
       <div className="flex flex-col gap-2 p-3">
         <div className="flex gap-2">
           <Button
@@ -266,7 +281,9 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
               }
             }}
           >
-            <span className="text-sm font-medium">New Chat {selectedProjectId ? 'in Project' : ''}</span>
+            <span className="text-sm font-medium">
+              New Chat {selectedProjectId ? "in Project" : ""}
+            </span>
           </Button>
           <Button
             variant="outline"
@@ -277,9 +294,9 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
           >
             <FolderPlus className="size-4" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="shrink-0"
             title="Search"
             onClick={() => setSearchDialogOpen(true)}
@@ -291,14 +308,16 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
       <div className="flex-1 overflow-auto pt-4">
         {!selectedProjectId ? (
           <div className="px-2 mb-4">
-             <ProjectList
-               projects={projects}
-               activeProjectId={selectedProjectId || undefined}
-               onSelectProject={(id) => setSelectedProjectId(id === selectedProjectId ? null : id)}
-               onCreateProject={createProject}
-               onUpdateProject={updateProject}
-               onDeleteProject={deleteProject}
-             />
+            <ProjectList
+              projects={projects}
+              activeProjectId={selectedProjectId || undefined}
+              onSelectProject={(id) =>
+                setSelectedProjectId(id === selectedProjectId ? null : id)
+              }
+              onCreateProject={createProject}
+              onUpdateProject={updateProject}
+              onDeleteProject={deleteProject}
+            />
           </div>
         ) : (
           <div className="px-4 mb-4">
@@ -311,40 +330,44 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
               Back to all chats
             </Button>
             <div className="flex items-center gap-2 px-2 py-1">
-               <FolderIcon className="h-4 w-4 text-primary" />
-               <h2 className="font-semibold text-lg tracking-tight">
-                 {projects.find(p => p.id === selectedProjectId)?.name || 'Project'}
-               </h2>
+              <FolderIcon className="h-4 w-4 text-primary" />
+              <h2 className="font-semibold text-lg tracking-tight">
+                {projects.find((p) => p.id === selectedProjectId)?.name ||
+                  "Project"}
+              </h2>
             </div>
           </div>
         )}
         <div className="px-4"></div>
 
-
-
         {/* Pinned Conversations */}
-        {conversations.some(c => c.isPinned) && (
+        {conversations.some((c) => c.isPinned) && (
           <div className="mb-4">
-             <div className="px-4 mb-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
-                <PinIcon className="h-3 w-3" />
-                Pinned
-             </div>
-             <div className="space-y-1 px-2">
-               {conversations
-                 .filter(c => c.isPinned && (!selectedProjectId || c.projectId === selectedProjectId))
-                 .map(conversation => (
+            <div className="px-4 mb-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
+              <PinIcon className="h-3 w-3" />
+              Pinned
+            </div>
+            <div className="space-y-1 px-2">
+              {conversations
+                .filter(
+                  (c) =>
+                    c.isPinned &&
+                    (!selectedProjectId || c.projectId === selectedProjectId)
+                )
+                .map((conversation) => (
                   <div key={conversation.id} className="group relative">
                     <button
                       className={cn(
                         "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
-                        currentConversationId === conversation.id &&
-                          "bg-muted "
+                        currentConversationId === conversation.id && "bg-muted "
                       )}
                       onClick={() => handleSelectConversation(conversation.id)}
                     >
                       <div className="flex w-full flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate pl-1">{conversation.title}</span>
+                          <span className="truncate pl-1">
+                            {conversation.title}
+                          </span>
                         </div>
                       </div>
                     </button>
@@ -372,13 +395,19 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => handleAddToFolder(conversation.id)}>
+                        <DropdownMenuItem
+                          onClick={() => handleAddToFolder(conversation.id)}
+                        >
                           Add to folder
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRename(conversation.id)}>
+                        <DropdownMenuItem
+                          onClick={() => handleRename(conversation.id)}
+                        >
                           Rename
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleTagClick(conversation.id)}>
+                        <DropdownMenuItem
+                          onClick={() => handleTagClick(conversation.id)}
+                        >
                           Edit tags
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -391,8 +420,8 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-               ))}
-             </div>
+                ))}
+            </div>
           </div>
         )}
 
@@ -400,27 +429,35 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
         {(folders.length > 0 ||
           (() => {
             const groupedConversationIds = new Set(
-              folders.flatMap((f) => f.conversationIds),
+              folders.flatMap((f) => f.conversationIds)
             );
             const ungroupedConversations = conversations.filter(
-              (c) => !groupedConversationIds.has(c.id) && !c.isPinned && (!selectedProjectId || c.projectId === selectedProjectId),
+              (c) =>
+                !groupedConversationIds.has(c.id) &&
+                !c.isPinned &&
+                (!selectedProjectId || c.projectId === selectedProjectId)
             );
             return ungroupedConversations.length > 0;
-          })()) && (<></>
-        )}
+          })()) && <></>}
 
         {/* Folders Section - Show grouped conversations */}
         {folders.map((folder) => {
-          const folderConversations = conversations.filter((c) =>
-            folder.conversationIds.includes(c.id) && !c.isPinned && (!selectedProjectId || c.projectId === selectedProjectId),
+          const folderConversations = conversations.filter(
+            (c) =>
+              folder.conversationIds.includes(c.id) &&
+              !c.isPinned &&
+              (!selectedProjectId || c.projectId === selectedProjectId)
           );
 
-          // Even if empty, we might want to show the folder so users can add to it? 
+          // Even if empty, we might want to show the folder so users can add to it?
           // But original logic hid it. Let's keep hiding if empty for now, unless we want to allow managing empty folders.
           if (folderConversations.length === 0) return null;
 
           return (
-            <Collapsible key={folder.id} className="my-2 px-2 group/collapsible">
+            <Collapsible
+              key={folder.id}
+              className="my-2 px-2 group/collapsible"
+            >
               <div className="mb-1 flex items-center justify-between px-2 group">
                 <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-semibold text-foreground pl-2 hover:opacity-80">
                   <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
@@ -457,13 +494,17 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
                     <div key={conversation.id} className="group/convo relative">
                       <button
                         className={cn(
-                          "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
+                          "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10"
                         )}
-                        onClick={() => handleSelectConversation(conversation.id)}
+                        onClick={() =>
+                          handleSelectConversation(conversation.id)
+                        }
                       >
                         <div className="flex w-full flex-col gap-1">
                           <div className="flex items-center gap-2">
-                            <span className="truncate pl-1">{conversation.title}</span>
+                            <span className="truncate pl-1">
+                              {conversation.title}
+                            </span>
                           </div>
                         </div>
                       </button>
@@ -497,7 +538,9 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
                           >
                             Add to folder
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRename(conversation.id)}>
+                          <DropdownMenuItem
+                            onClick={() => handleRename(conversation.id)}
+                          >
                             Rename
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -524,7 +567,11 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
 
         {/* Time-based conversation sections (Today, Yesterday, etc.) - Only show ungrouped */}
         <ConversationList
-          conversations={conversations.filter(c => !c.isPinned && (!selectedProjectId || c.projectId === selectedProjectId))}
+          conversations={conversations.filter(
+            (c) =>
+              !c.isPinned &&
+              (!selectedProjectId || c.projectId === selectedProjectId)
+          )}
           folders={folders}
           currentConversationId={currentConversationId}
           onSelectConversation={handleSelectConversation}
@@ -575,7 +622,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
           onSave={async (folderIds: string[]) => {
             await handleUpdateFolderMembership(
               selectedConversationForFolder,
-              folderIds,
+              folderIds
             );
             setAddToFolderDialogOpen(false);
             setSelectedConversationForFolder(null);
@@ -601,7 +648,8 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
             if (!open) setConversationToRename(null);
           }}
           initialTitle={
-            conversations.find((c) => c.id === conversationToRename)?.title || ""
+            conversations.find((c) => c.id === conversationToRename)?.title ||
+            ""
           }
           onSave={handleSaveRename}
         />
@@ -630,6 +678,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     generateAIResponse,
     conversations,
     folders,
+    setConversationContext,
+    clearConversationContext,
   } = useChatContext();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -641,6 +691,12 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     Map<string, ChatMessage[]>
   >(new Map());
   const [isRenaming, setIsRenaming] = useState(false);
+
+  // Streaming state
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
+  const [streamingContent, setStreamingContent] = useState<string>("");
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -658,28 +714,145 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   const isLoading = isSending || isEditing || !!isDeleting || contextIsLoading;
 
-  const [context, setContext] = useState<{ type: 'conversation' | 'folder'; id: string; title: string }[]>([]);
+  // Local context state (used ONLY for new conversations)
+  const [localContext, setLocalContext] = useState<
+    { type: "conversation" | "folder"; id: string; title: string }[]
+  >([]);
+
+  // Derived active context (source of truth)
+  const activeContext = useMemo(() => {
+    if (currentConversationId) {
+      // For existing conversations, use persistent context from backend
+      const ctx: {
+        type: "conversation" | "folder";
+        id: string;
+        title: string;
+      }[] = [];
+      if (currentConversation?.activeReferencedConversations) {
+        ctx.push(
+          ...currentConversation.activeReferencedConversations.map((c) => ({
+            type: "conversation" as const,
+            id: c.id,
+            title: c.title,
+          }))
+        );
+      }
+      if (currentConversation?.activeReferencedFolders) {
+        ctx.push(
+          ...currentConversation.activeReferencedFolders.map((f) => ({
+            type: "folder" as const,
+            id: f.id,
+            title: f.name,
+          }))
+        );
+      }
+      return ctx;
+    } else {
+      // For new conversations, use local state
+      return localContext;
+    }
+  }, [currentConversationId, currentConversation, localContext]);
+
+  // Reset local context when switching conversations
+  useEffect(() => {
+    if (currentConversationId) {
+      setLocalContext([]);
+    }
+  }, [currentConversationId]);
+
+  const handleContextChange = async (newContext: typeof localContext) => {
+    if (currentConversationId) {
+      // Directly update persistent context
+      const conversations = newContext
+        .filter((c) => c.type === "conversation")
+        .map((c) => ({ id: c.id, title: c.title }));
+      const folders = newContext
+        .filter((c) => c.type === "folder")
+        .map((c) => ({ id: c.id, name: c.title }));
+
+      // Optimistic update could be done here if we had a way to mutate currentConversation locally
+      // For now, we rely on the backend update + revalidation which is fast enough
+      await setConversationContext(
+        currentConversationId,
+        conversations,
+        folders
+      );
+    } else {
+      // Update local state for new conversation
+      setLocalContext(newContext);
+    }
+  };
 
   const handleSubmit = async (text: string, files: File[]) => {
     if (!text.trim() && files.length === 0) return;
 
     setIsSending(true);
 
-    // Send message with context references
     try {
-      const referencedConversations = context
-        .filter(c => c.type === 'conversation')
-        .map(c => ({ id: c.id, title: c.title }));
-      
-      const referencedFolders = context
-        .filter(c => c.type === 'folder')
-        .map(c => ({ id: c.id, name: c.title }));
+      // Always pass the active context to sendMessage so it's recorded on the message
+      // This ensures UI pills show up and provides a historical record
 
-      const newMessage = await sendMessage(text, files, referencedConversations, referencedFolders);
-       
-       // Embedding generation is now handled server-side in the sendMessage action
-      
-      setContext([]); // Clear context after sending
+      const referencedConversations = activeContext
+        .filter((c) => c.type === "conversation")
+        .map((c) => ({ id: c.id, title: c.title }));
+
+      const referencedFolders = activeContext
+        .filter((c) => c.type === "folder")
+        .map((c) => ({ id: c.id, name: c.title }));
+
+      const userMessage = await sendMessage(
+        text,
+        files,
+        referencedConversations,
+        referencedFolders
+      );
+
+      // Get the conversation ID - either from the existing conversation or from the newly created one
+      // This fixes the race condition where currentConversationId is null for new chats
+      const conversationId =
+        currentConversationId || userMessage?.conversationId;
+
+      // Immediately load messages to show the user message (before state updates)
+      if (conversationId && userMessage) {
+        // Optimistically add the user message to the UI
+        setMessages((prev) => [...prev, userMessage as ChatMessage]);
+
+        // Also add a placeholder assistant message so streaming shows up
+        const placeholderAssistant: ChatMessage = {
+          id: "temp-" + Date.now(),
+          conversationId,
+          role: "assistant",
+          content: "",
+          timestamp: Date.now(),
+          createdAt: Date.now(),
+          attachments: [],
+          referencedConversations: [],
+          referencedFolders: [],
+          userId: "",
+          versionNumber: 0,
+        } as ChatMessage;
+
+        setMessages((prev) => [...prev, placeholderAssistant]);
+        setStreamingMessageId(placeholderAssistant.id);
+      }
+
+      // Generate AI response with streaming
+      if (conversationId) {
+        // Reset streaming content
+        setStreamingContent("");
+
+        const result = await generateAIResponse(conversationId, (content) => {
+          // Stream callback - updates UI in real-time
+          setStreamingContent(content);
+        });
+
+        if (result) {
+          // Update messages list with completed response from server
+          setMessages(result.messages);
+          setStreamingMessageId(null);
+          setStreamingContent("");
+        }
+      }
     } finally {
       setIsSending(false);
     }
@@ -687,7 +860,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   // ... (rest of the component)
 
-  const [editContext, setEditContext] = useState<{ type: 'conversation' | 'folder'; id: string; title: string }[]>([]);
+  const [editContext, setEditContext] = useState<
+    { type: "conversation" | "folder"; id: string; title: string }[]
+  >([]);
 
   // ... (handleSubmit remains same)
 
@@ -695,21 +870,37 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     if (isLoading) return;
     setEditingMessageId(message.id);
     setEditContent(message.content);
-    
+
     // Populate editContext from message references
-    const initialContext: { type: 'conversation' | 'folder'; id: string; title: string }[] = [];
+    const initialContext: {
+      type: "conversation" | "folder";
+      id: string;
+      title: string;
+    }[] = [];
     if (message.referencedConversations) {
-      initialContext.push(...message.referencedConversations.map(c => ({ type: 'conversation' as const, id: c.id, title: c.title })));
+      initialContext.push(
+        ...message.referencedConversations.map((c) => ({
+          type: "conversation" as const,
+          id: c.id,
+          title: c.title,
+        }))
+      );
     }
     if (message.referencedFolders) {
-      initialContext.push(...message.referencedFolders.map(f => ({ type: 'folder' as const, id: f.id, title: f.name })));
+      initialContext.push(
+        ...message.referencedFolders.map((f) => ({
+          type: "folder" as const,
+          id: f.id,
+          title: f.name,
+        }))
+      );
     }
     setEditContext(initialContext);
 
     // Focus and select all text after state update
     setTimeout(() => {
       const textarea = document.querySelector(
-        "textarea[autofocus]",
+        "textarea[autofocus]"
       ) as HTMLTextAreaElement;
       if (textarea) {
         textarea.focus();
@@ -730,34 +921,55 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     setIsEditing(true);
     try {
       const referencedConversations = editContext
-        .filter(c => c.type === 'conversation')
-        .map(c => ({ id: c.id, title: c.title }));
-      
+        .filter((c) => c.type === "conversation")
+        .map((c) => ({ id: c.id, title: c.title }));
+
       const referencedFolders = editContext
-        .filter(c => c.type === 'folder')
-        .map(c => ({ id: c.id, name: c.title }));
+        .filter((c) => c.type === "folder")
+        .map((c) => ({ id: c.id, name: c.title }));
 
       // Find the message being edited to check its role
-      const editingMessage = messages.find(m => m.id === editingMessageId);
+      const editingMessage = messages.find((m) => m.id === editingMessageId);
 
       // Edit the message and wait for conversation to be updated
-      await editMessage(editingMessageId, editContent, undefined, referencedConversations, referencedFolders);
-      
-      // If editing a user message, trigger AI regeneration
-      if (editingMessage?.role === 'user' && currentConversationId) {
-        try {
-          await generateAIResponse(currentConversationId);
-        } catch (aiError) {
-          console.error('Failed to generate AI response:', aiError);
-          // Don't fail the whole edit if AI generation fails
+      await editMessage(
+        editingMessageId,
+        editContent,
+        undefined,
+        referencedConversations,
+        referencedFolders
+      );
+      try {
+        // Check if generateAIResponse exists and trigger if last message is user
+        const allMessages = await getMessages(currentConversationId!);
+        const lastMsg = allMessages[allMessages.length - 1];
+        if (lastMsg && lastMsg.role === "user") {
+          try {
+            const result = await generateAIResponse(
+              currentConversationId!,
+              (content) => {
+                setStreamingContent(content);
+              }
+            );
+
+            if (result) {
+              setMessages(result.messages);
+              setStreamingMessageId(null);
+              setStreamingContent("");
+            }
+          } catch (aiError) {
+            console.error("Failed to generate AI response:", aiError);
+            // Don't fail the whole edit if AI generation fails
+          }
         }
+      } catch (err) {
+        console.error("Failed to refresh messages:", err);
       }
-      
       setEditingMessageId(null);
       setEditContent("");
       setEditContext([]);
     } catch (error) {
-      console.error('Failed to save edit:', error);
+      console.error("Failed to save edit:", error);
       // Keep edit state open so user can retry
     } finally {
       setIsEditing(false);
@@ -776,7 +988,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   const handleBranchFromMessage = async (messageId: string) => {
     if (isLoading) return;
-    
+
     if (confirm("Create a new conversation from this point?")) {
       try {
         await branchConversation(messageId);
@@ -849,36 +1061,36 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             <Menu className="h-5 w-5" />
           </Button>
         )}
-        
+
         <div className="flex flex-col w-full group min-w-0">
           <div className="text-foreground font-medium flex items-center gap-2 min-w-0 w-full">
-             {currentConversationId ? (
-               <div className="flex items-center gap-2 w-full min-w-0">
-                 <InlineTitleEdit
-                   title={currentConversation?.title || "Untitled"}
-                   onSave={async (newTitle) => {
-                     await renameConversation(currentConversationId, newTitle);
-                     setIsRenaming(false);
-                   }}
-                   isEditing={isRenaming}
-                   onEditChange={setIsRenaming}
-                   className="text-base md:text-lg font-semibold text-foreground bg-transparent"
-                 />
-                 {!isRenaming && (
-                   <Button
-                     variant="ghost"
-                     size="icon"
-                     className="h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                     onClick={() => setIsRenaming(true)}
-                     title="Rename conversation"
-                   >
-                     <Pencil className="h-3 w-3" />
-                   </Button>
-                 )}
-               </div>
+            {currentConversationId ? (
+              <div className="flex items-center gap-2 w-full min-w-0">
+                <InlineTitleEdit
+                  title={currentConversation?.title || "Untitled"}
+                  onSave={async (newTitle) => {
+                    await renameConversation(currentConversationId, newTitle);
+                    setIsRenaming(false);
+                  }}
+                  isEditing={isRenaming}
+                  onEditChange={setIsRenaming}
+                  className="text-base md:text-lg font-semibold text-foreground bg-transparent"
+                />
+                {!isRenaming && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={() => setIsRenaming(true)}
+                    title="Rename conversation"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             ) : (
-                <></>
-             )}
+              <></>
+            )}
           </div>
         </div>
       </header>
@@ -886,299 +1098,408 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       {/* Rename Dialog removed */}
 
       <div className="flex flex-1 flex-col relative overflow-hidden">
-        
         {/* Top Section: Messages & Title */}
         <div className="flex-1 overflow-y-auto w-full relative">
-           {/* Title for New Chat - Fades out when conversation starts */}
-           <div 
-             className={cn(
-               "absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 transition-opacity duration-500 ease-in-out pointer-events-none",
-               !currentConversationId ? "opacity-100" : "opacity-0"
-             )}
-           >
-             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter text-foreground/80 mb-1">simplychat.</h1>
-           </div>
-
-           {/* Messages Container - Fades in/Visible when conversation active */}
-           <div 
-             className={cn(
-               "absolute inset-0 transition-opacity duration-500 ease-in-out",
-               currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
-             )}
-           >
-             <ChatContainerRoot className="h-full px-3 md:px-4 lg:px-6">
-              <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4">
-             {messages.map((message, index) => {
-  const isAssistant = message.role === "assistant";
-  const isLastMessage = index === messages.length - 1;
-
-  return (
-    <Message
-      key={message.id}
-      className={cn(
-        "mx-auto flex w-full max-w-4xl flex-col gap-2 px-0",
-        isAssistant ? "items-start" : "items-end",
-      )}
-    >
-      {isAssistant ? (
-        // Assistant Message
-        isLastMessage && isSending && (!message.content || message.content.trim().length < 3) ? (
-          <AssistantSkeleton />
-        ) : (
-          <div className="group flex w-full flex-col gap-0">
-            <Markdown className="prose prose-slate dark:prose-invert max-w-none">
-              {message.content}
-            </Markdown>
-            <MessageActions
-              className={cn(
-                "-ml-2.5 flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
-                isLastMessage && "opacity-100",
-              )}
-            >
-              <MessageAction tooltip="Copy" delayDuration={100}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full"
-                  onClick={() => navigator.clipboard.writeText(message.content)}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </MessageAction>
-              <MessageAction tooltip="Branch from here" delayDuration={100}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full"
-                  onClick={() => handleBranchFromMessage(message.id)}
-                >
-                  <GitBranch className="h-4 w-4" />
-                </Button>
-              </MessageAction>
-            </MessageActions>
-          </div>
-        )
-      ) : (
-        // User Message
-        <div className="group flex flex-col items-end gap-1">
-          {/* Context Badges */}
-          {(message.referencedConversations?.length ?? 0) > 0 || (message.referencedFolders?.length ?? 0) > 0 ? (
-            <div className="flex flex-wrap gap-1.5 justify-end mb-1 max-w-[85%] sm:max-w-[75%]">
-              {message.referencedFolders?.map((f) => (
-                <div
-                  key={`f-${f.id}`}
-                  className="flex items-center gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] border border-blue-500/20"
-                >
-                  <FolderIcon size={10} />
-                  <span className="font-medium truncate max-w-[100px]">{f.name}</span>
-                </div>
-              ))}
-              {message.referencedConversations?.map((c) => (
-                <div
-                  key={`c-${c.id}`}
-                  className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] border border-primary/20"
-                >
-                  <MessageSquare size={10} />
-                  <span className="font-medium truncate max-w-[100px]">{c.title}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="flex flex-col items-end w-full">
-            {/* Edit Mode */}
-            {editingMessageId === message.id ? (
-              <div className="animate-in fade-in-0 slide-in-from-top-2 duration-200 w-full flex justify-end">
-                <div className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%] w-full">
-                  <div className="relative group">
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => {
-                        setEditContent(e.target.value);
-                        const textarea = e.target;
-                        textarea.style.height = "auto";
-                        textarea.style.height = Math.min(textarea.scrollHeight, 300) + "px";
-                      }}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Edit your message..."
-                      className="w-full min-h-[48px] max-h-[300px] rounded-3xl px-5 py-3 bg-muted text-primary resize-none focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition-all duration-200 leading-relaxed placeholder:text-muted-foreground/50"
-                      autoFocus
-                    />
-                  </div>
-
-                  {/* Edit Context Picker */}
-                  <div className="flex flex-col gap-2">
-                    {editContext.length > 0 && (
-                      <div className="flex flex-wrap gap-2 px-1 justify-end">
-                        {editContext.map((c, i) => (
-                          <div
-                            key={i}
-                            className="group flex items-center gap-1.5 bg-primary/5 hover:bg-primary/10 pl-2.5 pr-1.5 py-1.5 rounded-full text-xs border border-primary/10 transition-all duration-200"
-                          >
-                            {c.type === 'folder' ? <FolderIcon className="h-3 w-3 text-blue-500" /> : <MessageSquare className="h-3 w-3 text-primary" />}
-                            <span className="font-medium text-foreground/80 max-w-[120px] truncate">{c.title}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/50 hover:text-destructive opacity-50 group-hover:opacity-100 transition-all"
-                              onClick={() => setEditContext(prev => prev.filter((_, idx) => idx !== i))}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 justify-end">
-                      <ContextPicker
-                        selectedItems={editContext}
-                        onSelectionChange={setEditContext}
-                        conversations={conversations}
-                        folders={folders}
-                        currentConversationId={currentConversationId}
-                        trigger={
-                          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground">
-                            <Plus className="h-3 w-3" />
-                            Add Context
-                          </Button>
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 justify-end items-center">
-                    <div className="text-xs text-muted-foreground mr-auto flex items-center gap-1.5 opacity-70">
-                      <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs shadow-sm">Cmd</kbd>
-                      <span className="text-[11px]">Enter save</span>
-                      <span className="text-muted-foreground/40"> • </span>
-                      <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs shadow-sm">Esc</kbd>
-                      <span className="text-[11px]">cancel</span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={handleCancelEdit} disabled={isLoading} className="h-8 px-3">
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <Button variant="default" size="sm" onClick={handleSaveEdit} disabled={!editContent.trim() || isLoading} className="h-8 px-4">
-                      {isLoading ? <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <Check className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              // View Mode
-              <MessageContent className="bg-muted text-foreground rounded-2xl md:rounded-3xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200">
-                {message.content}
-              </MessageContent>
+          {/* Title for New Chat - Fades out when conversation starts */}
+          <div
+            className={cn(
+              "absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 transition-opacity duration-500 ease-in-out pointer-events-none",
+              !currentConversationId ? "opacity-100" : "opacity-0"
             )}
+          >
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter text-foreground/80 mb-1">
+              simplychat.
+            </h1>
           </div>
 
-          {/* File Attachments */}
-          {message.attachments && message.attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 justify-end max-w-[85%] sm:max-w-[75%] mt-1">
-              {message.attachments.map((file, i) => (
-                <div key={i} className="relative group/file">
-                  {file.type.startsWith('image/') ? (
-                    <div className="relative rounded-lg overflow-hidden border border-border/50 shadow-sm">
-                      <img 
-                        src={file instanceof File ? URL.createObjectURL(file) : file.url} 
-                        alt={file.name} 
-                        className="h-20 w-auto object-cover transition-transform hover:scale-105" 
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 bg-muted/50 border border-border/50 px-3 py-2 rounded-lg text-xs text-muted-foreground">
-                      <Paperclip className="h-3 w-3" />
-                      <span className="max-w-[100px] truncate">{file.name}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Messages Container - Fades in/Visible when conversation active */}
+          <div
+            className={cn(
+              "absolute inset-0 transition-opacity duration-500 ease-in-out",
+              currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
+            )}
+          >
+            <ChatContainerRoot className="h-full px-3 md:px-4 lg:px-6">
+              <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4">
+                {messages.map((message, index) => {
+                  const isAssistant = message.role === "assistant";
+                  const isLastMessage = index === messages.length - 1;
 
-          {/* Version Indicator */}
-          {editingMessageId !== message.id && (() => {
-            const rootId = message.versionOf || message.id;
-            const versions = messageVersions.get(rootId) || [];
-            return versions.length > 1 ? (
-              <div className="flex justify-end mt-1">
-                <VersionIndicator
-                  message={message}
-                  versions={versions}
-                  onSwitchVersion={switchToMessageVersion}
-                  isLoading={isLoading}
-                />
-              </div>
-            ) : null;
-          })()}
+                  return (
+                    <Message
+                      key={message.id}
+                      className={cn(
+                        "mx-auto flex w-full max-w-4xl flex-col gap-2 px-0",
+                        isAssistant ? "items-start" : "items-end"
+                      )}
+                    >
+                      {isAssistant ? (
+                        // Assistant Message
+                        isLastMessage &&
+                        isSending &&
+                        (!message.content ||
+                          message.content.trim().length < 3) ? (
+                          <AssistantSkeleton />
+                        ) : (
+                          <div className="group flex w-full flex-col gap-0">
+                            <Markdown className="prose prose-slate dark:prose-invert max-w-none">
+                              {streamingMessageId === message.id
+                                ? streamingContent
+                                : message.content}
+                            </Markdown>
+                            <MessageActions
+                              className={cn(
+                                "-ml-2.5 flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
+                                isLastMessage && "opacity-100"
+                              )}
+                            >
+                              <MessageAction tooltip="Copy" delayDuration={100}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full"
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(
+                                      message.content
+                                    )
+                                  }
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              </MessageAction>
+                              <MessageAction
+                                tooltip="Branch from here"
+                                delayDuration={100}
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full"
+                                  onClick={() =>
+                                    handleBranchFromMessage(message.id)
+                                  }
+                                >
+                                  <GitBranch className="h-4 w-4" />
+                                </Button>
+                              </MessageAction>
+                            </MessageActions>
+                          </div>
+                        )
+                      ) : (
+                        // User Message
+                        <div className="group flex flex-col items-end gap-1">
+                          {/* Context Badges */}
+                          {(message.referencedConversations?.length ?? 0) > 0 ||
+                          (message.referencedFolders?.length ?? 0) > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 justify-end mb-1 max-w-[85%] sm:max-w-[75%]">
+                              {message.referencedFolders?.map((f) => (
+                                <div
+                                  key={`f-${f.id}`}
+                                  className="flex items-center gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] border border-blue-500/20"
+                                >
+                                  <FolderIcon size={10} />
+                                  <span className="font-medium truncate max-w-[100px]">
+                                    {f.name}
+                                  </span>
+                                </div>
+                              ))}
+                              {message.referencedConversations?.map((c) => (
+                                <div
+                                  key={`c-${c.id}`}
+                                  className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] border border-primary/20"
+                                >
+                                  <MessageSquare size={10} />
+                                  <span className="font-medium truncate max-w-[100px]">
+                                    {c.title}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
 
-          {/* User Message Actions */}
-          {editingMessageId !== message.id && (
-            <MessageActions className={cn("flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100", isLastMessage && "opacity-100")}>
-              <MessageAction tooltip="Edit">
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => handleStartEdit(message)}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-              </MessageAction>
-              <MessageAction tooltip="Copy">
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigator.clipboard.writeText(message.content)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </MessageAction>
-              <MessageAction tooltip="Delete">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full text-destructive hover:text-destructive"
-                  onClick={() => confirm("Are you sure you want to delete this message?") && handleDeleteMessage(message.id)}
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </MessageAction>
-            </MessageActions>
-          )}
-        </div>
-      )}
-    </Message>
-  );
-})}
-             </ChatContainerContent>
+                          <div className="flex flex-col items-end w-full">
+                            {/* Edit Mode */}
+                            {editingMessageId === message.id ? (
+                              <div className="animate-in fade-in-0 slide-in-from-top-2 duration-200 w-full flex justify-end">
+                                <div className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%] w-full">
+                                  <div className="relative group">
+                                    <textarea
+                                      value={editContent}
+                                      onChange={(e) => {
+                                        setEditContent(e.target.value);
+                                        const textarea = e.target;
+                                        textarea.style.height = "auto";
+                                        textarea.style.height =
+                                          Math.min(textarea.scrollHeight, 300) +
+                                          "px";
+                                      }}
+                                      onKeyDown={handleKeyDown}
+                                      placeholder="Edit your message..."
+                                      className="w-full min-h-[48px] max-h-[300px] rounded-3xl px-5 py-3 bg-muted text-primary resize-none focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition-all duration-200 leading-relaxed placeholder:text-muted-foreground/50"
+                                      autoFocus
+                                    />
+                                  </div>
+
+                                  {/* Edit Context Picker */}
+                                  <div className="flex flex-col gap-2">
+                                    {editContext.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 px-1 justify-end">
+                                        {editContext.map((c, i) => (
+                                          <div
+                                            key={i}
+                                            className="group flex items-center gap-1.5 bg-primary/5 hover:bg-primary/10 pl-2.5 pr-1.5 py-1.5 rounded-full text-xs border border-primary/10 transition-all duration-200"
+                                          >
+                                            {c.type === "folder" ? (
+                                              <FolderIcon className="h-3 w-3 text-blue-500" />
+                                            ) : (
+                                              <MessageSquare className="h-3 w-3 text-primary" />
+                                            )}
+                                            <span className="font-medium text-foreground/80 max-w-[120px] truncate">
+                                              {c.title}
+                                            </span>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/50 hover:text-destructive opacity-50 group-hover:opacity-100 transition-all"
+                                              onClick={() =>
+                                                setEditContext((prev) =>
+                                                  prev.filter(
+                                                    (_, idx) => idx !== i
+                                                  )
+                                                )
+                                              }
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-2 justify-end">
+                                      <ContextPicker
+                                        selectedItems={editContext}
+                                        onSelectionChange={setEditContext}
+                                        conversations={conversations}
+                                        folders={folders}
+                                        currentConversationId={
+                                          currentConversationId
+                                        }
+                                        trigger={
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                                          >
+                                            <Plus className="h-3 w-3" />
+                                            Add Context
+                                          </Button>
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex gap-2 justify-end items-center">
+                                    <div className="text-xs text-muted-foreground mr-auto flex items-center gap-1.5 opacity-70">
+                                      <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs shadow-sm">
+                                        Cmd
+                                      </kbd>
+                                      <span className="text-[11px]">
+                                        Enter save
+                                      </span>
+                                      <span className="text-muted-foreground/40">
+                                        {" "}
+                                        •{" "}
+                                      </span>
+                                      <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs shadow-sm">
+                                        Esc
+                                      </kbd>
+                                      <span className="text-[11px]">
+                                        cancel
+                                      </span>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={handleCancelEdit}
+                                      disabled={isLoading}
+                                      className="h-8 px-3"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={handleSaveEdit}
+                                      disabled={
+                                        !editContent.trim() || isLoading
+                                      }
+                                      className="h-8 px-4"
+                                    >
+                                      {isLoading ? (
+                                        <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                      ) : (
+                                        <Check className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              // View Mode
+                              <MessageContent className="bg-muted text-foreground rounded-2xl md:rounded-3xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200">
+                                {message.content}
+                              </MessageContent>
+                            )}
+                          </div>
+
+                          {/* File Attachments */}
+                          {message.attachments &&
+                            message.attachments.length > 0 && (
+                              <div className="flex flex-wrap gap-2 justify-end max-w-[85%] sm:max-w-[75%] mt-1">
+                                {message.attachments.map((file, i) => (
+                                  <div key={i} className="relative group/file">
+                                    {file.type.startsWith("image/") ? (
+                                      <div className="relative rounded-lg overflow-hidden border border-border/50 shadow-sm">
+                                        <img
+                                          src={
+                                            file instanceof File
+                                              ? URL.createObjectURL(file)
+                                              : file.url
+                                          }
+                                          alt={file.name}
+                                          className="h-20 w-auto object-cover transition-transform hover:scale-105"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 bg-muted/50 border border-border/50 px-3 py-2 rounded-lg text-xs text-muted-foreground">
+                                        <Paperclip className="h-3 w-3" />
+                                        <span className="max-w-[100px] truncate">
+                                          {file.name}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                          {/* Version Indicator */}
+                          {editingMessageId !== message.id &&
+                            (() => {
+                              const rootId = message.versionOf || message.id;
+                              const versions =
+                                messageVersions.get(rootId) || [];
+                              return versions.length > 1 ? (
+                                <div className="flex justify-end mt-1">
+                                  <VersionIndicator
+                                    message={message}
+                                    versions={versions}
+                                    onSwitchVersion={switchToMessageVersion}
+                                    isLoading={isLoading}
+                                  />
+                                </div>
+                              ) : null;
+                            })()}
+
+                          {/* User Message Actions */}
+                          {editingMessageId !== message.id && (
+                            <MessageActions
+                              className={cn(
+                                "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
+                                isLastMessage && "opacity-100"
+                              )}
+                            >
+                              <MessageAction tooltip="Edit">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full"
+                                  onClick={() => handleStartEdit(message)}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </MessageAction>
+                              <MessageAction tooltip="Copy">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full"
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(
+                                      message.content
+                                    )
+                                  }
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              </MessageAction>
+                              <MessageAction tooltip="Delete">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full text-destructive hover:text-destructive"
+                                  onClick={() =>
+                                    confirm(
+                                      "Are you sure you want to delete this message?"
+                                    ) && handleDeleteMessage(message.id)
+                                  }
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </MessageAction>
+                            </MessageActions>
+                          )}
+                        </div>
+                      )}
+                    </Message>
+                  );
+                })}
+              </ChatContainerContent>
             </ChatContainerRoot>
-           </div>
+          </div>
         </div>
 
         {/* Input Section - Always rendered, moves with flex layout */}
         <div className="w-full max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 pb-safe-bottom z-20">
-          {context.length > 0 && (
-            <div className={cn(
-              "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500",
-              !currentConversationId ? "justify-center" : "justify-start"
-            )}>
-              {context.map((c, i) => (
-                <div 
-                  key={i} 
+          {activeContext.length > 0 && (
+            <div
+              className={cn(
+                "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500",
+                !currentConversationId ? "justify-center" : "justify-start"
+              )}
+            >
+              {activeContext.map((c, i) => (
+                <div
+                  key={i}
                   className="group flex items-center gap-1 md:gap-1.5 bg-primary/5 hover:bg-primary/10 pl-2 md:pl-2.5 pr-1 md:pr-1.5 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs border border-primary/10 transition-all duration-200"
                 >
-                  {c.type === 'folder' ? (
+                  {c.type === "folder" ? (
                     <FolderIcon className="h-2.5 w-2.5 md:h-3 md:w-3 text-blue-500" />
                   ) : (
                     <MessageSquare className="h-2.5 w-2.5 md:h-3 md:w-3 text-primary" />
                   )}
-                  <span className="font-medium text-foreground/80 max-w-[80px] md:max-w-[120px] truncate">{c.title}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-3.5 w-3.5 md:h-4 md:w-4 ml-0.5 rounded-full hover:bg-background/50 hover:text-destructive opacity-50 group-hover:opacity-100 transition-all" 
-                    onClick={() => setContext(prev => prev.filter((_, idx) => idx !== i))}
+                  <span className="font-medium text-foreground/80 max-w-[80px] md:max-w-[120px] truncate">
+                    {c.title}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-3.5 w-3.5 md:h-4 md:w-4 ml-0.5 rounded-full hover:bg-background/50 hover:text-destructive opacity-50 group-hover:opacity-100 transition-all"
+                    onClick={() =>
+                      handleContextChange(
+                        activeContext.filter((_, idx) => idx !== i)
+                      )
+                    }
                   >
                     <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
                   </Button>
                 </div>
               ))}
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground" 
-                onClick={() => setContext([])}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => handleContextChange([])}
               >
                 Clear all
               </Button>
@@ -1188,13 +1509,15 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           <PromptInputWithFiles
             onSubmit={handleSubmit}
             isLoading={isLoading}
-            placeholder={!currentConversationId ? "Message..." : "Type a message..."}
+            placeholder={
+              !currentConversationId ? "Message..." : "Type a message..."
+            }
             className={cn(
               "glass relative z-20 w-full rounded-2xl md:rounded-3xl border border-border/50 p-0 transition-all duration-500",
               !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
             )}
-            context={context}
-            onContextChange={setContext}
+            context={activeContext}
+            onContextChange={handleContextChange}
             currentConversationId={currentConversationId}
             conversations={conversations}
             folders={folders}
@@ -1204,11 +1527,12 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         {/* Bottom Spacer - The Animator */}
         {/* When no conversation (New Chat), this spacer grows to push input up */}
         {/* When conversation active, it shrinks to provide small padding */}
-        <div className={cn(
-           "transition-[flex-grow] duration-500 ease-in-out",
-           !currentConversationId ? "flex-[0.8]" : "flex-none h-3 md:h-4"
-        )} />
-
+        <div
+          className={cn(
+            "transition-[flex-grow] duration-500 ease-in-out",
+            !currentConversationId ? "flex-[0.8]" : "flex-none h-3 md:h-4"
+          )}
+        />
       </div>
     </main>
   );
@@ -1216,29 +1540,34 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
 function FullChatApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   return (
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-    <ChatProvider>
-      <div className="flex h-screen w-full overflow-hidden">
-        {/* Desktop Sidebar - Hidden on mobile */}
-        <div className="hidden md:flex">
-          <ChatSidebar />
-        </div>
-        
-        {/* Mobile Sidebar - Drawer */}
+    <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <ChatProvider>
+        <div className="flex h-screen w-full overflow-hidden">
+          {/* Desktop Sidebar - Hidden on mobile */}
+          <div className="hidden md:flex">
+            <ChatSidebar />
+          </div>
+
+          {/* Mobile Sidebar - Drawer */}
           <SheetTitle>{""}</SheetTitle>
-          <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 md:hidden">
-            <ChatSidebar onConversationSelect={() => setMobileMenuOpen(false)} />
+          <SheetContent
+            side="left"
+            className="w-[280px] sm:w-[320px] p-0 md:hidden"
+          >
+            <ChatSidebar
+              onConversationSelect={() => setMobileMenuOpen(false)}
+            />
           </SheetContent>
-        
-        {/* Main Content Area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <ChatContent onMenuClick={() => setMobileMenuOpen(true)} />
+
+          {/* Main Content Area */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <ChatContent onMenuClick={() => setMobileMenuOpen(true)} />
+          </div>
         </div>
-      </div>
-    </ChatProvider>
-        </Sheet>
+      </ChatProvider>
+    </Sheet>
   );
 }
 

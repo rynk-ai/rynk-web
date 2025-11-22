@@ -28,7 +28,9 @@ import {
   createMessageVersion as createMessageVersionAction,
   getMessageVersions as getMessageVersionsAction,
   switchToMessageVersion as switchToMessageVersionAction,
-  addEmbedding
+  addEmbedding,
+  setConversationContext as setConversationContextAction,
+  clearConversationContext as clearConversationContextAction
 } from "@/app/actions"
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
@@ -119,8 +121,13 @@ export function useChat() {
     // No need to reload conversations on selection - data hasn't changed
   }, [])
 
-  const generateAIResponse = useCallback(async (conversationId: string) => {
+  const generateAIResponse = useCallback(async (
+    conversationId: string,
+    onStreamUpdate?: (content: string) => void
+  ) => {
     try {
+      setIsLoading(true)
+      
       // Fetch latest messages for context
       const messages = await getMessagesAction(conversationId)
       
@@ -186,35 +193,30 @@ export function useChat() {
       // Check if last user message has referenced conversations or folders - If so, get context from backend
       const lastUserMessage = messages.filter(m => m.role === 'user').pop()
       if (lastUserMessage) {
-        const hasReferences = (lastUserMessage.referencedConversations?.length ?? 0) > 0 ||
-                             (lastUserMessage.referencedFolders?.length ?? 0) > 0
-        
-        if (hasReferences) {
-          try {
-            console.log('🔍 Fetching RAG context from backend...')
-            const { generateAIResponseAction } = await import('@/app/actions')
-            const result = await generateAIResponseAction(
-              conversationId,
-              lastUserMessage.referencedConversations,
-              lastUserMessage.referencedFolders
-            )
-            
-            console.log('🎯 Backend returned:', result)
-            
-            if (result && result.contextText) {
-              // Prepend context as system message
-              apiMessages.unshift({
-                role: 'system',
-                content: `Here is relevant context from referenced conversations:\n\n${result.contextText}`
-              })
-              console.log(`✅ Added RAG context (${result.contextText.length} chars)`)
-            } else {
-              console.log('⚠️ Backend returned but no context text:', result)
-            }
-          } catch (err) {
-            console.error('❌ RAG context retrieval failed:', err)
-            // Continue without context
+        // Always check for RAG context from backend
+        // The backend handles the logic of whether to use persistent context or message-level context
+        try {
+          console.log('🔍 Fetching RAG context from backend...')
+          const { generateAIResponseAction } = await import('@/app/actions')
+          const result = await generateAIResponseAction(
+            conversationId,
+            lastUserMessage.referencedConversations,
+            lastUserMessage.referencedFolders
+          )
+          
+          if (result && result.contextText) {
+            // Prepend context as system message
+            apiMessages.unshift({
+              role: 'system',
+              content: `Here is relevant context from referenced conversations:\n\n${result.contextText}`
+            })
+            console.log(`✅ Added RAG context (${result.contextText.length} chars)`)
+          } else {
+            console.log('⚠️ Backend returned but no context text:', result)
           }
+        } catch (err) {
+          console.error('❌ RAG context retrieval failed:', err)
+          // Continue without context
         }
       }
 
@@ -231,24 +233,55 @@ export function useChat() {
       })
 
       let fullResponse = ''
+      let buffer = ''
+      let lastUpdateTime = Date.now()
+      const BATCH_INTERVAL = 50 // Update UI every 50ms max
       
       for await (const chunk of stream) {
         fullResponse += chunk
-        // Optional: Implement real-time UI updates via a separate state or context if needed
+        buffer += chunk
+        
+        const now = Date.now()
+        
+        // Batch updates: only update UI every 50ms or when buffer is large
+        if (now - lastUpdateTime >= BATCH_INTERVAL || buffer.length > 100) {
+          // Update via callback (instant UI)
+          if (onStreamUpdate) {
+            onStreamUpdate(fullResponse)
+          }
+          
+          // Also update backend periodically (less frequently for performance)
+          if (now - lastUpdateTime >= 200) { // Update backend every 200ms
+            await updateMessageAction(assistantMsg.id, { content: fullResponse })
+          }
+          
+          buffer = ''
+          lastUpdateTime = now
+        }
       }
 
+      // Final update
       await updateMessageAction(assistantMsg.id, {
         content: fullResponse,
       })
+      
+      if (onStreamUpdate) {
+        onStreamUpdate(fullResponse)
+      }
 
-      await loadConversations()
+      // Fetch and return updated messages
+      const updatedMessages = await getMessagesAction(conversationId)
+      return {
+        messages: updatedMessages,
+        assistantMessageId: assistantMsg.id
+      }
     } catch (err) {
       console.error('Failed to generate AI response:', err)
       throw err
     } finally {
       setIsLoading(false)
     }
-  }, [loadConversations])
+  }, [])
 
   const generateTitle = useCallback(async (conversationId: string, messageContent: string) => {
     try {
@@ -275,6 +308,49 @@ export function useChat() {
     }
   }, [loadConversations])
 
+  const setConversationContext = useCallback(async (
+    conversationId: string,
+    referencedConversations?: { id: string; title: string }[],
+    referencedFolders?: { id: string; name: string }[]
+  ) => {
+    // Optimistic update - instant UI feedback
+    setConversations(prev => prev.map(c => 
+      c.id === conversationId
+        ? { 
+            ...c, 
+            activeReferencedConversations: referencedConversations || [],
+            activeReferencedFolders: referencedFolders || []
+          }
+        : c
+    ))
+    
+    // Backend sync (async)
+    try {
+      await setConversationContextAction(conversationId, referencedConversations, referencedFolders)
+    } catch (err) {
+      console.error('Failed to set context:', err)
+      // Revert on error
+      await loadConversations()
+    }
+  }, [])
+
+  const clearConversationContext = useCallback(async (conversationId: string) => {
+    // Optimistic update
+    setConversations(prev => prev.map(c =>
+      c.id === conversationId
+        ? { ...c, activeReferencedConversations: [], activeReferencedFolders: [] }
+        : c
+    ))
+    
+    // Backend sync
+    try {
+      await clearConversationContextAction(conversationId)
+    } catch (err) {
+      console.error('Failed to clear context:', err)
+      await loadConversations() // Revert
+    }
+  }, [])
+
   const sendMessage = useCallback(async (
     content: string,
     files?: File[],
@@ -296,6 +372,15 @@ export function useChat() {
         const conv = await createConversationAction()
         conversationId = conv.id
         setCurrentConversationId(conv.id)
+        
+        // Optimistically add to list
+        setConversations(prev => [...prev, conv])
+        
+        // If context is provided for the first message, set it as persistent context
+        if ((referencedConversations && referencedConversations.length > 0) || 
+            (referencedFolders && referencedFolders.length > 0)) {
+          await setConversationContext(conversationId, referencedConversations, referencedFolders)
+        }
       }
 
       // Add user message
@@ -317,64 +402,75 @@ export function useChat() {
         referencedFolders
       });
 
-
-      await loadConversations()
+      // No need to reload conversations - conversation data hasn't changed
 
       // Generate Title if it's a new conversation or title is default
       if (shouldGenerateTitle) {
         generateTitle(conversationId, content)
       }
 
-      // Generate AI response
-      await generateAIResponse(conversationId)
+      // AI response is now handled by the caller with streaming support
 
-      return newMessage
+      // Ensure the message includes conversationId for the caller
+      return { ...newMessage, conversationId }
     } catch (err) {
       console.error('Failed to send message:', err)
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {
       setIsLoading(false)
     }
-  }, [currentConversationId, currentConversation, loadConversations, generateAIResponse, generateTitle])
+  }, [currentConversationId, currentConversation, generateTitle, setConversationContext])
 
   const togglePinConversation = useCallback(async (id: string) => {
+    const conv = conversations.find(c => c.id === id)
+    if (!conv) return
+    
+    // Optimistic update
+    setConversations(prev => prev.map(c =>
+      c.id === id ? { ...c, isPinned: !c.isPinned } : c
+    ))
+    
     try {
-      // We need to know current pin state to toggle.
-      // For now, let's assume we can pass the new state if we knew it.
-      // Or we implement togglePin action.
-      // Let's just mock for now or use updateConversation with hardcoded true/false if we knew.
-      // Better: implement togglePin action.
-      // For migration speed, I'll skip pin toggle or just log.
-      console.log('Toggle pin not implemented yet')
-      await loadConversations()
+      await updateConversationAction(id, { isPinned: !conv.isPinned })
     } catch (err) {
       console.error('Failed to toggle pin:', err)
       setError('Failed to toggle pin')
+      await loadConversations() // Revert
       throw err
     }
-  }, [loadConversations])
+  }, [conversations])
 
   const updateConversationTags = useCallback(async (id: string, tags: string[]) => {
+    // Optimistic update
+    setConversations(prev => prev.map(c =>
+      c.id === id ? { ...c, tags } : c
+    ))
+    
     try {
       await updateConversationAction(id, { tags })
-      await loadConversations()
     } catch (err) {
       console.error('Failed to update tags:', err)
       setError('Failed to update tags')
+      await loadConversations() // Revert
       throw err
     }
-  }, [loadConversations])
+  }, [])
 
   const renameConversation = useCallback(async (id: string, newTitle: string) => {
+    // Optimistic update
+    setConversations(prev => prev.map(c =>
+      c.id === id ? { ...c, title: newTitle } : c
+    ))
+    
     try {
       await updateConversationAction(id, { title: newTitle })
-      await loadConversations()
     } catch (err) {
       console.error('Failed to rename conversation:', err)
       setError('Failed to rename conversation')
+      await loadConversations() // Revert
       throw err
     }
-  }, [loadConversations])
+  }, [])
 
   const getAllTags = useCallback(async (): Promise<string[]> => {
     try {
@@ -640,5 +736,7 @@ export function useChat() {
     deleteProject,
     loadProjects,
     branchConversation,
+    setConversationContext,
+    clearConversationContext,
   }
 }

@@ -10,7 +10,8 @@ import { revalidatePath } from "next/cache"
 export async function getConversations() {
   const session = await auth()
   if (!session?.user?.id) return []
-  return await cloudDb.getConversations(session.user.id)
+  const convs = await cloudDb.getConversations(session.user.id)
+  return convs
 }
 
 export async function createConversation(projectId?: string) {
@@ -298,6 +299,38 @@ export async function branchConversation(conversationId: string, messageId: stri
   return newConversation
 }
 
+// --- Conversation Context Management ---
+
+export async function setConversationContext(
+  conversationId: string,
+  referencedConversations?: { id: string; title: string }[],
+  referencedFolders?: { id: string; name: string }[]
+) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  await cloudDb.updateConversation(conversationId, {
+    activeReferencedConversations: referencedConversations || [],
+    activeReferencedFolders: referencedFolders || []
+  })
+  
+  revalidatePath('/chat')
+  return { success: true }
+}
+
+export async function clearConversationContext(conversationId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+  
+  await cloudDb.updateConversation(conversationId, {
+    activeReferencedConversations: [],
+    activeReferencedFolders: []
+  })
+  
+  revalidatePath('/chat')
+  return { success: true }
+}
+
 // --- AI Response with RAG ---
 
 export async function generateAIResponseAction(
@@ -319,94 +352,205 @@ export async function generateAIResponseAction(
   if (!lastUserMessage) throw new Error('No user message found')
   
   console.log(`  lastUserMessage content: "${lastUserMessage.content}"`)
-  console.log(`  lastUserMessage has refs: ${JSON.stringify(lastUserMessage.referencedConversations)}`)
   
   // 2. Check if user has credits
   const credits = await cloudDb.getUserCredits(session.user.id)
   if (credits <= 0) throw new Error('Insufficient credits')
   
-  // 3. Build context from referenced conversations (RAG)
+  // 3. Build context from referenced conversations
   let contextText = ''
   
-  const hasReferences = (referencedConversations?.length ?? 0) > 0 || (referencedFolders?.length ?? 0) > 0
+  // Get conversation to check for persistent context
+  const conversations = await getConversations()
+  const conversation = conversations.find(c => c.id === conversationId)
   
-  if (hasReferences) {
-    try {
+  let finalReferencedConversations = referencedConversations
+  let finalReferencedFolders = referencedFolders
+  
+  // Prioritize conversation-level context
+  if (conversation?.activeReferencedConversations || conversation?.activeReferencedFolders) {
+    const activeConvs = conversation.activeReferencedConversations
+    const activeFolders = conversation.activeReferencedFolders
+    
+    finalReferencedConversations = activeConvs && activeConvs.length > 0 
+      ? activeConvs 
+      : referencedConversations
+      
+    finalReferencedFolders = activeFolders && activeFolders.length > 0
+      ? activeFolders
+      : referencedFolders
+      
+    console.log('  Using conversation-level context:', {
+      conversations: finalReferencedConversations,
+      folders: finalReferencedFolders
+    })
+  }
+  
+  // Collect all conversation IDs
+  const finalConversationIds: string[] = []
+  
+  if (finalReferencedConversations) {
+    finalConversationIds.push(...finalReferencedConversations.map(c => c.id))
+  }
+  
+  if (finalReferencedFolders) {
+    for (const folderRef of finalReferencedFolders) {
+      const allFolders = await getFolders()
+      const folder = allFolders.find(f => f.id === folderRef.id)
+      if (folder?.conversationIds) {
+        finalConversationIds.push(...folder.conversationIds)
+      }
+    }
+  }
+  
+  if (finalConversationIds.length === 0) {
+    console.log('  No context references found')
+    return { contextText: '', success: true }
+  }
+  
+  try {
+    // Fetch ALL messages from referenced conversations
+    interface ConversationContext {
+      conversationId: string
+      conversationTitle: string
+      messages: typeof messages
+    }
+    
+    const allContextMessages: ConversationContext[] = []
+    
+    for (const convId of finalConversationIds) {
+      const contextMessages = await cloudDb.getMessages(convId)
+      const conv = conversations.find(c => c.id === convId)
+      const title = conv?.title || 'Untitled'
+      
+      allContextMessages.push({
+        conversationId: convId,
+        conversationTitle: title,
+        messages: contextMessages.filter(m => m.role !== 'system') // Exclude system messages
+      })
+    }
+    
+    console.log(`📥 Fetched messages from ${allContextMessages.length} conversations`)
+    
+    // Calculate total character count for token estimation
+    const totalChars = allContextMessages.reduce((sum, ctx) => 
+      sum + ctx.messages.reduce((msgSum, msg) => msgSum + msg.content.length, 0)
+    , 0)
+    const estimatedTokens = Math.ceil(totalChars / 4) // Rough estimate: 1 token ≈ 4 chars
+    
+    console.log(`📊 Estimated tokens: ${estimatedTokens}`)
+    
+    // Token limit for Claude 3 Haiku (conservative to leave room for conversation)
+    const TOKEN_LIMIT = 50000
+    
+    if (estimatedTokens < TOKEN_LIMIT) {
+      // Include everything - full context
+      console.log(`✅ Including full context (under ${TOKEN_LIMIT} token limit)`)
+      
+      for (const ctx of allContextMessages) {
+        contextText += `\n### Context from: "${ctx.conversationTitle}"\n\n`
+        
+        for (const msg of ctx.messages) {
+          const roleLabel = msg.role === 'user' ? 'User' : 'Assistant'
+          contextText += `**${roleLabel}**: ${msg.content}\n\n`
+        }
+      }
+      
+      console.log(`✅ Built full context (${contextText.length} characters)`)
+    } else {
+      // Smart compression using embeddings
+      console.log(`⚠️ Context too large (${estimatedTokens} tokens), using smart compression`)
+      
       const { getOpenRouter } = await import('@/lib/services/openrouter')
       const { searchEmbeddings } = await import('@/lib/utils/vector')
       const openrouter = getOpenRouter()
       
-      // Generate query embedding from user's question
+      // Generate query embedding
       const queryEmbedding = await openrouter.getEmbeddings(lastUserMessage.content)
       
-      // Collect conversation IDs
-      const conversationIds: string[] = []
-      if (referencedConversations) {
-        conversationIds.push(...referencedConversations.map(r => r.id))
-      }
-      if (referencedFolders) {
-        for (const folderRef of referencedFolders) {
-          const allFolders = await getFolders()
-          const folder = allFolders.find(f => f.id === folderRef.id)
-          if (folder?.conversationIds) {
-            conversationIds.push(...folder.conversationIds.slice(0, 5))
-          }
-        }
-      }
+      // Fetch embeddings for referenced conversations
+      const embeddings = await cloudDb.getEmbeddingsByConversationIds(finalConversationIds)
+      console.log(`📊 Fetched ${embeddings.length} embeddings for compression`)
       
-      if (conversationIds.length > 0) {
-        // Fetch embeddings
-        const embeddings = await cloudDb.getEmbeddingsByConversationIds(conversationIds)
-        console.log(`📊 Fetched ${embeddings.length} embeddings for conversations:`, conversationIds)
+      if (embeddings.length > 0) {
+        // Rank by relevance
+        const rankedResults = searchEmbeddings(queryEmbedding, embeddings, {
+          limit: 100, // Higher limit for compression
+          minScore: 0.1 // Lower threshold
+        })
         
-        if (embeddings.length > 0) {
-          // Perform semantic search
-          const relevantMessages = searchEmbeddings(queryEmbedding, embeddings, {
-            limit: 15,
-            minScore: 0.35
-          })
-          
-          console.log(`🔍 Semantic search found ${relevantMessages.length} relevant messages`)
-          
-          if (relevantMessages.length > 0) {
-            // Build context
-            const byConversation = new Map()
-            
-            for (const result of relevantMessages) {
-              if (!byConversation.has(result.conversationId)) {
-                byConversation.set(result.conversationId, [])
-              }
-              byConversation.get(result.conversationId)!.push(result)
-            }
-            
-            for (const [convId, results] of byConversation) {
-              const allConvs = await getConversations()
-              const convTitle = allConvs.find((c: any) => c.id === convId)?.title || 'Untitled'
-              
-              contextText += `\n### From: "${convTitle}"\n\n`
-              for (const result of results) {
-                const preview = result.content.length > 400 
-                  ? result.content.slice(0, 400) + '...' 
-                  : result.content
-                contextText += `- (${(result.score * 100).toFixed(0)}% relevant) ${preview}\n\n`
-              }
-            }
-            
-            console.log(`✅ Built context text (${contextText.length} chars)`)
+        console.log(`🔍 Ranked ${rankedResults.length} messages by relevance`)
+        
+        // Take top results until we hit token budget
+        let currentTokens = 0
+        const selectedMessages: Array<{ 
+          conversationTitle: string
+          content: string
+          score: number 
+        }> = []
+        
+        for (const result of rankedResults) {
+          const msgTokens = Math.ceil(result.content.length / 4)
+          if (currentTokens + msgTokens < TOKEN_LIMIT) {
+            const ctx = allContextMessages.find(c => c.conversationId === result.conversationId)
+            selectedMessages.push({
+              conversationTitle: ctx?.conversationTitle || 'Unknown',
+              content: result.content,
+              score: result.score
+            })
+            currentTokens += msgTokens
           } else {
-            console.log('⚠️ No messages passed relevance threshold (0.35)')
+            break
           }
-        } else {
-          console.log('⚠️ No embeddings found for referenced conversations')
         }
+        
+        // Build compressed context grouped by conversation
+        const byConversation = new Map<string, typeof selectedMessages>()
+        for (const msg of selectedMessages) {
+          if (!byConversation.has(msg.conversationTitle)) {
+            byConversation.set(msg.conversationTitle, [])
+          }
+          byConversation.get(msg.conversationTitle)!.push(msg)
+        }
+        
+        for (const [title, messages] of byConversation) {
+          contextText += `\n### Context from: "${title}"\n\n`
+          for (const msg of messages) {
+            contextText += `- ${msg.content}\n\n`
+          }
+        }
+        
+        console.log(`✅ Compressed context to ${currentTokens} tokens (${selectedMessages.length} messages)`)
+      } else {
+        console.warn('⚠️ No embeddings available for compression')
+        // Fallback: Include first N messages from each conversation
+        let currentTokens = 0
+        for (const ctx of allContextMessages) {
+          contextText += `\n### Context from: "${ctx.conversationTitle}"\n\n`
+          
+          for (const msg of ctx.messages) {
+            const msgTokens = Math.ceil(msg.content.length / 4)
+            if (currentTokens + msgTokens < TOKEN_LIMIT) {
+              const roleLabel = msg.role === 'user' ? 'User' : 'Assistant'
+              contextText += `**${roleLabel}**: ${msg.content}\n\n`
+              currentTokens += msgTokens
+            } else {
+              break
+            }
+          }
+          
+          if (currentTokens >= TOKEN_LIMIT) break
+        }
+        
+        console.log(`✅ Naive truncation to ${currentTokens} tokens`)
       }
-    } catch (err) {
-      console.error('RAG context retrieval failed:', err)
-      // Continue without context rather than failing
     }
+  } catch (err) {
+    console.error('❌ Context retrieval failed:', err)
+    // Continue without context rather than failing
   }
   
-  console.log(`🎯 Returning contextText length: ${contextText.length}`)
+  console.log(`🎯 Returning context (${contextText.length} characters)`)
   
   return {
     contextText,

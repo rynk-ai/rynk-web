@@ -15,6 +15,8 @@ export interface CloudConversation {
   projectId?: string
   branches: any[] // Required for UI compatibility
   activeBranchId?: string
+  activeReferencedConversations?: { id: string; title: string }[]
+  activeReferencedFolders?: { id: string; name: string }[]
 }
 
 export interface CloudMessage {
@@ -88,7 +90,9 @@ export const cloudDb = {
       path: JSON.parse(c.path as string || '[]'),
       tags: JSON.parse(c.tags as string || '[]'),
       branches: JSON.parse(c.branches as string || '[]'),
-      isPinned: Boolean(c.isPinned)
+      isPinned: Boolean(c.isPinned),
+      activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
     })) as CloudConversation[]
   },
 
