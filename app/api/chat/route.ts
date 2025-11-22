@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
           // "anthropic/claude-3-haiku" - fast and multimodal
           // "openai/gpt-4-vision-preview" - multimodal
           // "google/gemini-pro-vision" - multimodal
-          model: "openai/gpt-5.1-codex-mini",
+          model: "anthropic/claude-3-haiku",
           messages,
           stream,
         }),

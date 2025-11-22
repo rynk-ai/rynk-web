@@ -114,12 +114,24 @@ class OpenRouterService {
   }
 
   async getEmbeddings(text: string): Promise<number[]> {
-    const response = await fetch('/api/embeddings', {
+    // Call OpenRouter directly instead of going through /api/embeddings
+    // This is necessary because server-side code can't use relative paths
+    const apiKey = process.env.OPENROUTER_API_KEY
+    
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY not configured')
+    }
+    
+    const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: text,
+      }),
     })
 
     if (!response.ok) {
@@ -128,7 +140,7 @@ class OpenRouterService {
     }
 
     const data = await response.json() as any
-    return data.embedding
+    return data.data[0].embedding
   }
 }
 

@@ -199,16 +199,20 @@ export function useChat() {
               lastUserMessage.referencedFolders
             )
             
-            if (result.contextText) {
+            console.log('🎯 Backend returned:', result)
+            
+            if (result && result.contextText) {
               // Prepend context as system message
               apiMessages.unshift({
                 role: 'system',
                 content: `Here is relevant context from referenced conversations:\n\n${result.contextText}`
               })
               console.log(`✅ Added RAG context (${result.contextText.length} chars)`)
+            } else {
+              console.log('⚠️ Backend returned but no context text:', result)
             }
           } catch (err) {
-            console.error('RAG context retrieval failed:', err)
+            console.error('❌ RAG context retrieval failed:', err)
             // Continue without context
           }
         }

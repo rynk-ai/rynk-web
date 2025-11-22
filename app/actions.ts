@@ -35,16 +35,20 @@ export async function sendMessage(conversationId: string, message: any) {
   await cloudDb.updateCredits(session.user.id, -1)
 
   const msg = await cloudDb.addMessage(conversationId, message)
+  console.log(`✅ Message saved: ${msg.id}, role: ${message.role}`)
   
   // Generate embedding for user messages
   if (message.role === 'user' && message.content && message.content.trim()) {
+    console.log(`🔄 Generating embedding for user message: ${msg.id}`)
     try {
       const { getOpenRouter } = await import('@/lib/services/openrouter')
       const openrouter = getOpenRouter()
       const vector = await openrouter.getEmbeddings(message.content)
+      console.log(`✅ Got embedding vector (length: ${vector.length})`)
       await cloudDb.addEmbedding(msg.id, conversationId, session.user.id, message.content, vector)
+      console.log(`✅ Embedding saved for message: ${msg.id}`)
     } catch (error) {
-      console.error('Failed to generate embedding:', error)
+      console.error('❌ Failed to generate embedding:', error)
       // Don't fail the message send if embedding fails
     }
   }
@@ -301,6 +305,11 @@ export async function generateAIResponseAction(
   referencedConversations?: { id: string; title: string }[],
   referencedFolders?: { id: string; name: string }[]
 ) {
+  console.log('🎯 generateAIResponseAction called')
+  console.log('  conversationId:', conversationId)
+  console.log('  referencedConversations:', referencedConversations)
+  console.log('  referencedFolders:', referencedFolders)
+  
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
   
@@ -308,6 +317,9 @@ export async function generateAIResponseAction(
   const messages = await cloudDb.getMessages(conversationId)
   const lastUserMessage = messages.filter(m => m.role === 'user').pop()
   if (!lastUserMessage) throw new Error('No user message found')
+  
+  console.log(`  lastUserMessage content: "${lastUserMessage.content}"`)
+  console.log(`  lastUserMessage has refs: ${JSON.stringify(lastUserMessage.referencedConversations)}`)
   
   // 2. Check if user has credits
   const credits = await cloudDb.getUserCredits(session.user.id)
@@ -345,6 +357,7 @@ export async function generateAIResponseAction(
       if (conversationIds.length > 0) {
         // Fetch embeddings
         const embeddings = await cloudDb.getEmbeddingsByConversationIds(conversationIds)
+        console.log(`📊 Fetched ${embeddings.length} embeddings for conversations:`, conversationIds)
         
         if (embeddings.length > 0) {
           // Perform semantic search
@@ -352,6 +365,8 @@ export async function generateAIResponseAction(
             limit: 15,
             minScore: 0.35
           })
+          
+          console.log(`🔍 Semantic search found ${relevantMessages.length} relevant messages`)
           
           if (relevantMessages.length > 0) {
             // Build context
@@ -376,7 +391,13 @@ export async function generateAIResponseAction(
                 contextText += `- (${(result.score * 100).toFixed(0)}% relevant) ${preview}\n\n`
               }
             }
+            
+            console.log(`✅ Built context text (${contextText.length} chars)`)
+          } else {
+            console.log('⚠️ No messages passed relevance threshold (0.35)')
           }
+        } else {
+          console.log('⚠️ No embeddings found for referenced conversations')
         }
       }
     } catch (err) {
@@ -385,9 +406,10 @@ export async function generateAIResponseAction(
     }
   }
   
+  console.log(`🎯 Returning contextText length: ${contextText.length}`)
+  
   return {
     contextText,
     success: true
   }
 }
-
