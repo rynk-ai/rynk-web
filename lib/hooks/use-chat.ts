@@ -340,6 +340,9 @@ export function useChat() {
 
     let conversationId = currentConversationId
 
+    // Only generate title if it's a new conversation or the title is still the default
+    const shouldGenerateTitle = !currentConversationId || (currentConversation?.title === 'New Conversation')
+
     try {
       if (!conversationId) {
         const conv = await createConversationAction()
@@ -370,14 +373,9 @@ export function useChat() {
       await loadConversations()
 
       // Generate Title if it's a new conversation or title is default
-      // We don't await this so it runs in parallel with AI response generation
-      // We need to check conversation title. 
-      // Since we don't have the full conversation object easily without fetching, 
-      // we can check if it's the first message or just always try to generate if short path.
-      // For now, let's simplify and generate if it's the first message.
-      // But we don't know if it's first.
-      // Let's just generate title always for now or skip optimization.
-      generateTitle(conversationId, content)
+      if (shouldGenerateTitle) {
+        generateTitle(conversationId, content)
+      }
 
       // Generate AI response
       await generateAIResponse(conversationId)
@@ -389,7 +387,7 @@ export function useChat() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentConversationId, loadConversations, generateAIResponse, generateTitle])
+  }, [currentConversationId, currentConversation, loadConversations, generateAIResponse, generateTitle])
 
   const togglePinConversation = useCallback(async (id: string) => {
     try {

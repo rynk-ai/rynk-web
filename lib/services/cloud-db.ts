@@ -623,24 +623,51 @@ export const cloudDb = {
       const now = Date.now()
       const newTitle = `Branch: ${sourceConversation.title}`
       
-      // 4. Copy messages
+      // 4. Prepare new message IDs and path
       const newPath: string[] = []
+      const messageIdMap = new Map<string, string>() // oldId -> newId
       
-      // We need to fetch all messages to copy first
-      // Optimization: Fetch all in one query if possible, or loop
-      // D1 doesn't support WHERE IN with array binding easily in one go without constructing query string
-      // Let's fetch one by one or fetch all from conversation and filter (better if conversation isn't huge)
-      const allSourceMessages = await db.prepare('SELECT * FROM messages WHERE conversationId = ?').bind(sourceConversationId).all()
-      const sourceMsgMap = new Map(allSourceMessages.results.map((m: any) => [m.id as string, m]))
+      for (const oldMsgId of messageIdsToCopy) {
+        const newMsgId = crypto.randomUUID()
+        newPath.push(newMsgId)
+        messageIdMap.set(oldMsgId, newMsgId)
+      }
+
+      // 5. Insert new conversation (must be done BEFORE messages due to Foreign Key)
+      await db.prepare(
+        'INSERT INTO conversations (id, userId, projectId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        newConversationId,
+        userId,
+        sourceConversation.projectId,
+        newTitle,
+        JSON.stringify(newPath),
+        sourceConversation.tags, // Copy tags
+        0, // Not pinned
+        '[]', // No branches initially
+        now,
+        now
+      ).run()
+      
+      // 6. Copy messages
+      // Optimization: Fetch messages by ID from the path to ensure we get the exact messages in the correct order
+      const placeholders = messageIdsToCopy.map(() => '?').join(',')
+      const messagesToCopy = await db.prepare(
+        `SELECT * FROM messages WHERE id IN (${placeholders})`
+      ).bind(...messageIdsToCopy).all()
+      
+      const sourceMsgMap = new Map(messagesToCopy.results.map((m: any) => [m.id as string, m]))
   
       let previousNewMsgId: string | null = null
   
       for (const oldMsgId of messageIdsToCopy) {
         const oldMsg = sourceMsgMap.get(oldMsgId)
-        if (!oldMsg) continue
+        if (!oldMsg) {
+          console.warn(`Message ${oldMsgId} not found in DB, skipping copy`)
+          continue
+        }
   
-        const newMsgId = crypto.randomUUID()
-        newPath.push(newMsgId)
+        const newMsgId = messageIdMap.get(oldMsgId)!
   
         await db.prepare(
           'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, versionOf, branchId, parentMessageId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -662,22 +689,6 @@ export const cloudDb = {
   
         previousNewMsgId = newMsgId
       }
-  
-      // Insert new conversation
-      await db.prepare(
-        'INSERT INTO conversations (id, userId, projectId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(
-        newConversationId,
-        userId,
-        sourceConversation.projectId,
-        newTitle,
-        JSON.stringify(newPath),
-        sourceConversation.tags, // Copy tags
-        0, // Not pinned
-        '[]', // No branches initially
-        now,
-        now
-      ).run()
   
       return {
         id: newConversationId,
