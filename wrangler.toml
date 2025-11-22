@@ -7,7 +7,7 @@ pages_build_output_dir = ".vercel/output/static"
 [[d1_databases]]
 binding = "DB"
 database_name = "simplechat-db"
-database_id = "6025d865-6566-4aaa-a184-14fb606fe2ff"
+database_id = "eace923b-b0d6-4a99-a82e-6a4d144e4ca5"
 
 [[r2_buckets]]
 binding = "BUCKET"
