@@ -59,6 +59,55 @@ export class ChatService {
     return this.createStreamResponse(stream, assistantMessage.id, conversationId, userId)
   }
 
+  async generateAIResponseForMessage(
+    userMessageId: string,
+    conversationId: string,
+    userId: string
+  ) {
+    // 1. Check credits
+    const credits = await cloudDb.getUserCredits(userId)
+    if (credits <= 0) {
+      throw new Error("Insufficient credits")
+    }
+
+    // 2. Get the user message
+    const userMessage = await cloudDb.getMessage(userMessageId)
+    if (!userMessage) {
+      throw new Error(`User message ${userMessageId} not found`)
+    }
+
+    // 3. Deduct credit
+    await cloudDb.updateCredits(userId, -1)
+
+    // 4. Generate Embedding for User Message (Background)
+    this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, userMessage.content)
+
+    // 5. Build Context (RAG) using the existing message's context
+    const contextText = await this.buildContext(
+      userId,
+      conversationId,
+      userMessage.content,
+      userMessage.referencedConversations || [],
+      userMessage.referencedFolders || []
+    )
+
+    // 6. Prepare Messages for AI
+    const messages = await this.prepareMessagesForAI(conversationId, contextText)
+
+    // 7. Create Placeholder Assistant Message
+    const assistantMessage = await cloudDb.addMessage(conversationId, {
+      role: 'assistant',
+      content: '',
+    })
+
+    // 8. Call AI and Stream
+    const openRouter = getOpenRouter()
+    const stream = await openRouter.sendMessage({ messages })
+
+    // 9. Return stream and handle completion to save assistant message
+    return this.createStreamResponse(stream, assistantMessage.id, conversationId, userId)
+  }
+
   private async generateEmbeddingInBackground(messageId: string, conversationId: string, userId: string, content: string) {
     try {
       if (!content || !content.trim()) return

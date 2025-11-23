@@ -76,6 +76,34 @@ interface ChatSidebarProps {
   onConversationSelect?: () => void;
 }
 
+// Helper function to filter messages to show only active versions
+function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
+  const activeMessages: ChatMessage[] = []
+  const versionGroups = new Map<string, ChatMessage[]>()
+
+  // Group messages by their version root
+  messages.forEach(msg => {
+    const rootId = msg.versionOf || msg.id
+    if (!versionGroups.has(rootId)) {
+      versionGroups.set(rootId, [])
+    }
+    versionGroups.get(rootId)!.push(msg)
+  })
+
+  // For each version group, select the active version (highest versionNumber)
+  versionGroups.forEach((versions, rootId) => {
+    // Find the active version by looking for the one that appears in the current messages array
+    // or pick the one with the highest versionNumber as fallback
+    const activeVersion = versions.reduce((latest, current) => {
+      return current.versionNumber > latest.versionNumber ? current : latest
+    })
+    activeMessages.push(activeVersion)
+  })
+
+  // Sort by timestamp to maintain conversation order
+  return activeMessages.sort((a, b) => a.timestamp - b.timestamp)
+}
+
 function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
   const {
     conversations,
@@ -941,18 +969,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .filter((c) => c.type === "folder")
         .map((c) => ({ id: c.id, name: c.title }));
 
-      // OPTIMISTIC UPDATE: Update the message locally for instant feedback
-      setMessages(prev => prev.map(m => 
-        m.id === editingMessageId 
-          ? { 
-              ...m, 
-              content: editContent, 
-              referencedConversations, 
-              referencedFolders 
-            }
-          : m
-      ));
-      
       // Clear edit UI immediately for better UX
       setEditingMessageId(null);
       setEditContent("");
@@ -966,35 +982,36 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedConversations,
         referencedFolders
       );
-      
+
       // Fetch updated messages once to get the new conversation state
       const updatedMessages = await getMessages(currentConversationId!);
-      setMessages(updatedMessages);
-      
+      // Filter to show only active versions (no duplicates)
+      const filteredMessages = filterActiveVersions(updatedMessages);
+      setMessages(filteredMessages);
+
       // Check if we need to generate an AI response
       // If the edited message created a new path ending with a user message, generate AI response
-      const lastMsg = updatedMessages[updatedMessages.length - 1];
+      // Note: Use filteredMessages (active versions only) for the check
+      const lastMsg = filteredMessages[filteredMessages.length - 1];
       
       if (lastMsg && lastMsg.role === "user") {
-        // Generate AI response using the chat API
+        // Generate AI response using the message ID (no new user message created)
         try {
-          const response = await fetch("/api/chat", {
+          const response = await fetch("/api/chat/generate-response", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               conversationId: currentConversationId,
-              message: lastMsg.content,
-              attachments: lastMsg.attachments || [],
-              referencedConversations: lastMsg.referencedConversations || [],
-              referencedFolders: lastMsg.referencedFolders || [],
+              messageId: lastMsg.id,
             }),
           });
-          
+
           if (response.ok && response.body) {
             // The server creates the assistant message, so we need to fetch to get it
             const messagesWithAssistant = await getMessages(currentConversationId!);
-            setMessages(messagesWithAssistant);
-            
+            const filteredMessagesWithAssistant = filterActiveVersions(messagesWithAssistant);
+            setMessages(filteredMessagesWithAssistant);
+
             // Find the new assistant message for streaming tracking
             const assistantMsg = messagesWithAssistant.find(
               m => m.role === 'assistant' && !m.content
@@ -1003,17 +1020,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               setStreamingMessageId(assistantMsg.id);
             }
             setStreamingContent("");
-            
+
             // Read and display the stream
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullContent = "";
-            
+
             try {
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                
+
                 const chunk = decoder.decode(value, { stream: true });
                 fullContent += chunk;
                 setStreamingContent(fullContent);
@@ -1022,11 +1039,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               // Clear streaming state
               setStreamingMessageId(null);
               setStreamingContent("");
-              
+
               // SINGLE final fetch to sync with server
               // This ensures we have the complete, saved assistant response
+              // Filter to show only active versions (no duplicates)
               const finalMessages = await getMessages(currentConversationId!);
-              setMessages(finalMessages);
+              const filteredFinalMessages = filterActiveVersions(finalMessages);
+              setMessages(filteredFinalMessages);
             }
           }
         } catch (aiError) {
@@ -1035,13 +1054,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           setStreamingContent("");
         }
       }
-      
+
     } catch (error) {
       console.error("Failed to save edit:", error);
       // Revert optimistic update on error by fetching from server
       try {
         const revertedMessages = await getMessages(currentConversationId!);
-        setMessages(revertedMessages);
+        const filteredRevertedMessages = filterActiveVersions(revertedMessages);
+        setMessages(filteredRevertedMessages);
       } catch (fetchError) {
         console.error("Failed to revert after error:", fetchError);
       }
@@ -1101,9 +1121,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       try {
         const loadedMessages = await getMessages(currentConversation.id);
         console.log("✅ Loaded", loadedMessages.length, "messages");
-        setMessages(loadedMessages);
+        // Filter to show only active versions (no duplicates)
+        const filteredMessages = filterActiveVersions(loadedMessages);
+        setMessages(filteredMessages);
 
-        // Load versions for each message
+        // Load versions for each message (load from all versions, not just active)
         const versionsMap = new Map<string, ChatMessage[]>();
         for (const message of loadedMessages) {
           const rootId = message.versionOf || message.id;
