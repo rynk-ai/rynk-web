@@ -391,7 +391,7 @@ export function useChat() {
       }
 
       // Call server action to create new version
-      await createMessageVersionAction(
+      const result = await createMessageVersionAction(
         currentConversationId!,
         messageId,
         newContent,
@@ -399,15 +399,14 @@ export function useChat() {
         referencedConversations,
         referencedFolders
       )
-
-      // Reload conversations to update the path and trigger message reload in UI
-      await loadConversations()
+      
+      return result
       
     } catch (error) {
       console.error('Failed to edit message:', error)
       throw error // Re-throw so caller knows it failed
     }
-  }, [currentConversationId, loadConversations])
+  }, [currentConversationId])
 
 
   const deleteMessage = useCallback(async (messageId: string) => {

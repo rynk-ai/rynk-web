@@ -918,6 +918,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const handleSaveEdit = async () => {
     if (!editingMessageId || isEditing || !editContent.trim()) return;
     setIsEditing(true);
+    
     try {
       const referencedConversations = editContext
         .filter((c) => c.type === "conversation")
@@ -927,11 +928,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .filter((c) => c.type === "folder")
         .map((c) => ({ id: c.id, name: c.title }));
 
-      // Find the message being edited to check its role
-      const editingMessage = messages.find((m) => m.id === editingMessageId);
-
-      // Edit the message and wait for conversation to be updated
-      await editMessage(
+      // Save the edit (creates a new message version)
+      const result = await editMessage(
         editingMessageId,
         editContent,
         undefined,
@@ -939,91 +937,87 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedFolders
       );
       
-      // Refresh messages to show the edit
-      try {
-        const allMessages = await getMessages(currentConversationId!);
-        setMessages(allMessages);
-        
-        // If the last message is now a user message (after edit), generate AI response
-        const lastMsg = allMessages[allMessages.length - 1];
-        if (lastMsg && lastMsg.role === "user") {
-          // Close the edit UI
-          setEditingMessageId(null);
-          setEditContent("");
-          setEditContext([]);
-          
-          // Create optimistic assistant message
-          const now = Date.now();
-          const optimisticAssistant = {
-            id: crypto.randomUUID(),
-            conversationId: currentConversationId!,
-            role: "assistant" as const,
-            content: "",
-            createdAt: now,
-            timestamp: now,
-            userId: "",
-            versionNumber: 1,
-          };
-          
-          setMessages((prev) => [...prev, optimisticAssistant]);
-          setStreamingMessageId(optimisticAssistant.id);
-          setStreamingContent("");
-          
-          // Call the API to get AI response
-          try {
-            const response = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                conversationId: currentConversationId,
-                message: lastMsg.content,
-                attachments: lastMsg.attachments || [],
-                referencedConversations: lastMsg.referencedConversations || [],
-                referencedFolders: lastMsg.referencedFolders || [],
-              }),
-            });
-            
-            if (response.ok && response.body) {
-              const reader = response.body.getReader();
-              const decoder = new TextDecoder();
-              let fullContent = "";
-              
-              try {
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  
-                  const chunk = decoder.decode(value, { stream: true });
-                  fullContent += chunk;
-                  setStreamingContent(fullContent);
-                }
-              } finally {
-                setStreamingMessageId(null);
-                setStreamingContent("");
-                
-                // Fetch final messages
-                const finalMessages = await getMessages(currentConversationId!);
-                setMessages(finalMessages);
-              }
-            }
-          } catch (aiError) {
-            console.error("Failed to generate AI response:", aiError);
-            setStreamingMessageId(null);
-            setStreamingContent("");
-          }
-          
-          return; // Exit early since we already cleared edit state
-        }
-      } catch (err) {
-        console.error("Failed to refresh messages:", err);
-      }
-      
+      // Clear edit state immediately
       setEditingMessageId(null);
       setEditContent("");
       setEditContext([]);
+      
+      // Reload messages to show the edited version
+      const updatedMessages = await getMessages(currentConversationId!);
+      setMessages(updatedMessages);
+      
+      // Check if we need to generate an AI response
+      // If the edited message created a new path ending with a user message, generate AI response
+      const lastMsg = updatedMessages[updatedMessages.length - 1];
+      
+      if (lastMsg && lastMsg.role === "user") {
+        // Create optimistic assistant message
+        const now = Date.now();
+        const optimisticAssistant = {
+          id: crypto.randomUUID(),
+          conversationId: currentConversationId!,
+          role: "assistant" as const,
+          content: "",
+          createdAt: now,
+          timestamp: now,
+          userId: "",
+          versionNumber: 1,
+        };
+        
+        setMessages((prev) => [...prev, optimisticAssistant]);
+        setStreamingMessageId(optimisticAssistant.id);
+        setStreamingContent("");
+        
+        // Stream AI response
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              conversationId: currentConversationId,
+              message: lastMsg.content,
+              attachments: lastMsg.attachments || [],
+              referencedConversations: lastMsg.referencedConversations || [],
+              referencedFolders: lastMsg.referencedFolders || [],
+            }),
+          });
+          
+          if (response.ok && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullContent = "";
+            
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                fullContent += chunk;
+                setStreamingContent(fullContent);
+              }
+            } finally {
+              setStreamingMessageId(null);
+              setStreamingContent("");
+              
+              // Fetch final messages to get real IDs
+              const finalMessages = await getMessages(currentConversationId!);
+              setMessages(finalMessages);
+            }
+          }
+        } catch (aiError) {
+          console.error("Failed to generate AI response:", aiError);
+          setStreamingMessageId(null);
+          setStreamingContent("");
+        }
+      }
+      
     } catch (error) {
       console.error("Failed to save edit:", error);
       // Keep edit state open so user can retry
+      setEditingMessageId(null);
+      setEditContent("");
+      setEditContext([]);
     } finally {
       setIsEditing(false);
     }
