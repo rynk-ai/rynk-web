@@ -1214,7 +1214,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             )}
           >
             <ChatContainerRoot className="h-full px-3 md:px-4 lg:px-6">
-               <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4">
+               <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4 pb-96">
                 <MessageList
                   messages={messages}
                   isSending={isSending}
@@ -1230,80 +1230,79 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           </div>
         </div>
 
-        {/* Input Section - Always rendered, moves with flex layout */}
-        <div className="w-full max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 pb-safe-bottom z-20">
-          {activeContext.length > 0 && (
-            <div
-              className={cn(
-                "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500",
-                !currentConversationId ? "justify-center" : "justify-start"
-              )}
-            >
-              {activeContext.map((c, i) => (
-                <div
-                  key={i}
-                  className="group flex items-center gap-1 md:gap-1.5 bg-primary/5 hover:bg-primary/10 pl-2 md:pl-2.5 pr-1 md:pr-1.5 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs border border-primary/10 transition-all duration-200"
-                >
-                  {c.type === "folder" ? (
-                    <FolderIcon className="h-2.5 w-2.5 md:h-3 md:w-3 text-blue-500" />
-                  ) : (
-                    <MessageSquare className="h-2.5 w-2.5 md:h-3 md:w-3 text-primary" />
-                  )}
-                  <span className="font-medium text-foreground/80 max-w-[80px] md:max-w-[120px] truncate">
-                    {c.title}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-3.5 w-3.5 md:h-4 md:w-4 ml-0.5 rounded-full hover:bg-background/50 hover:text-destructive opacity-50 group-hover:opacity-100 transition-all"
-                    onClick={() =>
-                      handleContextChange(
-                        activeContext.filter((_, idx) => idx !== i)
-                      )
-                    }
-                  >
-                    <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => handleContextChange([])}
+        {/* Input Section - Always rendered, absolute positioned at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 w-full">
+          {/* Background for input section */}
+          <div className="relative w-full max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 pb-safe-bottom pt-4">
+            {activeContext.length > 0 && (
+              <div
+                className={cn(
+                  "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500",
+                  !currentConversationId ? "justify-center" : "justify-start"
+                )}
               >
-                Clear all
-              </Button>
-            </div>
-          )}
-
-          <PromptInputWithFiles
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            placeholder={
-              !currentConversationId ? "Message..." : "Type a message..."
-            }
-            className={cn(
-              "glass relative z-20 w-full rounded-2xl md:rounded-3xl border border-border/50 p-0 transition-all duration-500",
-              !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
+                {activeContext.map((c, i) => (
+                  <div
+                    key={i}
+                    className="z-20 group flex items-center gap-1 md:gap-1.5 bg-secondary hover:bg-secondary/15 pl-2 md:pl-2.5 pr-1 md:pr-1.5 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs  border-secondary/20 transition-all duration-200 "
+                  >
+                    {c.type === "folder" ? (
+                      <FolderIcon className="h-2.5 w-2.5 md:h-3 md:w-3 text-blue-600" />
+                    ) : (
+                      <MessageSquare className="h-2.5 w-2.5 md:h-3 md:w-3 text-secondary" />
+                    )}
+                    <span className="font-medium text-foreground max-w-[80px] md:max-w-[120px] truncate">
+                      {c.title}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-3.5 w-3.5 md:h-4 md:w-4 ml-0.5 rounded-full hover:bg-background/80 hover:text-destructive opacity-70 group-hover:opacity-100 transition-all"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleContextChange(
+                          activeContext.filter((_, idx) => idx !== i)
+                        );
+                      }}
+                    >
+                      <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="z-20 h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleContextChange([]);
+                  }}
+                >
+                  Clear all
+                </Button>
+              </div>
             )}
-            context={activeContext}
-            onContextChange={handleContextChange}
-            currentConversationId={currentConversationId}
-            conversations={conversations}
-            folders={folders}
-          />
-        </div>
 
-        {/* Bottom Spacer - The Animator */}
-        {/* When no conversation (New Chat), this spacer grows to push input up */}
-        {/* When conversation active, it shrinks to provide small padding */}
-        <div
-          className={cn(
-            "transition-[flex-grow] duration-500 ease-in-out",
-            !currentConversationId ? "flex-[0.8]" : "flex-none h-3 md:h-4"
-          )}
-        />
+            <PromptInputWithFiles
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+              placeholder={
+                !currentConversationId ? "Message..." : "Type a message..."
+              }
+              className={cn(
+                "glass relative z-10 w-full rounded-2xl md:rounded-3xl border border-border/50 p-0 transition-all duration-500",
+                !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
+              )}
+              context={activeContext}
+              onContextChange={handleContextChange}
+              currentConversationId={currentConversationId}
+              conversations={conversations}
+              folders={folders}
+            />
+          </div>
+        </div>
       </div>
     </main>
   );
