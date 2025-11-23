@@ -806,37 +806,25 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       if (!result) return;
 
-      const { userMessage, assistantMessage, streamReader, conversationId } = result;
+      const { streamReader, conversationId } = result;
 
-      // INSTANT FEEDBACK: Show optimistic messages immediately
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-      setStreamingMessageId(assistantMessage.id);
-      setStreamingContent("");
-
-      // Fetch real messages in parallel (non-blocking for UX)
-      // This will replace the optimistic ones once ready
-      const fetchRealMessages = async () => {
-        try {
-          const serverMessages = await getMessages(conversationId);
-          
-          // Find the real assistant message for streaming
-          const realAssistant = serverMessages.find(m => m.role === 'assistant' && !m.content);
-          
-          // Replace ALL messages with server's version (removes duplicates)
-          setMessages(serverMessages);
-          
-          // Update streaming ID to track the real assistant message
-          if (realAssistant) {
-            setStreamingMessageId(realAssistant.id);
-          }
-        } catch (err) {
-          console.error("Failed to load real messages:", err);
-          // Keep optimistic messages if fetch fails
+      // Fetch real messages immediately from server
+      // Server has already saved both user and assistant placeholder messages
+      try {
+        const realMessages = await getMessages(conversationId);
+        setMessages(realMessages);
+        
+        // Find the assistant message ID for streaming
+        const assistantMsg = realMessages.find(m => m.role === 'assistant' && !m.content);
+        if (assistantMsg) {
+          setStreamingMessageId(assistantMsg.id);
         }
-      };
-      
-      // Start fetching (non-blocking)
-      fetchRealMessages();
+        setStreamingContent("");
+        
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+        return;
+      }
 
       // Read the stream
       const decoder = new TextDecoder();

@@ -219,44 +219,9 @@ export function useChat() {
         }))
       }
       
-      // Optimistic UI Update
-      const tempUserMessageId = crypto.randomUUID()
-      const tempAssistantMessageId = crypto.randomUUID()
-      const now = Date.now()
-      
-      const optimisticUserMessage: Message = {
-        id: tempUserMessageId,
-        conversationId: conversationId!,
-        role: 'user',
-        content,
-        attachments: uploadedAttachments,
-        referencedConversations,
-        referencedFolders,
-        createdAt: now,
-        timestamp: now,
-        userId: 'current-user', // Placeholder
-        versionNumber: 1
-      }
-
-      const optimisticAssistantMessage: Message = {
-        id: tempAssistantMessageId,
-        conversationId: conversationId!,
-        role: 'assistant',
-        content: '',
-        createdAt: now + 1,
-        timestamp: now + 1,
-        userId: 'current-user',
-        versionNumber: 1
-      }
-
-      // We need to update the messages list immediately
-      // Since getMessages is an action, we can't easily update its cache from here without revalidation
-      // But we can force a reload after a short delay or rely on the stream to trigger updates if we had a message store.
-      // For now, we'll trigger a reload of messages after the stream starts/ends.
-      // Ideally, useChat should maintain a local messages state, but it currently fetches on demand in ChatContent.
-      // We will return these optimistic messages so the caller (ChatContent) can add them.
-      
       // Call the unified API
+      // Note: Server-side ChatService creates REAL user and assistant messages immediately
+      // So we don't need client-side optimistic messages
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,17 +242,15 @@ export function useChat() {
 
       // Handle Streaming
       const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let fullResponse = ''
       
       // Generate title if needed (fire and forget for performance)
       if (shouldGenerateTitle) {
         generateTitle(conversationId, content)
       }
       
+      // Return stream reader and conversationId
+      // The UI will fetch real messages from server
       return {
-        userMessage: optimisticUserMessage,
-        assistantMessage: optimisticAssistantMessage,
         streamReader: reader,
         conversationId
       }
