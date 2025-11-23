@@ -240,6 +240,10 @@ export function useChat() {
 
       if (!response.body) throw new Error('No response body')
 
+      // Extract message IDs from response headers
+      const userMessageId = response.headers.get('X-User-Message-Id')
+      const assistantMessageId = response.headers.get('X-Assistant-Message-Id')
+
       // Handle Streaming
       const reader = response.body.getReader()
       
@@ -248,11 +252,12 @@ export function useChat() {
         generateTitle(conversationId, content)
       }
       
-      // Return stream reader and conversationId
-      // The UI will fetch real messages from server
+      // Return stream reader, conversationId, and message IDs
       return {
         streamReader: reader,
-        conversationId
+        conversationId,
+        userMessageId,
+        assistantMessageId
       }
 
     } catch (err) {

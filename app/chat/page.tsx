@@ -834,29 +834,65 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       if (!result) return;
 
-      const { streamReader, conversationId } = result;
+      const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
-      // Fetch real messages immediately from server
-      // Server has already saved both user and assistant placeholder messages
-      try {
-        const realMessages = await getMessages(conversationId);
-        setMessages(realMessages);
+      // Optimistically add messages to UI using returned IDs
+      // No DB fetch needed - server already created them!
+      if (userMessageId && assistantMessageId) {
+        const timestamp = Date.now();
         
-        // Find the assistant message ID for streaming
-        const assistantMsg = realMessages.find(m => m.role === 'assistant' && !m.content);
-        if (assistantMsg) {
-          setStreamingMessageId(assistantMsg.id);
-        }
+        const optimisticUserMessage: ChatMessage = {
+          id: userMessageId,
+          conversationId,
+          role: 'user',
+          content: text,
+          attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
+          referencedConversations,
+          referencedFolders,
+          createdAt: timestamp,
+          timestamp,
+          userId: '',
+          versionNumber: 1
+        };
+
+        const optimisticAssistantMessage: ChatMessage = {
+          id: assistantMessageId,
+          conversationId,
+          role: 'assistant',
+          content: '',
+          createdAt: timestamp,
+          timestamp,
+          userId: '',
+          versionNumber: 1
+        };
+
+        // Only add if they don't already exist (prevent duplicates)
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMessages = [];
+          if (!existingIds.has(userMessageId)) {
+            newMessages.push(optimisticUserMessage);
+          }
+          if (!existingIds.has(assistantMessageId)) {
+            newMessages.push(optimisticAssistantMessage);
+          }
+          const updated = newMessages.length > 0 ? [...prev, ...newMessages] : prev;
+          console.log('📝 Messages updated, total count:', updated.length, 'added:', newMessages.length);
+          return updated;
+        });
+        
+        // Set streaming state AFTER messages are added
+        console.log('🎯 Setting streaming state for message ID:', assistantMessageId);
+        setStreamingMessageId(assistantMessageId);
         setStreamingContent("");
-        
-      } catch (err) {
-        console.error("Failed to load messages:", err);
-        return;
       }
 
       // Read the stream
       const decoder = new TextDecoder();
       let fullContent = "";
+
+      console.log('🌊 Starting stream for assistant message:', assistantMessageId);
+      console.log('🔍 Current streamingMessageId:', streamingMessageId);
 
       try {
         while (true) {
@@ -865,30 +901,27 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           
           const chunk = decoder.decode(value, { stream: true });
           fullContent += chunk;
+          console.log('📦 Stream chunk received, total length:', fullContent.length, 'chunk:', chunk.substring(0, 50));
           setStreamingContent(fullContent);
         }
+        console.log('✅ Stream complete, total content length:', fullContent.length);
       } catch (err) {
         console.error("Error reading stream:", err);
       } finally {
-        // Stream finished - fetch final messages to get completed assistant response
+        // Stream finished - use optimistic update instead of DB fetch!
         setStreamingMessageId(null);
         setStreamingContent("");
         
-        try {
-          const finalMessages = await getMessages(conversationId);
-          setMessages(finalMessages);
-        } catch (err) {
-          console.error("Failed to load messages after stream:", err);
-          // Fallback: update the streaming message with final content
-          setMessages((prev) => 
-            prev.map((m) => {
-              if (m.role === 'assistant' && !m.content) {
-                return { ...m, content: fullContent };
-              }
-              return m;
-            })
-          );
-        }
+        console.log('💾 Saving final content to message state');
+        // Update the assistant message with final content
+        setMessages((prev) => 
+          prev.map((m) => {
+            if (m.id === assistantMessageId) {
+              return { ...m, content: fullContent };
+            }
+            return m;
+          })
+        );
       }
 
     } catch (err) {
@@ -983,7 +1016,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedFolders
       );
 
-      // Fetch updated messages once to get the new conversation state
+      // Fetch updated messages ONCE to get the new conversation state with the edited version
       const updatedMessages = await getMessages(currentConversationId!);
       // Filter to show only active versions (no duplicates)
       const filteredMessages = filterActiveVersions(updatedMessages);
@@ -991,61 +1024,70 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       // Check if we need to generate an AI response
       // If the edited message created a new path ending with a user message, generate AI response
-      // Note: Use filteredMessages (active versions only) for the check
       const lastMsg = filteredMessages[filteredMessages.length - 1];
       
       if (lastMsg && lastMsg.role === "user") {
-        // Generate AI response using the message ID (no new user message created)
+        // Generate AI response using the consolidated /api/chat endpoint
         try {
-          const response = await fetch("/api/chat/generate-response", {
+          const response = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               conversationId: currentConversationId,
-              messageId: lastMsg.id,
+              messageId: lastMsg.id,  // Use messageId instead of message content
             }),
           });
 
           if (response.ok && response.body) {
-            // The server creates the assistant message, so we need to fetch to get it
-            const messagesWithAssistant = await getMessages(currentConversationId!);
-            const filteredMessagesWithAssistant = filterActiveVersions(messagesWithAssistant);
-            setMessages(filteredMessagesWithAssistant);
+            // Extract assistant message ID from headers
+            const assistantMessageId = response.headers.get('X-Assistant-Message-Id');
+            
+            if (assistantMessageId) {
+              // Create optimistic assistant placeholder
+              const timestamp = Date.now();
+              const optimisticAssistant: ChatMessage = {
+                id: assistantMessageId,
+                conversationId: currentConversationId!,
+                role: 'assistant',
+                content: '',
+                createdAt: timestamp,
+                timestamp,
+                userId: '',
+                versionNumber: 1
+              };
 
-            // Find the new assistant message for streaming tracking
-            const assistantMsg = messagesWithAssistant.find(
-              m => m.role === 'assistant' && !m.content
-            );
-            if (assistantMsg) {
-              setStreamingMessageId(assistantMsg.id);
-            }
-            setStreamingContent("");
-
-            // Read and display the stream
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullContent = "";
-
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                fullContent += chunk;
-                setStreamingContent(fullContent);
-              }
-            } finally {
-              // Clear streaming state
-              setStreamingMessageId(null);
+              setMessages(prev => [...prev, optimisticAssistant]);
+              setStreamingMessageId(assistantMessageId);
               setStreamingContent("");
 
-              // SINGLE final fetch to sync with server
-              // This ensures we have the complete, saved assistant response
-              // Filter to show only active versions (no duplicates)
-              const finalMessages = await getMessages(currentConversationId!);
-              const filteredFinalMessages = filterActiveVersions(finalMessages);
-              setMessages(filteredFinalMessages);
+              // Read and display the stream
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              let fullContent = "";
+
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+
+                  const chunk = decoder.decode(value, { stream: true });
+                  fullContent += chunk;
+                  setStreamingContent(fullContent);
+                }
+              } finally {
+                // Clear streaming state
+                setStreamingMessageId(null);
+                setStreamingContent("");
+
+                // Optimistic update instead of DB fetch!
+                setMessages(prev => 
+                  prev.map(m => 
+                    m.id === assistantMessageId 
+                      ? { ...m, content: fullContent }
+                      : m
+                  )
+                );
+              }
             }
           }
         } catch (aiError) {
@@ -1234,6 +1276,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                         // Assistant Message
                         isLastMessage &&
                         isSending &&
+                        streamingMessageId !== message.id &&  // Don't show skeleton if actively streaming this message
                         (!message.content ||
                           message.content.trim().length < 3) ? (
                           <AssistantSkeleton />

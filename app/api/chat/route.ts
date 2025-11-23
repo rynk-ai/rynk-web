@@ -12,16 +12,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { 
-      message, 
+      message,           // For new messages (normal flow)
+      messageId,         // For existing messages (edit flow)
       conversationId, 
       attachments, 
       referencedConversations, 
       referencedFolders 
     } = await request.json() as any
 
-    if (!message || !conversationId) {
+    // Validate: Either message or messageId must be provided (but not both)
+    if ((!message && !messageId) || !conversationId) {
       return new Response(
-        JSON.stringify({ error: "Message and conversationId are required" }),
+        JSON.stringify({ error: "Either 'message' or 'messageId' and 'conversationId' are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
@@ -30,6 +32,7 @@ export async function POST(request: NextRequest) {
       session.user.id,
       conversationId,
       message,
+      messageId,
       attachments,
       referencedConversations,
       referencedFolders

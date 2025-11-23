@@ -576,12 +576,11 @@ export const cloudDb = {
 
   async addEmbedding(messageId: string, conversationId: string, userId: string, content: string, vector: number[]) {
     const db = getDB()
-    const id = crypto.randomUUID()
-    const timestamp = Date.now()
-    
-    await db.prepare(
-      'INSERT INTO embeddings (id, messageId, conversationId, userId, content, vector, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, messageId, conversationId, userId, content, JSON.stringify(vector), timestamp).run()
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO embeddings (messageId, conversationId, userId, content, vector, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    await stmt.bind(messageId, conversationId, userId, content, JSON.stringify(vector), Date.now()).run()
   },
 
   async getEmbeddingsByConversationIds(conversationIds: string[]): Promise<CloudEmbedding[]> {
