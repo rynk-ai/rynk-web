@@ -4,17 +4,21 @@ import {
   ChatContainerContent,
   ChatContainerRoot,
 } from "@/components/ui/chat-container";
-import {
+import { MessageList } from "@/components/chat/message-list";
+import {  
   Message,
-  MessageAction,
-  MessageActions,
   MessageContent,
+  MessageActions,
+  MessageAction,
 } from "@/components/ui/message";
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { Button } from "@/components/ui/button";
 import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
 import { useChatContext } from "@/lib/hooks/chat-context";
 import { ChatProvider } from "@/lib/hooks/chat-context";
+import { useMessageState } from "@/lib/hooks/use-message-state";
+import { useMessageEdit } from "@/lib/hooks/use-message-edit";
+import { useStreaming } from "@/lib/hooks/use-streaming";
 import type {
   CloudMessage as ChatMessage,
   CloudConversation as Conversation,
@@ -696,7 +700,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     currentConversation,
     currentConversationId,
     editMessage,
-    deleteMessage,
+    deleteMessage: deleteMessageAction,
     switchToMessageVersion,
     getMessageVersions,
     isLoading: contextIsLoading,
@@ -708,22 +712,33 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     setConversationContext,
     clearConversationContext,
   } = useChatContext();
+  
+  // Use custom hooks for separated state management
+  const messageState = useMessageState();
+  const editState = useMessageEdit();
+  const streamingState = useStreaming();
+  
+  // Destructure for convenience
+  const { messages, setMessages, messageVersions, setMessageVersions } = messageState;
+  const { 
+    isEditing, setIsEditing, 
+    editingMessageId, 
+    editContent, setEditContent,
+    editContext, setEditContext,
+    startEdit, cancelEdit 
+  } = editState;
+  const {
+    streamingMessageId,
+    streamingContent,
+    startStreaming,
+    updateStreamContent,
+    finishStreaming
+  } = streamingState;
+  
+  // Other local state
   const [isSending, setIsSending] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]); // Loaded from path
-  const [messageVersions, setMessageVersions] = useState<
-    Map<string, ChatMessage[]>
-  >(new Map());
   const [isRenaming, setIsRenaming] = useState(false);
-
-  // Streaming state
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-    null
-  );
-  const [streamingContent, setStreamingContent] = useState<string>("");
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -746,39 +761,31 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     { type: "conversation" | "folder"; id: string; title: string }[]
   >([]);
 
-  // Derived active context (source of truth)
+  // Derived active context (source of truth) - optimized with better dependencies
   const activeContext = useMemo(() => {
     if (currentConversationId) {
-      // For existing conversations, use persistent context from backend
-      const ctx: {
-        type: "conversation" | "folder";
-        id: string;
-        title: string;
-      }[] = [];
-      if (currentConversation?.activeReferencedConversations) {
-        ctx.push(
-          ...currentConversation.activeReferencedConversations.map((c) => ({
-            type: "conversation" as const,
-            id: c.id,
-            title: c.title,
-          }))
-        );
-      }
-      if (currentConversation?.activeReferencedFolders) {
-        ctx.push(
-          ...currentConversation.activeReferencedFolders.map((f) => ({
-            type: "folder" as const,
-            id: f.id,
-            title: f.name,
-          }))
-        );
-      }
+      const ctx: { type: "conversation" | "folder"; id: string; title: string }[] = [];
+      
+      currentConversation?.activeReferencedConversations?.forEach(c => {
+        ctx.push({ type: "conversation", id: c.id, title: c.title });
+      });
+      
+      currentConversation?.activeReferencedFolders?.forEach(f => {
+        ctx.push({ type: "folder", id: f.id, title: f.name });
+      });
+      
       return ctx;
-    } else {
-      // For new conversations, use local state
-      return localContext;
     }
-  }, [currentConversationId, currentConversation, localContext]);
+    return localContext;
+  }, [
+    currentConversationId,
+    // Use JSON.stringify to prevent re-computation on reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(currentConversation?.activeReferencedConversations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(currentConversation?.activeReferencedFolders),
+    localContext
+  ]);
 
   // Reset local context when switching conversations
   useEffect(() => {
@@ -787,36 +794,27 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [currentConversationId]);
 
-  const handleContextChange = async (newContext: typeof localContext) => {
+  const handleContextChange = useCallback(async (newContext: typeof localContext) => {
     if (currentConversationId) {
-      // Directly update persistent context
-      const conversations = newContext
+      const conversationRefs = newContext
         .filter((c) => c.type === "conversation")
         .map((c) => ({ id: c.id, title: c.title }));
-      const folders = newContext
+      const folderRefs = newContext
         .filter((c) => c.type === "folder")
         .map((c) => ({ id: c.id, name: c.title }));
 
-      // Optimistic update could be done here if we had a way to mutate currentConversation locally
-      // For now, we rely on the backend update + revalidation which is fast enough
-      await setConversationContext(
-        currentConversationId,
-        conversations,
-        folders
-      );
+      await setConversationContext(currentConversationId, conversationRefs, folderRefs);
     } else {
-      // Update local state for new conversation
       setLocalContext(newContext);
     }
-  };
+  }, [currentConversationId, setConversationContext]);
 
-  const handleSubmit = async (text: string, files: File[]) => {
+  const handleSubmit = useCallback(async (text: string, files: File[]) => {
     if (!text.trim() && files.length === 0) return;
 
     setIsSending(true);
 
     try {
-      // Always pass the active context to sendMessage so it's recorded on the message
       const referencedConversations = activeContext
         .filter((c) => c.type === "conversation")
         .map((c) => ({ id: c.id, title: c.title }));
@@ -836,8 +834,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
-      // Optimistically add messages to UI using returned IDs
-      // No DB fetch needed - server already created them!
+      // Optimistically add messages using returned IDs
       if (userMessageId && assistantMessageId) {
         const timestamp = Date.now();
         
@@ -866,33 +863,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           versionNumber: 1
         };
 
-        // Only add if they don't already exist (prevent duplicates)
-        setMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
-          const newMessages = [];
-          if (!existingIds.has(userMessageId)) {
-            newMessages.push(optimisticUserMessage);
-          }
-          if (!existingIds.has(assistantMessageId)) {
-            newMessages.push(optimisticAssistantMessage);
-          }
-          const updated = newMessages.length > 0 ? [...prev, ...newMessages] : prev;
-          console.log('📝 Messages updated, total count:', updated.length, 'added:', newMessages.length);
-          return updated;
-        });
-        
-        // Set streaming state AFTER messages are added
-        console.log('🎯 Setting streaming state for message ID:', assistantMessageId);
-        setStreamingMessageId(assistantMessageId);
-        setStreamingContent("");
+        messageState.addMessages([optimisticUserMessage, optimisticAssistantMessage]);
+        startStreaming(assistantMessageId);
       }
 
-      // Read the stream
+      // Read the stream with throttling
       const decoder = new TextDecoder();
       let fullContent = "";
-
-      console.log('🌊 Starting stream for assistant message:', assistantMessageId);
-      console.log('🔍 Current streamingMessageId:', streamingMessageId);
 
       try {
         while (true) {
@@ -901,27 +878,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           
           const chunk = decoder.decode(value, { stream: true });
           fullContent += chunk;
-          console.log('📦 Stream chunk received, total length:', fullContent.length, 'chunk:', chunk.substring(0, 50));
-          setStreamingContent(fullContent);
+          updateStreamContent(fullContent);
         }
-        console.log('✅ Stream complete, total content length:', fullContent.length);
       } catch (err) {
         console.error("Error reading stream:", err);
       } finally {
-        // Stream finished - use optimistic update instead of DB fetch!
-        setStreamingMessageId(null);
-        setStreamingContent("");
+        finishStreaming();
         
-        console.log('💾 Saving final content to message state');
-        // Update the assistant message with final content
-        setMessages((prev) => 
-          prev.map((m) => {
-            if (m.id === assistantMessageId) {
-              return { ...m, content: fullContent };
-            }
-            return m;
-          })
-        );
+        // Update final content
+        if (assistantMessageId) {
+          messageState.updateMessage(assistantMessageId, { content: fullContent });
+        }
       }
 
     } catch (err) {
@@ -929,22 +896,16 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     } finally {
       setIsSending(false);
     }
-  };
+  }, [activeContext, sendMessage, messageState, startStreaming, updateStreamContent, finishStreaming]);
 
   // ... (rest of the component)
 
-  const [editContext, setEditContext] = useState<
-    { type: "conversation" | "folder"; id: string; title: string }[]
-  >([]);
-
   // ... (handleSubmit remains same)
 
-  const handleStartEdit = (message: ChatMessage) => {
+  const handleStartEdit = useCallback((message: ChatMessage) => {
     if (isLoading) return;
-    setEditingMessageId(message.id);
-    setEditContent(message.content);
-
-    // Populate editContext from message references
+    
+    // Populate initial context from message references
     const initialContext: {
       type: "conversation" | "folder";
       id: string;
@@ -968,7 +929,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         }))
       );
     }
-    setEditContext(initialContext);
+    
+    startEdit(message, initialContext);
 
     // Focus and select all text after state update
     setTimeout(() => {
@@ -980,14 +942,12 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         textarea.select();
       }
     }, 0);
-  };
+  }, [isLoading, startEdit]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     if (isEditing) return;
-    setEditingMessageId(null);
-    setEditContent("");
-    setEditContext([]);
-  };
+    cancelEdit();
+  }, [isEditing, cancelEdit]);
 
   const handleSaveEdit = async () => {
     if (!editingMessageId || isEditing || !editContent.trim()) return;
@@ -1003,9 +963,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .map((c) => ({ id: c.id, name: c.title }));
 
       // Clear edit UI immediately for better UX
-      setEditingMessageId(null);
-      setEditContent("");
-      setEditContext([]);
+      cancelEdit();
 
       // Save the edit to server (creates a new message version)
       const result = await editMessage(
@@ -1056,9 +1014,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 versionNumber: 1
               };
 
-              setMessages(prev => [...prev, optimisticAssistant]);
-              setStreamingMessageId(assistantMessageId);
-              setStreamingContent("");
+              messageState.addMessages([optimisticAssistant]);
+              startStreaming(assistantMessageId);
 
               // Read and display the stream
               const reader = response.body.getReader();
@@ -1072,28 +1029,20 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
                   const chunk = decoder.decode(value, { stream: true });
                   fullContent += chunk;
-                  setStreamingContent(fullContent);
+                  updateStreamContent(fullContent);
                 }
               } finally {
                 // Clear streaming state
-                setStreamingMessageId(null);
-                setStreamingContent("");
+                finishStreaming();
 
                 // Optimistic update instead of DB fetch!
-                setMessages(prev => 
-                  prev.map(m => 
-                    m.id === assistantMessageId 
-                      ? { ...m, content: fullContent }
-                      : m
-                  )
-                );
+                messageState.updateMessage(assistantMessageId, { content: fullContent });
               }
             }
           }
         } catch (aiError) {
           console.error("Failed to generate AI response:", aiError);
-          setStreamingMessageId(null);
-          setStreamingContent("");
+          finishStreaming();
         }
       }
 
@@ -1112,17 +1061,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
     if (isLoading) return;
     setIsDeleting(messageId);
     try {
-      await deleteMessage(messageId);
+      await deleteMessageAction(messageId);
     } finally {
       setIsDeleting(null);
     }
-  };
+  }, [isLoading, deleteMessageAction]);
 
-  const handleBranchFromMessage = async (messageId: string) => {
+  const handleBranchFromMessage = useCallback(async (messageId: string) => {
     if (isLoading) return;
 
     if (confirm("Create a new conversation from this point?")) {
@@ -1132,7 +1081,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         console.error("Failed to branch conversation:", err);
       }
     }
-  };
+  }, [isLoading, branchConversation]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1259,342 +1208,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             )}
           >
             <ChatContainerRoot className="h-full px-3 md:px-4 lg:px-6">
-              <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4">
-                {messages.map((message, index) => {
-                  const isAssistant = message.role === "assistant";
-                  const isLastMessage = index === messages.length - 1;
-
-                  return (
-                    <Message
-                      key={message.id}
-                      className={cn(
-                        "mx-auto flex w-full max-w-4xl flex-col gap-2 px-0",
-                        isAssistant ? "items-start" : "items-end"
-                      )}
-                    >
-                      {isAssistant ? (
-                        // Assistant Message
-                        isLastMessage &&
-                        isSending &&
-                        streamingMessageId !== message.id &&  // Don't show skeleton if actively streaming this message
-                        (!message.content ||
-                          message.content.trim().length < 3) ? (
-                          <AssistantSkeleton />
-                        ) : (
-                          <div className="group flex w-full flex-col gap-0">
-                            <Markdown className="prose prose-slate dark:prose-invert max-w-none">
-                              {streamingMessageId === message.id
-                                ? streamingContent
-                                : message.content}
-                            </Markdown>
-                            <MessageActions
-                              className={cn(
-                                "-ml-2.5 flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
-                                isLastMessage && "opacity-100"
-                              )}
-                            >
-                              <MessageAction tooltip="Copy" delayDuration={100}>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-full"
-                                  onClick={() =>
-                                    navigator.clipboard.writeText(
-                                      message.content
-                                    )
-                                  }
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                              </MessageAction>
-                              <MessageAction
-                                tooltip="Branch from here"
-                                delayDuration={100}
-                              >
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-full"
-                                  onClick={() =>
-                                    handleBranchFromMessage(message.id)
-                                  }
-                                >
-                                  <GitBranch className="h-4 w-4" />
-                                </Button>
-                              </MessageAction>
-                            </MessageActions>
-                          </div>
-                        )
-                      ) : (
-                        // User Message
-                        <div className="group flex flex-col items-end gap-1">
-                          {/* Context Badges */}
-                          {(message.referencedConversations?.length ?? 0) > 0 ||
-                          (message.referencedFolders?.length ?? 0) > 0 ? (
-                            <div className="flex flex-wrap gap-1.5 justify-end mb-1 max-w-[85%] sm:max-w-[75%]">
-                              {message.referencedFolders?.map((f) => (
-                                <div
-                                  key={`f-${f.id}`}
-                                  className="flex items-center gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] border border-blue-500/20"
-                                >
-                                  <FolderIcon size={10} />
-                                  <span className="font-medium truncate max-w-[100px]">
-                                    {f.name}
-                                  </span>
-                                </div>
-                              ))}
-                              {message.referencedConversations?.map((c) => (
-                                <div
-                                  key={`c-${c.id}`}
-                                  className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] border border-primary/20"
-                                >
-                                  <MessageSquare size={10} />
-                                  <span className="font-medium truncate max-w-[100px]">
-                                    {c.title}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-
-                          <div className="flex flex-col items-end w-full">
-                            {/* Edit Mode */}
-                            {editingMessageId === message.id ? (
-                              <div className="animate-in fade-in-0 slide-in-from-top-2 duration-200 w-full flex justify-end">
-                                <div className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%] w-full">
-                                  <div className="relative group">
-                                    <textarea
-                                      value={editContent}
-                                      onChange={(e) => {
-                                        setEditContent(e.target.value);
-                                        const textarea = e.target;
-                                        textarea.style.height = "auto";
-                                        textarea.style.height =
-                                          Math.min(textarea.scrollHeight, 300) +
-                                          "px";
-                                      }}
-                                      onKeyDown={handleKeyDown}
-                                      placeholder="Edit your message..."
-                                      className="w-full min-h-[48px] max-h-[300px] rounded-3xl px-5 py-3 bg-muted text-primary resize-none focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition-all duration-200 leading-relaxed placeholder:text-muted-foreground/50"
-                                      autoFocus
-                                    />
-                                  </div>
-
-                                  {/* Edit Context Picker */}
-                                  <div className="flex flex-col gap-2">
-                                    {editContext.length > 0 && (
-                                      <div className="flex flex-wrap gap-2 px-1 justify-end">
-                                        {editContext.map((c, i) => (
-                                          <div
-                                            key={i}
-                                            className="group flex items-center gap-1.5 bg-primary/5 hover:bg-primary/10 pl-2.5 pr-1.5 py-1.5 rounded-full text-xs border border-primary/10 transition-all duration-200"
-                                          >
-                                            {c.type === "folder" ? (
-                                              <FolderIcon className="h-3 w-3 text-blue-500" />
-                                            ) : (
-                                              <MessageSquare className="h-3 w-3 text-primary" />
-                                            )}
-                                            <span className="font-medium text-foreground/80 max-w-[120px] truncate">
-                                              {c.title}
-                                            </span>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/50 hover:text-destructive opacity-50 group-hover:opacity-100 transition-all"
-                                              onClick={() =>
-                                                setEditContext((prev) =>
-                                                  prev.filter(
-                                                    (_, idx) => idx !== i
-                                                  )
-                                                )
-                                              }
-                                            >
-                                              <X className="h-3 w-3" />
-                                            </Button>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <div className="flex items-center gap-2 justify-end">
-                                      <ContextPicker
-                                        selectedItems={editContext}
-                                        onSelectionChange={setEditContext}
-                                        conversations={conversations}
-                                        folders={folders}
-                                        currentConversationId={
-                                          currentConversationId
-                                        }
-                                        trigger={
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                                          >
-                                            <Plus className="h-3 w-3" />
-                                            Add Context
-                                          </Button>
-                                        }
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="flex gap-2 justify-end items-center">
-                                    <div className="text-xs text-muted-foreground mr-auto flex items-center gap-1.5 opacity-70">
-                                      <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs shadow-sm">
-                                        Cmd
-                                      </kbd>
-                                      <span className="text-[11px]">
-                                        Enter save
-                                      </span>
-                                      <span className="text-muted-foreground/40">
-                                        {" "}
-                                        •{" "}
-                                      </span>
-                                      <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs shadow-sm">
-                                        Esc
-                                      </kbd>
-                                      <span className="text-[11px]">
-                                        cancel
-                                      </span>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={handleCancelEdit}
-                                      disabled={isLoading}
-                                      className="h-8 px-3"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="default"
-                                      size="sm"
-                                      onClick={handleSaveEdit}
-                                      disabled={
-                                        !editContent.trim() || isLoading
-                                      }
-                                      className="h-8 px-4"
-                                    >
-                                      {isLoading ? (
-                                        <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                                      ) : (
-                                        <Check className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              // View Mode
-                              <MessageContent className="bg-muted text-foreground rounded-2xl md:rounded-3xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200">
-                                {message.content}
-                              </MessageContent>
-                            )}
-                          </div>
-
-                          {/* File Attachments */}
-                          {message.attachments &&
-                            message.attachments.length > 0 && (
-                              <div className="flex flex-wrap gap-2 justify-end max-w-[85%] sm:max-w-[75%] mt-1">
-                                {message.attachments.map((file, i) => (
-                                  <div key={i} className="relative group/file">
-                                    {file.type.startsWith("image/") ? (
-                                      <div className="relative rounded-lg overflow-hidden border border-border/50 shadow-sm">
-                                        <img
-                                          src={
-                                            file instanceof File
-                                              ? URL.createObjectURL(file)
-                                              : file.url
-                                          }
-                                          alt={file.name}
-                                          className="h-20 w-auto object-cover transition-transform hover:scale-105"
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-2 bg-muted/50 border border-border/50 px-3 py-2 rounded-lg text-xs text-muted-foreground">
-                                        <Paperclip className="h-3 w-3" />
-                                        <span className="max-w-[100px] truncate">
-                                          {file.name}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                          {/* Version Indicator */}
-                          {editingMessageId !== message.id &&
-                            (() => {
-                              const rootId = message.versionOf || message.id;
-                              const versions =
-                                messageVersions.get(rootId) || [];
-                              return versions.length > 1 ? (
-                                <div className="flex justify-end mt-1">
-                                  <VersionIndicator
-                                    message={message}
-                                    versions={versions}
-                                    onSwitchVersion={switchToMessageVersion}
-                                    onReloadMessages={reloadMessages}
-                                    isLoading={isLoading}
-                                  />
-                                </div>
-                              ) : null;
-                            })()}
-
-                          {/* User Message Actions */}
-                          {editingMessageId !== message.id && (
-                            <MessageActions
-                              className={cn(
-                                "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
-                                isLastMessage && "opacity-100"
-                              )}
-                            >
-                              <MessageAction tooltip="Edit">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-full"
-                                  onClick={() => handleStartEdit(message)}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              </MessageAction>
-                              <MessageAction tooltip="Copy">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-full"
-                                  onClick={() =>
-                                    navigator.clipboard.writeText(
-                                      message.content
-                                    )
-                                  }
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                              </MessageAction>
-                              <MessageAction tooltip="Delete">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-full text-destructive hover:text-destructive"
-                                  onClick={() =>
-                                    confirm(
-                                      "Are you sure you want to delete this message?"
-                                    ) && handleDeleteMessage(message.id)
-                                  }
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </MessageAction>
-                            </MessageActions>
-                          )}
-                        </div>
-                      )}
-                    </Message>
-                  );
-                })}
+               <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4">
+                <MessageList
+                  messages={messages}
+                  isSending={isSending}
+                  streamingMessageId={streamingMessageId}
+                  streamingContent={streamingContent}
+                  editingMessageId={editingMessageId}
+                  onStartEdit={handleStartEdit}
+                  onDeleteMessage={handleDeleteMessage}
+                  onBranchFromMessage={handleBranchFromMessage}
+                />
               </ChatContainerContent>
             </ChatContainerRoot>
           </div>

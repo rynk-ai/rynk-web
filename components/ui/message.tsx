@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Tooltip,
@@ -13,11 +14,12 @@ export type MessageProps = {
   className?: string
 } & React.HTMLProps<HTMLDivElement>
 
-const Message = ({ children, className, ...props }: MessageProps) => (
+const Message = memo(({ children, className, ...props }: MessageProps) => (
   <div className={cn("flex gap-3", className)} {...props}>
     {children}
   </div>
-)
+));
+Message.displayName = 'Message';
 
 export type MessageAvatarProps = {
   src: string
@@ -27,7 +29,7 @@ export type MessageAvatarProps = {
   className?: string
 }
 
-const MessageAvatar = ({
+const MessageAvatar = memo(({
   src,
   alt,
   fallback,
@@ -42,7 +44,8 @@ const MessageAvatar = ({
       )}
     </Avatar>
   )
-}
+});
+MessageAvatar.displayName = 'MessageAvatar';
 
 export type MessageContentProps = {
   children: React.ReactNode
@@ -51,7 +54,7 @@ export type MessageContentProps = {
 } & React.ComponentProps<typeof Markdown> &
   React.HTMLProps<HTMLDivElement>
 
-const MessageContent = ({
+const MessageContent = memo(({
   children,
   markdown = false,
   className,
@@ -71,14 +74,15 @@ const MessageContent = ({
       {children}
     </div>
   )
-}
+});
+MessageContent.displayName = 'MessageContent';
 
 export type MessageActionsProps = {
   children: React.ReactNode
   className?: string
 } & React.HTMLProps<HTMLDivElement>
 
-const MessageActions = ({
+const MessageActions = memo(({
   children,
   className,
   ...props
@@ -89,7 +93,8 @@ const MessageActions = ({
   >
     {children}
   </div>
-)
+));
+MessageActions.displayName = 'MessageActions';
 
 export type MessageActionProps = {
   className?: string
@@ -98,7 +103,7 @@ export type MessageActionProps = {
   side?: "top" | "bottom" | "left" | "right"
 } & React.ComponentProps<typeof Tooltip>
 
-const MessageAction = ({
+const MessageAction = memo(({
   tooltip,
   children,
   className,
@@ -115,6 +120,7 @@ const MessageAction = ({
       </Tooltip>
     </TooltipProvider>
   )
-}
+});
+MessageAction.displayName = 'MessageAction';
 
 export { Message, MessageAvatar, MessageContent, MessageActions, MessageAction }

@@ -16,7 +16,9 @@ interface ChatContextValue {
   sendMessage: (content: string, files?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>
     conversationId: string
-  } | undefined>
+    userMessageId: string | null
+    assistantMessageId: string | null
+  } | null>
   loadConversations: () => Promise<void>
   togglePinConversation: (id: string) => Promise<void>
   updateConversationTags: (id: string, tags: string[]) => Promise<void>

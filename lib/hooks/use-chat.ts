@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { 
   getConversations, 
   createConversation as createConversationAction, 
@@ -48,13 +48,31 @@ export function useChat() {
   const [error, setError] = useState<string | null>(null)
   const [folders, setFolders] = useState<Folder[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  
+  // Use ref to track last fetch time for cache invalidation
+  const conversationsLastFetchRef = useRef<number>(0)
+  const foldersLastFetchRef = useRef<number>(0)
+  const projectsLastFetchRef = useRef<number>(0)
 
-  const currentConversation = conversations.find(c => c.id === currentConversationId) || null
+  // Memoize currentConversation to prevent unnecessary recalculations
+  const currentConversation = useMemo(
+    () => conversations.find(c => c.id === currentConversationId) || null,
+    [conversations, currentConversationId]
+  )
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (force = false) => {
+    // Cache invalidation: Skip if fetched recently (within 3 seconds) unless forced
+    const lastFetch = conversationsLastFetchRef.current
+    const timeSinceLastFetch = Date.now() - lastFetch
+    if (!force && lastFetch && timeSinceLastFetch < 3000) {
+      console.log('[useChat] Skipping loadConversations, last fetch was', timeSinceLastFetch, 'ms ago')
+      return
+    }
+    
     try {
       const all = await getConversations()
       setConversations(all)
+      conversationsLastFetchRef.current = Date.now()
     } catch (err) {
       console.error('Failed to load conversations:', err)
       setError('Failed to load conversations')
@@ -62,19 +80,33 @@ export function useChat() {
   }, [])
 
   // Folders and Projects are not yet migrated to actions fully in this step, keeping empty or TODO
-  const loadFolders = useCallback(async () => {
+  const loadFolders = useCallback(async (force = false) => {
+    const lastFetch = foldersLastFetchRef.current
+    const timeSinceLastFetch = Date.now() - lastFetch
+    if (!force && lastFetch && timeSinceLastFetch < 3000) {
+      return
+    }
+    
     try {
       const all = await getFoldersAction()
       setFolders(all as Folder[])
+      foldersLastFetchRef.current = Date.now()
     } catch (err) {
       console.error('Failed to load folders:', err)
     }
   }, [])
 
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (force = false) => {
+    const lastFetch = projectsLastFetchRef.current
+    const timeSinceLastFetch = Date.now() - lastFetch
+    if (!force && lastFetch && timeSinceLastFetch < 3000) {
+      return
+    }
+    
     try {
       const all = await getProjectsAction()
       setProjects(all as Project[])
+      projectsLastFetchRef.current = Date.now()
     } catch (err) {
       console.error('Failed to load projects:', err)
     }
@@ -179,11 +211,16 @@ export function useChat() {
 
   const sendMessage = useCallback(async (
     content: string,
-    files?: File[],
-    referencedConversations?: { id: string; title: string }[],
-    referencedFolders?: { id: string; name: string }[]
-  ) => {
-    if (!content.trim() && (!files || files.length === 0)) return
+    files: File[] = [],
+    referencedConversations: { id: string; title: string }[] = [],
+    referencedFolders: { id: string; name: string }[] = []
+  ): Promise<{
+    streamReader: ReadableStreamDefaultReader<Uint8Array>;
+    conversationId: string;
+    userMessageId: string | null;
+    assistantMessageId: string | null;
+  } | null> => {
+    if (!content.trim() && (!files || files.length === 0)) return null
 
     setIsLoading(true)
     setError(null)
@@ -273,22 +310,29 @@ export function useChat() {
     const conv = conversations.find(c => c.id === id)
     if (!conv) return
     
-    // Optimistic update
+    // Optimistic update - update state immediately for instant UI feedback
     setConversations(prev => prev.map(c =>
       c.id === id ? { ...c, isPinned: !c.isPinned } : c
     ))
     
     try {
       await updateConversationAction(id, { isPinned: !conv.isPinned })
+      // No loadConversations() - optimistic update is sufficient!
     } catch (err) {
       console.error('Failed to toggle pin:', err)
       setError('Failed to toggle pin')
-      await loadConversations() // Revert
+      // Revert optimistic update on error
+      setConversations(prev => prev.map(c =>
+        c.id === id ? { ...c, isPinned: conv.isPinned } : c
+      ))
       throw err
     }
   }, [conversations])
 
   const updateConversationTags = useCallback(async (id: string, tags: string[]) => {
+    // Store original tags for revert
+    const originalTags = conversations.find(c => c.id === id)?.tags || []
+    
     // Optimistic update
     setConversations(prev => prev.map(c =>
       c.id === id ? { ...c, tags } : c
@@ -296,15 +340,22 @@ export function useChat() {
     
     try {
       await updateConversationAction(id, { tags })
+      // No loadConversations() - optimistic update is sufficient!
     } catch (err) {
       console.error('Failed to update tags:', err)
       setError('Failed to update tags')
-      await loadConversations() // Revert
+      // Revert on error
+      setConversations(prev => prev.map(c =>
+        c.id === id ? { ...c, tags: originalTags } : c
+      ))
       throw err
     }
-  }, [])
+  }, [conversations])
 
   const renameConversation = useCallback(async (id: string, newTitle: string) => {
+    // Store original title for revert
+    const originalTitle = conversations.find(c => c.id === id)?.title || ''
+    
     // Optimistic update
     setConversations(prev => prev.map(c =>
       c.id === id ? { ...c, title: newTitle } : c
@@ -312,13 +363,17 @@ export function useChat() {
     
     try {
       await updateConversationAction(id, { title: newTitle })
+      // No loadConversations() - optimistic update is sufficient!
     } catch (err) {
       console.error('Failed to rename conversation:', err)
       setError('Failed to rename conversation')
-      await loadConversations() // Revert
+      // Revert on error
+      setConversations(prev => prev.map(c =>
+        c.id === id ? { ...c, title: originalTitle } : c
+      ))
       throw err
     }
-  }, [])
+  }, [conversations])
 
   const getAllTags = useCallback(async (): Promise<string[]> => {
     try {
