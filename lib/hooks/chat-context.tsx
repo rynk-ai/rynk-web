@@ -24,7 +24,10 @@ interface ChatContextValue {
   updateConversationTags: (id: string, tags: string[]) => Promise<void>
   renameConversation: (id: string, newTitle: string) => Promise<void>
   getAllTags: () => Promise<string[]>
-  editMessage: (messageId: string, newContent: string, newAttachments?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<void>
+  editMessage: (messageId: string, newContent: string, newAttachments?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<{
+    newMessage: { id: string; role: unknown; content: string; versionNumber: number; branchId: string; attachments: any; };
+    conversationPath: string[];
+  } | undefined>
   deleteMessage: (messageId: string) => Promise<void>
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>

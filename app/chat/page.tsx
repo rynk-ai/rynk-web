@@ -808,10 +808,35 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const { userMessage, assistantMessage, streamReader, conversationId } = result;
 
-      // Add optimistic messages immediately for instant feedback
+      // INSTANT FEEDBACK: Show optimistic messages immediately
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setStreamingMessageId(assistantMessage.id);
       setStreamingContent("");
+
+      // Fetch real messages in parallel (non-blocking for UX)
+      // This will replace the optimistic ones once ready
+      const fetchRealMessages = async () => {
+        try {
+          const serverMessages = await getMessages(conversationId);
+          
+          // Find the real assistant message for streaming
+          const realAssistant = serverMessages.find(m => m.role === 'assistant' && !m.content);
+          
+          // Replace ALL messages with server's version (removes duplicates)
+          setMessages(serverMessages);
+          
+          // Update streaming ID to track the real assistant message
+          if (realAssistant) {
+            setStreamingMessageId(realAssistant.id);
+          }
+        } catch (err) {
+          console.error("Failed to load real messages:", err);
+          // Keep optimistic messages if fetch fails
+        }
+      };
+      
+      // Start fetching (non-blocking)
+      fetchRealMessages();
 
       // Read the stream
       const decoder = new TextDecoder();
@@ -829,19 +854,19 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       } catch (err) {
         console.error("Error reading stream:", err);
       } finally {
-        // Stream finished - fetch real messages once to replace all optimistic data
+        // Stream finished - fetch final messages to get completed assistant response
         setStreamingMessageId(null);
         setStreamingContent("");
         
         try {
-          const serverMessages = await getMessages(conversationId);
-          setMessages(serverMessages);
+          const finalMessages = await getMessages(conversationId);
+          setMessages(finalMessages);
         } catch (err) {
           console.error("Failed to load messages after stream:", err);
-          // Fallback: update optimistic messages with final content
+          // Fallback: update the streaming message with final content
           setMessages((prev) => 
             prev.map((m) => {
-              if (m.id === assistantMessage.id) {
+              if (m.role === 'assistant' && !m.content) {
                 return { ...m, content: fullContent };
               }
               return m;
@@ -951,23 +976,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       const lastMsg = updatedMessages[updatedMessages.length - 1];
       
       if (lastMsg && lastMsg.role === "user") {
-        // Create optimistic assistant message
-        const now = Date.now();
-        const optimisticAssistant = {
-          id: crypto.randomUUID(),
-          conversationId: currentConversationId!,
-          role: "assistant" as const,
-          content: "",
-          createdAt: now,
-          timestamp: now,
-          userId: "",
-          versionNumber: 1,
-        };
-        
-        setMessages((prev) => [...prev, optimisticAssistant]);
-        setStreamingMessageId(optimisticAssistant.id);
-        setStreamingContent("");
-        
         // Stream AI response
         try {
           const response = await fetch("/api/chat", {
@@ -983,6 +991,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           });
           
           if (response.ok && response.body) {
+            // Fetch messages to get the real assistant placeholder created by server
+            const messagesWithAssistant = await getMessages(currentConversationId!);
+            setMessages(messagesWithAssistant);
+            
+            // Find the assistant message to track for streaming
+            const assistantMsg = messagesWithAssistant.find(m => m.role === 'assistant' && !m.content);
+            if (assistantMsg) {
+              setStreamingMessageId(assistantMsg.id);
+            }
+            setStreamingContent("");
+            
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullContent = "";
@@ -1000,7 +1019,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               setStreamingMessageId(null);
               setStreamingContent("");
               
-              // Fetch final messages to get real IDs
+              // Fetch final messages to get completed response
               const finalMessages = await getMessages(currentConversationId!);
               setMessages(finalMessages);
             }
