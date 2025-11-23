@@ -30,14 +30,22 @@ class OpenRouterService {
   }
 
   async *sendMessage(params: ChatCompletionParams): AsyncGenerator<string, void, unknown> {
-    console.log('📤 Sending message to OpenRouter API...')
-    const response = await fetch('/api/chat', {
+    const apiKey = process.env.OPENROUTER_API_KEY
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured')
+
+    console.log('📤 Sending message to OpenRouter API (Direct)...')
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://simplychat.ai', // Replace with actual site URL
+        'X-Title': 'SimplyChat',
       },
       body: JSON.stringify({
+        model: 'openai/gpt-3.5-turbo',
         messages: params.messages,
+        stream: true,
       }),
     })
 
@@ -105,12 +113,19 @@ class OpenRouterService {
   }
 
   async sendMessageOnce(params: ChatCompletionParams): Promise<string> {
-    const response = await fetch('/api/chat', {
+    const apiKey = process.env.OPENROUTER_API_KEY
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured')
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://simplychat.ai',
+        'X-Title': 'SimplyChat',
       },
       body: JSON.stringify({
+        model: 'openai/gpt-3.5-turbo',
         messages: params.messages,
         stream: false,
       }),

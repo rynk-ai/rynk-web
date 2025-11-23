@@ -13,7 +13,12 @@ interface ChatContextValue {
   createConversation: (projectId?: string) => Promise<string>
   deleteConversation: (id: string) => Promise<void>
   selectConversation: (id: string | null) => void
-  sendMessage: (content: string, files?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<Message | undefined>
+  sendMessage: (content: string, files?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<{
+    userMessage: Message
+    assistantMessage: Message
+    streamReader: ReadableStreamDefaultReader<Uint8Array>
+    conversationId: string
+  } | undefined>
   loadConversations: () => Promise<void>
   togglePinConversation: (id: string) => Promise<void>
   updateConversationTags: (id: string, tags: string[]) => Promise<void>
@@ -24,7 +29,6 @@ interface ChatContextValue {
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
   getMessages: (conversationId: string) => Promise<Message[]>
-  generateAIResponse: (conversationId: string, onStreamUpdate?: (content: string) => void) => Promise<{ messages: Message[], assistantMessageId: string } | undefined>
   // Folders
   folders: Folder[]
   createFolder: (name: string, description?: string, conversationIds?: string[]) => Promise<Folder>

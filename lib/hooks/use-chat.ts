@@ -5,9 +5,6 @@ import {
   getConversations, 
   createConversation as createConversationAction, 
   deleteConversation as deleteConversationAction,
-  sendMessage as sendMessageAction,
-  addMessage as addMessageAction,
-  updateMessage as updateMessageAction,
   updateConversation as updateConversationAction,
   deleteMessage as deleteMessageAction,
   getAllTags as getAllTagsAction,
@@ -30,10 +27,10 @@ import {
   switchToMessageVersion as switchToMessageVersionAction,
   addEmbedding,
   setConversationContext as setConversationContextAction,
-  clearConversationContext as clearConversationContextAction
+  clearConversationContext as clearConversationContextAction,
+  generateTitleAction
 } from "@/app/actions"
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
-import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
 import { searchEmbeddings } from "@/lib/utils/vector"
 import {
   filesToBase64,
@@ -121,161 +118,12 @@ export function useChat() {
     // No need to reload conversations on selection - data hasn't changed
   }, [])
 
-  const generateAIResponse = useCallback(async (
-    conversationId: string,
-    onStreamUpdate?: (content: string) => void
-  ) => {
-    try {
-      setIsLoading(true)
-      
-      // Fetch latest messages for context
-      const messages = await getMessagesAction(conversationId)
-      
-      // Convert to OpenRouter format
-      let apiMessages: ApiMessage[] = await Promise.all(messages.map(async (m) => {
-        // If message has attachments (images), format as multimodal content
-        if (m.attachments && m.attachments.length > 0) {
-          const content: any[] = [
-            { type: 'text', text: m.content }
-          ];
-          
-          await Promise.all(m.attachments.map(async (att: any) => {
-            const isImage = att.type?.startsWith('image/') || 
-                           att.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-            
-            if (isImage && att.url) {
-              try {
-                const response = await fetch(att.url);
-                const blob = await response.blob();
-                
-                const base64 = await new Promise<string>((resolve) => {
-                  const reader = new FileReader();
-                  reader.onloadend = () => resolve(reader.result as string);
-                  reader.readAsDataURL(blob);
-                });
-                
-                content.push({
-                  type: 'image_url',
-                  image_url: {
-                    url: base64
-                  }
-                });
-              } catch (err) {
-                console.error('Failed to convert image to base64 for AI:', err);
-                content.push({
-                  type: 'image_url',
-                  image_url: {
-                    url: att.url
-                  }
-                });
-              }
-            }
-          }));
-          
-          return {
-            role: m.role,
-            content: content
-          };
-        }
-        
-        return {
-          role: m.role,
-          content: m.content
-        };
-      }))
 
-      // Check for RAG context from backend
-      const lastUserMessage = messages.filter(m => m.role === 'user').pop()
-      if (lastUserMessage) {
-        try {
-          console.log('🔍 Fetching RAG context from backend...')
-          const { generateAIResponseAction } = await import('@/app/actions')
-          const result = await generateAIResponseAction(
-            conversationId,
-            lastUserMessage.referencedConversations,
-            lastUserMessage.referencedFolders
-          )
-          
-          if (result && result.contextText) {
-            apiMessages.unshift({
-              role: 'system',
-              content: `Here is relevant context from referenced conversations:\n\n${result.contextText}`
-            })
-            console.log(`✅ Added RAG context (${result.contextText.length} chars)`)
-          }
-        } catch (err) {
-          console.error('❌ RAG context retrieval failed:', err)
-        }
-      }
-
-      // Create placeholder assistant message
-      const assistantMsg = await addMessageAction(conversationId, {
-        role: 'assistant',
-        content: '',
-      })
-
-      const openrouter = getOpenRouter()
-      
-      console.log('📤 Getting AI response (streaming)...')
-      
-      let fullResponse = "";
-      let lastUpdate = 0;
-      const throttleInterval = 50; // 50ms throttling
-
-      // Use streaming API call
-      for await (const chunk of openrouter.sendMessage({ messages: apiMessages })) {
-        fullResponse += chunk;
-        const now = Date.now();
-        if (onStreamUpdate && (now - lastUpdate > throttleInterval)) {
-          onStreamUpdate(fullResponse);
-          lastUpdate = now;
-        }
-      }
-      
-      // Final update to ensure we have the complete message
-      if (onStreamUpdate) {
-        onStreamUpdate(fullResponse);
-      }
-      
-      console.log('✅ Got full response:', fullResponse.substring(0, 100) + '...')
-
-      // Update the assistant message with full response
-      await updateMessageAction(assistantMsg.id, {
-        content: fullResponse,
-      })
-      
-      // Fetch and return updated messages
-      const updatedMessages = await getMessagesAction(conversationId)
-      return {
-        messages: updatedMessages,
-        assistantMessageId: assistantMsg.id
-      }
-    } catch (err) {
-      console.error('Failed to generate AI response:', err)
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
 
   const generateTitle = useCallback(async (conversationId: string, messageContent: string) => {
     try {
-      const openrouter = getOpenRouter()
-      const title = await openrouter.sendMessageOnce({
-        messages: [
-          {
-            role: 'system',
-            content: 'Analyze this conversation and generate a concise, descriptive title (3-7 words) that captures the main topic or purpose. The title should:\n- Be specific enough to distinguish this chat from others\n- Use natural language, not formal or robotic phrasing\n- Focus on the core subject matter or task\n- Avoid generic phrases like "Help with" or "Question about"\n- Use title case\n\nExamples:\n- "Python Web Scraping Tutorial"\n- "Marketing Strategy for Tech Startup"\n- "Debugging React Component Error"\n- "Mediterranean Diet Meal Plan"'
-          },
-          {
-            role: 'user',
-            content: `Conversation:\n${messageContent}\n\nReturn only the title, nothing else.`
-          }
-        ]
-      })
-
+      const title = await generateTitleAction(conversationId, messageContent)
       if (title) {
-        await updateConversationAction(conversationId, { title: title.trim().replace(/^["']|["']$/g, '') })
         await loadConversations()
       }
     } catch (error) {
@@ -358,7 +206,6 @@ export function useChat() {
         }
       }
 
-      // Add user message
       // Handle file uploads
       let uploadedAttachments: any[] = []
       if (files && files.length > 0) {
@@ -369,28 +216,91 @@ export function useChat() {
         }))
       }
       
-      const newMessage = await sendMessageAction(conversationId, {
+      // Optimistic UI Update
+      const tempUserMessageId = crypto.randomUUID()
+      const tempAssistantMessageId = crypto.randomUUID()
+      const now = Date.now()
+      
+      const optimisticUserMessage: Message = {
+        id: tempUserMessageId,
+        conversationId: conversationId!,
         role: 'user',
         content,
         attachments: uploadedAttachments,
         referencedConversations,
-        referencedFolders
-      });
-
-      // No need to reload conversations - conversation data hasn't changed
-
-      // Generate Title if it's a new conversation or title is default
-      if (shouldGenerateTitle) {
-        generateTitle(conversationId, content)
+        referencedFolders,
+        createdAt: now,
+        timestamp: now,
+        userId: 'current-user', // Placeholder
+        versionNumber: 1
       }
 
-      // AI response is now handled by the caller with streaming support
+      const optimisticAssistantMessage: Message = {
+        id: tempAssistantMessageId,
+        conversationId: conversationId!,
+        role: 'assistant',
+        content: '',
+        createdAt: now + 1,
+        timestamp: now + 1,
+        userId: 'current-user',
+        versionNumber: 1
+      }
 
-      // Ensure the message includes conversationId for the caller
-      return { ...newMessage, conversationId }
+      // We need to update the messages list immediately
+      // Since getMessages is an action, we can't easily update its cache from here without revalidation
+      // But we can force a reload after a short delay or rely on the stream to trigger updates if we had a message store.
+      // For now, we'll trigger a reload of messages after the stream starts/ends.
+      // Ideally, useChat should maintain a local messages state, but it currently fetches on demand in ChatContent.
+      // We will return these optimistic messages so the caller (ChatContent) can add them.
+      
+      // Call the unified API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          message: content,
+          attachments: uploadedAttachments,
+          referencedConversations,
+          referencedFolders
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send message')
+      }
+
+      if (!response.body) throw new Error('No response body')
+
+      // Handle Streaming
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullResponse = ''
+      
+      // We need to pass the stream back to the caller or handle it here.
+      // The caller expects a promise that resolves when done? 
+      // The original sendMessage returned the new message.
+      // Now we have a stream.
+      
+      // Let's return a generator or callback for updates?
+      // The current architecture in ChatContent expects `sendMessage` to return the message object,
+      // and then it calls `generateAIResponse`.
+      // We are changing this contract. `sendMessage` now does everything.
+      
+      // We need to expose a way to consume the stream.
+      // We can return the optimistic messages and a readable stream/callback.
+      
+      return {
+        userMessage: optimisticUserMessage,
+        assistantMessage: optimisticAssistantMessage,
+        streamReader: reader,
+        conversationId
+      }
+
     } catch (err) {
       console.error('Failed to send message:', err)
       setError(err instanceof Error ? err.message : 'Failed to send message')
+      throw err
     } finally {
       setIsLoading(false)
     }
@@ -695,7 +605,6 @@ export function useChat() {
     switchToMessageVersion,
     getMessageVersions,
     getMessages,
-    generateAIResponse,
     // Folders
     folders,
     createFolder,

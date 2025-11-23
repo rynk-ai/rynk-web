@@ -158,42 +158,46 @@ export const cloudDb = {
     const id = crypto.randomUUID()
     const now = Date.now()
     
-    // Get conversation to check for active branch
-    const conversation = await db.prepare('SELECT activeBranchId, branches FROM conversations WHERE id = ?').bind(conversationId).first()
-    const activeBranchId = conversation?.activeBranchId as string | undefined
+    // Get conversation data once
+    const conversation = await db.prepare('SELECT path, branches, activeBranchId FROM conversations WHERE id = ?').bind(conversationId).first()
     
-    // 1. Insert Message
-    await db.prepare(
-      'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, branchId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(
-      id, 
-      conversationId, 
-      message.role, 
-      message.content, 
-      JSON.stringify(message.attachments || []),
-      JSON.stringify(message.referencedConversations || []),
-      JSON.stringify(message.referencedFolders || []),
-      now,
-      now,
-      1, // Default version 1
-      activeBranchId || null
-    ).run()
+    if (!conversation) {
+      throw new Error(`Conversation ${conversationId} not found`)
+    }
 
-    // 2. Update Conversation Path
-    const convData = await db.prepare('SELECT path, branches FROM conversations WHERE id = ?').bind(conversationId).first()
-    const path = JSON.parse(convData?.path as string || '[]') as string[]
+    const activeBranchId = conversation.activeBranchId as string | undefined
+    const path = JSON.parse(conversation.path as string || '[]') as string[]
+    let branches = JSON.parse(conversation.branches as string || '[]')
+    
+    // Update paths
     path.push(id)
     
-    // Also update active branch path if exists
-    let branches = JSON.parse(convData?.branches as string || '[]')
     if (activeBranchId && branches.length > 0) {
       const activeBranch = branches.find((b: any) => b.id === activeBranchId)
       if (activeBranch) {
         activeBranch.path.push(id)
       }
     }
-    
-    await db.prepare('UPDATE conversations SET path = ?, branches = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), JSON.stringify(branches), now, conversationId).run()
+
+    // Batch the insert and update
+    await db.batch([
+      db.prepare(
+        'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, branchId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        id, 
+        conversationId, 
+        message.role, 
+        message.content, 
+        JSON.stringify(message.attachments || []),
+        JSON.stringify(message.referencedConversations || []),
+        JSON.stringify(message.referencedFolders || []),
+        now,
+        now,
+        1, // Default version 1
+        activeBranchId || null
+      ),
+      db.prepare('UPDATE conversations SET path = ?, branches = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), JSON.stringify(branches), now, conversationId)
+    ])
 
     return { ...message, id, timestamp: now, versionNumber: 1, branchId: activeBranchId }
   },
@@ -734,22 +738,35 @@ export const cloudDb = {
     // Get all folders for user
     const folders = await db.prepare('SELECT * FROM folders WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
     
-    // For each folder, get conversation IDs
-    const result: Folder[] = []
-    for (const folder of folders.results) {
-      const convs = await db.prepare('SELECT conversationId FROM folder_conversations WHERE folderId = ?').bind(folder.id).all()
-      result.push({
-        id: folder.id as string,
-        userId: folder.userId as string,
-        name: folder.name as string,
-        description: folder.description as string | undefined,
-        createdAt: new Date(folder.createdAt as string).getTime(),
-        updatedAt: new Date(folder.updatedAt as string).getTime(),
-        conversationIds: convs.results.map((c: any) => c.conversationId as string)
-      })
-    }
+    if (folders.results.length === 0) return []
+
+    // Get all conversation IDs for these folders in one query
+    const folderIds = folders.results.map((f: any) => f.id)
+    const placeholders = folderIds.map(() => '?').join(',')
     
-    return result
+    const allFolderConvs = await db.prepare(
+      `SELECT folderId, conversationId FROM folder_conversations WHERE folderId IN (${placeholders})`
+    ).bind(...folderIds).all()
+    
+    // Group by folderId
+    const convsByFolder = new Map<string, string[]>()
+    allFolderConvs.results.forEach((row: any) => {
+      const fid = row.folderId as string
+      if (!convsByFolder.has(fid)) {
+        convsByFolder.set(fid, [])
+      }
+      convsByFolder.get(fid)!.push(row.conversationId as string)
+    })
+    
+    return folders.results.map((folder: any) => ({
+      id: folder.id as string,
+      userId: folder.userId as string,
+      name: folder.name as string,
+      description: folder.description as string | undefined,
+      createdAt: new Date(folder.createdAt as string).getTime(),
+      updatedAt: new Date(folder.updatedAt as string).getTime(),
+      conversationIds: convsByFolder.get(folder.id as string) || []
+    }))
   },
 
   async createFolder(userId: string, name: string, description?: string, conversationIds?: string[]): Promise<Folder> {

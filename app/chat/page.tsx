@@ -59,7 +59,7 @@ import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { dbService } from "@/lib/services/indexeddb";
 import { VersionIndicator } from "@/components/ui/version-indicator";
 import { ContextPicker } from "@/components/context-picker";
-import { getOpenRouter } from "@/lib/services/openrouter";
+
 import { FolderDialog } from "@/components/folder-dialog";
 import {
   DropdownMenu,
@@ -675,7 +675,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     renameConversation,
     branchConversation,
     getMessages,
-    generateAIResponse,
     conversations,
     folders,
     setConversationContext,
@@ -790,8 +789,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
     try {
       // Always pass the active context to sendMessage so it's recorded on the message
-      // This ensures UI pills show up and provides a historical record
-
       const referencedConversations = activeContext
         .filter((c) => c.type === "conversation")
         .map((c) => ({ id: c.id, title: c.title }));
@@ -800,55 +797,57 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .filter((c) => c.type === "folder")
         .map((c) => ({ id: c.id, name: c.title }));
 
-      const userMessage = await sendMessage(
+      const result = await sendMessage(
         text,
         files,
         referencedConversations,
         referencedFolders
       );
 
-      // Get the conversation ID - either from the existing conversation or from the newly created one
-      // This fixes the race condition where currentConversationId is null for new chats
-      const conversationId =
-        currentConversationId || userMessage?.conversationId;
+      if (!result) return;
 
-      // Immediately load messages to show the user message (before state updates)
-      if (conversationId && userMessage) {
-        // Optimistically add the user message to the UI
-        setMessages((prev) => [...prev, userMessage as ChatMessage]);
+      const { userMessage, assistantMessage, streamReader, conversationId } = result;
 
-        // Also add a placeholder assistant message so we show loading state
-        const placeholderAssistant: ChatMessage = {
-          id: "temp-" + Date.now(),
-          conversationId,
-          role: "assistant",
-          content: "",
-          timestamp: Date.now(),
-          createdAt: Date.now(),
-          attachments: [],
-          referencedConversations: [],
-          referencedFolders: [],
-          userId: "",
-          versionNumber: 0,
-        } as ChatMessage;
+      // Update current conversation ID if it was a new chat
+      // Note: useChat already updates its internal state, but we might need to sync local state if any
+      
+      // Optimistically add messages
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setStreamingMessageId(assistantMessage.id);
+      setStreamingContent("");
 
-        setMessages((prev) => [...prev, placeholderAssistant]);
-        setStreamingMessageId(placeholderAssistant.id);
-      }
+      // Read the stream
+      const decoder = new TextDecoder();
+      let fullContent = "";
 
-      // Generate AI response (streaming)
-      if (conversationId) {
-        const result = await generateAIResponse(conversationId, (content) => {
-          setStreamingContent(content);
-        });
-
-        if (result) {
-          // Update messages list with completed response from server
-          setMessages(result.messages);
-          setStreamingMessageId(null);
-          setStreamingContent("");
+      try {
+        while (true) {
+          const { done, value } = await streamReader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          fullContent += chunk;
+          setStreamingContent(fullContent);
         }
+      } catch (err) {
+        console.error("Error reading stream:", err);
+      } finally {
+        // Stream finished
+        setStreamingMessageId(null);
+        setStreamingContent("");
+        
+        // Update the assistant message with full content
+        setMessages((prev) => 
+          prev.map((m) => 
+            m.id === assistantMessage.id 
+              ? { ...m, content: fullContent } 
+              : m
+          )
+        );
       }
+
+    } catch (err) {
+      console.error("Failed to send message:", err);
     } finally {
       setIsSending(false);
     }
@@ -936,28 +935,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedFolders
       );
       try {
-        // Check if generateAIResponse exists and trigger if last message is user
+        // Refresh messages to show the edit
         const allMessages = await getMessages(currentConversationId!);
-        const lastMsg = allMessages[allMessages.length - 1];
-        if (lastMsg && lastMsg.role === "user") {
-          try {
-            const result = await generateAIResponse(
-              currentConversationId!,
-              (content) => {
-                setStreamingContent(content);
-              }
-            );
-
-            if (result) {
-              setMessages(result.messages);
-              setStreamingMessageId(null);
-              setStreamingContent("");
-            }
-          } catch (aiError) {
-            console.error("Failed to generate AI response:", aiError);
-            // Don't fail the whole edit if AI generation fails
-          }
-        }
+        setMessages(allMessages);
       } catch (err) {
         console.error("Failed to refresh messages:", err);
       }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { dbService, Conversation, Folder } from "@/lib/services/indexeddb";
-import { getOpenRouter } from "@/lib/services/openrouter";
+import { getEmbeddingsAction } from "@/app/actions";
 
 export interface ContextItem {
   type: 'conversation' | 'folder';
@@ -57,8 +57,7 @@ export function useContextSearch(currentConversationId?: string | null) {
 
     setIsLoading(true);
     try {
-      const openRouter = getOpenRouter();
-      const embedding = await openRouter.getEmbeddings(searchQuery);
+      const embedding = await getEmbeddingsAction(searchQuery);
       const searchResults = await dbService.searchEmbeddings(embedding, 20, 0.3);
       
       // Group by conversation and find best match
