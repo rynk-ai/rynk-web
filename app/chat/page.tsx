@@ -27,7 +27,6 @@ import { SearchDialog } from "@/components/search-dialog";
 import { AddToFolderDialog } from "@/components/add-to-folder-dialog";
 import { RenameDialog } from "@/components/rename-dialog";
 import { ConversationList } from "@/components/conversation-list";
-import { InlineTitleEdit } from "@/components/inline-title-edit";
 import { ProjectList } from "@/components/project-list";
 import {
   Copy,
@@ -63,6 +62,7 @@ import { VersionIndicator } from "@/components/ui/version-indicator";
 import { ContextPicker } from "@/components/context-picker";
 
 import { FolderDialog } from "@/components/folder-dialog";
+import { DeleteConversationDialog } from "@/components/delete-conversation-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,6 +153,10 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
   const [foldersForAddToFolder, setFoldersForAddToFolder] = useState<Folder[]>(
     []
   );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] =
+    useState<Conversation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [conversationToRename, setConversationToRename] = useState<
     string | null
@@ -212,9 +216,26 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
     }
   };
 
-  const handleDeleteSimple = async (conversationId: string) => {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      await deleteConversation(conversationId);
+  const handleDeleteSimple = (conversationId: string) => {
+    const conversation = conversations.find((c) => c.id === conversationId);
+    if (conversation) {
+      setConversationToDelete(conversation);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!conversationToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteConversation(conversationToDelete.id);
+      setDeleteDialogOpen(false);
+      setConversationToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -699,6 +720,16 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
           onSave={handleSaveRename}
         />
       )}
+
+      {conversationToDelete && (
+        <DeleteConversationDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          conversationTitle={conversationToDelete.title}
+          onConfirm={handleConfirmDelete}
+          isLoading={isDeleting}
+        />
+      )}
     </div>
   );
 }
@@ -717,7 +748,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     switchToMessageVersion,
     getMessageVersions,
     isLoading: contextIsLoading,
-    renameConversation,
     branchConversation,
     getMessages,
     conversations,
@@ -751,7 +781,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   // Other local state
   const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [isRenaming, setIsRenaming] = useState(false);
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -1148,55 +1177,19 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   }, [currentConversation?.id, isEditing, reloadMessages]); // Only depend on ID, not entire object
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden">
-      <header className="bg-background z-10 flex h-14 md:h-16 w-full shrink-0 items-center gap-3 border-b px-3 md:px-4">
-        {/* Mobile Menu Button */}
-        {onMenuClick && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden h-9 w-9 shrink-0"
-            onClick={onMenuClick}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
-
-        <div className="flex flex-col w-full group min-w-0">
-          <div className="text-foreground font-medium flex items-center gap-2 min-w-0 w-full">
-            {currentConversationId ? (
-              <div className="flex items-center gap-2 w-full min-w-0">
-                <InlineTitleEdit
-                  title={currentConversation?.title || "Untitled"}
-                  onSave={async (newTitle) => {
-                    await renameConversation(currentConversationId, newTitle);
-                    setIsRenaming(false);
-                  }}
-                  isEditing={isRenaming}
-                  onEditChange={setIsRenaming}
-                  className="text-base md:text-lg font-semibold text-foreground bg-transparent"
-                />
-                {!isRenaming && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={() => setIsRenaming(true)}
-                    title="Rename conversation"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <></>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Rename Dialog removed */}
+    <main className="flex h-screen flex-col overflow-hidden relative">
+      {/* Floating Mobile Menu Button - positioned absolutely */}
+      {onMenuClick && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden fixed top-4 left-4 z-50 h-10 w-10 rounded-lg bg-black/80 hover:bg-black text-white shadow-lg backdrop-blur-sm"
+          onClick={onMenuClick}
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      )}
 
       <div className="flex flex-1 flex-col relative overflow-hidden">
         {/* Top Section: Messages & Title */}

@@ -48,7 +48,6 @@ export function PromptInputWithFiles({
   const [files, setFiles] = useState<File[]>([]);
   
   // Context search state
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
   const { query, setQuery, results, isLoading: isSearching, allFolders } = useContextSearch(currentConversationId);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -68,7 +67,6 @@ export function PromptInputWithFiles({
     onSubmit(currentPrompt, files);
     setPrompt("");
     setFiles([]);
-    setShowSuggestions(false);
   };
 
   // Handle input changes to detect @
@@ -87,14 +85,13 @@ export function PromptInputWithFiles({
         // But typically we stop if there's a newline
         if (!textAfterAt.includes('\n')) {
           setQuery(textAfterAt);
-          setShowSuggestions(true);
           setSelectedIndex(0);
           return;
         }
       }
     }
     
-    setShowSuggestions(false);
+    
   };
 
   const handleSelectContext = (item: SearchResultItem) => {
@@ -135,7 +132,7 @@ export function PromptInputWithFiles({
       setPrompt(newPrompt + " "); // Add a space
     }
     
-    setShowSuggestions(false);
+    
     
     // Refocus input
     setTimeout(() => {
@@ -146,78 +143,12 @@ export function PromptInputWithFiles({
 
   // Handle keyboard navigation for suggestions
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (showSuggestions && results.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % results.length);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + results.length) % results.length);
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        handleSelectContext(results[selectedIndex]);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setShowSuggestions(false);
-      }
-    }
+  
   };
 
   return (
     <div className={cn("flex flex-col gap-2 relative", className)}>
-      {/* Suggestions Popup */}
-      {showSuggestions && (
-        <div className="absolute bottom-full left-0 mb-2 w-full max-w-md bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
-          <div className="p-2 border-b text-xs font-medium text-muted-foreground bg-muted/30">
-            Suggested Context
-          </div>
-          <div className="max-h-[300px] overflow-y-auto p-1">
-            {results.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No results found
-              </div>
-            ) : (
-              results.map((item, index) => {
-                const isFolder = item.type === 'folder';
-                const title = isFolder ? (item.data as FolderType).name : (item.data as Conversation).title;
-                const isSelected = index === selectedIndex;
-                
-                return (
-                  <button
-                    key={item.data.id}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors",
-                      isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                    )}
-                    onClick={() => handleSelectContext(item)}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    <div className={cn(
-                      "p-1.5 rounded-md shrink-0", 
-                      isFolder ? "bg-blue-500/10 text-blue-500" : "bg-primary/10 text-primary"
-                    )}>
-                      {isFolder ? <Folder size={14} /> : <MessageSquare size={14} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{title}</div>
-                      {item.matchedContent && (
-                        <div className="text-xs text-muted-foreground truncate opacity-80">
-                          ...{item.matchedContent}...
-                        </div>
-                      )}
-                    </div>
-                    {item.matchScore > 0 && (
-                      <span className="text-[10px] bg-green-500/10 text-green-600 px-1.5 py-0.5 rounded shrink-0">
-                        {Math.round(item.matchScore * 100)}%
-                      </span>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
+
 
       {/* File previews */}
       {files.length > 0 && (
@@ -242,6 +173,7 @@ export function PromptInputWithFiles({
           onValueChange={handlePromptChange}
           onSubmit={handleSubmit}
           disabled={disabled}
+
         >
           <div className="flex flex-col">
             <PromptInputTextarea
