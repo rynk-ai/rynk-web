@@ -836,14 +836,21 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         setStreamingMessageId(null);
         setStreamingContent("");
         
-        // Update the assistant message with full content
-        setMessages((prev) => 
-          prev.map((m) => 
-            m.id === assistantMessage.id 
-              ? { ...m, content: fullContent } 
-              : m
-          )
-        );
+        // Fetch real messages from server to replace optimistic ones
+        try {
+          const serverMessages = await getMessages(conversationId);
+          setMessages(serverMessages);
+        } catch (err) {
+          console.error("Failed to load messages after stream:", err);
+          // Fallback: just update the assistant message content
+          setMessages((prev) => 
+            prev.map((m) => 
+              m.id === assistantMessage.id 
+                ? { ...m, content: fullContent } 
+                : m
+            )
+          );
+        }
       }
 
     } catch (err) {

@@ -196,8 +196,8 @@ export function useChat() {
         conversationId = conv.id
         setCurrentConversationId(conv.id)
         
-        // Optimistically add to list
-        setConversations(prev => [...prev, conv])
+        // Optimistically add to top of list (newest first)
+        setConversations(prev => [conv, ...prev])
         
         // If context is provided for the first message, set it as persistent context
         if ((referencedConversations && referencedConversations.length > 0) || 
@@ -277,18 +277,10 @@ export function useChat() {
       const decoder = new TextDecoder()
       let fullResponse = ''
       
-      // We need to pass the stream back to the caller or handle it here.
-      // The caller expects a promise that resolves when done? 
-      // The original sendMessage returned the new message.
-      // Now we have a stream.
-      
-      // Let's return a generator or callback for updates?
-      // The current architecture in ChatContent expects `sendMessage` to return the message object,
-      // and then it calls `generateAIResponse`.
-      // We are changing this contract. `sendMessage` now does everything.
-      
-      // We need to expose a way to consume the stream.
-      // We can return the optimistic messages and a readable stream/callback.
+      // Generate title if needed (fire and forget for performance)
+      if (shouldGenerateTitle) {
+        generateTitle(conversationId, content)
+      }
       
       return {
         userMessage: optimisticUserMessage,
