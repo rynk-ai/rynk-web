@@ -36,21 +36,28 @@ export async function sendMessage(conversationId: string, message: any) {
   await cloudDb.updateCredits(session.user.id, -1)
 
   const msg = await cloudDb.addMessage(conversationId, message)
-  console.log(`✅ Message saved: ${msg.id}, role: ${message.role}`)
   
-  // Generate embedding for user messages
-  if (message.role === 'user' && message.content && message.content.trim()) {
-    console.log(`🔄 Generating embedding for user message: ${msg.id}`)
-    try {
-      const { getOpenRouter } = await import('@/lib/services/openrouter')
-      const openrouter = getOpenRouter()
-      const vector = await openrouter.getEmbeddings(message.content)
-      console.log(`✅ Got embedding vector (length: ${vector.length})`)
-      await cloudDb.addEmbedding(msg.id, conversationId, session.user.id, message.content, vector)
-      console.log(`✅ Embedding saved for message: ${msg.id}`)
-    } catch (error) {
-      console.error('❌ Failed to generate embedding:', error)
-      // Don't fail the message send if embedding fails
+  // Generate embedding for user messages (fire-and-forget, non-blocking)
+  if (message.role === 'user') {
+    const textContent = typeof message.content === 'string' ? message.content : String(message.content || '')
+    
+    if (textContent && textContent.trim()) {
+      const userId = session.user.id
+      const messageContent = textContent
+      const savedMessageId = String(msg.id)
+      const savedConversationId = String(conversationId)
+      
+      // Background embedding generation (non-blocking)
+      Promise.resolve().then(async () => {
+        try {
+          const { getOpenRouter } = await import('@/lib/services/openrouter')
+          const openrouter = getOpenRouter()
+          const vector = await openrouter.getEmbeddings(messageContent)
+          await cloudDb.addEmbedding(savedMessageId, savedConversationId, userId, messageContent, vector)
+        } catch (error) {
+          // Silently fail - don't block chat if embedding fails
+        }
+      })
     }
   }
 

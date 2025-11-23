@@ -132,7 +132,6 @@ export function useChat() {
       const messages = await getMessagesAction(conversationId)
       
       // Convert to OpenRouter format
-      // We need to resolve all promises for base64 conversion
       let apiMessages: ApiMessage[] = await Promise.all(messages.map(async (m) => {
         // If message has attachments (images), format as multimodal content
         if (m.attachments && m.attachments.length > 0) {
@@ -141,18 +140,14 @@ export function useChat() {
           ];
           
           await Promise.all(m.attachments.map(async (att: any) => {
-            // Check if it's an image based on type or extension
             const isImage = att.type?.startsWith('image/') || 
                            att.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
             
             if (isImage && att.url) {
               try {
-                // Fetch the image and convert to base64
-                // This works for both local dev and prod because the browser fetches it
                 const response = await fetch(att.url);
                 const blob = await response.blob();
                 
-                // Convert blob to base64
                 const base64 = await new Promise<string>((resolve) => {
                   const reader = new FileReader();
                   reader.onloadend = () => resolve(reader.result as string);
@@ -162,12 +157,11 @@ export function useChat() {
                 content.push({
                   type: 'image_url',
                   image_url: {
-                    url: base64 // Pass the base64 data URL directly
+                    url: base64
                   }
                 });
               } catch (err) {
                 console.error('Failed to convert image to base64 for AI:', err);
-                // Fallback to URL if fetch fails (though unlikely if it's our own API)
                 content.push({
                   type: 'image_url',
                   image_url: {
@@ -190,11 +184,9 @@ export function useChat() {
         };
       }))
 
-      // Check if last user message has referenced conversations or folders - If so, get context from backend
+      // Check for RAG context from backend
       const lastUserMessage = messages.filter(m => m.role === 'user').pop()
       if (lastUserMessage) {
-        // Always check for RAG context from backend
-        // The backend handles the logic of whether to use persistent context or message-level context
         try {
           console.log('🔍 Fetching RAG context from backend...')
           const { generateAIResponseAction } = await import('@/app/actions')
@@ -205,18 +197,14 @@ export function useChat() {
           )
           
           if (result && result.contextText) {
-            // Prepend context as system message
             apiMessages.unshift({
               role: 'system',
               content: `Here is relevant context from referenced conversations:\n\n${result.contextText}`
             })
             console.log(`✅ Added RAG context (${result.contextText.length} chars)`)
-          } else {
-            console.log('⚠️ Backend returned but no context text:', result)
           }
         } catch (err) {
           console.error('❌ RAG context retrieval failed:', err)
-          // Continue without context
         }
       }
 
@@ -228,47 +216,34 @@ export function useChat() {
 
       const openrouter = getOpenRouter()
       
-      const stream = openrouter.sendMessage({
-        messages: apiMessages
-      })
-
-      let fullResponse = ''
-      let buffer = ''
-      let lastUpdateTime = Date.now()
-      const BATCH_INTERVAL = 50 // Update UI every 50ms max
+      console.log('📤 Getting AI response (streaming)...')
       
-      for await (const chunk of stream) {
-        fullResponse += chunk
-        buffer += chunk
-        
-        const now = Date.now()
-        
-        // Batch updates: only update UI every 50ms or when buffer is large
-        if (now - lastUpdateTime >= BATCH_INTERVAL || buffer.length > 100) {
-          // Update via callback (instant UI)
-          if (onStreamUpdate) {
-            onStreamUpdate(fullResponse)
-          }
-          
-          // Also update backend periodically (less frequently for performance)
-          if (now - lastUpdateTime >= 200) { // Update backend every 200ms
-            await updateMessageAction(assistantMsg.id, { content: fullResponse })
-          }
-          
-          buffer = ''
-          lastUpdateTime = now
+      let fullResponse = "";
+      let lastUpdate = 0;
+      const throttleInterval = 50; // 50ms throttling
+
+      // Use streaming API call
+      for await (const chunk of openrouter.sendMessage({ messages: apiMessages })) {
+        fullResponse += chunk;
+        const now = Date.now();
+        if (onStreamUpdate && (now - lastUpdate > throttleInterval)) {
+          onStreamUpdate(fullResponse);
+          lastUpdate = now;
         }
       }
+      
+      // Final update to ensure we have the complete message
+      if (onStreamUpdate) {
+        onStreamUpdate(fullResponse);
+      }
+      
+      console.log('✅ Got full response:', fullResponse.substring(0, 100) + '...')
 
-      // Final update
+      // Update the assistant message with full response
       await updateMessageAction(assistantMsg.id, {
         content: fullResponse,
       })
       
-      if (onStreamUpdate) {
-        onStreamUpdate(fullResponse)
-      }
-
       // Fetch and return updated messages
       const updatedMessages = await getMessagesAction(conversationId)
       return {

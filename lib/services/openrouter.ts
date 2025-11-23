@@ -30,6 +30,7 @@ class OpenRouterService {
   }
 
   async *sendMessage(params: ChatCompletionParams): AsyncGenerator<string, void, unknown> {
+    console.log('📤 Sending message to OpenRouter API...')
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
@@ -40,25 +41,35 @@ class OpenRouterService {
       }),
     })
 
+    console.log('📥 Received response:', response.status, response.statusText)
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any
+      console.error('❌ OpenRouter API error:', error)
       throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
     }
 
     const reader = response.body?.getReader()
     if (!reader) {
+      console.error('❌ Response body is not readable')
       throw new Error('Response body is not readable')
     }
 
+    console.log('✅ Starting to read stream...')
     const decoder = new TextDecoder()
     let buffer = ''
+    let chunkCount = 0
 
     try {
       while (true) {
         const { done, value } = await reader.read()
 
-        if (done) break
+        if (done) {
+          console.log(`✅ Stream complete (${chunkCount} chunks)`)
+          break
+        }
 
+        chunkCount++
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
@@ -71,6 +82,7 @@ class OpenRouterService {
             const data = trimmed.slice(6)
 
             if (data === '[DONE]') {
+              console.log('✅ Stream marked as [DONE]')
               return
             }
 
@@ -113,7 +125,7 @@ class OpenRouterService {
     return data.choices?.[0]?.message?.content || ''
   }
 
-  async getEmbeddings(text: string): Promise<number[]> {
+  async getEmbeddings(text: string, timeoutMs: number = 15000): Promise<number[]> {
     // Call OpenRouter directly instead of going through /api/embeddings
     // This is necessary because server-side code can't use relative paths
     const apiKey = process.env.OPENROUTER_API_KEY
@@ -122,7 +134,13 @@ class OpenRouterService {
       throw new Error('OPENROUTER_API_KEY not configured')
     }
     
-    const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
+    // Create timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`Embedding generation timeout after ${timeoutMs}ms`)), timeoutMs)
+    })
+    
+    // Race the fetch against the timeout
+    const fetchPromise = fetch('https://openrouter.ai/api/v1/embeddings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -133,6 +151,8 @@ class OpenRouterService {
         input: text,
       }),
     })
+    
+    const response = await Promise.race([fetchPromise, timeoutPromise])
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any

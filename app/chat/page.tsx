@@ -817,7 +817,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         // Optimistically add the user message to the UI
         setMessages((prev) => [...prev, userMessage as ChatMessage]);
 
-        // Also add a placeholder assistant message so streaming shows up
+        // Also add a placeholder assistant message so we show loading state
         const placeholderAssistant: ChatMessage = {
           id: "temp-" + Date.now(),
           conversationId,
@@ -836,13 +836,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         setStreamingMessageId(placeholderAssistant.id);
       }
 
-      // Generate AI response with streaming
+      // Generate AI response (streaming)
       if (conversationId) {
-        // Reset streaming content
-        setStreamingContent("");
-
         const result = await generateAIResponse(conversationId, (content) => {
-          // Stream callback - updates UI in real-time
           setStreamingContent(content);
         });
 
