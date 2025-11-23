@@ -53,7 +53,12 @@ interface ChatContextValue {
     referencedFolders?: { id: string; name: string }[]
   ) => Promise<void>
   clearConversationContext: (conversationId: string) => Promise<void>
-
+  // Pagination
+  loadMoreConversations: () => Promise<void>
+  hasMoreConversations: boolean
+  isLoadingMoreConversations: boolean
+  activeProjectId: string | null
+  selectProject: (id: string | null) => void
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)

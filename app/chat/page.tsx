@@ -1,10 +1,8 @@
 "use client";
 
-import {
-  ChatContainerContent,
-  ChatContainerRoot,
-} from "@/components/ui/chat-container";
+// ChatContainer imports removed as we use VirtualizedMessageList directly
 import { MessageList } from "@/components/chat/message-list";
+import { VirtualizedMessageList } from "@/components/chat/virtualized-message-list";
 import {  
   Message,
   MessageContent,
@@ -75,6 +73,7 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { UserProfileDropdown } from "@/components/user-profile-dropdown";
+import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 
 interface ChatSidebarProps {
   onConversationSelect?: () => void;
@@ -133,6 +132,11 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
     renameConversation,
     setConversationContext,
     clearConversationContext,
+    loadMoreConversations,
+    hasMoreConversations,
+    isLoadingMoreConversations,
+    activeProjectId,
+    selectProject,
   } = useChatContext();
 
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
@@ -148,9 +152,6 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
     useState<string | null>(null);
   const [foldersForAddToFolder, setFoldersForAddToFolder] = useState<Folder[]>(
     []
-  );
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null
   );
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [conversationToRename, setConversationToRename] = useState<
@@ -308,13 +309,11 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
             className="flex-1 items-center justify-start pl-3 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
             onClick={() => {
               handleSelectConversation(null);
-              if (selectedProjectId) {
-                createConversation(selectedProjectId);
-              }
+              // Focus input is handled in ChatContent via useEffect on currentConversationId
             }}
           >
             <span className="text-sm font-medium">
-              New Chat {selectedProjectId ? "in Project" : ""}
+              New Chat {activeProjectId ? "in Project" : ""}
             </span>
           </Button>
           <Button
@@ -338,13 +337,13 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
         </div>
       </div>
       <div className="flex-1 overflow-auto pt-4">
-        {!selectedProjectId ? (
+        {!activeProjectId ? (
           <div className="px-2 mb-4">
             <ProjectList
               projects={projects}
-              activeProjectId={selectedProjectId || undefined}
+              activeProjectId={activeProjectId || undefined}
               onSelectProject={(id) =>
-                setSelectedProjectId(id === selectedProjectId ? null : id)
+                selectProject(id === activeProjectId ? null : id)
               }
               onCreateProject={createProject}
               onUpdateProject={updateProject}
@@ -356,7 +355,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
             <Button
               variant="ghost"
               className="w-full justify-start px-2 -ml-2 mb-2 text-muted-foreground hover:text-foreground"
-              onClick={() => setSelectedProjectId(null)}
+              onClick={() => selectProject(null)}
             >
               <ChevronLeft className="mr-1 h-4 w-4" />
               Back to all chats
@@ -364,7 +363,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
             <div className="flex items-center gap-2 px-2 py-1">
               <FolderIcon className="h-4 w-4 text-primary" />
               <h2 className="font-semibold text-lg tracking-tight">
-                {projects.find((p) => p.id === selectedProjectId)?.name ||
+                {projects.find((p) => p.id === activeProjectId)?.name ||
                   "Project"}
               </h2>
             </div>
@@ -384,7 +383,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
                 .filter(
                   (c) =>
                     c.isPinned &&
-                    (!selectedProjectId || c.projectId === selectedProjectId)
+                    (!activeProjectId || c.projectId === activeProjectId)
                 )
                 .map((conversation) => (
                   <div key={conversation.id} className="group relative">
@@ -467,7 +466,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
               (c) =>
                 !groupedConversationIds.has(c.id) &&
                 !c.isPinned &&
-                (!selectedProjectId || c.projectId === selectedProjectId)
+                (!activeProjectId || c.projectId === activeProjectId)
             );
             return ungroupedConversations.length > 0;
           })()) && <></>}
@@ -478,7 +477,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
             (c) =>
               folder.conversationIds.includes(c.id) &&
               !c.isPinned &&
-              (!selectedProjectId || c.projectId === selectedProjectId)
+              (!activeProjectId || c.projectId === activeProjectId)
           );
 
           // Even if empty, we might want to show the folder so users can add to it?
@@ -602,7 +601,7 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
           conversations={conversations.filter(
             (c) =>
               !c.isPinned &&
-              (!selectedProjectId || c.projectId === selectedProjectId)
+              (!activeProjectId || c.projectId === activeProjectId)
           )}
           folders={folders}
           currentConversationId={currentConversationId}
@@ -613,6 +612,20 @@ function ChatSidebar({ onConversationSelect }: ChatSidebarProps = {}) {
           onRename={handleRename}
           onDelete={handleDeleteSimple}
         />
+        
+        {hasMoreConversations && (
+          <div className="px-4 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-muted-foreground hover:text-foreground"
+              onClick={() => loadMoreConversations()}
+              disabled={isLoadingMoreConversations}
+            >
+              {isLoadingMoreConversations ? "Loading..." : "Load More"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {tagDialogOpen && selectedConversationId && (

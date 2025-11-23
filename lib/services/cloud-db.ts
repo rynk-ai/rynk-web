@@ -82,9 +82,9 @@ export const cloudDb = {
     return id
   },
 
-  async getConversations(userId: string) {
+  async getConversations(userId: string, limit: number = 20, offset: number = 0) {
     const db = getDB()
-    const results = await db.prepare('SELECT * FROM conversations WHERE userId = ? ORDER BY updatedAt DESC').bind(userId).all()
+    const results = await db.prepare('SELECT * FROM conversations WHERE userId = ? ORDER BY updatedAt DESC LIMIT ? OFFSET ?').bind(userId, limit, offset).all()
     return results.results.map((c: any) => ({
       ...c,
       path: JSON.parse(c.path as string || '[]'),

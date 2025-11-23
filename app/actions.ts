@@ -7,16 +7,17 @@ import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
 import { revalidatePath } from "next/cache"
 
-export async function getConversations() {
+export async function getConversations(limit: number = 20, offset: number = 0) {
   const session = await auth()
   if (!session?.user?.id) return []
-  const convs = await cloudDb.getConversations(session.user.id)
+  const convs = await cloudDb.getConversations(session.user.id, limit, offset)
   return convs
 }
 
 export async function createConversation(projectId?: string) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
+  console.log('[createConversation] projectId:', projectId)
   const conv = await cloudDb.createConversation(session.user.id, undefined, projectId)
   revalidatePath('/chat')
   return conv

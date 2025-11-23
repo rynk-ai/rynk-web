@@ -48,6 +48,11 @@ export function useChat() {
   const [error, setError] = useState<string | null>(null)
   const [folders, setFolders] = useState<Folder[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   
   // Use ref to track last fetch time for cache invalidation
   const conversationsLastFetchRef = useRef<number>(0)
@@ -70,14 +75,40 @@ export function useChat() {
     }
     
     try {
-      const all = await getConversations()
+      const limit = 20
+      const all = await getConversations(limit, 0)
       setConversations(all)
+      setPage(1)
+      setHasMore(all.length === limit)
       conversationsLastFetchRef.current = Date.now()
     } catch (err) {
       console.error('Failed to load conversations:', err)
       setError('Failed to load conversations')
     }
   }, [])
+
+  const loadMoreConversations = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return
+
+    setIsLoadingMore(true)
+    try {
+      const limit = 20
+      const offset = page * limit
+      const nextBatch = await getConversations(limit, offset)
+      
+      if (nextBatch.length > 0) {
+        setConversations(prev => [...prev, ...nextBatch])
+        setPage(prev => prev + 1)
+        setHasMore(nextBatch.length === limit)
+      } else {
+        setHasMore(false)
+      }
+    } catch (err) {
+      console.error('Failed to load more conversations:', err)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [page, hasMore, isLoadingMore])
 
   // Folders and Projects are not yet migrated to actions fully in this step, keeping empty or TODO
   const loadFolders = useCallback(async (force = false) => {
@@ -148,6 +179,10 @@ export function useChat() {
   const selectConversation = useCallback((id: string | null) => {
     setCurrentConversationId(id)
     // No need to reload conversations on selection - data hasn't changed
+  }, [])
+
+  const selectProject = useCallback((id: string | null) => {
+    setActiveProjectId(id)
   }, [])
 
 
@@ -225,6 +260,8 @@ export function useChat() {
     setIsLoading(true)
     setError(null)
 
+    console.log('[sendMessage] activeProjectId:', activeProjectId)
+
     let conversationId = currentConversationId
 
     // Only generate title if it's a new conversation or the title is still the default
@@ -232,7 +269,7 @@ export function useChat() {
 
     try {
       if (!conversationId) {
-        const conv = await createConversationAction()
+        const conv = await createConversationAction(activeProjectId || undefined)
         conversationId = conv.id
         setCurrentConversationId(conv.id)
         
@@ -304,7 +341,7 @@ export function useChat() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentConversationId, currentConversation, generateTitle, setConversationContext])
+  }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId])
 
   const togglePinConversation = useCallback(async (id: string) => {
     const conv = conversations.find(c => c.id === id)
@@ -639,5 +676,11 @@ export function useChat() {
     branchConversation,
     setConversationContext,
     clearConversationContext,
+    // Pagination
+    loadMoreConversations,
+    hasMoreConversations: hasMore,
+    isLoadingMoreConversations: isLoadingMore,
+    activeProjectId,
+    selectProject
   }
 }
