@@ -941,7 +941,24 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         .filter((c) => c.type === "folder")
         .map((c) => ({ id: c.id, name: c.title }));
 
-      // Save the edit (creates a new message version)
+      // OPTIMISTIC UPDATE: Update the message locally for instant feedback
+      setMessages(prev => prev.map(m => 
+        m.id === editingMessageId 
+          ? { 
+              ...m, 
+              content: editContent, 
+              referencedConversations, 
+              referencedFolders 
+            }
+          : m
+      ));
+      
+      // Clear edit UI immediately for better UX
+      setEditingMessageId(null);
+      setEditContent("");
+      setEditContext([]);
+
+      // Save the edit to server (creates a new message version)
       const result = await editMessage(
         editingMessageId,
         editContent,
@@ -950,12 +967,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedFolders
       );
       
-      // Clear edit state immediately
-      setEditingMessageId(null);
-      setEditContent("");
-      setEditContext([]);
-      
-      // Reload messages to show the edited version
+      // Fetch updated messages once to get the new conversation state
       const updatedMessages = await getMessages(currentConversationId!);
       setMessages(updatedMessages);
       
@@ -964,7 +976,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       const lastMsg = updatedMessages[updatedMessages.length - 1];
       
       if (lastMsg && lastMsg.role === "user") {
-        // Stream AI response
+        // Generate AI response using the chat API
         try {
           const response = await fetch("/api/chat", {
             method: "POST",
@@ -979,17 +991,20 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           });
           
           if (response.ok && response.body) {
-            // Fetch messages to get the real assistant placeholder created by server
+            // The server creates the assistant message, so we need to fetch to get it
             const messagesWithAssistant = await getMessages(currentConversationId!);
             setMessages(messagesWithAssistant);
             
-            // Find the assistant message to track for streaming
-            const assistantMsg = messagesWithAssistant.find(m => m.role === 'assistant' && !m.content);
+            // Find the new assistant message for streaming tracking
+            const assistantMsg = messagesWithAssistant.find(
+              m => m.role === 'assistant' && !m.content
+            );
             if (assistantMsg) {
               setStreamingMessageId(assistantMsg.id);
             }
             setStreamingContent("");
             
+            // Read and display the stream
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullContent = "";
@@ -1004,10 +1019,12 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 setStreamingContent(fullContent);
               }
             } finally {
+              // Clear streaming state
               setStreamingMessageId(null);
               setStreamingContent("");
               
-              // Fetch final messages to get completed response
+              // SINGLE final fetch to sync with server
+              // This ensures we have the complete, saved assistant response
               const finalMessages = await getMessages(currentConversationId!);
               setMessages(finalMessages);
             }
@@ -1021,10 +1038,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       
     } catch (error) {
       console.error("Failed to save edit:", error);
-      // Keep edit state open so user can retry
-      setEditingMessageId(null);
-      setEditContent("");
-      setEditContext([]);
+      // Revert optimistic update on error by fetching from server
+      try {
+        const revertedMessages = await getMessages(currentConversationId!);
+        setMessages(revertedMessages);
+      } catch (fetchError) {
+        console.error("Failed to revert after error:", fetchError);
+      }
     } finally {
       setIsEditing(false);
     }
@@ -1066,6 +1086,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   // Load messages from conversation path
   useEffect(() => {
     const loadMessages = async () => {
+      // Skip if we're in the middle of an edit to prevent race conditions
+      if (isEditing) return;
+      
       if (!currentConversation) {
         setMessages([]);
         setMessageVersions(new Map());
@@ -1098,7 +1121,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     };
 
     loadMessages();
-  }, [currentConversation]);
+  }, [currentConversation?.id, isEditing, getMessages, getMessageVersions]); // Only depend on ID, not entire object
 
   return (
     <main className="flex h-screen flex-col overflow-hidden">
