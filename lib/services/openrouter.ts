@@ -43,7 +43,7 @@ class OpenRouterService {
         'X-Title': 'SimplyChat',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-3.5-turbo',
+        model: 'anthropic/claude-3-5-haiku',
         messages: params.messages,
         stream: true,
       }),
@@ -125,7 +125,7 @@ class OpenRouterService {
         'X-Title': 'SimplyChat',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-3.5-turbo',
+        model: 'anthropic/claude-3-5-haiku',
         messages: params.messages,
         stream: false,
       }),
