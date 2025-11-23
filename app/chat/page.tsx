@@ -808,11 +808,19 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const { userMessage, assistantMessage, streamReader, conversationId } = result;
 
-      // Update current conversation ID if it was a new chat
-      // Note: useChat already updates its internal state, but we might need to sync local state if any
+      // Fetch messages immediately to show the real user message (saved server-side)
+      // This prevents duplicate user messages from optimistic updates
+      try {
+        const currentMessages = await getMessages(conversationId);
+        setMessages(currentMessages);
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+        // Fallback: show optimistic user message if fetch fails
+        setMessages((prev) => [...prev, userMessage]);
+      }
       
-      // Optimistically add messages
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      // Add optimistic assistant message for streaming
+      setMessages((prev) => [...prev, assistantMessage]);
       setStreamingMessageId(assistantMessage.id);
       setStreamingContent("");
 
@@ -836,7 +844,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         setStreamingMessageId(null);
         setStreamingContent("");
         
-        // Fetch real messages from server to replace optimistic ones
+        // Fetch real messages from server to replace optimistic assistant message
         try {
           const serverMessages = await getMessages(conversationId);
           setMessages(serverMessages);
