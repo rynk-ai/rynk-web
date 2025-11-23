@@ -1103,47 +1103,45 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   };
 
+  // Reload messages (can be called from version switching)
+  const reloadMessages = useCallback(async () => {
+    if (!currentConversation) {
+      setMessages([]);
+      setMessageVersions(new Map());
+      return;
+    }
+
+    try {
+      const loadedMessages = await getMessages(currentConversation.id);
+      console.log("✅ Loaded", loadedMessages.length, "messages");
+      // Filter to show only active versions (no duplicates)
+      const filteredMessages = filterActiveVersions(loadedMessages);
+      setMessages(filteredMessages);
+
+      // Load versions for each message (load from all versions, not just active)
+      const versionsMap = new Map<string, ChatMessage[]>();
+      for (const message of loadedMessages) {
+        const rootId = message.versionOf || message.id;
+        if (!versionsMap.has(rootId)) {
+          const versions = await getMessageVersions(rootId);
+          versionsMap.set(rootId, versions);
+        }
+      }
+      setMessageVersions(versionsMap);
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+      setMessages([]);
+      setMessageVersions(new Map());
+    }
+  }, [currentConversation?.id, getMessages, getMessageVersions]);
+
   // Load messages from conversation path
   useEffect(() => {
-    const loadMessages = async () => {
-      // Skip if we're in the middle of an edit to prevent race conditions
-      if (isEditing) return;
-      
-      if (!currentConversation) {
-        setMessages([]);
-        setMessageVersions(new Map());
-        return;
-      }
+    // Skip if we're in the middle of an edit to prevent race conditions
+    if (isEditing) return;
 
-      console.log("🔍 Loading messages from path:", currentConversation.id);
-      console.log("🔍 Path:", currentConversation.path);
-
-      try {
-        const loadedMessages = await getMessages(currentConversation.id);
-        console.log("✅ Loaded", loadedMessages.length, "messages");
-        // Filter to show only active versions (no duplicates)
-        const filteredMessages = filterActiveVersions(loadedMessages);
-        setMessages(filteredMessages);
-
-        // Load versions for each message (load from all versions, not just active)
-        const versionsMap = new Map<string, ChatMessage[]>();
-        for (const message of loadedMessages) {
-          const rootId = message.versionOf || message.id;
-          if (!versionsMap.has(rootId)) {
-            const versions = await getMessageVersions(rootId);
-            versionsMap.set(rootId, versions);
-          }
-        }
-        setMessageVersions(versionsMap);
-      } catch (err) {
-        console.error("Failed to load messages:", err);
-        setMessages([]);
-        setMessageVersions(new Map());
-      }
-    };
-
-    loadMessages();
-  }, [currentConversation?.id, isEditing, getMessages, getMessageVersions]); // Only depend on ID, not entire object
+    reloadMessages();
+  }, [currentConversation?.id, isEditing, reloadMessages]); // Only depend on ID, not entire object
 
   return (
     <main className="flex h-screen flex-col overflow-hidden">
@@ -1494,6 +1492,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                                     message={message}
                                     versions={versions}
                                     onSwitchVersion={switchToMessageVersion}
+                                    onReloadMessages={reloadMessages}
                                     isLoading={isLoading}
                                   />
                                 </div>

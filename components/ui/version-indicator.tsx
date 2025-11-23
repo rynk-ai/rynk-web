@@ -10,6 +10,7 @@ interface VersionIndicatorProps {
   message: Message
   versions: Message[]
   onSwitchVersion: (messageId: string) => Promise<void>
+  onReloadMessages?: () => void
   isLoading?: boolean
 }
 
@@ -17,6 +18,7 @@ export function VersionIndicator({
   message,
   versions,
   onSwitchVersion,
+  onReloadMessages,
   isLoading = false,
 }: VersionIndicatorProps) {
   const [isSwitching, setIsSwitching] = useState(false)
@@ -45,6 +47,8 @@ export function VersionIndicator({
     try {
       setIsSwitching(true)
       await onSwitchVersion(targetVersion.id)
+      // Reload messages after version switch
+      onReloadMessages?.()
     } catch (err) {
       console.error('Failed to switch version:', err)
     } finally {
