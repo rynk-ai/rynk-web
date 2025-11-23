@@ -124,12 +124,15 @@ export function useChat() {
     try {
       const title = await generateTitleAction(conversationId, messageContent)
       if (title) {
-        await loadConversations()
+        // Optimistically update the conversation title without refetching entire list
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId ? { ...c, title } : c
+        ))
       }
     } catch (error) {
       console.error('Failed to generate title:', error)
     }
-  }, [loadConversations])
+  }, [])
 
   const setConversationContext = useCallback(async (
     conversationId: string,

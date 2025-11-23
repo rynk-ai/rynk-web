@@ -808,19 +808,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const { userMessage, assistantMessage, streamReader, conversationId } = result;
 
-      // Fetch messages immediately to show the real user message (saved server-side)
-      // This prevents duplicate user messages from optimistic updates
-      try {
-        const currentMessages = await getMessages(conversationId);
-        setMessages(currentMessages);
-      } catch (err) {
-        console.error("Failed to load messages:", err);
-        // Fallback: show optimistic user message if fetch fails
-        setMessages((prev) => [...prev, userMessage]);
-      }
-      
-      // Add optimistic assistant message for streaming
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Add optimistic messages immediately for instant feedback
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setStreamingMessageId(assistantMessage.id);
       setStreamingContent("");
 
@@ -840,23 +829,23 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       } catch (err) {
         console.error("Error reading stream:", err);
       } finally {
-        // Stream finished
+        // Stream finished - fetch real messages once to replace all optimistic data
         setStreamingMessageId(null);
         setStreamingContent("");
         
-        // Fetch real messages from server to replace optimistic assistant message
         try {
           const serverMessages = await getMessages(conversationId);
           setMessages(serverMessages);
         } catch (err) {
           console.error("Failed to load messages after stream:", err);
-          // Fallback: just update the assistant message content
+          // Fallback: update optimistic messages with final content
           setMessages((prev) => 
-            prev.map((m) => 
-              m.id === assistantMessage.id 
-                ? { ...m, content: fullContent } 
-                : m
-            )
+            prev.map((m) => {
+              if (m.id === assistantMessage.id) {
+                return { ...m, content: fullContent };
+              }
+              return m;
+            })
           );
         }
       }
