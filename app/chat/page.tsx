@@ -74,6 +74,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { UserProfileDropdown } from "@/components/user-profile-dropdown";
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
+import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 
 interface ChatSidebarProps {
   onConversationSelect?: () => void;
@@ -1255,13 +1256,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           {/* Title for New Chat - Fades out when conversation starts */}
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 transition-opacity duration-500 ease-in-out pointer-events-none",
-              !currentConversationId ? "opacity-100" : "opacity-0"
+              "absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-in-out pointer-events-none",
+              !currentConversationId 
+                ? "opacity-100 translate-y-0 pb-32" 
+                : "opacity-0 -translate-y-10 pb-32"
             )}
           >
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter text-foreground/80 mb-1">
+            <TextShimmer
+              spread={5}
+      duration={4} className="text-3xl md:text-4xl lg:text-7xl font-bold tracking-tighter text-foreground/70 mb-10 leading-24">
               simplychat.
-            </h1>
+            </TextShimmer>
           </div>
 
           {/* Messages Container - Fades in/Visible when conversation active */}
@@ -1272,7 +1277,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             )}
           >
             <ChatContainerRoot className="h-full px-3 md:px-4 lg:px-6">
-               <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pb-4 pb-96">
+               <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pt-7 pb-96">
                 <MessageList
                   messages={messages}
                   isSending={isSending}
@@ -1291,14 +1296,18 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         </div>
 
         {/* Input Section - Always rendered, absolute positioned at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 w-full">
+        <div className={cn(
+          "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
+          !currentConversationId 
+            ? "bottom-3/7 translate-y-1/2" 
+            : "bottom-4 translate-y-0"
+        )}>
           {/* Background for input section */}
           <div className="relative w-full max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 pb-safe-bottom pt-4">
             {activeContext.length > 0 && (
               <div
                 className={cn(
-                  "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500",
-                  !currentConversationId ? "justify-center" : "justify-start"
+                  "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500 justify-start"
                 )}
               >
                 {activeContext.map((c, i) => (
@@ -1333,7 +1342,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="z-20 h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  className="z-20 h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground hover:bg-background/50 z-20"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
