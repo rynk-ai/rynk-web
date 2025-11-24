@@ -97,6 +97,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     sendMessage,
     currentConversation,
     currentConversationId,
+    selectConversation,
     editMessage,
     deleteMessage: deleteMessageAction,
     switchToMessageVersion,
@@ -296,6 +297,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   // Handle pending query from URL params (?q=...) or localStorage
   useEffect(() => {
+    // Check if we've already processed a query in this session (survives Fast Refresh)
+    const alreadyProcessed = sessionStorage.getItem('pendingQueryProcessed') === 'true';
+    if (alreadyProcessed) {
+      console.log('[ChatPage] Query already processed in this session, skipping');
+      return;
+    }
+    
     // Only process if there's no current conversation (new chat scenario)
     if (currentConversationId) return;
 
@@ -308,27 +316,48 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     // Use URL param if available, otherwise fall back to localStorage
     const pendingQuery = urlQuery || localStorageQuery;
     
+    console.log('[ChatPage] Pending query check:', {
+      urlQuery,
+      localStorageQuery,
+      pendingQuery,
+      currentConversationId,
+      alreadyProcessed
+    });
+    
     if (pendingQuery && pendingQuery.trim()) {
-      // Clear localStorage if it was used
-      if (localStorageQuery) {
-        localStorage.removeItem('pendingChatQuery');
-        localStorage.removeItem('pendingChatFilesCount');
-      }
+      // Mark as processed in sessionStorage (survives Fast Refresh)
+      sessionStorage.setItem('pendingQueryProcessed', 'true');
       
-      // Clear URL param by replacing current URL without the query
-      if (urlQuery) {
-        router.replace('/chat');
-      }
+      console.log('[ChatPage] Scheduling auto-submit for:', pendingQuery);
       
-      // Small delay to ensure component is fully mounted
-      const timer = setTimeout(() => {
+      // Use a shorter delay and no cleanup function to avoid Fast Refresh cancellation
+      setTimeout(() => {
+        console.log('[ChatPage] Auto-submitting pending query:', pendingQuery);
+        
         // Auto-submit the pending query
         handleSubmit(pendingQuery, []);
+        
+        // Clear localStorage AFTER submit
+        if (localStorageQuery) {
+          console.log('[ChatPage] Clearing localStorage after submit');
+          localStorage.removeItem('pendingChatQuery');
+          localStorage.removeItem('pendingChatFilesCount');
+        }
+        
+        // Clear URL param AFTER submit
+        if (urlQuery) {
+          console.log('[ChatPage] Clearing URL param after submit');
+          router.replace('/chat');
+        }
+        
+        // Clear the session flag after successful submission
+        sessionStorage.removeItem('pendingQueryProcessed');
       }, 100);
       
-      return () => clearTimeout(timer);
+      // No cleanup function - let the timer complete even during Fast Refresh
     }
-  }, [currentConversationId, handleSubmit, searchParams, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentConversationId, searchParams, router]);
 
   // ... (rest of the component)
 
@@ -642,7 +671,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             <TextShimmer
               spread={5}
       duration={4} className="text-3xl md:text-4xl lg:text-7xl font-bold tracking-tighter text-foreground/70 mb-10 leading-24">
-              simplychat.
+              rynk.
             </TextShimmer>
           </div>
 

@@ -39,8 +39,8 @@ class OpenRouterService {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://simplychat.ai', // Replace with actual site URL
-        'X-Title': 'SimplyChat',
+        'HTTP-Referer': 'https://rynk.io', // Replace with actual site URL
+        'X-Title': 'Rynk',
       },
       body: JSON.stringify({
         model: 'anthropic/claude-3.5-haiku',
@@ -121,8 +121,8 @@ class OpenRouterService {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://simplychat.ai',
-        'X-Title': 'SimplyChat',
+        'HTTP-Referer': 'https://rynk.io',
+        'X-Title': 'Rynk',
       },
       body: JSON.stringify({
         model: 'anthropic/claude-3.5-haiku',
