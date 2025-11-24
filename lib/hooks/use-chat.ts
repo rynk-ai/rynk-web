@@ -503,7 +503,7 @@ export function useChat() {
     if (!currentConversationId) return
     try {
       await switchToMessageVersionAction(currentConversationId, messageId)
-      await loadConversations()
+      await loadConversations(true)
     } catch (error) {
       console.error('Failed to switch message version:', error)
     }

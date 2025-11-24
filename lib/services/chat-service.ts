@@ -90,9 +90,15 @@ export class ChatService {
     // 6. Prepare Messages for AI
     console.log('📤 [chatService] Preparing messages for API...');
     const messages = await this.prepareMessagesForAI(conversationId, contextText)
+    const lastUserMsg = messages.filter(m => m.role === 'user').slice(-1)[0]
+    const lastContent = lastUserMsg?.content
+    const contentPreview = typeof lastContent === 'string' 
+      ? lastContent.substring(0, 100) 
+      : JSON.stringify(lastContent).substring(0, 100)
+
     console.log('✅ [chatService] Messages prepared:', {
       messageCount: messages.length,
-      lastUserMessage: messages.filter(m => m.role === 'user').slice(-1)[0]?.content?.substring(0, 100) + '...'
+      lastUserMessage: contentPreview + '...'
     });
 
     // 7. Create Placeholder Assistant Message

@@ -13,6 +13,8 @@ interface MessageListProps {
   onStartEdit: (message: ChatMessage) => void;
   onDeleteMessage: (messageId: string) => void;
   onBranchFromMessage: (messageId: string) => void;
+  messageVersions: Map<string, ChatMessage[]>;
+  onSwitchVersion: (messageId: string) => Promise<void>;
 }
 
 /**
@@ -28,24 +30,34 @@ export const MessageList = memo(function MessageList({
   editingMessageId,
   onStartEdit,
   onDeleteMessage,
-  onBranchFromMessage
+  onBranchFromMessage,
+  messageVersions,
+  onSwitchVersion
 }: MessageListProps) {
   return (
     <>
-      {messages.map((message, index) => (
-        <ChatMessageItem
-          key={message.id}
-          message={message}
-          isLastMessage={index === messages.length - 1}
-          isSending={isSending}
-          isStreaming={streamingMessageId === message.id}
-          streamingContent={streamingContent}
-          isEditing={editingMessageId === message.id}
-          onStartEdit={onStartEdit}
-          onDelete={onDeleteMessage}
-          onBranch={onBranchFromMessage}
-        />
-      ))}
+      {messages.map((message, index) => {
+        // Find versions for this message (using root ID)
+        const rootId = message.versionOf || message.id;
+        const versions = messageVersions.get(rootId) || [message];
+        
+        return (
+          <ChatMessageItem
+            key={message.id}
+            message={message}
+            isLastMessage={index === messages.length - 1}
+            isSending={isSending}
+            isStreaming={streamingMessageId === message.id}
+            streamingContent={streamingContent}
+            isEditing={editingMessageId === message.id}
+            onStartEdit={onStartEdit}
+            onDelete={onDeleteMessage}
+            onBranch={onBranchFromMessage}
+            versions={versions}
+            onSwitchVersion={onSwitchVersion}
+          />
+        );
+      })}
     </>
   );
 }, (prevProps, nextProps) => {
@@ -55,6 +67,7 @@ export const MessageList = memo(function MessageList({
     prevProps.isSending === nextProps.isSending &&
     prevProps.streamingMessageId === nextProps.streamingMessageId &&
     prevProps.streamingContent === nextProps.streamingContent &&
-    prevProps.editingMessageId === nextProps.editingMessageId
+    prevProps.editingMessageId === nextProps.editingMessageId &&
+    prevProps.messageVersions === nextProps.messageVersions
   );
 });

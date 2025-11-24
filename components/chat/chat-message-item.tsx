@@ -9,6 +9,8 @@ import { Markdown } from '@/components/prompt-kit/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
 
+import { VersionIndicator } from '@/components/ui/version-indicator';
+
 interface ChatMessageItemProps {
   message: ChatMessage;
   isLastMessage: boolean;
@@ -20,6 +22,8 @@ interface ChatMessageItemProps {
   onDelete: (messageId: string) => void;
   onBranch: (messageId: string) => void;
   onCopy?: (content: string) => void;
+  versions?: ChatMessage[];
+  onSwitchVersion?: (messageId: string) => Promise<void>;
 }
 
 /**
@@ -38,7 +42,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onStartEdit,
   onDelete,
   onBranch,
-  onCopy
+  onCopy,
+  versions = [],
+  onSwitchVersion
 }: ChatMessageItemProps) {
   const isAssistant = message.role === 'assistant';
   
@@ -163,28 +169,39 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         
         {/* Action Buttons */}
         {!isEditing && (
-          <MessageActions className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <MessageAction tooltip="Edit" delayDuration={100}>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7 rounded-full" 
-                onClick={handleEdit}
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-            </MessageAction>
-            <MessageAction tooltip="Delete" delayDuration={100}>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7 rounded-full text-destructive hover:text-destructive" 
-                onClick={handleDelete}
-              >
-                <Trash className="h-3 w-3" />
-              </Button>
-            </MessageAction>
-          </MessageActions>
+          <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Version Indicator */}
+            {onSwitchVersion && versions.length > 1 && (
+              <VersionIndicator
+                message={message}
+                versions={versions}
+                onSwitchVersion={onSwitchVersion}
+              />
+            )}
+
+            <MessageActions className="flex gap-0">
+              <MessageAction tooltip="Edit" delayDuration={100}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 rounded-full" 
+                  onClick={handleEdit}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              </MessageAction>
+              <MessageAction tooltip="Delete" delayDuration={100}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 rounded-full text-destructive hover:text-destructive" 
+                  onClick={handleDelete}
+                >
+                  <Trash className="h-3 w-3" />
+                </Button>
+              </MessageAction>
+            </MessageActions>
+          </div>
         )}
       </div>
     </Message>
@@ -203,6 +220,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     // Deep check for attachments and references
     JSON.stringify(prevProps.message.attachments) === JSON.stringify(nextProps.message.attachments) &&
     JSON.stringify(prevProps.message.referencedConversations) === JSON.stringify(nextProps.message.referencedConversations) &&
-    JSON.stringify(prevProps.message.referencedFolders) === JSON.stringify(nextProps.message.referencedFolders)
+    JSON.stringify(prevProps.message.referencedFolders) === JSON.stringify(nextProps.message.referencedFolders) &&
+    // Version check
+    prevProps.versions?.length === nextProps.versions?.length &&
+    prevProps.versions?.[0]?.id === nextProps.versions?.[0]?.id
   );
 });

@@ -1232,7 +1232,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     if (isEditing) return;
 
     reloadMessages();
-  }, [currentConversation?.id, isEditing, reloadMessages]); // Only depend on ID, not entire object
+  }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, reloadMessages]); // Reload when ID or timestamp changes
 
   return (
     <main className="flex h-screen flex-col overflow-hidden relative">
@@ -1282,6 +1282,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onStartEdit={handleStartEdit}
                   onDeleteMessage={handleDeleteMessage}
                   onBranchFromMessage={handleBranchFromMessage}
+                  messageVersions={messageVersions}
+                  onSwitchVersion={switchToMessageVersion}
                 />
               </ChatContainerContent>
             </ChatContainerRoot>
