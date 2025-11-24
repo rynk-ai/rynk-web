@@ -20,8 +20,16 @@ export async function POST(request: NextRequest) {
       referencedFolders 
     } = await request.json() as any
 
+    console.log('📨 [/api/chat] Raw Request Body:', {
+      messageId,
+      conversationId,
+      hasMessage: !!message,
+      messagePreview: message?.substring(0, 20)
+    });
+
     // Validate: Either message or messageId must be provided (but not both)
     if ((!message && !messageId) || !conversationId) {
+      console.error('❌ [/api/chat] Invalid request: missing required fields');
       return new Response(
         JSON.stringify({ error: "Either 'message' or 'messageId' and 'conversationId' are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
@@ -39,7 +47,7 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error: any) {
-    console.error("Chat API error:", error);
+    console.error("❌ [/api/chat] Error:", error);
     return new Response(JSON.stringify({ error: error.message || "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

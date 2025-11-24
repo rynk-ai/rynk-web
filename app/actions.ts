@@ -92,6 +92,16 @@ export async function createMessageVersion(
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
   
+  console.log('🔷 [createMessageVersion] Starting:', {
+    conversationId,
+    messageId,
+    userId: session.user.id,
+    contentLength: newContent.length,
+    hasAttachments: !!newAttachments && newAttachments.length > 0,
+    referencedConversations: referencedConversations?.length || 0,
+    referencedFolders: referencedFolders?.length || 0
+  });
+  
   const result = await cloudDb.createMessageVersion(
     conversationId,
     messageId,
@@ -101,19 +111,28 @@ export async function createMessageVersion(
     referencedFolders
   )
   
+  console.log('✅ [createMessageVersion] Result:', {
+    newMessageId: result.newMessage.id,
+    conversationPath: result.conversationPath,
+    hasNewMessage: !!result.newMessage
+  });
+  
   // Generate embedding for the new message version
   if (result.newMessage && result.newMessage.role === 'user' && newContent && newContent.trim()) {
     try {
+      console.log('🔍 [createMessageVersion] Generating embedding...');
       const { getOpenRouter } = await import('@/lib/services/openrouter')
       const openrouter = getOpenRouter()
       const vector = await openrouter.getEmbeddings(newContent)
       await cloudDb.addEmbedding(result.newMessage.id, conversationId, session.user.id, newContent, vector)
+      console.log('✅ [createMessageVersion] Embedding created');
     } catch (error) {
-      console.error('Failed to generate embedding for message version:', error)
+      console.error('❌ [createMessageVersion] Failed to generate embedding:', error)
     }
   }
   
   revalidatePath('/chat')
+  console.log('🏁 [createMessageVersion] Complete');
   return result
 }
 

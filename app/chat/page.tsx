@@ -946,7 +946,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   const handleStartEdit = useCallback((message: ChatMessage) => {
     if (isLoading) return;
-    
+
     // Populate initial context from message references
     const initialContext: {
       type: "conversation" | "folder";
@@ -971,13 +971,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         }))
       );
     }
-    
+
     startEdit(message, initialContext);
 
     // Focus and select all text after state update
     setTimeout(() => {
-      const textarea = document.querySelector(
-        "textarea[autofocus]"
+      const textarea = document.getElementById(
+        "main-chat-input"
       ) as HTMLTextAreaElement;
       if (textarea) {
         textarea.focus();
@@ -987,67 +987,121 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   }, [isLoading, startEdit]);
 
   const handleCancelEdit = useCallback(() => {
-    if (isEditing) return;
     cancelEdit();
-  }, [isEditing, cancelEdit]);
+  }, [cancelEdit]);
 
-  const handleSaveEdit = async () => {
-    if (!editingMessageId || isEditing || !editContent.trim()) return;
+  const handleSaveEdit = async (newContent?: string, newFiles?: File[]) => {
+    // Use passed content if available, otherwise fallback to state (for safety)
+    const contentToEdit = newContent ?? editContent;
+    
+    if (!editingMessageId || isEditing || !contentToEdit.trim()) return;
+    
+    // ✅ STEP 1: Store edit state in local variables BEFORE resetting state
+    const messageIdToEdit = editingMessageId;
+    const contextToEdit = editContext;
+    const conversationId = currentConversationId;
+    
+    console.log('🔧 [handleSaveEdit] Starting edit:', {
+      messageIdToEdit,
+      conversationId,
+      contentLength: contentToEdit.length,
+      contextItems: contextToEdit.length
+    });
+    
     setIsEditing(true);
     
     try {
-      const referencedConversations = editContext
+      // ✅ STEP 2: Extract context from STORED state (not reset state)
+      const referencedConversations = contextToEdit
         .filter((c) => c.type === "conversation")
         .map((c) => ({ id: c.id, title: c.title }));
 
-      const referencedFolders = editContext
+      const referencedFolders = contextToEdit
         .filter((c) => c.type === "folder")
         .map((c) => ({ id: c.id, name: c.title }));
 
-      // Clear edit UI immediately for better UX
+      console.log('📦 [handleSaveEdit] Extracted context:', {
+        referencedConversations: referencedConversations.length,
+        referencedFolders: referencedFolders.length
+      });
+
+      // ✅ STEP 3: Clear edit UI immediately for better UX (but AFTER extracting data)
       cancelEdit();
 
-      // Save the edit to server (creates a new message version)
+      // ✅ STEP 4: Create new message version
+      console.log('💾 [handleSaveEdit] Creating message version...');
       const result = await editMessage(
-        editingMessageId,
-        editContent,
+        messageIdToEdit,
+        contentToEdit,
         undefined,
         referencedConversations,
         referencedFolders
       );
 
-      // Fetch updated messages ONCE to get the new conversation state with the edited version
-      const updatedMessages = await getMessages(currentConversationId!);
-      // Filter to show only active versions (no duplicates)
+      if (!result?.newMessage) {
+        throw new Error('Failed to create message version')
+      }
+
+      // ✅ STEP 5: The new message (active version)
+      const newMessage = result.newMessage;
+      console.log('✅ [handleSaveEdit] New message created:', {
+        originalId: messageIdToEdit,
+        newMessageId: newMessage.id,
+        conversationPath: result.conversationPath
+      });
+
+      // ✅ STEP 6: Fetch updated messages ONCE to get the new conversation state
+      console.log('📥 [handleSaveEdit] Fetching updated messages...');
+      const updatedMessages = await getMessages(conversationId!);
       const filteredMessages = filterActiveVersions(updatedMessages);
       setMessages(filteredMessages);
+      console.log('📋 [handleSaveEdit] Messages updated:', {
+        totalMessages: updatedMessages.length,
+        filteredMessages: filteredMessages.length
+      });
 
-      // Check if we need to generate an AI response
-      // If the edited message created a new path ending with a user message, generate AI response
-      const lastMsg = filteredMessages[filteredMessages.length - 1];
-      
-      if (lastMsg && lastMsg.role === "user") {
-        // Generate AI response using the consolidated /api/chat endpoint
+      // ✅ STEP 7: Check if we need to generate an AI response
+      // Only generate if the edited message is at the END of the conversation
+      const isEditedMessageLast =
+        newMessage && filteredMessages[filteredMessages.length - 1]?.id === newMessage.id;
+
+      console.log('🤔 [handleSaveEdit] Should generate AI response?', {
+        isEditedMessageLast,
+        lastMessageId: filteredMessages[filteredMessages.length - 1]?.id,
+        newMessageId: newMessage.id
+      });
+
+      if (isEditedMessageLast) {
+        // ✅ STEP 8: Generate AI response using the NEW message ID
         try {
+          console.log('🤖 [handleSaveEdit] Generating AI response for:', {
+            conversationId,
+            messageId: newMessage.id  // ✅ Uses NEW message ID, not old one!
+          });
+
           const response = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              conversationId: currentConversationId,
-              messageId: lastMsg.id,  // Use messageId instead of message content
+              conversationId: conversationId,
+              messageId: newMessage.id,  // ✅ CRITICAL: Use NEW message ID
             }),
           });
 
           if (response.ok && response.body) {
+            console.log('✅ [handleSaveEdit] AI response started');
+            
             // Extract assistant message ID from headers
             const assistantMessageId = response.headers.get('X-Assistant-Message-Id');
             
             if (assistantMessageId) {
+              console.log('📨 [handleSaveEdit] Assistant message ID:', assistantMessageId);
+              
               // Create optimistic assistant placeholder
               const timestamp = Date.now();
               const optimisticAssistant: ChatMessage = {
                 id: assistantMessageId,
-                conversationId: currentConversationId!,
+                conversationId: conversationId!,
                 role: 'assistant',
                 content: '',
                 createdAt: timestamp,
@@ -1073,6 +1127,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   fullContent += chunk;
                   updateStreamContent(fullContent);
                 }
+                console.log('✅ [handleSaveEdit] AI response complete, length:', fullContent.length);
               } finally {
                 // Clear streaming state
                 finishStreaming();
@@ -1081,18 +1136,20 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 messageState.updateMessage(assistantMessageId, { content: fullContent });
               }
             }
+          } else {
+            console.error('❌ [handleSaveEdit] AI response error:', response.status, response.statusText);
           }
         } catch (aiError) {
-          console.error("Failed to generate AI response:", aiError);
+          console.error("❌ [handleSaveEdit] Failed to generate AI response:", aiError);
           finishStreaming();
         }
       }
 
     } catch (error) {
-      console.error("Failed to save edit:", error);
+      console.error("❌ [handleSaveEdit] Failed to save edit:", error);
       // Revert optimistic update on error by fetching from server
       try {
-        const revertedMessages = await getMessages(currentConversationId!);
+        const revertedMessages = await getMessages(conversationId!);
         const filteredRevertedMessages = filterActiveVersions(revertedMessages);
         setMessages(filteredRevertedMessages);
       } catch (fetchError) {
@@ -1100,6 +1157,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       }
     } finally {
       setIsEditing(false);
+      console.log('🏁 [handleSaveEdit] Edit operation complete');
     }
   };
 
@@ -1287,7 +1345,12 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
             <PromptInputWithFiles
               onSubmit={handleSubmit}
+              onSaveEdit={handleSaveEdit}
+              onCancelEdit={handleCancelEdit}
               isLoading={isLoading}
+              isSubmittingEdit={isEditing}
+              editMode={!!editingMessageId}
+              initialValue={editContent}
               placeholder={
                 !currentConversationId ? "Message..." : "Type a message..."
               }
@@ -1295,8 +1358,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 "glass relative z-10 w-full rounded-2xl md:rounded-3xl border border-border/50 p-0 transition-all duration-500",
                 !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
               )}
-              context={activeContext}
-              onContextChange={handleContextChange}
+              context={editingMessageId ? editContext : activeContext}
+              onContextChange={editingMessageId ? setEditContext : handleContextChange}
               currentConversationId={currentConversationId}
               conversations={conversations}
               folders={folders}

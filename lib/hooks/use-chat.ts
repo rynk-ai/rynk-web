@@ -427,11 +427,21 @@ export function useChat() {
     newAttachments?: File[],
     referencedConversations?: { id: string; title: string }[],
     referencedFolders?: { id: string; name: string }[]
-  ) => {
+  ): Promise<{ newMessage: any; conversationPath: string[] }> => {
+    console.log('📝 [editMessage] Starting:', {
+      messageId,
+      conversationId: currentConversationId,
+      contentLength: newContent.length,
+      hasAttachments: !!newAttachments && newAttachments.length > 0,
+      referencedConversations: referencedConversations?.length || 0,
+      referencedFolders: referencedFolders?.length || 0
+    });
+
     try {
       // Upload new attachments if any
       let uploadedAttachments: any[] | undefined;
       if (newAttachments && newAttachments.length > 0) {
+        console.log('📎 [editMessage] Uploading attachments:', newAttachments.length);
         uploadedAttachments = await Promise.all(newAttachments.map(async (file) => {
           const formData = new FormData()
           formData.append('file', file)
@@ -448,9 +458,11 @@ export function useChat() {
             url: data.url
           }
         }))
+        console.log('✅ [editMessage] Attachments uploaded:', uploadedAttachments.length);
       }
 
       // Call server action to create new version
+      console.log('🔄 [editMessage] Calling createMessageVersionAction...');
       const result = await createMessageVersionAction(
         currentConversationId!,
         messageId,
@@ -459,11 +471,18 @@ export function useChat() {
         referencedConversations,
         referencedFolders
       )
-      
+
+      console.log('✅ [editMessage] Version created:', {
+        newMessageId: result.newMessage.id,
+        conversationPath: result.conversationPath,
+        hasNewMessage: !!result.newMessage
+      });
+
+      // Return the new message and updated path
       return result
-      
+
     } catch (error) {
-      console.error('Failed to edit message:', error)
+      console.error('❌ [editMessage] Failed:', error)
       throw error // Re-throw so caller knows it failed
     }
   }, [currentConversationId])

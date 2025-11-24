@@ -114,6 +114,13 @@ export const cloudDb = {
     if (!conversation) return []
     
     const path = JSON.parse(conversation.path as string || '[]') as string[]
+    
+    console.log('📋 [cloudDb.getMessages]', {
+      conversationId,
+      path,
+      pathLength: path.length
+    });
+    
     if (path.length === 0) return []
 
     // Optimized: Only fetch messages that are in the path using IN clause
@@ -121,6 +128,16 @@ export const cloudDb = {
     const messages = await db.prepare(
       `SELECT * FROM messages WHERE id IN (${placeholders})`
     ).bind(...path).all()
+    
+    console.log('✅ [cloudDb.getMessages] Fetched from DB:', {
+      count: messages.results.length,
+      ids: messages.results.map((m: any) => m.id),
+      userMessages: messages.results.filter((m: any) => m.role === 'user').map((m: any) => ({
+        id: m.id,
+        contentPreview: m.content ? (m.content as string).substring(0, 50) + '...' : 'N/A',
+        contentLength: m.content ? (m.content as string).length : 0
+      }))
+    });
     
     const msgMap = new Map(messages.results.map((m: any) => [m.id as string, m]))
     
@@ -142,6 +159,14 @@ export const cloudDb = {
   async getMessage(messageId: string) {
     const db = getDB()
     const message = await db.prepare('SELECT * FROM messages WHERE id = ?').bind(messageId).first()
+    
+    console.log('📥 [cloudDb.getMessage]', {
+      messageId,
+      found: !!message,
+      contentPreview: message?.content ? (message.content as string).substring(0, 50) + '...' : 'N/A',
+      contentLength: message?.content ? (message.content as string).length : 0
+    });
+    
     if (!message) return null
     return {
       ...message,
@@ -491,15 +516,40 @@ export const cloudDb = {
       conversationId
     ).run()
     
+    
+    // VERIFY INSERT
+    const verifyMsg = await db.prepare('SELECT content, id FROM messages WHERE id = ?').bind(newMessageId).first()
+    console.log('🔍 [createMessageVersion] VERIFY INSERT:', {
+      id: newMessageId,
+      found: !!verifyMsg,
+      content: verifyMsg?.content,
+      expectedContent: newContent
+    })
+
+    // VERIFY PATH UPDATE
+    const verifyConv = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
+    console.log('🔍 [createMessageVersion] VERIFY PATH:', {
+      conversationId,
+      path: verifyConv?.path,
+      expectedPathEnd: newMessageId
+    })
+    
     return {
       newMessage: {
-        ...originalMessage,
         id: newMessageId,
-        role: originalMessage.role,
-        content: newContent,
+        conversationId,
+        role: originalMessage.role as 'user' | 'assistant' | 'system',
+        content: newContent,  // ✅ NEW content
+        attachments: newAttachments || JSON.parse(originalMessage.attachments as string || '[]'),
+        referencedConversations: referencedConversations || JSON.parse(originalMessage.referencedConversations as string || '[]'),
+        referencedFolders: referencedFolders || JSON.parse(originalMessage.referencedFolders as string || '[]'),
+        timestamp: now,
+        createdAt: now,
+        userId: originalMessage.userId as string,
         versionNumber: newVersionNumber,
+        versionOf: (originalMessage.versionOf as string) || messageId,
         branchId: newBranchId,
-        attachments: newAttachments || JSON.parse(originalMessage.attachments as string || '[]')
+        parentMessageId: messageId
       },
       conversationPath: newPath
     }

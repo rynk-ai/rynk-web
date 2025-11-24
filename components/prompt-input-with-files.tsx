@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -14,13 +14,13 @@ import {
 import { FilePreviewList } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
 
 type PromptInputWithFilesProps = {
-  onSubmit: (text: string, files: File[]) => void;
+  onSubmit?: (text: string, files: File[]) => void;
   isLoading?: boolean;
   placeholder?: string;
   disabled?: boolean;
@@ -30,6 +30,12 @@ type PromptInputWithFilesProps = {
   currentConversationId?: string | null;
   conversations?: any[];
   folders?: any[];
+  // Edit mode props
+  editMode?: boolean;
+  initialValue?: string;
+  onCancelEdit?: () => void;
+  onSaveEdit?: (text: string, files: File[]) => Promise<void>;
+  isSubmittingEdit?: boolean;
 };
 
 export function PromptInputWithFiles({
@@ -43,10 +49,20 @@ export function PromptInputWithFiles({
   currentConversationId,
   conversations = [],
   folders = [],
+  editMode = false,
+  initialValue = '',
+  onCancelEdit,
+  onSaveEdit,
+  isSubmittingEdit = false,
 }: PromptInputWithFilesProps) {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialValue);
   const [files, setFiles] = useState<File[]>([]);
-  
+
+  // Update prompt when initialValue changes (for edit mode)
+  useEffect(() => {
+    setPrompt(initialValue);
+  }, [initialValue]);
+
   // Context search state
   const [cursorPosition, setCursorPosition] = useState(0);
   const { query, setQuery, results, isLoading: isSearching, allFolders } = useContextSearch(currentConversationId);
@@ -60,13 +76,22 @@ export function PromptInputWithFiles({
     setFiles((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if ((!prompt.trim() && files.length === 0) || isLoading) return;
 
     const currentPrompt = prompt.trim();
-    onSubmit(currentPrompt, files);
-    setPrompt("");
-    setFiles([]);
+
+    if (editMode && onSaveEdit) {
+      // Edit mode: save the edit
+      await onSaveEdit(currentPrompt, files);
+      setPrompt("");
+      setFiles([]);
+    } else if (onSubmit) {
+      // Normal mode: submit new message
+      onSubmit(currentPrompt, files);
+      setPrompt("");
+      setFiles([]);
+    }
   };
 
   // Handle input changes to detect @
@@ -148,7 +173,21 @@ export function PromptInputWithFiles({
 
   return (
     <div className={cn("flex flex-col gap-2 relative", className)}>
-
+      {/* Edit mode cancel button */}
+      {editMode && onCancelEdit && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancelEdit}
+            disabled={isLoading || isSubmittingEdit}
+            className="text-muted-foreground hover:text-foreground gap-2 h-8 px-3"
+          >
+            <X size={16} />
+            Cancel edit
+          </Button>
+        </div>
+      )}
 
       {/* File previews */}
       {files.length > 0 && (
@@ -168,17 +207,17 @@ export function PromptInputWithFiles({
         accept="image/*,application/pdf,.doc,.docx,.txt,.csv,.json,.xml,.md"
       >
         <PromptInput
-          isLoading={isLoading}
+          isLoading={isLoading || isSubmittingEdit}
           value={prompt}
           onValueChange={handlePromptChange}
           onSubmit={handleSubmit}
-          disabled={disabled}
+          disabled={disabled || isSubmittingEdit}
 
         >
           <div className="flex flex-col">
             <PromptInputTextarea
               id="main-chat-input"
-              placeholder={placeholder}
+              placeholder={editMode ? "Edit your message..." : placeholder}
               className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background"
               onKeyDown={handleKeyDown}
             />
@@ -191,7 +230,7 @@ export function PromptInputWithFiles({
                       variant="outline"
                       size="icon"
                       className="size-9 rounded-full"
-                      disabled={isLoading || disabled}
+                      disabled={isLoading || isSubmittingEdit || disabled}
                     >
                       <Paperclip size={18} />
                     </Button>
@@ -210,7 +249,7 @@ export function PromptInputWithFiles({
                       variant="outline"
                       size="icon"
                       className="size-9 rounded-full"
-                      disabled={isLoading || disabled}
+                      disabled={isLoading || isSubmittingEdit || disabled}
                     >
                       <Plus size={18} />
                     </Button>
@@ -219,11 +258,11 @@ export function PromptInputWithFiles({
               </div>
 
               <div className="flex items-center gap-2">
-                <PromptInputAction tooltip="Send message">
+                <PromptInputAction tooltip={editMode ? "Save changes" : "Send message"}>
                   <Button
                     onClick={handleSubmit}
                     disabled={
-                      (!prompt.trim() && files.length === 0) || isLoading
+                      (!prompt.trim() && files.length === 0) || isLoading || isSubmittingEdit
                     }
                     size="icon"
                     className="size-9 rounded-full"

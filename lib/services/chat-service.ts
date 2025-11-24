@@ -12,6 +12,14 @@ export class ChatService {
     referencedConversations: any[] = [],
     referencedFolders: any[] = []
   ) {
+    console.log('🚀 [chatService.handleChatRequest] Starting:', {
+      userId,
+      conversationId,
+      isEditFlow: !!userMessageId,
+      hasNewContent: !!userMessageContent,
+      userMessageId
+    });
+
     // 1. Check credits
     const credits = await cloudDb.getUserCredits(userId)
     if (credits <= 0) {
@@ -25,10 +33,16 @@ export class ChatService {
     // 2. Get or Create User Message
     if (userMessageId) {
       // Edit flow: Use existing message
+      console.log('📥 [chatService] Edit flow - fetching message:', userMessageId);
       userMessage = await cloudDb.getMessage(userMessageId)
       if (!userMessage) {
         throw new Error(`User message ${userMessageId} not found`)
       }
+      console.log('✅ [chatService] Message fetched:', {
+        id: userMessage.id,
+        content: userMessage.content.substring(0, 100) + '...',
+        contentLength: userMessage.content.length
+      });
       messageContent = userMessage.content
       // Use message's stored references for RAG context
       messageRefs = {
@@ -37,6 +51,7 @@ export class ChatService {
       }
     } else {
       // Normal flow: Create new user message
+      console.log('📝 [chatService] Normal flow - creating new message');
       if (!userMessageContent) {
         throw new Error("Either userMessageContent or userMessageId must be provided")
       }
@@ -48,6 +63,10 @@ export class ChatService {
         referencedFolders
       })
       messageContent = userMessageContent
+      console.log('✅ [chatService] Message created:', {
+        id: userMessage.id,
+        contentLength: messageContent.length
+      });
     }
 
     // 3. Deduct credit
@@ -58,6 +77,7 @@ export class ChatService {
     this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
     // 5. Build Context (RAG)
+    console.log('🔍 [chatService] Building context for query:', messageContent.substring(0, 50) + '...');
     const contextText = await this.buildContext(
       userId,
       conversationId,
@@ -65,9 +85,15 @@ export class ChatService {
       messageRefs.referencedConversations,
       messageRefs.referencedFolders
     )
+    console.log('✅ [chatService] Context built, length:', contextText.length);
 
     // 6. Prepare Messages for AI
+    console.log('📤 [chatService] Preparing messages for API...');
     const messages = await this.prepareMessagesForAI(conversationId, contextText)
+    console.log('✅ [chatService] Messages prepared:', {
+      messageCount: messages.length,
+      lastUserMessage: messages.filter(m => m.role === 'user').slice(-1)[0]?.content?.substring(0, 100) + '...'
+    });
 
     // 7. Create Placeholder Assistant Message
     const assistantMessage = await cloudDb.addMessage(conversationId, {
@@ -76,8 +102,10 @@ export class ChatService {
     })
 
     // 8. Call AI and Stream
+    console.log('📤 [chatService] Sending message to OpenRouter API (Direct)...');
     const openRouter = getOpenRouter()
     const stream = await openRouter.sendMessage({ messages })
+    console.log('📥 [chatService] Received response stream');
 
     // 9. Return stream with message metadata in headers
     return this.createStreamResponse(
@@ -194,7 +222,17 @@ export class ChatService {
   }
 
   private async prepareMessagesForAI(conversationId: string, contextText: string): Promise<ApiMessage[]> {
+    console.log('📋 [prepareMessagesForAI] Fetching messages for conversation:', conversationId);
     const messages = await cloudDb.getMessages(conversationId)
+    console.log('📋 [prepareMessagesForAI] Messages retrieved:', {
+      count: messages.length,
+      messageIds: messages.map(m => m.id),
+      userMessages: messages.filter(m => m.role === 'user').map(m => ({
+        id: m.id,
+        contentPreview: m.content.substring(0, 50) + '...',
+        contentLength: m.content.length
+      }))
+    });
     
     const apiMessages: ApiMessage[] = []
 
@@ -228,6 +266,12 @@ export class ChatService {
         apiMessages.push({ role: m.role, content: m.content })
       }
     }
+
+    console.log('📤 [prepareMessagesForAI] Final messages for AI:', {
+      count: apiMessages.length,
+      roles: apiMessages.map(m => m.role),
+      lastUserMessage: apiMessages.filter(m => m.role === 'user').slice(-1)[0]
+    });
 
     return apiMessages
   }
