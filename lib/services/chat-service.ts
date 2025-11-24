@@ -1,4 +1,5 @@
 import { cloudDb } from "@/lib/services/cloud-db"
+import { cloudStorage } from "@/lib/services/cloud-storage"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
 import { searchEmbeddings } from "@/lib/utils/vector"
 
@@ -302,14 +303,23 @@ export class ChatService {
         ]
         
         for (const att of imageAttachments) {
-          // Convert relative URLs to absolute URLs for OpenRouter
-          const absoluteUrl = this.toAbsoluteUrl(att.url)
-          console.log('📎 [prepareMessagesForAI] Image URL:', { original: att.url, absolute: absoluteUrl });
-          
-          content.push({
-            type: 'image_url',
-            image_url: { url: absoluteUrl }
-          })
+          try {
+            // Try to convert to base64 for reliable access
+            const base64Url = await this.fetchImageAsBase64(att.url)
+            console.log('📎 [prepareMessagesForAI] Converted to base64:', { original: att.url, success: !!base64Url });
+            
+            content.push({
+              type: 'image_url',
+              image_url: { url: base64Url || att.url } // Fallback to URL if base64 fails
+            })
+          } catch (e) {
+            console.error('Failed to convert project image to base64:', e)
+            // Fallback to absolute URL
+            content.push({
+              type: 'image_url',
+              image_url: { url: this.toAbsoluteUrl(att.url) }
+            })
+          }
         }
         
         // Add as USER message (images don't work in system messages)
@@ -335,12 +345,19 @@ export class ChatService {
         // Assuming attachments have 'url' property.
         for (const att of m.attachments) {
            if (att.type?.startsWith('image/')) {
-             // Convert relative URLs to absolute
-             const absoluteUrl = this.toAbsoluteUrl(att.url)
-             content.push({
-               type: 'image_url',
-               image_url: { url: absoluteUrl }
-             })
+             try {
+               const base64Url = await this.fetchImageAsBase64(att.url)
+               content.push({
+                 type: 'image_url',
+                 image_url: { url: base64Url || this.toAbsoluteUrl(att.url) }
+               })
+             } catch (e) {
+               console.error('Failed to convert message image to base64:', e)
+               content.push({
+                 type: 'image_url',
+                 image_url: { url: this.toAbsoluteUrl(att.url) }
+               })
+             }
            }
         }
         apiMessages.push({ role: m.role, content })
@@ -358,6 +375,47 @@ export class ChatService {
     });
 
     return apiMessages
+  }
+
+  /**
+   * Fetch image from R2 and convert to base64 data URL
+   */
+  private async fetchImageAsBase64(url: string): Promise<string | null> {
+    try {
+      // Extract key from URL
+      let key = url
+      
+      // Handle /api/files/KEY
+      if (url.includes('/api/files/')) {
+        key = url.split('/api/files/')[1]
+      } 
+      // Handle R2 public URL
+      else if (url.startsWith('http')) {
+        const urlObj = new URL(url)
+        // Key is the pathname without leading slash
+        key = urlObj.pathname.substring(1)
+      }
+
+      // Decode URI component in case of spaces/special chars
+      key = decodeURIComponent(key)
+      
+      console.log('🔍 [fetchImageAsBase64] Fetching key:', key)
+      const object = await cloudStorage.getFile(key)
+      
+      if (!object) {
+        console.warn('⚠️ [fetchImageAsBase64] File not found in R2:', key)
+        return null
+      }
+
+      const buffer = await object.arrayBuffer()
+      const base64 = Buffer.from(buffer).toString('base64')
+      const mimeType = object.httpMetadata?.contentType || 'image/png' // Default to png if unknown
+      
+      return `data:${mimeType};base64,${base64}`
+    } catch (error) {
+      console.error('❌ [fetchImageAsBase64] Error:', error)
+      return null
+    }
   }
 
   private createStreamResponse(
