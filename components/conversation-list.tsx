@@ -116,7 +116,7 @@ export function ConversationList({
           </div>
           <div className="space-y-2 px-2">
             {group.conversations.map((conversation) => (
-              <div key={conversation.id} className="group relative">
+              <div key={conversation.id} className="group/conversation relative">
                 <button
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
@@ -176,7 +176,7 @@ export function ConversationList({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/conversation:opacity-100 transition-opacity"
                     onClick={(e) => {
                       e.stopPropagation()
                       onTogglePin(conversation.id)
@@ -191,7 +191,7 @@ export function ConversationList({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/conversation:opacity-100 transition-opacity"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
