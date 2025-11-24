@@ -96,6 +96,21 @@ export const cloudDb = {
     })) as CloudConversation[]
   },
 
+  async getConversation(conversationId: string): Promise<CloudConversation | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(conversationId).first()
+    if (!result) return null
+    return {
+      ...result,
+      path: JSON.parse(result.path as string || '[]'),
+      tags: JSON.parse(result.tags as string || '[]'),
+      branches: JSON.parse(result.branches as string || '[]'),
+      isPinned: Boolean(result.isPinned),
+      activeReferencedConversations: JSON.parse(result.activeReferencedConversations as string || '[]'),
+      activeReferencedFolders: JSON.parse(result.activeReferencedFolders as string || '[]')
+    } as CloudConversation
+  },
+
   async createConversation(userId: string, title: string = 'New Conversation', projectId?: string) {
     const db = getDB()
     const id = crypto.randomUUID()
@@ -904,6 +919,23 @@ export const cloudDb = {
       createdAt: new Date(p.createdAt as string).getTime(),
       updatedAt: new Date(p.updatedAt as string).getTime()
     }))
+  },
+
+  async getProject(projectId: string): Promise<Project | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first()
+    if (!result) return null
+    
+    return {
+      id: result.id as string,
+      userId: result.userId as string,
+      name: result.name as string,
+      description: result.description as string,
+      instructions: result.instructions as string | undefined,
+      attachments: result.attachments ? JSON.parse(result.attachments as string) : undefined,
+      createdAt: new Date(result.createdAt as string).getTime(),
+      updatedAt: new Date(result.updatedAt as string).getTime()
+    }
   },
 
   async createProject(userId: string, name: string, description: string, instructions?: string, attachments?: any[]): Promise<Project> {

@@ -72,11 +72,23 @@ export class ChatService {
     // 3. Deduct credit
     await cloudDb.updateCredits(userId, -1)
 
-    // 4. Generate Embedding for User Message (Background)
+    // 4. Fetch conversation and project (if exists)
+    const conversation = await cloudDb.getConversation(conversationId)
+    let project = null
+    if (conversation?.projectId) {
+      project = await cloudDb.getProject(conversation.projectId)
+      console.log('📁 [chatService] Project fetched:', {
+        projectId: conversation.projectId,
+        hasInstructions: !!project?.instructions,
+        hasAttachments: !!project?.attachments?.length
+      })
+    }
+
+    // 5. Generate Embedding for User Message (Background)
     // We don't await this to keep latency low
     this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
-    // 5. Build Context (RAG)
+    // 6. Build Context (RAG)
     console.log('🔍 [chatService] Building context for query:', messageContent.substring(0, 50) + '...');
     const contextText = await this.buildContext(
       userId,
@@ -87,9 +99,9 @@ export class ChatService {
     )
     console.log('✅ [chatService] Context built, length:', contextText.length);
 
-    // 6. Prepare Messages for AI
+    // 7. Prepare Messages for AI
     console.log('📤 [chatService] Preparing messages for API...');
-    const messages = await this.prepareMessagesForAI(conversationId, contextText)
+    const messages = await this.prepareMessagesForAI(conversationId, contextText, project)
     const lastUserMsg = messages.filter(m => m.role === 'user').slice(-1)[0]
     const lastContent = lastUserMsg?.content
     const contentPreview = typeof lastContent === 'string' 
@@ -227,7 +239,7 @@ export class ChatService {
     return contextText
   }
 
-  private async prepareMessagesForAI(conversationId: string, contextText: string): Promise<ApiMessage[]> {
+  private async prepareMessagesForAI(conversationId: string, contextText: string, project: any = null): Promise<ApiMessage[]> {
     console.log('📋 [prepareMessagesForAI] Fetching messages for conversation:', conversationId);
     const messages = await cloudDb.getMessages(conversationId)
     console.log('📋 [prepareMessagesForAI] Messages retrieved:', {
@@ -242,7 +254,34 @@ export class ChatService {
     
     const apiMessages: ApiMessage[] = []
 
-    // Add System Prompt with Context if available
+    // 1. Add Project Instructions as first system message (if exists)
+    if (project?.instructions) {
+      console.log('📁 [prepareMessagesForAI] Adding project instructions');
+      apiMessages.push({
+        role: 'system',
+        content: project.instructions
+      })
+    }
+
+    // 2. Add Project Attachments as system message (if exists)
+    if (project?.attachments && project.attachments.length > 0) {
+      console.log('📁 [prepareMessagesForAI] Adding project attachments:', project.attachments.length);
+      const content: any[] = [{ type: 'text', text: 'Project context files:' }]
+      
+      for (const att of project.attachments) {
+        if (att.type?.startsWith('image/')) {
+          content.push({
+            type: 'image_url',
+            image_url: { url: att.url }
+          })
+        }
+        // TODO: Handle PDFs - for now they're included as attachments but not processed
+      }
+      
+      apiMessages.push({ role: 'system', content })
+    }
+
+    // 3. Add RAG Context if available
     if (contextText) {
       apiMessages.push({
         role: 'system',
@@ -250,7 +289,7 @@ export class ChatService {
       })
     }
 
-    // Convert DB messages to API messages
+    // 4. Convert DB messages to API messages
     for (const m of messages) {
       if (m.attachments && m.attachments.length > 0) {
         // Handle multimodal
@@ -276,6 +315,8 @@ export class ChatService {
     console.log('📤 [prepareMessagesForAI] Final messages for AI:', {
       count: apiMessages.length,
       roles: apiMessages.map(m => m.role),
+      hasProjectInstructions: !!project?.instructions,
+      hasProjectAttachments: !!project?.attachments?.length,
       lastUserMessage: apiMessages.filter(m => m.role === 'user').slice(-1)[0]
     });
 
