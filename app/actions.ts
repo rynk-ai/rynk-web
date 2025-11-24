@@ -70,7 +70,8 @@ export async function uploadFile(formData: FormData) {
   const file = formData.get('file') as File
   if (!file) throw new Error("No file provided")
   
-  const key = `${session.user.id}/${Date.now()}-${file.name}`
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+  const key = `${session.user.id}/${Date.now()}-${sanitizedName}`
   const url = await cloudStorage.uploadFile(file, key)
   
   return {
