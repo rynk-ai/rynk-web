@@ -45,6 +45,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
 import { FilePreviewList } from "@/components/file-preview";
@@ -90,6 +91,8 @@ interface ChatContentProps {
 }
 
 function ChatContent({ onMenuClick }: ChatContentProps = {}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     sendMessage,
     currentConversation,
@@ -290,6 +293,42 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       setIsSending(false);
     }
   }, [activeContext, sendMessage, messageState, startStreaming, updateStreamContent, finishStreaming]);
+
+  // Handle pending query from URL params (?q=...) or localStorage
+  useEffect(() => {
+    // Only process if there's no current conversation (new chat scenario)
+    if (currentConversationId) return;
+
+    // First check URL query parameter
+    const urlQuery = searchParams.get('q');
+    
+    // Then check localStorage
+    const localStorageQuery = localStorage.getItem('pendingChatQuery');
+    
+    // Use URL param if available, otherwise fall back to localStorage
+    const pendingQuery = urlQuery || localStorageQuery;
+    
+    if (pendingQuery && pendingQuery.trim()) {
+      // Clear localStorage if it was used
+      if (localStorageQuery) {
+        localStorage.removeItem('pendingChatQuery');
+        localStorage.removeItem('pendingChatFilesCount');
+      }
+      
+      // Clear URL param by replacing current URL without the query
+      if (urlQuery) {
+        router.replace('/chat');
+      }
+      
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        // Auto-submit the pending query
+        handleSubmit(pendingQuery, []);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentConversationId, handleSubmit, searchParams, router]);
 
   // ... (rest of the component)
 
