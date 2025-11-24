@@ -13,7 +13,15 @@ export const cloudStorage = {
         contentType: file.type,
       },
     })
-    return key
+    
+    // Return the public R2 URL instead of just the key
+    const publicUrl = process.env.R2_PUBLIC_URL
+    if (!publicUrl) {
+      console.warn('R2_PUBLIC_URL not set, falling back to relative path')
+      return `/api/files/${key}`
+    }
+    
+    return `${publicUrl}/${key}`
   },
 
   async getFile(key: string) {

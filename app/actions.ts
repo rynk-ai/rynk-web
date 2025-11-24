@@ -71,10 +71,10 @@ export async function uploadFile(formData: FormData) {
   if (!file) throw new Error("No file provided")
   
   const key = `${session.user.id}/${Date.now()}-${file.name}`
-  await cloudStorage.uploadFile(file, key)
+  const url = await cloudStorage.uploadFile(file, key)
   
   return {
-    url: `/api/files/${key}`,
+    url, // Now uses R2 public URL directly
     name: file.name,
     type: file.type,
     size: file.size

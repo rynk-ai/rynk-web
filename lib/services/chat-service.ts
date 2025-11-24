@@ -156,6 +156,25 @@ export class ChatService {
     }
   }
 
+  /**
+   * Convert relative URLs to absolute URLs for external API access
+   * OpenRouter needs absolute URLs to fetch images
+   */
+  private toAbsoluteUrl(url: string): string {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url // Already absolute
+    }
+    
+    // Get base URL from environment or use default
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000'
+    
+    // Remove leading slash if present to avoid double slashes
+    const path = url.startsWith('/') ? url : `/${url}`
+    return `${baseUrl}${path}`
+  }
+
   private async buildContext(
     userId: string,
     currentConversationId: string,
@@ -263,30 +282,46 @@ export class ChatService {
       })
     }
 
-    // 2. Add Project Attachments as system message (if exists)
-    if (project?.attachments && project.attachments.length > 0) {
-      console.log('📁 [prepareMessagesForAI] Adding project attachments:', project.attachments.length);
-      const content: any[] = [{ type: 'text', text: 'Project context files:' }]
-      
-      for (const att of project.attachments) {
-        if (att.type?.startsWith('image/')) {
-          content.push({
-            type: 'image_url',
-            image_url: { url: att.url }
-          })
-        }
-        // TODO: Handle PDFs - for now they're included as attachments but not processed
-      }
-      
-      apiMessages.push({ role: 'system', content })
-    }
-
-    // 3. Add RAG Context if available
+    // 2. Add RAG Context if available
     if (contextText) {
       apiMessages.push({
         role: 'system',
         content: `Here is relevant context from referenced conversations:\n\n${contextText}`
       })
+    }
+
+    // 3. Add Project Attachments as USER message (images don't work in system messages)
+    if (project?.attachments && project.attachments.length > 0) {
+      console.log('📁 [prepareMessagesForAI] Adding project attachments:', project.attachments.length);
+      
+      const imageAttachments = project.attachments.filter((att: any) => att.type?.startsWith('image/'))
+      
+      if (imageAttachments.length > 0) {
+        const content: any[] = [
+          { type: 'text', text: 'These are the project context files for reference:' }
+        ]
+        
+        for (const att of imageAttachments) {
+          // Convert relative URLs to absolute URLs for OpenRouter
+          const absoluteUrl = this.toAbsoluteUrl(att.url)
+          console.log('📎 [prepareMessagesForAI] Image URL:', { original: att.url, absolute: absoluteUrl });
+          
+          content.push({
+            type: 'image_url',
+            image_url: { url: absoluteUrl }
+          })
+        }
+        
+        // Add as USER message (images don't work in system messages)
+        apiMessages.push({ role: 'user', content })
+        
+        // Add assistant acknowledgment so it doesn't respond to the files
+        apiMessages.push({ 
+          role: 'assistant', 
+          content: 'I can see the project context files. I\'ll use them as reference for our conversation.' 
+        })
+      }
+      // TODO: Handle PDFs - for now they're included as attachments but not processed
     }
 
     // 4. Convert DB messages to API messages
@@ -300,9 +335,11 @@ export class ChatService {
         // Assuming attachments have 'url' property.
         for (const att of m.attachments) {
            if (att.type?.startsWith('image/')) {
+             // Convert relative URLs to absolute
+             const absoluteUrl = this.toAbsoluteUrl(att.url)
              content.push({
                type: 'image_url',
-               image_url: { url: att.url }
+               image_url: { url: absoluteUrl }
              })
            }
         }
