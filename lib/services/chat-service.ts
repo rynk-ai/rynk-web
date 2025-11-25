@@ -324,11 +324,11 @@ export class ChatService {
       })
     }
 
-    // 2. Add RAG Context if available
+    // 2. Add Context from Referenced Conversations (as background knowledge)
     if (contextText) {
       apiMessages.push({
         role: 'system',
-        content: `Here is relevant context from referenced conversations:\n\n${contextText}`
+        content: `The following conversation histories are provided for your reference and awareness. Use this information naturally when relevant to the current discussion:\n\n${contextText}`
       })
     }
 

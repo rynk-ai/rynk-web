@@ -311,9 +311,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             
             try {
               const progress = JSON.parse(progressLine);
+              console.log('📊 [Context Progress]', progress);
               setContextProgress(prev => [...prev, progress]);
             } catch (e) {
-              console.error('Failed to parse progress:', e);
+              console.error('Failed to parse progress:', e, 'Line:', progressLine);
             }
           }
           
