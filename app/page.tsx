@@ -73,13 +73,42 @@ export default function HomePage() {
         </div>
 
         {/* Input Field */}
-        <div className="w-full max-w-2xl lg:max-w-3xl">
+        <div className="w-full max-w-2xl lg:max-w-3xl flex flex-col items-center gap-3">
           <PromptInputWithFiles
             onSubmit={handleSubmit}
             placeholder="Message..."
             className="glass relative z-10 w-full rounded-3xl shadow-lg transition-all duration-500"
             isLoading={false}
+            hideActions={true}
           />
+          
+          {/* View all chats link */}
+          {isAuthenticated && (
+            <button
+              onClick={() => router.push("/chat")}
+              className="pt-2 text-sm text-muted-foreground hover:text-foreground transition-colors  underline-offset-4 uppercase underline "
+            >
+              view all chats
+            </button>
+          )}
+          
+          {/* Suggestion chips */}
+          <div className="flex flex-wrap justify-center gap-2 mt-2">
+            {[
+              "Explain quantum computing",
+              "Write a poem about AI",
+              "Help me debug my code",
+              "Plan a weekend trip"
+            ].map((suggestion) => (
+              <button
+                key={suggestion}
+                onClick={() => handleSubmit(suggestion, [])}
+                className="px-4 py-2 text-xs sm:text-sm rounded-full border border-border bg-card/50 hover:bg-card hover:border-foreground/20 text-muted-foreground hover:text-foreground transition-all duration-200"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </main>

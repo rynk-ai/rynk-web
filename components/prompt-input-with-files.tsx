@@ -39,6 +39,8 @@ type PromptInputWithFilesProps = {
   onCancelEdit?: () => void;
   onSaveEdit?: (text: string, files: File[]) => Promise<void>;
   isSubmittingEdit?: boolean;
+  // Hide attachment and context buttons
+  hideActions?: boolean;
 };
 
 export function PromptInputWithFiles({
@@ -57,6 +59,7 @@ export function PromptInputWithFiles({
   onCancelEdit,
   onSaveEdit,
   isSubmittingEdit = false,
+  hideActions = false,
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
   const [files, setFiles] = useState<File[]>([]);
@@ -252,37 +255,41 @@ export function PromptInputWithFiles({
 
             <PromptInputActions className="mt-4 flex w-full items-center justify-between gap-1.5 px-2.5 pb-2.5">
               <div className="flex items-center gap-1.5">
-                <PromptInputAction tooltip="Attach files">
-                  <FileUploadTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-8 rounded-full"
-                      disabled={isLoading || isSubmittingEdit || disabled}
-                    >
-                      <Paperclip size={16} />
-                    </Button>
-                  </FileUploadTrigger>
-                </PromptInputAction>
-                
-                <ContextPicker
-                  selectedItems={context}
-                  onSelectionChange={onContextChange || (() => {})}
-                  conversations={conversations}
-                  folders={folders}
-                  currentConversationId={currentConversationId}
-                  tooltip="Add chats"
-                  trigger={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-8 rounded-full"
-                      disabled={isLoading || isSubmittingEdit || disabled}
-                    >
-                      <Plus size={16} />
-                    </Button>
-                  }
-                />
+                {!hideActions && (
+                  <>
+                    <PromptInputAction tooltip="Attach files">
+                      <FileUploadTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8 rounded-full"
+                          disabled={isLoading || isSubmittingEdit || disabled}
+                        >
+                          <Paperclip size={16} />
+                        </Button>
+                      </FileUploadTrigger>
+                    </PromptInputAction>
+                    
+                    <ContextPicker
+                      selectedItems={context}
+                      onSelectionChange={onContextChange || (() => {})}
+                      conversations={conversations}
+                      folders={folders}
+                      currentConversationId={currentConversationId}
+                      tooltip="Add chats"
+                      trigger={
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8 rounded-full"
+                          disabled={isLoading || isSubmittingEdit || disabled}
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      }
+                    />
+                  </>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5">
