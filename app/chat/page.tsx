@@ -172,36 +172,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   const isLoading = isSending || isEditing || !!isDeleting || contextIsLoading;
 
-  // Local context state (used ONLY for new conversations)
+  // Local context state (used for all conversations now, transient)
   const [localContext, setLocalContext] = useState<
     { type: "conversation" | "folder"; id: string; title: string }[]
   >([]);
 
-  // Derived active context (source of truth) - optimized with better dependencies
-  const activeContext = useMemo(() => {
-    if (currentConversationId) {
-      const ctx: { type: "conversation" | "folder"; id: string; title: string }[] = [];
-      
-      currentConversation?.activeReferencedConversations?.forEach(c => {
-        ctx.push({ type: "conversation", id: c.id, title: c.title });
-      });
-      
-      currentConversation?.activeReferencedFolders?.forEach(f => {
-        ctx.push({ type: "folder", id: f.id, title: f.name });
-      });
-      
-      return ctx;
-    }
-    return localContext;
-  }, [
-    currentConversationId,
-    // Use JSON.stringify to prevent re-computation on reference changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    JSON.stringify(currentConversation?.activeReferencedConversations),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    JSON.stringify(currentConversation?.activeReferencedFolders),
-    localContext
-  ]);
+  // Derived active context (source of truth) - now just localContext
+  const activeContext = localContext;
 
   // Reset local context when switching conversations
   useEffect(() => {
@@ -211,19 +188,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   }, [currentConversationId]);
 
   const handleContextChange = useCallback(async (newContext: typeof localContext) => {
-    if (currentConversationId) {
-      const conversationRefs = newContext
-        .filter((c) => c.type === "conversation")
-        .map((c) => ({ id: c.id, title: c.title }));
-      const folderRefs = newContext
-        .filter((c) => c.type === "folder")
-        .map((c) => ({ id: c.id, name: c.title }));
-
-      await setConversationContext(currentConversationId, conversationRefs, folderRefs);
-    } else {
-      setLocalContext(newContext);
-    }
-  }, [currentConversationId, setConversationContext]);
+    setLocalContext(newContext);
+  }, []);
 
   const handleSubmit = useCallback(async (text: string, files: File[]) => {
     if (!text.trim() && files.length === 0) return;
@@ -248,6 +214,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedConversations,
         referencedFolders
       );
+
+      // Clear context after sending (transient)
+      setLocalContext([]);
 
       if (!result) return;
 
