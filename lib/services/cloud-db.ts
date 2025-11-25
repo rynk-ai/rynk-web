@@ -139,6 +139,82 @@ export const cloudDb = {
     return { id, userId, projectId, title, path: [], tags: [], isPinned: false, branches: [], createdAt: now, updatedAt: now }
   },
 
+  async getConversationsBatch(conversationIds: string[]): Promise<CloudConversation[]> {
+    if (conversationIds.length === 0) return []
+    
+    const db = getDB()
+    const placeholders = conversationIds.map(() => '?').join(',')
+    const results = await db.prepare(
+      `SELECT * FROM conversations WHERE id IN (${placeholders})`
+    ).bind(...conversationIds).all()
+    
+    return results.results.map((c: any) => ({
+      ...c,
+      path: JSON.parse(c.path as string || '[]'),
+      tags: JSON.parse(c.tags as string || '[]'),
+      branches: JSON.parse(c.branches as string || '[]'),
+      isPinned: Boolean(c.isPinned),
+      activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+    })) as CloudConversation[]
+  },
+
+  async getMessagesBatch(conversationIds: string[]): Promise<Map<string, CloudMessage[]>> {
+    if (conversationIds.length === 0) return new Map()
+    
+    const db = getDB()
+    
+    // First, get all conversation paths in batch
+    const placeholders = conversationIds.map(() => '?').join(',')
+    const conversations = await db.prepare(
+      `SELECT id, path FROM conversations WHERE id IN (${placeholders})`
+    ).bind(...conversationIds).all()
+    
+    // Build a map of conversationId -> path
+    const pathMap = new Map<string, string[]>()
+    const allMessageIds = new Set<string>()
+    
+    for (const conv of conversations.results) {
+      const path = JSON.parse(conv.path as string || '[]') as string[]
+      pathMap.set(conv.id as string, path)
+      path.forEach(id => allMessageIds.add(id))
+    }
+    
+    if (allMessageIds.size === 0) return new Map()
+    
+    // Fetch all messages in one query
+    const messagePlaceholders = Array.from(allMessageIds).map(() => '?').join(',')
+    const messages = await db.prepare(
+      `SELECT * FROM messages WHERE id IN (${messagePlaceholders})`
+    ).bind(...Array.from(allMessageIds)).all()
+    
+    // Build message map for quick lookup
+    const msgMap = new Map(messages.results.map((m: any) => [
+      m.id as string,
+      {
+        ...m,
+        attachments: JSON.parse(m.attachments as string || '[]'),
+        referencedConversations: JSON.parse(m.referencedConversations as string || '[]'),
+        referencedFolders: JSON.parse(m.referencedFolders as string || '[]'),
+        timestamp: m.createdAt,
+        versionNumber: m.versionNumber || 1
+      } as CloudMessage
+    ]))
+    
+    // Build result map: conversationId -> messages in path order
+    const result = new Map<string, CloudMessage[]>()
+    
+    for (const [convId, path] of pathMap) {
+      const orderedMessages = path
+        .map(id => msgMap.get(id))
+        .filter(Boolean) as CloudMessage[]
+      
+      result.set(convId, orderedMessages)
+    }
+    
+    return result
+  },
+
   async getMessages(conversationId: string) {
     const db = getDB()
     // First get conversation to know the path

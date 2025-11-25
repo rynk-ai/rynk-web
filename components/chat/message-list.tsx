@@ -3,6 +3,14 @@
 import { memo } from 'react';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { ChatMessageItem } from './chat-message-item';
+import {
+  ChainOfThought,
+  ChainOfThoughtStep,
+  ChainOfThoughtTrigger,
+  ChainOfThoughtContent,
+  ChainOfThoughtItem,
+} from "@/components/ui/chain-of-thought";
+import { Loader2, CheckCircle2, Sparkles } from "lucide-react";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -15,6 +23,11 @@ interface MessageListProps {
   onBranchFromMessage: (messageId: string) => void;
   messageVersions: Map<string, ChatMessage[]>;
   onSwitchVersion: (messageId: string) => Promise<void>;
+  contextProgress?: Array<{
+    type: 'loading' | 'loaded' | 'complete';
+    conversation?: string;
+    messageCount?: number;
+  }>;
 }
 
 /**
@@ -32,7 +45,8 @@ export const MessageList = memo(function MessageList({
   onDeleteMessage,
   onBranchFromMessage,
   messageVersions,
-  onSwitchVersion
+  onSwitchVersion,
+  contextProgress = []
 }: MessageListProps) {
   return (
     <>
@@ -41,21 +55,74 @@ export const MessageList = memo(function MessageList({
         const rootId = message.versionOf || message.id;
         const versions = messageVersions.get(rootId) || [message];
         
+        // Show context progress before the streaming message
+        const isStreamingMessage = streamingMessageId === message.id;
+        
         return (
-          <ChatMessageItem
-            key={message.id}
-            message={message}
-            isLastMessage={index === messages.length - 1}
-            isSending={isSending}
-            isStreaming={streamingMessageId === message.id}
-            streamingContent={streamingContent}
-            isEditing={editingMessageId === message.id}
-            onStartEdit={onStartEdit}
-            onDelete={onDeleteMessage}
-            onBranch={onBranchFromMessage}
-            versions={versions}
-            onSwitchVersion={onSwitchVersion}
-          />
+          <>
+            {isStreamingMessage && contextProgress.length > 0 && (
+              <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-0 mb-4">
+                <ChainOfThought>
+                  {contextProgress.map((progress, idx) => {
+                    if (progress.type === 'complete') {
+                      return (
+                        <ChainOfThoughtStep key={idx}>
+                          <ChainOfThoughtTrigger leftIcon={<Sparkles className="size-4" />}>
+                            Context ready, generating response...
+                          </ChainOfThoughtTrigger>
+                        </ChainOfThoughtStep>
+                      );
+                    }
+                    
+                    if (progress.type === 'loaded') {
+                      return (
+                        <ChainOfThoughtStep key={idx}>
+                          <ChainOfThoughtTrigger leftIcon={<CheckCircle2 className="size-4 text-green-500" />}>
+                            Loaded "{progress.conversation}"
+                          </ChainOfThoughtTrigger>
+                        </ChainOfThoughtStep>
+                      );
+                    }
+                    
+                    if (progress.type === 'loading') {
+                      return (
+                        <ChainOfThoughtStep key={idx} defaultOpen>
+                          <ChainOfThoughtTrigger leftIcon={<Loader2 className="size-4 animate-spin" />}>
+                            Loading context from "{progress.conversation}"
+                          </ChainOfThoughtTrigger>
+                          <ChainOfThoughtContent>
+                            <ChainOfThoughtItem>
+                              Processing {progress.messageCount} messages
+                            </ChainOfThoughtItem>
+                            <ChainOfThoughtItem>
+                              Injecting full conversation history into context
+                            </ChainOfThoughtItem>
+                          </ChainOfThoughtContent>
+                        </ChainOfThoughtStep>
+                      );
+                    }
+                    
+                    return null;
+                  })}
+                </ChainOfThought>
+              </div>
+            )}
+            
+            <ChatMessageItem
+              key={message.id}
+              message={message}
+              isLastMessage={index === messages.length - 1}
+              isSending={isSending}
+              isStreaming={isStreamingMessage}
+              streamingContent={streamingContent}
+              isEditing={editingMessageId === message.id}
+              onStartEdit={onStartEdit}
+              onDelete={onDeleteMessage}
+              onBranch={onBranchFromMessage}
+              versions={versions}
+              onSwitchVersion={onSwitchVersion}
+            />
+          </>
         );
       })}
     </>
@@ -68,6 +135,7 @@ export const MessageList = memo(function MessageList({
     prevProps.streamingMessageId === nextProps.streamingMessageId &&
     prevProps.streamingContent === nextProps.streamingContent &&
     prevProps.editingMessageId === nextProps.editingMessageId &&
-    prevProps.messageVersions === nextProps.messageVersions
+    prevProps.messageVersions === nextProps.messageVersions &&
+    prevProps.contextProgress === nextProps.contextProgress
   );
 });

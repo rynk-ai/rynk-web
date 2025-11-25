@@ -56,8 +56,18 @@ import {
   Folder as FolderIcon,
   MessageSquare,
   X,
+  Loader2,
+  CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
+import {
+  ChainOfThought,
+  ChainOfThoughtStep,
+  ChainOfThoughtTrigger,
+  ChainOfThoughtContent,
+  ChainOfThoughtItem,
+} from "@/components/ui/chain-of-thought";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -140,6 +150,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   // Other local state
   const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [contextProgress, setContextProgress] = useState<Array<{
+    type: 'loading' | 'loaded' | 'complete';
+    conversation?: string;
+    messageCount?: number;
+  }>>([]);
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -213,6 +228,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const handleSubmit = useCallback(async (text: string, files: File[]) => {
     if (!text.trim() && files.length === 0) return;
 
+    // Clear previous context progress
+    setContextProgress([]);
+    
     setIsSending(true);
 
     try {
@@ -268,9 +286,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         startStreaming(assistantMessageId);
       }
 
-      // Read the stream with throttling
+      // Read the stream and parse progress markers
       const decoder = new TextDecoder();
       let fullContent = "";
+      let buffer = "";
 
       try {
         while (true) {
@@ -278,7 +297,28 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           if (done) break;
           
           const chunk = decoder.decode(value, { stream: true });
-          fullContent += chunk;
+          buffer += chunk;
+          
+          // Parse progress markers
+          while (buffer.includes('[CONTEXT_PROGRESS]')) {
+            const startIdx = buffer.indexOf('[CONTEXT_PROGRESS]');
+            const endIdx = buffer.indexOf('\n', startIdx);
+            
+            if (endIdx === -1) break; // Incomplete marker, wait for more data
+            
+            const progressLine = buffer.substring(startIdx + '[CONTEXT_PROGRESS]'.length, endIdx);
+            buffer = buffer.substring(endIdx + 1);
+            
+            try {
+              const progress = JSON.parse(progressLine);
+              setContextProgress(prev => [...prev, progress]);
+            } catch (e) {
+              console.error('Failed to parse progress:', e);
+            }
+          }
+          
+          // Remaining buffer is AI response content
+          fullContent = buffer;
           updateStreamContent(fullContent);
         }
       } catch (err) {
@@ -702,6 +742,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onBranchFromMessage={handleBranchFromMessage}
                   messageVersions={messageVersions}
                   onSwitchVersion={switchToMessageVersion}
+                  contextProgress={contextProgress}
                 />
               </ChatContainerContent>
             </ChatContainerRoot>

@@ -89,14 +89,20 @@ export class ChatService {
     // We don't await this to keep latency low
     this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
-    // 6. Build Context (RAG)
+    // 6. Build Context (RAG) with progress streaming
     console.log('🔍 [chatService] Building context for query:', messageContent.substring(0, 50) + '...');
+    
+    // We'll collect progress updates and stream them later
+    const progressUpdates: string[] = []
     const contextText = await this.buildContext(
       userId,
       conversationId,
       messageContent,
       messageRefs.referencedConversations,
-      messageRefs.referencedFolders
+      messageRefs.referencedFolders,
+      (progress) => {
+        progressUpdates.push(`[CONTEXT_PROGRESS]${progress}\n`)
+      }
     )
     console.log('✅ [chatService] Context built, length:', contextText.length);
 
@@ -126,13 +132,14 @@ export class ChatService {
     const stream = await openRouter.sendMessage({ messages })
     console.log('📥 [chatService] Received response stream');
 
-    // 9. Return stream with message metadata in headers
+    // 9. Return stream with message metadata in headers and progress updates
     return this.createStreamResponse(
       stream, 
       assistantMessage.id, 
       conversationId, 
       userId,
-      userMessage.id
+      userMessage.id,
+      progressUpdates
     )
   }
 
@@ -181,7 +188,8 @@ export class ChatService {
     currentConversationId: string,
     query: string,
     referencedConversations: any[],
-    referencedFolders: any[]
+    referencedFolders: any[],
+    onProgress?: (message: string) => void
   ) {
     // Logic adapted from generateAIResponseAction
     let contextText = ''
@@ -205,69 +213,85 @@ export class ChatService {
 
     const finalConversationIds = Array.from(conversationIds)
     
-    // Fetch embeddings for RAG
-    // We use a simplified RAG approach here: fetch embeddings for all referenced conversations
-    // and rank them against the current query.
+    // STRATEGY: Full Context Injection with Batch Queries
+    // We inject the ENTIRE conversation history using optimized batch queries.
     
     try {
-      const openRouter = getOpenRouter()
-      const queryEmbedding = await openRouter.getEmbeddings(query)
-      const embeddings = await cloudDb.getEmbeddingsByConversationIds(finalConversationIds)
+      console.log('🔍 [buildContext] Fetching full content for conversations:', finalConversationIds);
       
-      console.log('🔍 [buildContext] Fetched embeddings:', {
-        count: embeddings.length,
-        snippets: embeddings.map(e => ({
-          id: e.messageId,
-          content: e.content.substring(0, 30) + '...',
-          vectorLength: e.vector.length
-        }))
-      });
-
-      if (embeddings.length === 0) {
-        // Fallback: Fetch last few messages from each conversation if no embeddings
-        // For now, let's just return empty if no embeddings to save complexity, 
-        // or implement the naive fetch if needed. 
-        // Let's stick to the plan of "Smart compression" if possible, but for now, 
-        // if no embeddings, we might skip context or do a simple fetch.
-        return '' 
-      }
-
-      const rankedResults = searchEmbeddings(queryEmbedding, embeddings, {
-        limit: 20, // Top 20 relevant chunks
-        minScore: 0.2
-      })
-
-      console.log('📊 [buildContext] Ranked results:', {
-        count: rankedResults.length,
-        results: rankedResults.map(r => ({
-          score: r.score,
-          content: r.content.substring(0, 30) + '...'
-        }))
-      });
-
-      // Group by conversation for readability
-      const byConversation = new Map<string, string[]>()
+      // OPTIMIZATION: Batch fetch all conversations and messages
+      const [conversations, messagesMap] = await Promise.all([
+        cloudDb.getConversationsBatch(finalConversationIds),
+        cloudDb.getMessagesBatch(finalConversationIds)
+      ])
       
-      // We need conversation titles. Fetching all conversations might be expensive if user has many.
-      // But we only need titles for the ones in rankedResults.
-      const relevantConvIds = new Set(rankedResults.map(r => r.conversationId))
-      const allConvs = await cloudDb.getConversations(userId) // This is cached/fast usually? Or we can optimize.
-      const convMap = new Map(allConvs.map(c => [c.id, c.title]))
+      // Build a conversation map for quick lookup
+      const convMap = new Map(conversations.map(c => [c.id, c]))
+      
+      // Process each conversation
+      for (const convId of  finalConversationIds) {
+        const conv = convMap.get(convId)
+        if (!conv) continue
 
-      for (const result of rankedResults) {
-        const title = convMap.get(result.conversationId) || 'Unknown Conversation'
-        if (!byConversation.has(title)) {
-          byConversation.set(title, [])
+        const messages = messagesMap.get(convId) || []
+        if (messages.length === 0) continue
+
+        // Send progress update
+        if (onProgress) {
+          onProgress(JSON.stringify({
+            type: 'loading',
+            conversation: conv.title,
+            messageCount: messages.length
+          }))
         }
-        byConversation.get(title)!.push(result.content)
-      }
 
-      for (const [title, snippets] of byConversation) {
-        contextText += `\n### Context from: "${title}"\n\n`
-        snippets.forEach(snippet => {
-          contextText += `- ${snippet}\n\n`
-        })
+        // CONTEXT WINDOW MANAGEMENT
+        // STRATEGY: Full Context Injection
+        // We inject the ENTIRE conversation history.
+        // Modern models handle 128k+ tokens easily. 
+        // A typical 100-msg chat is ~5k-10k tokens.
+        // We only truncate if it's absolutely massive (safety cap).
+        
+        // Safety cap: ~100k tokens approx (400k chars) to prevent request failures
+        const MAX_CHARS = 400000;
+        let currentChars = 0;
+        
+        contextText += `\n=== START OF CONTEXT FROM CONVERSATION: "${conv.title}" ===\n`
+        
+        // Process all messages
+        for (const msg of messages) {
+          const role = msg.role === 'user' ? 'User' : 'Assistant'
+          const content = msg.content
+          
+          // Check if adding this message would exceed safety cap
+          if (currentChars + content.length > MAX_CHARS) {
+            contextText += `\n[...Remaining ${messages.length - messages.indexOf(msg)} messages truncated due to size limit...]\n`
+            break;
+          }
+          
+          contextText += `\n${role}: ${content}\n`
+          currentChars += content.length
+        }
+        
+        contextText += `\n=== END OF CONTEXT FROM CONVERSATION: "${conv.title}" ===\n`
+        
+        // Send completion progress
+        if (onProgress) {
+          onProgress(JSON.stringify({
+            type: 'loaded',
+            conversation: conv.title
+          }))
+        }
       }
+      
+      // Send final completion
+      if (onProgress) {
+        onProgress(JSON.stringify({
+          type: 'complete'
+        }))
+      }
+      
+      console.log('✅ [buildContext] Context built, length:', contextText.length);
 
     } catch (err) {
       console.error('Error building context:', err)
@@ -440,7 +464,8 @@ export class ChatService {
     assistantMessageId: string,
     conversationId: string,
     userId: string,
-    userMessageId: string
+    userMessageId: string,
+    progressUpdates: string[] = []
   ) {
     const encoder = new TextEncoder()
     let fullResponse = ''
@@ -448,6 +473,12 @@ export class ChatService {
     const customStream = new ReadableStream({
       async start(controller) {
         try {
+          // STEP 1: Stream progress updates first
+          for (const update of progressUpdates) {
+            controller.enqueue(encoder.encode(update))
+          }
+          
+          // STEP 2: Stream AI response
           for await (const chunk of stream) {
             fullResponse += chunk
             controller.enqueue(encoder.encode(chunk))
