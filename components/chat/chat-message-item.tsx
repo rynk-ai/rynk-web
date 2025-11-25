@@ -71,9 +71,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   }, [message, onStartEdit]);
   
   if (isAssistant) {
-    // Show skeleton only if it's the last message, we're sending, not streaming, and has no content
-    const showSkeleton = isLastMessage && isSending && !isStreaming && 
-                         (!message.content || message.content.trim().length < 3);
+    // Show skeleton only if it's the last message, we're sending, and content is empty (even if streaming started but has no tokens yet)
+    const showSkeleton = isLastMessage && isSending && 
+                         ((!isStreaming && (!message.content || message.content.trim().length < 3)) ||
+                          (isStreaming && (!streamingContent || streamingContent.trim().length === 0)));
     
     if (showSkeleton) {
       return <AssistantSkeleton />;

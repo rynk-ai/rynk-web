@@ -131,7 +131,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const keyboardHeight = useKeyboardAwarePosition();
   
   // Destructure for convenience
-  const { messages, setMessages, messageVersions, setMessageVersions } = messageState;
+  const { messages, setMessages, messageVersions, setMessageVersions, replaceMessage, removeMessage } = messageState;
   const { 
     isEditing, setIsEditing, 
     editingMessageId, 
@@ -199,15 +199,51 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     
     setIsSending(true);
 
+    // ✅ OPTIMISTIC UI: Create temp IDs and messages
+    const tempUserMessageId = `temp-user-${Date.now()}`;
+    const tempAssistantMessageId = `temp-assistant-${Date.now()}`;
+    const timestamp = Date.now();
+
+    const referencedConversations = activeContext
+      .filter((c) => c.type === "conversation")
+      .map((c) => ({ id: c.id, title: c.title }));
+
+    const referencedFolders = activeContext
+      .filter((c) => c.type === "folder")
+      .map((c) => ({ id: c.id, name: c.title }));
+
+    const optimisticUserMessage: ChatMessage = {
+      id: tempUserMessageId,
+      conversationId: currentConversationId || 'temp-conversation',
+      role: 'user',
+      content: text,
+      attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
+      referencedConversations,
+      referencedFolders,
+      createdAt: timestamp,
+      timestamp,
+      userId: '',
+      versionNumber: 1
+    };
+
+    const optimisticAssistantMessage: ChatMessage = {
+      id: tempAssistantMessageId,
+      conversationId: currentConversationId || 'temp-conversation',
+      role: 'assistant',
+      content: '', // Empty content initially (loading state)
+      createdAt: timestamp + 1,
+      timestamp: timestamp + 1,
+      userId: '',
+      versionNumber: 1
+    };
+
+    // Add optimistic messages IMMEDIATELY
+    messageState.addMessages([optimisticUserMessage, optimisticAssistantMessage]);
+    
+    // Clear context immediately
+    setLocalContext([]);
+
     try {
-      const referencedConversations = activeContext
-        .filter((c) => c.type === "conversation")
-        .map((c) => ({ id: c.id, title: c.title }));
-
-      const referencedFolders = activeContext
-        .filter((c) => c.type === "folder")
-        .map((c) => ({ id: c.id, name: c.title }));
-
       const result = await sendMessage(
         text,
         files,
@@ -215,43 +251,24 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         referencedFolders
       );
 
-      // Clear context after sending (transient)
-      setLocalContext([]);
-
-      if (!result) return;
+      if (!result) {
+        // Rollback if failed
+        removeMessage(tempUserMessageId);
+        removeMessage(tempAssistantMessageId);
+        return;
+      }
 
       const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
-      // Optimistically add messages using returned IDs
-      if (userMessageId && assistantMessageId) {
-        const timestamp = Date.now();
-        
-        const optimisticUserMessage: ChatMessage = {
-          id: userMessageId,
-          conversationId,
-          role: 'user',
-          content: text,
-          attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
-          referencedConversations,
-          referencedFolders,
-          createdAt: timestamp,
-          timestamp,
-          userId: '',
-          versionNumber: 1
-        };
-
-        const optimisticAssistantMessage: ChatMessage = {
-          id: assistantMessageId,
-          conversationId,
-          role: 'assistant',
-          content: '',
-          createdAt: timestamp,
-          timestamp,
-          userId: '',
-          versionNumber: 1
-        };
-
-        messageState.addMessages([optimisticUserMessage, optimisticAssistantMessage]);
+      // ✅ REPLACE OPTIMISTIC MESSAGES WITH REAL ONES
+      if (userMessageId) {
+        const realUserMessage = { ...optimisticUserMessage, id: userMessageId, conversationId };
+        replaceMessage(tempUserMessageId, realUserMessage);
+      }
+      
+      if (assistantMessageId) {
+        const realAssistantMessage = { ...optimisticAssistantMessage, id: assistantMessageId, conversationId };
+        replaceMessage(tempAssistantMessageId, realAssistantMessage);
         startStreaming(assistantMessageId);
       }
 
@@ -304,10 +321,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
     } catch (err) {
       console.error("Failed to send message:", err);
+      // Rollback on error
+      removeMessage(tempUserMessageId);
+      removeMessage(tempAssistantMessageId);
     } finally {
       setIsSending(false);
     }
-  }, [activeContext, sendMessage, messageState, startStreaming, updateStreamContent, finishStreaming]);
+  }, [activeContext, sendMessage, messageState, startStreaming, updateStreamContent, finishStreaming, currentConversationId, replaceMessage, removeMessage]);
 
   // Track if we've processed a pending query to avoid re-processing
   const processedQueryRef = useRef(false);
@@ -643,7 +663,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       console.log("✅ Loaded", loadedMessages.length, "messages");
       // Filter to show only active versions (no duplicates)
       const filteredMessages = filterActiveVersions(loadedMessages);
-      setMessages(filteredMessages);
+      
+      // ✅ PRESERVE OPTIMISTIC MESSAGES
+      setMessages(prev => {
+        const optimistic = prev.filter(m => m.id.startsWith('temp-'));
+        // If we have optimistic messages, append them to the loaded messages
+        // (Assuming optimistic messages are always newer)
+        return [...filteredMessages, ...optimistic];
+      });
 
       // Load versions for each message (load from all versions, not just active)
       const versionsMap = new Map<string, ChatMessage[]>();

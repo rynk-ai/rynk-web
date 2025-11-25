@@ -45,6 +45,13 @@ export function useMessageState() {
     setMessageVersions(new Map());
   }, []);
   
+  /**
+   * Replace a message with a new one (e.g. swapping temp ID with real ID)
+   */
+  const replaceMessage = useCallback((oldId: string, newMessage: ChatMessage) => {
+    setMessages(prev => prev.map(m => m.id === oldId ? newMessage : m));
+  }, []);
+
   return {
     messages,
     setMessages,
@@ -53,6 +60,7 @@ export function useMessageState() {
     updateMessage,
     addMessages,
     removeMessage,
-    clearMessages
+    clearMessages,
+    replaceMessage
   };
 }
