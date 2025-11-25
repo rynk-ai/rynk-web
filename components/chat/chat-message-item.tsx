@@ -5,7 +5,7 @@ import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { Message, MessageContent, MessageActions, MessageAction } from '@/components/ui/message';
 import { Button } from '@/components/ui/button';
 import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquare, Paperclip, MessageSquareDashedIcon } from 'lucide-react';
-import { Markdown } from '@/components/prompt-kit/markdown';
+import { Markdown } from '@/components/ui/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
 
