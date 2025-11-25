@@ -169,7 +169,7 @@ export class ChatService {
     // Get base URL from environment or use default
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000'
+      : 'http://localhost:8788'
     
     // Remove leading slash if present to avoid double slashes
     const path = url.startsWith('/') ? url : `/${url}`
@@ -213,6 +213,15 @@ export class ChatService {
       const openRouter = getOpenRouter()
       const queryEmbedding = await openRouter.getEmbeddings(query)
       const embeddings = await cloudDb.getEmbeddingsByConversationIds(finalConversationIds)
+      
+      console.log('🔍 [buildContext] Fetched embeddings:', {
+        count: embeddings.length,
+        snippets: embeddings.map(e => ({
+          id: e.messageId,
+          content: e.content.substring(0, 30) + '...',
+          vectorLength: e.vector.length
+        }))
+      });
 
       if (embeddings.length === 0) {
         // Fallback: Fetch last few messages from each conversation if no embeddings
@@ -227,6 +236,14 @@ export class ChatService {
         limit: 20, // Top 20 relevant chunks
         minScore: 0.2
       })
+
+      console.log('📊 [buildContext] Ranked results:', {
+        count: rankedResults.length,
+        results: rankedResults.map(r => ({
+          score: r.score,
+          content: r.content.substring(0, 30) + '...'
+        }))
+      });
 
       // Group by conversation for readability
       const byConversation = new Map<string, string[]>()
@@ -439,12 +456,10 @@ export class ChatService {
           // Stream finished, save full response
           await cloudDb.updateMessage(assistantMessageId, { content: fullResponse })
           
-          // Generate embedding for assistant response in background
-          // We can't call 'this' easily here if we lose context, but we can use the static reference or imported service
-          // Re-instantiating service or using a helper is fine.
-          // For simplicity, let's just fire and forget the embedding generation here.
+          // Generate embedding for assistant response
+          // We await this to ensure it completes before the stream closes in serverless environments
           const service = new ChatService()
-          service.generateEmbeddingInBackground(assistantMessageId, conversationId, userId, fullResponse)
+          await service.generateEmbeddingInBackground(assistantMessageId, conversationId, userId, fullResponse)
 
           controller.close()
         } catch (err) {
