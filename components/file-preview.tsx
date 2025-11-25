@@ -69,7 +69,7 @@ export function FilePreview({
           <img
             src={fileURL}
             alt={file.name}
-            className="h-32 w-32 object-cover brightness-75 blur-[1px] hover:blur-none"
+            className="h-32 w-32 object-cover brightness-75"
           />
           {showRemove && onRemove && (
             <Button

@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+
+import {useState, useEffect, useCallback} from "react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -80,30 +82,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     selectProject,
   } = useChatContext();
 
-  const [tagDialogOpen, setTagDialogOpen] = React.useState(false);
-  const [searchDialogOpen, setSearchDialogOpen] = React.useState(false);
-  const [selectedConversationId, setSelectedConversationId] = React.useState<
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
-  const [allTags, setAllTags] = React.useState<string[]>([]);
-  const [folderDialogOpen, setFolderDialogOpen] = React.useState(false);
-  const [selectedFolder, setSelectedFolder] = React.useState<any>(null);
-  const [addToFolderDialogOpen, setAddToFolderDialogOpen] = React.useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<any>(null);
+  const [addToFolderDialogOpen, setAddToFolderDialogOpen] = useState(false);
   const [selectedConversationForFolder, setSelectedConversationForFolder] =
-    React.useState<string | null>(null);
-  const [foldersForAddToFolder, setFoldersForAddToFolder] = React.useState<Folder[]>(
+    useState<string | null>(null);
+  const [foldersForAddToFolder, setFoldersForAddToFolder] = useState<Folder[]>(
     []
   );
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] =
-    React.useState<Conversation | null>(null);
-  const [isDeleting, setIsDeleting] = React.useState(false);
-  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
-  const [conversationToRename, setConversationToRename] = React.useState<
+    useState<Conversation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [conversationToRename, setConversationToRename] = useState<
     string | null
   >(null);
 
-  const loadTags = React.useCallback(async () => {
+  const loadTags = useCallback(async () => {
     try {
       const tags = await getAllTags();
       setAllTags(tags);
@@ -112,11 +114,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }, [getAllTags]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadProjects();
   }, [loadProjects]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchTags = async () => {
       try {
         const tags = await getAllTags();
@@ -265,7 +267,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent className="">
         <div className="flex flex-col gap-2 p-3">
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <Button
               variant="default"
               className="flex-1 items-center justify-start pl-3 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
@@ -299,7 +301,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
         <div className="flex-1 overflow-auto pt-4">
           {!activeProjectId ? (
-            <div className="px-2 mb-4">
+            <div className="mb-2">
               <ProjectList
                 projects={projects}
                 activeProjectId={activeProjectId || undefined}
@@ -321,7 +323,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Back to all chats
               </Button>
-              <div className="flex items-center gap-2 px-2 py-1">
+              <div className="flex items-center gap-2 py-1">
                 <FolderIcon className="h-4 w-4 text-primary" />
                 <h2 className="font-semibold text-lg tracking-tight">
                   {projects.find((p) => p.id === activeProjectId)?.name ||
@@ -330,12 +332,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </div>
             </div>
           )}
-          <div className="px-4"></div>
 
           {/* Pinned Conversations */}
           {conversations.some((c) => c.isPinned) && (
             <div className="mb-4">
-              <div className="px-4 mb-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
+              <div className="px-3 mb-1.5 text-xs font-medium text-muted-foreground flex items-center gap-2">
                 <PinIcon className="h-3 w-3" />
                 Pinned
               </div>
@@ -481,12 +482,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </div>
                 </div>
                 <CollapsibleContent>
-                  <div className="space-y-1 pl-6">
+                  <div className="space-y-1 pl-4">
                     {folderConversations.map((conversation) => (
                       <div key={conversation.id} className="group/convo relative">
                         <button
                           className={cn(
-                            "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10"
+                            "flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-8"
                           )}
                           onClick={() =>
                             handleSelectConversation(conversation.id)
@@ -504,7 +505,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
                           onClick={(e) => {
                             e.stopPropagation();
                             togglePinConversation(conversation.id);

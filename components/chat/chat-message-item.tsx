@@ -4,7 +4,7 @@ import { memo, useCallback } from 'react';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { Message, MessageContent, MessageActions, MessageAction } from '@/components/ui/message';
 import { Button } from '@/components/ui/button';
-import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquare, Paperclip } from 'lucide-react';
+import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquare, Paperclip, MessageSquareDashedIcon } from 'lucide-react';
 import { Markdown } from '@/components/prompt-kit/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
@@ -121,7 +121,15 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   return (
     <Message className={cn("mx-auto flex w-full max-w-4xl flex-col gap-2 px-0 items-end")}>
       <div className="group flex flex-col items-end gap-1 w-full">
-        {/* Context Badges */}
+      
+        
+        {/* Message Content */}
+        <div className="flex flex-col items-end w-full">
+          <MessageContent className="text-foreground rounded-2xl md:rounded-2xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200">
+            {message.content}
+          </MessageContent>
+        </div>
+          {/* Context Badges */}
         {((message.referencedConversations?.length ?? 0) > 0 || 
           (message.referencedFolders?.length ?? 0) > 0) && (
           <div className="flex flex-wrap gap-1.5 justify-end mb-1 max-w-[85%] sm:max-w-[75%]">
@@ -137,21 +145,14 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             {message.referencedConversations?.map((c) => (
               <div
                 key={`c-${c.id}`}
-                className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] border border-primary/20"
+                className="flex items-center gap-1 bg-primary/5 text-primary px-2 py-0.5 rounded-full text-[10px] "
               >
-                <MessageSquare size={10} />
+                <MessageSquareDashedIcon size={10} />
                 <span className="font-medium truncate max-w-[100px]">{c.title}</span>
               </div>
             ))}
           </div>
         )}
-        
-        {/* Message Content */}
-        <div className="flex flex-col items-end w-full">
-          <MessageContent className="bg-muted text-foreground rounded-2xl md:rounded-3xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200">
-            {message.content}
-          </MessageContent>
-        </div>
         
         {/* File Attachments */}
         {message.attachments && message.attachments.length > 0 && (
@@ -180,7 +181,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             )}
 
             <MessageActions className="flex gap-0">
-              <MessageAction tooltip="Edit" delayDuration={100}>
+              
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -189,8 +190,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
-              </MessageAction>
-              <MessageAction tooltip="Delete" delayDuration={100}>
+              
+              
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -199,7 +200,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 >
                   <Trash className="h-3 w-3" />
                 </Button>
-              </MessageAction>
+              
             </MessageActions>
           </div>
         )}

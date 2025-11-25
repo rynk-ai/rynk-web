@@ -114,20 +114,20 @@ export function ConversationList({
           <div className="mb-2 px-2 text-xs font-medium text-muted-foreground">
             {group.period}
           </div>
-          <div className="space-y-2 px-2">
+          <div className="space-y-2 ">
             {group.conversations.map((conversation) => (
               <div key={conversation.id} className="group/conversation relative">
                 <button
                   className={cn(
-                    "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
+                    "flex w-full items-center gap-1 rounded-md px-1 py-1 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10  text-muted-foreground ",
                     currentConversationId === conversation.id &&
-                      "bg-muted"
+                      "bg-muted text-foreground"
                   )}
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <div className="flex w-full flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate pl-1">{conversation.title}</span>
+                      <span className="truncate pl-1 ">{conversation.title}</span>
                       {conversation.isPinned && (
                         <PinIcon className="h-3 w-3 text-primary shrink-0" />
                       )}

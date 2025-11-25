@@ -173,25 +173,25 @@ export function PromptInputWithFiles({
 
   return (
     <div className={cn("flex flex-col gap-2 relative", className)}>
-      {/* Edit mode cancel button */}
+      {/* Edit mode indicator */}
       {editMode && onCancelEdit && (
-        <div className="flex justify-center">
+        <div className="absolute -top-8 right-2 z-30">
           <Button
             variant="ghost"
             size="sm"
             onClick={onCancelEdit}
             disabled={isLoading || isSubmittingEdit}
-            className="text-muted-foreground hover:text-foreground gap-2 h-8 px-3"
+            className="text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 text-xs"
           >
-            <X size={16} />
-            Cancel edit
+            <X size={14} />
+            Cancel
           </Button>
         </div>
       )}
 
       {/* File previews */}
       {files.length > 0 && (
-        <div className="px-3">
+        <div className="px-2.5">
           <FilePreviewList
             files={files}
             onRemove={handleRemoveFile}
@@ -218,21 +218,21 @@ export function PromptInputWithFiles({
             <PromptInputTextarea
               id="main-chat-input"
               placeholder={editMode ? "Edit your message..." : placeholder}
-              className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background"
+              className="min-h-[40px] pt-2.5 pl-3 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background"
               onKeyDown={handleKeyDown}
             />
 
-            <PromptInputActions className="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
-              <div className="flex items-center gap-2">
+            <PromptInputActions className="mt-4 flex w-full items-center justify-between gap-1.5 px-2.5 pb-2.5">
+              <div className="flex items-center gap-1.5">
                 <PromptInputAction tooltip="Attach files">
                   <FileUploadTrigger asChild>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="size-9 rounded-full"
+                      className="size-8 rounded-full"
                       disabled={isLoading || isSubmittingEdit || disabled}
                     >
-                      <Paperclip size={18} />
+                      <Paperclip size={16} />
                     </Button>
                   </FileUploadTrigger>
                 </PromptInputAction>
@@ -243,21 +243,21 @@ export function PromptInputWithFiles({
                   conversations={conversations}
                   folders={folders}
                   currentConversationId={currentConversationId}
-                  tooltip="Add Context"
+                  tooltip="Add chats"
                   trigger={
                     <Button
                       variant="outline"
                       size="icon"
-                      className="size-9 rounded-full"
+                      className="size-8 rounded-full"
                       disabled={isLoading || isSubmittingEdit || disabled}
                     >
-                      <Plus size={18} />
+                      <Plus size={16} />
                     </Button>
                   }
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <PromptInputAction tooltip={editMode ? "Save changes" : "Send message"}>
                   <Button
                     onClick={handleSubmit}
@@ -265,9 +265,9 @@ export function PromptInputWithFiles({
                       (!prompt.trim() && files.length === 0) || isLoading || isSubmittingEdit
                     }
                     size="icon"
-                    className="size-9 rounded-full"
+                    className="size-8 rounded-full"
                   >
-                    <Send size={18} />
+                    <Send size={16} />
                   </Button>
                 </PromptInputAction>
               </div>

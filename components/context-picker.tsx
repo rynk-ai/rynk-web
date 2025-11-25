@@ -124,7 +124,7 @@ export function ContextPicker({
       {trigger || (
         <Button variant="outline" size="sm" className="gap-2">
           <Search className="h-4 w-4" />
-          Add Context
+          Add your chats
         </Button>
       )}
     </DialogTrigger>
@@ -150,7 +150,7 @@ export function ContextPicker({
       <DialogContent className="sm:max-w-[600px] h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex justify-between items-center">
-            <span>Select Context</span>
+            <span>Select chats</span>
             <Button size="sm" onClick={() => setOpen(false)}>
               Done
             </Button>

@@ -58,7 +58,7 @@ export function ProjectList({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 px-2">
+      <ScrollArea className="flex-1 pb-2">
         <div className="space-y-1 p-2">
           {projects.length === 0 ? (
             <div className="text-xs text-center text-muted-foreground py-4">
@@ -71,7 +71,7 @@ export function ProjectList({
               <div
                 key={project.id}
                 className={cn(
-                  "group flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-colors",
+                  "group flex items-center gap-2 px-2 py-1 text-sm font-medium rounded-md cursor-pointer transition-colors",
                   activeProjectId === project.id
                     ? "bg-secondary text-secondary-foreground"
                     : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"

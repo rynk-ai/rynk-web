@@ -50,26 +50,32 @@ export default function HomePage() {
   };
 
   return (
-    <main className="flex h-screen w-full flex-col items-center justify-center bg-background px-4">
-      {/* Branding */}
-      <div className="-mb-2 lg:mb-10 flex flex-col items-center ">
-        <TextShimmer
-          spread={7}
-          duration={6}
-          className="text-[200px] md:text-[200px]  font-bold tracking-tighter text-foreground/70 leading-tight"
-        >
-          rynk.
-        </TextShimmer>
-      </div>
+    <main className="relative flex min-h-screen w-full">
+      {/* Background layer with inner rounded corners */}
+      <div className="absolute inset-2 rounded-xl bg-background border border-sidebar-border shadow-sm " />
+      
+      {/* Content layer */}
+      <div className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 bg-muted">
+        {/* Branding */}
+        <div className="mb-6 flex flex-col items-center">
+          <TextShimmer
+            spread={7}
+            duration={6}
+            className="text-3xl md:text-4xl lg:text-7xl font-bold tracking-tighter text-foreground/70 mb-10 leading-24"
+          >
+            rynk.
+          </TextShimmer>
+        </div>
 
-      {/* Input Field */}
-      <div className="w-full max-w-3xl lg:max-w-4xl">
-        <PromptInputWithFiles
-          onSubmit={handleSubmit}
-          placeholder="Message..."
-          className="glass relative z-10 w-full rounded-2xl md:rounded-3xl 0 p-0 shadow-lg transition-all duration-500 "
-          isLoading={false}
-        />
+        {/* Input Field */}
+        <div className="w-full max-w-2xl lg:max-w-3xl">
+          <PromptInputWithFiles
+            onSubmit={handleSubmit}
+            placeholder="Message..."
+            className="glass relative z-10 w-full rounded-3xl shadow-lg transition-all duration-500"
+            isLoading={false}
+          />
+        </div>
       </div>
     </main>
   );

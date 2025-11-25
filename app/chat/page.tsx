@@ -667,8 +667,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             className={cn(
               "absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-in-out pointer-events-none",
               !currentConversationId 
-                ? "opacity-100 translate-y-0 pb-32" 
-                : "opacity-0 -translate-y-10 pb-32"
+                ? "opacity-100 translate-y-0 pb-24" 
+                : "opacity-0 -translate-y-10 pb-24"
             )}
           >
             <TextShimmer
@@ -685,8 +685,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
             )}
           >
-            <ChatContainerRoot className="h-full px-3 md:px-4 lg:px-6">
-               <ChatContainerContent className="space-y-6 md:space-y-8 lg:space-y-10 px-0 sm:px-2 md:px-4 pt-7 pb-96">
+            <ChatContainerRoot className="h-full px-2 md:px-3 lg:px-4">
+               <ChatContainerContent className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 pb-80">
                 <MessageList
                   messages={messages}
                   isSending={isSending}
@@ -708,34 +708,30 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         <div className={cn(
           "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
           !currentConversationId 
-            ? "bottom-3/7 translate-y-1/2" 
-            : "bottom-4 translate-y-0"
+            ? "bottom-1/3" 
+            : "bottom-0 mb-4"
         )}>
           {/* Background for input section */}
-          <div className="relative w-full max-w-3xl lg:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 pb-safe-bottom pt-4">
+          <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
             {activeContext.length > 0 && (
-              <div
-                className={cn(
-                  "mb-2 md:mb-3 flex flex-wrap gap-1.5 md:gap-2 px-0 md:px-1 transition-all duration-500 justify-start"
-                )}
-              >
+              <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
                 {activeContext.map((c, i) => (
                   <div
                     key={i}
-                    className="z-20 group flex items-center gap-1 md:gap-1.5 bg-secondary hover:bg-secondary/15 pl-2 md:pl-2.5 pr-1 md:pr-1.5 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs  border-secondary/20 transition-all duration-200 "
+                    className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
                   >
                     {c.type === "folder" ? (
-                      <FolderIcon className="h-2.5 w-2.5 md:h-3 md:w-3 text-blue-600" />
+                      <FolderIcon className="h-3 w-3 text-blue-500" />
                     ) : (
-                      <MessageSquare className="h-2.5 w-2.5 md:h-3 md:w-3 text-secondary" />
+                      <MessageSquare className="h-3 w-3 text-muted-foreground" />
                     )}
-                    <span className="font-medium text-foreground max-w-[80px] md:max-w-[120px] truncate">
+                    <span className="font-medium text-foreground max-w-[100px] truncate">
                       {c.title}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-3.5 w-3.5 md:h-4 md:w-4 ml-0.5 rounded-full hover:bg-background/80 hover:text-destructive opacity-70 group-hover:opacity-100 transition-all"
+                      className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -744,14 +740,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                         );
                       }}
                     >
-                      <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                      <X className="h-3 w-3" />
                     </Button>
                   </div>
                 ))}
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="z-20 h-6 md:h-7 px-2 text-[10px] md:text-xs text-muted-foreground hover:text-foreground hover:bg-background/50 z-20"
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -775,7 +771,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                 !currentConversationId ? "Message..." : "Type a message..."
               }
               className={cn(
-                "glass relative z-10 w-full rounded-2xl md:rounded-3xl border border-border/50 p-0 transition-all duration-500",
+                "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300",
                 !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
               )}
               context={editingMessageId ? editContext : activeContext}
@@ -811,7 +807,6 @@ function ChatHeader() {
   return (
 
       <div className=" m-4 min-w-max absolute z-20 bg-muted rounded-lg">
-
         <SidebarTrigger size={'lg'} className="w-10 h-10"/>
       </div>
         
