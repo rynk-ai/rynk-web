@@ -5,6 +5,7 @@ export const runtime = 'edge';
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
+import { ChatProvider } from "@/lib/hooks/chat-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -103,7 +104,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
       >
         <AuthProvider>
-          {children}
+          <ChatProvider>
+            {children}
+          </ChatProvider>
         </AuthProvider>
 
         {/* Structured Data (JSON-LD) for SEO */}

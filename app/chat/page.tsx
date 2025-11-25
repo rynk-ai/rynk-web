@@ -816,15 +816,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
 function FullChatApp() {
   return (
-    <ChatProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <ChatHeader />
-          <ChatContent />
-        </SidebarInset>
-      </SidebarProvider>
-    </ChatProvider>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <ChatHeader />
+        <ChatContent />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
