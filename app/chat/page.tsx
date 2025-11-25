@@ -341,9 +341,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       return;
     }
     
-    // Only process if there's no current conversation (new chat scenario)
-    if (currentConversationId) return;
-
     // First check URL query parameter
     const urlQuery = searchParams.get('q');
     
@@ -361,7 +358,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       alreadyProcessed
     });
     
+    // 🔥 FIX: If there's a pending query, clear the current conversation to start fresh
     if (pendingQuery && pendingQuery.trim()) {
+      // If user is on an old conversation, clear it to start a new one
+      if (currentConversationId) {
+        console.log('[ChatPage] Clearing current conversation to process pending query');
+        selectConversation(null);
+      }
+      
       // Mark as processed in sessionStorage (survives Fast Refresh)
       sessionStorage.setItem('pendingQueryProcessed', 'true');
       
