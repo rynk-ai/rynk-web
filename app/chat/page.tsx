@@ -667,9 +667,26 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       // ✅ PRESERVE OPTIMISTIC MESSAGES
       setMessages(prev => {
         const optimistic = prev.filter(m => m.id.startsWith('temp-'));
+        
+        // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
+        // This prevents "flash of duplicates" if server returns the message before we replace the temp one
+        const uniqueOptimistic = optimistic.filter(opt => {
+          const isDuplicate = filteredMessages.some(serverMsg => {
+            // Match by role and approximate timestamp
+            if (serverMsg.role !== opt.role) return false;
+            
+            // For user messages, content must match
+            if (opt.role === 'user' && serverMsg.content !== opt.content) return false;
+            
+            // Timestamp check (within 10 seconds)
+            return Math.abs(serverMsg.createdAt - opt.createdAt) < 10000;
+          });
+          
+          return !isDuplicate;
+        });
+
         // If we have optimistic messages, append them to the loaded messages
-        // (Assuming optimistic messages are always newer)
-        return [...filteredMessages, ...optimistic];
+        return [...filteredMessages, ...uniqueOptimistic];
       });
 
       // Load versions for each message (load from all versions, not just active)

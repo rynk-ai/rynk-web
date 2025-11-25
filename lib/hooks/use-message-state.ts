@@ -49,7 +49,19 @@ export function useMessageState() {
    * Replace a message with a new one (e.g. swapping temp ID with real ID)
    */
   const replaceMessage = useCallback((oldId: string, newMessage: ChatMessage) => {
-    setMessages(prev => prev.map(m => m.id === oldId ? newMessage : m));
+    setMessages(prev => {
+      // Check if the new ID already exists in the list (excluding the one we're replacing)
+      // This happens if the server sync added the real message before we replaced the temp one
+      const exists = prev.some(m => m.id === newMessage.id && m.id !== oldId);
+      
+      if (exists) {
+        // If it exists, just remove the temporary message
+        return prev.filter(m => m.id !== oldId);
+      }
+      
+      // Otherwise replace the temp message with the new one
+      return prev.map(m => m.id === oldId ? newMessage : m);
+    });
   }, []);
 
   return {
