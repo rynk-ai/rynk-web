@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Disallow private/admin pages
+Disallow: /chat
+Disallow: /login
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://rynk.io/sitemap.xml
+
+# Crawl-delay (optional)
+Crawl-delay: 1

@@ -1,7 +1,19 @@
 {
-  "name": "simplychat",
+  "name": "rynk",
   "version": "0.1.0",
   "private": true,
+  "description": "AI chat application with file uploads, message versioning, conversation branching, and context-aware responses.",
+  "keywords": ["ai", "chat", "artificial-intelligence", "conversational-ai", "chatbot", "file-upload", "message-versioning", "nextjs"],
+  "author": "rynk. Team",
+  "license": "MIT",
+  "homepage": "https://rynk.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/rynk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/rynk/issues"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

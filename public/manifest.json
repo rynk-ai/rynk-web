@@ -1,0 +1,33 @@
+{
+  "name": "rynk. - AI Chat Application",
+  "short_name": "rynk.",
+  "description": "AI chat application with file uploads, message versioning, and conversation branching",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48 64x64 96x96 128x128 256x256",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities", "social networking"],
+  "lang": "en-US",
+  "dir": "ltr"
+}

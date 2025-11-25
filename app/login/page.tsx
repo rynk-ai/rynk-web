@@ -1,8 +1,18 @@
 import { signIn } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
+import type { Metadata } from "next"
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = {
+  title: "Sign In",
+  description: "Sign in to rynk. to access your AI chat history, manage conversations, and collaborate with AI.",
+  robots: {
+    index: false,
+    follow: false
+  }
+}
 
 export default async function LoginPage() {
   const session = await auth()
