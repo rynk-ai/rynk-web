@@ -761,9 +761,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         >
           {/* Background for input section */}
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
-            {activeContext.length > 0 && (
+            {/* Show editContext when editing, activeContext otherwise */}
+            {(editingMessageId ? editContext.length > 0 : activeContext.length > 0) && (
               <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
-                {activeContext.map((c, i) => (
+                {(editingMessageId ? editContext : activeContext).map((c, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
@@ -783,9 +784,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        handleContextChange(
-                          activeContext.filter((_, idx) => idx !== i)
-                        );
+                        if (editingMessageId) {
+                          setEditContext(editContext.filter((_, idx) => idx !== i));
+                        } else {
+                          handleContextChange(
+                            activeContext.filter((_, idx) => idx !== i)
+                          );
+                        }
                       }}
                     >
                       <X className="h-3 w-3" />
@@ -799,7 +804,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleContextChange([]);
+                    if (editingMessageId) {
+                      setEditContext([]);
+                    } else {
+                      handleContextChange([]);
+                    }
                   }}
                 >
                   Clear all
