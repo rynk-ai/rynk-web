@@ -14,6 +14,13 @@ export async function getConversations(limit: number = 20, offset: number = 0) {
   return convs
 }
 
+export async function searchConversations(query: string) {
+  const session = await auth()
+  if (!session?.user?.id) return []
+  if (!query.trim()) return []
+  return await cloudDb.searchConversations(session.user.id, query)
+}
+
 export async function createConversation(projectId?: string) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")

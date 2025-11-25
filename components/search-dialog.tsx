@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Tag, X } from "lucide-react";
-import { Conversation } from "@/lib/services/indexeddb";
+import { type CloudConversation as Conversation } from "@/lib/services/cloud-db";
 import { cn } from "@/lib/utils";
+import { useChatContext } from "@/lib/hooks/chat-context";
 import {
   Tooltip,
   TooltipContent,
@@ -27,11 +28,14 @@ interface SearchDialogProps {
 export function SearchDialog({
   open,
   onOpenChange,
-  conversations,
+  conversations: initialConversations,
   allTags,
   onSelectConversation,
 }: SearchDialogProps) {
+  const { searchConversations } = useChatContext();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Conversation[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // Reset state when dialog opens
@@ -39,22 +43,46 @@ export function SearchDialog({
     if (open) {
       setSearchQuery("");
       setSelectedTags([]);
+      setSearchResults([]);
     }
   }, [open]);
 
+  // Debounced search
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const results = await searchConversations(query);
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Search failed:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchConversations]);
+
   const filteredConversations = useMemo(() => {
-    return conversations.filter((conversation) => {
-      const matchesSearch = conversation.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      
+    // If searching, use search results. Otherwise use initial conversations (recent)
+    const source = searchQuery.trim() ? searchResults : initialConversations;
+
+    return source.filter((conversation) => {
+      // Client-side tag filtering
       const matchesTags =
         selectedTags.length === 0 ||
         selectedTags.every((tag) => conversation.tags?.includes(tag));
 
-      return matchesSearch && matchesTags;
+      return matchesTags;
     });
-  }, [conversations, searchQuery, selectedTags]);
+  }, [searchResults, initialConversations, searchQuery, selectedTags]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -113,10 +141,16 @@ export function SearchDialog({
 
           {/* Results List */}
           <ScrollArea className="flex-1">
-            {filteredConversations.length === 0 ? (
+            {isSearching ? (
+              <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground">
+                <p className="text-sm">Searching...</p>
+              </div>
+            ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground">
                 <Search className="h-12 w-12 mb-4 opacity-20" />
-                <p className="text-sm">No conversations found</p>
+                <p className="text-sm">
+                  {searchQuery.trim() ? "No results found" : "No conversations"}
+                </p>
               </div>
             ) : (
               <div className="p-2 space-y-1">

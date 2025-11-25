@@ -96,6 +96,23 @@ export const cloudDb = {
     })) as CloudConversation[]
   },
 
+  async searchConversations(userId: string, query: string) {
+    const db = getDB()
+    const results = await db.prepare(
+      'SELECT * FROM conversations WHERE userId = ? AND title LIKE ? ORDER BY updatedAt DESC LIMIT 50'
+    ).bind(userId, `%${query}%`).all()
+    
+    return results.results.map((c: any) => ({
+      ...c,
+      path: JSON.parse(c.path as string || '[]'),
+      tags: JSON.parse(c.tags as string || '[]'),
+      branches: JSON.parse(c.branches as string || '[]'),
+      isPinned: Boolean(c.isPinned),
+      activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+    })) as CloudConversation[]
+  },
+
   async getConversation(conversationId: string): Promise<CloudConversation | null> {
     const db = getDB()
     const result = await db.prepare('SELECT * FROM conversations WHERE id = ?').bind(conversationId).first()

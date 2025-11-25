@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { 
   getConversations, 
+  searchConversations as searchConversationsAction,
   createConversation as createConversationAction, 
   deleteConversation as deleteConversationAction,
   updateConversation as updateConversationAction,
@@ -656,6 +657,15 @@ export function useChat() {
       return []
     }
   }, [])
+  
+  const searchConversations = useCallback(async (query: string) => {
+    try {
+      return await searchConversationsAction(query)
+    } catch (err) {
+      console.error('Failed to search conversations:', err)
+      return []
+    }
+  }, [])
 
   return {
     // Conversations
@@ -667,6 +677,7 @@ export function useChat() {
     createConversation,
     deleteConversation,
     selectConversation,
+    searchConversations,
     sendMessage,
     loadConversations,
     togglePinConversation,

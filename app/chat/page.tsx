@@ -295,6 +295,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [activeContext, sendMessage, messageState, startStreaming, updateStreamContent, finishStreaming]);
 
+  // Track if we've processed a pending query to avoid re-processing
+  const processedQueryRef = useRef(false);
+
   // Handle pending query from URL params (?q=...) or localStorage
   useEffect(() => {
     // Check if we've already processed a query in this session (survives Fast Refresh)
