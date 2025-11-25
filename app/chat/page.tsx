@@ -57,6 +57,7 @@ import {
   MessageSquare,
   X,
 } from "lucide-react";
+import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -115,6 +116,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const messageState = useMessageState();
   const editState = useMessageEdit();
   const streamingState = useStreaming();
+  
+  // Keyboard awareness for mobile
+  const keyboardHeight = useKeyboardAwarePosition();
   
   // Destructure for convenience
   const { messages, setMessages, messageVersions, setMessageVersions } = messageState;
@@ -705,12 +709,15 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         </div>
 
         {/* Input Section - Always rendered, absolute positioned at bottom */}
-        <div className={cn(
-          "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
-          !currentConversationId 
-            ? "bottom-1/3" 
-            : "bottom-0 mb-4"
-        )}>
+        <div 
+          className={cn(
+            "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
+            !currentConversationId 
+              ? "bottom-1/3" 
+              : "bottom-0 mb-4"
+          )}
+          style={{ transform: `translateY(-${keyboardHeight}px)` }}
+        >
           {/* Background for input section */}
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
             {activeContext.length > 0 && (

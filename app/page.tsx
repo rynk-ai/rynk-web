@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
+import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 
 export default function HomePage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const keyboardHeight = useKeyboardAwarePosition();
 
   useEffect(() => {
     // Check if user is authenticated
@@ -55,7 +57,10 @@ export default function HomePage() {
       <div className="absolute inset-2 rounded-xl bg-background border border-sidebar-border shadow-sm " />
       
       {/* Content layer */}
-      <div className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 bg-muted">
+      <div 
+        className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 bg-muted transition-transform duration-200 ease-out"
+        style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         {/* Branding */}
         <div className="mb-6 flex flex-col items-center">
           <TextShimmer
