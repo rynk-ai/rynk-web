@@ -18,6 +18,9 @@ import { Paperclip, Send, Folder, MessageSquare, Plus, X } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
+import { validateFile } from "@/lib/utils/file-converter";
+import { ACCEPTED_FILE_TYPES } from "@/lib/constants/file-config";
+import { toast } from "sonner";
 
 type PromptInputWithFilesProps = {
   onSubmit?: (text: string, files: File[]) => void;
@@ -69,6 +72,31 @@ export function PromptInputWithFiles({
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const handleFilesAdded = (newFiles: File[]) => {
+    // Validate each file
+    const results = newFiles.map(file => ({
+      file,
+      validation: validateFile(file)
+    }));
+    
+    const invalidFiles = results.filter(r => !r.validation.valid);
+    
+    if (invalidFiles.length > 0) {
+      // Show error for each invalid file
+      invalidFiles.forEach(({ file, validation }) => {
+        toast.error(`${validation.error}`, {
+          description: file.name,
+        });
+      });
+      
+      // Only add valid files
+      const validFiles = results.filter(r => r.validation.valid).map(r => r.file);
+      if (validFiles.length > 0) {
+        setFiles((prev) => [...prev, ...validFiles]);
+      }
+      return;
+    }
+    
+    // All files valid
     setFiles((prev) => [...prev, ...newFiles]);
   };
 
@@ -204,7 +232,7 @@ export function PromptInputWithFiles({
       <FileUpload
         onFilesAdded={handleFilesAdded}
         multiple={true}
-        accept="image/*,application/pdf,.doc,.docx,.txt,.csv,.json,.xml,.md"
+        accept={ACCEPTED_FILE_TYPES}
       >
         <PromptInput
           isLoading={isLoading || isSubmittingEdit}

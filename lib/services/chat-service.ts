@@ -2,6 +2,16 @@ import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
 import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
 import { searchEmbeddings } from "@/lib/utils/vector"
+import { 
+  isTextFile, 
+  isCodeFile, 
+  isDataFile,
+  isPDFFile,
+  isOfficeDocument,
+  formatFileSize,
+} from '@/lib/utils/file-converter'
+import { getFileExtension } from '@/lib/constants/file-config'
+import { fetchAndExtractText, formatFileContent, generateFileMetadata } from '@/lib/utils/file-processor'
 
 export class ChatService {
   async handleChatRequest(
@@ -378,29 +388,76 @@ export class ChatService {
     // 4. Convert DB messages to API messages
     for (const m of messages) {
       if (m.attachments && m.attachments.length > 0) {
-        // Handle multimodal
+        // Handle multimodal content
         const content: any[] = [{ type: 'text', text: m.content }]
         
-        // We need to fetch images and convert to base64 or pass URLs if supported
-        // OpenRouter supports URLs.
-        // Assuming attachments have 'url' property.
+        // Process each attachment based on its type
         for (const att of m.attachments) {
-           if (att.type?.startsWith('image/')) {
-             try {
-               const base64Url = await this.fetchImageAsBase64(att.url)
-               content.push({
-                 type: 'image_url',
-                 image_url: { url: base64Url || this.toAbsoluteUrl(att.url) }
-               })
-             } catch (e) {
-               console.error('Failed to convert message image to base64:', e)
-               content.push({
-                 type: 'image_url',
-                 image_url: { url: this.toAbsoluteUrl(att.url) }
-               })
-             }
-           }
+          console.log('📎 [prepareMessagesForAI] Processing attachment:', {
+            name: att.name,
+            type: att.type,
+            size: att.size
+          });
+          
+          try {
+            // IMAGES: Convert to base64 and send as image_url
+            if (att.type?.startsWith('image/')) {
+              const base64Url = await this.fetchImageAsBase64(att.url)
+              content.push({
+                type: 'image_url',
+                image_url: { url: base64Url || this.toAbsoluteUrl(att.url) }
+              })
+              console.log('✅ [prepareMessagesForAI] Image processed:', att.name);
+            }
+            // PDFs: Convert pages to images
+            else if (att.type === 'application/pdf' || getFileExtension(att.name) === '.pdf') {
+              // For PDFs, we need to fetch and convert to images
+              // Since we're server-side, we can't use browser APIs
+              // So we'll provide metadata and let the client handle conversion if needed
+              // Or we can fetch and try to extract text
+              console.log('📄 [prepareMessagesForAI] PDF detected, providing metadata:', att.name);
+              content.push({
+                type: 'text',
+                text: `📄 **PDF Document**: ${att.name}\n*(${att.size ? formatFileSize(att.size) : 'size unknown'})*\n\n*Note: PDF content extraction is not yet implemented server-side. The AI can see this is a PDF attachment but cannot read its contents.*`
+              })
+            }
+            // TEXT/CODE/DATA FILES: Extract content
+            else if (this.isTextBasedFile(att)) {
+              console.log('📝 [prepareMessagesForAI] Text-based file, extracting content:', att.name);
+              const textContent = await fetchAndExtractText(att.url, att.name)
+              const formattedContent = this.formatTextFileContent(att.name, att.type, textContent)
+              content.push({
+                type: 'text',
+                text: formattedContent
+              })
+              console.log('✅ [prepareMessagesForAI] Text file processed:', att.name, `(${textContent.length} chars)`);
+            }
+            // OFFICE DOCUMENTS: Provide metadata only
+            else if (isOfficeDocument({ type: att.type } as File)) {
+              console.log('📑 [prepareMessagesForAI] Office document, providing metadata:', att.name);
+              content.push({
+                type: 'text',
+                text: generateFileMetadata(att)
+              })
+            }
+            // OTHER FILES: Provide metadata
+            else {
+              console.log('📎 [prepareMessagesForAI] Unknown file type, providing metadata:', att.name);
+              content.push({
+                type: 'text',
+                text: `📎 **Attachment**: ${att.name}\n**Type**: ${att.type || 'unknown'}\n**Size**: ${att.size ? formatFileSize(att.size) : 'unknown'}`
+              })
+            }
+          } catch (e) {
+            console.error('❌ [prepareMessagesForAI] Failed to process attachment:', att.name, e);
+            // Fallback: provide basic metadata
+            content.push({
+              type: 'text',
+              text: `⚠️ **Attachment** (processing failed): ${att.name}`
+            })
+          }
         }
+        
         apiMessages.push({ role: m.role, content })
       } else {
         apiMessages.push({ role: m.role, content: m.content })
@@ -458,6 +515,75 @@ export class ChatService {
       return null
     }
   }
+
+  /**
+   * Check if attachment is a text-based file that can be read
+   */
+  private isTextBasedFile(att: { type?: string; name: string }): boolean {
+    // Create a mock File object for type checking
+    const mockFile = { type: att.type || '', name: att.name } as File
+    return isTextFile(mockFile) || isCodeFile(mockFile) || isDataFile(mockFile)
+  }
+
+  /**
+   * Format text file content for AI consumption
+   */
+  private formatTextFileContent(filename: string, mimeType: string | undefined, content: string): string {
+    const ext = getFileExtension(filename)
+    
+    // Code files - wrap in code block with language
+    if (mimeType && (isCodeFile({ type: mimeType, name: filename } as File) || ext.match(/\.(js|ts|py|java|cpp|c|go|rs|rb|php|html|css|sql|sh)/))) {
+      const languageMap: Record<string, string> = {
+        '.js': 'javascript',
+        '.jsx': 'javascript',
+        '.ts': 'typescript',
+        '.tsx': 'typescript',
+        '.py': 'python',
+        '.java': 'java',
+        '.cpp': 'cpp',
+        '.c': 'c',
+        '.go': 'go',
+        '.rs': 'rust',
+        '.rb': 'ruby',
+        '.php': 'php',
+        '.html': 'html',
+        '.css': 'css',
+        '.sql': 'sql',
+        '.sh': 'bash',
+      }
+      
+      const language = languageMap[ext] || ''
+      return `**File: ${filename}**\n\`\`\`${language}\n${content}\n\`\`\``
+    }
+    
+    // Data files - format based on type
+    if (ext === '.json') {
+      try {
+        const parsed = JSON.parse(content)
+        const formatted = JSON.stringify(parsed, null, 2)
+        return `**File: ${filename}** (JSON)\n\`\`\`json\n${formatted}\n\`\`\``
+      } catch {
+        return `**File: ${filename}**\n\`\`\`\n${content}\n\`\`\``
+      }
+    }
+    
+    if (ext === '.csv') {
+      return `**File: ${filename}** (CSV)\n\`\`\`csv\n${content}\n\`\`\``
+    }
+    
+    if (ext === '.xml') {
+      return `**File: ${filename}** (XML)\n\`\`\`xml\n${content}\n\`\`\``
+    }
+    
+    // Markdown files - render as markdown
+    if (ext === '.md' || ext === '.markdown') {
+      return `**File: ${filename}** (Markdown)\n\n${content}`
+    }
+    
+    // Other text files
+    return `**File: ${filename}**\n\`\`\`\n${content}\n\`\`\``
+  }
+
 
   private createStreamResponse(
     stream: AsyncGenerator<string, void, unknown>,
