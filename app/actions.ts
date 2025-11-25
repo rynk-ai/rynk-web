@@ -129,9 +129,9 @@ export async function createMessageVersion(
   if (result.newMessage && result.newMessage.role === 'user' && newContent && newContent.trim()) {
     try {
       console.log('🔍 [createMessageVersion] Generating embedding...');
-      const { getOpenRouter } = await import('@/lib/services/openrouter')
-      const openrouter = getOpenRouter()
-      const vector = await openrouter.getEmbeddings(newContent)
+      const { getAIProvider } = await import('@/lib/services/ai-factory')
+      const aiProvider = getAIProvider()
+      const vector = await aiProvider.getEmbeddings(newContent)
       await cloudDb.addEmbedding(result.newMessage.id, conversationId, session.user.id, newContent, vector)
       console.log('✅ [createMessageVersion] Embedding created');
     } catch (error) {
@@ -302,9 +302,9 @@ export async function generateTitleAction(conversationId: string, messageContent
   if (!session?.user?.id) throw new Error("Unauthorized")
 
   try {
-    const { getOpenRouter } = await import('@/lib/services/openrouter')
-    const openrouter = getOpenRouter()
-    const title = await openrouter.sendMessageOnce({
+    const { getAIProvider } = await import('@/lib/services/ai-factory')
+    const aiProvider = getAIProvider()
+    const title = await aiProvider.sendMessageOnce({
       messages: [
         {
           role: 'system',
@@ -332,9 +332,9 @@ export async function getEmbeddingsAction(text: string) {
   if (!session?.user?.id) throw new Error("Unauthorized")
 
   try {
-    const { getOpenRouter } = await import('@/lib/services/openrouter')
-    const openrouter = getOpenRouter()
-    return await openrouter.getEmbeddings(text)
+    const { getAIProvider } = await import('@/lib/services/ai-factory')
+    const aiProvider = getAIProvider()
+    return await aiProvider.getEmbeddings(text)
   } catch (error) {
     console.error('Failed to get embeddings:', error)
     throw error

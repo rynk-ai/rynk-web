@@ -1,27 +1,21 @@
 import { AIProvider, ChatCompletionParams } from './ai-provider'
 
-export class OpenRouterService implements AIProvider {
-  private baseUrl = ''
-
-  constructor() {
-    this.baseUrl = ''
-  }
+export class GroqProvider implements AIProvider {
+  private baseUrl = 'https://api.groq.com/openai/v1'
 
   async *sendMessage(params: ChatCompletionParams): AsyncGenerator<string, void, unknown> {
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured')
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) throw new Error('GROQ_API_KEY not configured')
 
-    console.log('📤 Sending message to OpenRouter API (Direct)...')
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    console.log('📤 Sending message to Groq API...')
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://rynk.io', // Replace with actual site URL
-        'X-Title': 'Rynk',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-4.1-fast:free',
+        model: 'llama-3.3-70b-versatile',
         messages: params.messages,
         stream: true,
       }),
@@ -31,7 +25,7 @@ export class OpenRouterService implements AIProvider {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any
-      console.error('❌ OpenRouter API error:', error)
+      console.error('❌ Groq API error:', error)
       throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
     }
 
@@ -91,19 +85,17 @@ export class OpenRouterService implements AIProvider {
   }
 
   async sendMessageOnce(params: ChatCompletionParams): Promise<string> {
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured')
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) throw new Error('GROQ_API_KEY not configured')
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://rynk.io',
-        'X-Title': 'Rynk',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-4.1-fast:free',
+        model: 'llama-3.3-70b-versatile',
         messages: params.messages,
         stream: false,
       }),
@@ -119,20 +111,35 @@ export class OpenRouterService implements AIProvider {
   }
 
   async getEmbeddings(text: string, timeoutMs: number = 15000): Promise<number[]> {
-    // Call OpenRouter directly instead of going through /api/embeddings
-    // This is necessary because server-side code can't use relative paths
+    // Groq doesn't support embeddings yet (or at least not the same model), 
+    // so we might want to fallback to OpenRouter or another provider for embeddings.
+    // For now, let's throw an error or maybe just use OpenRouter for embeddings even if Groq is selected for chat?
+    // The user request didn't specify embeddings, but the interface requires it.
+    // Let's assume we use OpenRouter for embeddings for now as a fallback or just implement it if Groq supports it.
+    // Checking Groq docs... they do have embeddings now but maybe not the same model.
+    // To be safe and simple, I will use OpenRouter for embeddings for now as the user only asked to switch chat provider.
+    // But wait, if I use OpenRouter here I need to import it. 
+    // Let's just implement a placeholder or try to use Groq's embedding if available?
+    // Actually, the safest bet is to use OpenRouter for embeddings regardless of the chat provider, 
+    // OR just throw not implemented if the user strictly wants Groq. 
+    // However, the app likely needs embeddings for RAG.
+    // Let's look at `openrouter.ts` again. It uses `text-embedding-3-small`.
+    // I'll stick to OpenRouter for embeddings for now to avoid breaking RAG.
+    
+    // Actually, to avoid circular dependency if I import OpenRouter here, 
+    // I should probably inject the embedding provider or just duplicate the logic but use OpenRouter key/url.
+    // But `getEmbeddings` is part of the interface.
+    
+    // Let's just copy the OpenRouter embedding logic here for now, but using OPENROUTER_API_KEY.
+    // This effectively means "Groq for Chat, OpenRouter for Embeddings" which is a valid combo.
+    
     const apiKey = process.env.OPENROUTER_API_KEY
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured (required for embeddings)')
     
-    if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured')
-    }
-    
-    // Create timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Embedding generation timeout after ${timeoutMs}ms`)), timeoutMs)
     })
     
-    // Race the fetch against the timeout
     const fetchPromise = fetch('https://openrouter.ai/api/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -155,14 +162,4 @@ export class OpenRouterService implements AIProvider {
     const data = await response.json() as any
     return data.data[0].embedding
   }
-}
-
-// Create a singleton instance
-let openRouterService: OpenRouterService | null = null
-
-export function getOpenRouter(): OpenRouterService {
-  if (!openRouterService) {
-    openRouterService = new OpenRouterService()
-  }
-  return openRouterService
 }

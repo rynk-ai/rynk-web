@@ -15,13 +15,13 @@ function CodeBlock({ children, className, language, ...props }: CodeBlockProps) 
     <div
       className={cn(
         "not-prose group flex w-full flex-col overflow-clip border",
-        "border-border bg-card text-card-foreground rounded-xl",
+        " text-card-foreground rounded-xl",
         className
       )}
       {...props}
     >
       {language && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
+        <div className="flex items-center justify-between px-4 py-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {language}
           </span>
@@ -42,7 +42,7 @@ export type CodeBlockCodeProps = {
 function CodeBlockCode({
   code,
   language = "tsx",
-  theme = "github-light",
+  theme = "vitesse-dark",
   className,
   ...props
 }: CodeBlockCodeProps) {
@@ -91,7 +91,7 @@ function CodeBlockGroup({
 }: CodeBlockGroupProps) {
   return (
     <div
-      className={cn("flex items-center justify-between", className)}
+      className={cn("flex items-center justify-between ", className)}
       {...props}
     >
       {children}

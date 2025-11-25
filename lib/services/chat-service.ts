@@ -1,6 +1,7 @@
 import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
-import { getOpenRouter, type Message as ApiMessage } from "@/lib/services/openrouter"
+import { getAIProvider } from "@/lib/services/ai-factory"
+import { type Message as ApiMessage } from "@/lib/services/ai-provider"
 import { searchEmbeddings } from "@/lib/utils/vector"
 import { 
   isTextFile, 
@@ -138,8 +139,8 @@ export class ChatService {
 
     // 8. Call AI and Stream
     console.log('📤 [chatService] Sending message to OpenRouter API (Direct)...');
-    const openRouter = getOpenRouter()
-    const stream = await openRouter.sendMessage({ messages })
+    const aiProvider = getAIProvider()
+    const stream = await aiProvider.sendMessage({ messages })
     console.log('📥 [chatService] Received response stream');
 
     // 9. Return stream with message metadata in headers and progress updates
@@ -166,8 +167,8 @@ export class ChatService {
         return
       }
       
-      const openRouter = getOpenRouter()
-      const vector = await openRouter.getEmbeddings(content)
+      const aiProvider = getAIProvider()
+      const vector = await aiProvider.getEmbeddings(content)
       await cloudDb.addEmbedding(messageId, conversationId, userId, content, vector)
     } catch (error) {
       console.error('Failed to generate embedding in background:', error)
