@@ -249,7 +249,7 @@ export function PromptInputWithFiles({
             <PromptInputTextarea
               id="main-chat-input"
               placeholder={editMode ? "Edit your message..." : placeholder}
-              className="min-h-[40px] pt-2.5 pl-3 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background"
+              className="min-h-[40px] pt-2.5 pl-3 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background overscroll-contain"
               onKeyDown={handleKeyDown}
             />
 

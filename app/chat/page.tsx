@@ -400,6 +400,35 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId, searchParams, router]);
 
+  // Ref for the input container to handle scroll locking
+  const inputContainerRef = useRef<HTMLDivElement>(null);
+
+  // Prevent body scroll when touching the input container (except for textarea)
+  useEffect(() => {
+    const container = inputContainerRef.current;
+    if (!container) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // Find if the target is a textarea or inside one
+      const target = e.target as HTMLElement;
+      const isTextarea = target.closest('textarea');
+
+      if (!isTextarea) {
+        // If not touching a textarea, prevent default to stop body scroll
+        e.preventDefault();
+      }
+      // If it IS a textarea, let it scroll naturally
+      // The textarea itself should have overscroll-behavior: contain
+    };
+
+    // Add non-passive listener to be able to call preventDefault
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
   // ... (rest of the component)
 
   // ... (handleSubmit remains same)
@@ -719,7 +748,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, reloadMessages]); // Reload when ID or timestamp changes
 
   return (
-    <main className="flex h-full flex-col overflow-hidden relative">
+    <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
 
       <div className="flex flex-1 flex-col relative overflow-hidden">
         {/* Top Section: Messages & Title */}
@@ -748,7 +777,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             )}
           >
             <ChatContainerRoot className="h-full px-2 md:px-3 lg:px-4">
-               <ChatContainerContent className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 pb-80">
+               <ChatContainerContent 
+                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6"
+                 style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
+               >
                 <MessageList
                   messages={messages}
                   isSending={isSending}
@@ -769,6 +801,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
         {/* Input Section - Always rendered, absolute positioned at bottom */}
         <div 
+          ref={inputContainerRef}
           className={cn(
             "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
             !currentConversationId 

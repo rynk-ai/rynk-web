@@ -30,7 +30,7 @@ export function useKeyboardAwarePosition(): number {
     
     // Check if Visual Viewport API is supported
     if (!window.visualViewport) {
-      console.warn('Visual Viewport API not supported in this browser');
+      // console.warn('Visual Viewport API not supported in this browser');
       return;
     }
 
@@ -42,7 +42,9 @@ export function useKeyboardAwarePosition(): number {
         
         // The difference represents the keyboard height
         // We use Math.max to ensure we never get negative values
-        const calculatedKeyboardHeight = Math.max(0, windowHeight - visualViewportHeight);
+        // We also set a threshold (e.g., 100px) to avoid small layout shifts being interpreted as keyboard
+        const diff = windowHeight - visualViewportHeight;
+        const calculatedKeyboardHeight = diff > 100 ? diff : 0;
         
         setKeyboardHeight(calculatedKeyboardHeight);
       }

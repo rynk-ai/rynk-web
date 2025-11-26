@@ -52,14 +52,14 @@ export default function HomePage() {
   };
 
   return (
-    <main className="relative flex min-h-screen w-full">
+    <main className="relative flex min-h-screen w-full overflow-hidden">
       {/* Background layer with inner rounded corners */}
       <div className="absolute inset-2 rounded-xl bg-background border border-sidebar-border shadow-sm " />
       
       {/* Content layer */}
       <div 
         className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 bg-muted transition-transform duration-200 ease-out"
-        style={{ transform: `translateY(-${keyboardHeight}px)` }}
+        style={{ transform: `translateY(-${keyboardHeight / 2}px)` }}
       >
         {/* Branding */}
         <div className="mb-6 flex flex-col items-center">
