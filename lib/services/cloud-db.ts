@@ -96,11 +96,11 @@ export const cloudDb = {
     })) as CloudConversation[]
   },
 
-  async searchConversations(userId: string, query: string) {
+  async searchConversations(userId: string, query: string, limit: number = 20, offset: number = 0) {
     const db = getDB()
     const results = await db.prepare(
-      'SELECT * FROM conversations WHERE userId = ? AND title LIKE ? ORDER BY updatedAt DESC LIMIT 50'
-    ).bind(userId, `%${query}%`).all()
+      'SELECT * FROM conversations WHERE userId = ? AND title LIKE ? ORDER BY updatedAt DESC LIMIT ? OFFSET ?'
+    ).bind(userId, `%${query}%`, limit, offset).all()
     
     return results.results.map((c: any) => ({
       ...c,

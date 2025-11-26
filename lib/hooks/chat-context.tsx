@@ -13,7 +13,7 @@ interface ChatContextValue {
   createConversation: (projectId?: string) => Promise<string>
   deleteConversation: (id: string) => Promise<void>
   selectConversation: (id: string | null) => void
-  searchConversations: (query: string) => Promise<Conversation[]>
+  searchConversations: (query: string, limit?: number, offset?: number) => Promise<Conversation[]>
   sendMessage: (content: string, files?: File[], referencedConversations?: { id: string; title: string }[], referencedFolders?: { id: string; name: string }[]) => Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>
     conversationId: string

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Loader } from "@/components/ui/loader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,14 @@ export function SearchDialog({
   const [searchResults, setSearchResults] = useState<Conversation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Intersection observer for infinite scroll
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -44,6 +53,8 @@ export function SearchDialog({
       setSearchQuery("");
       setSelectedTags([]);
       setSearchResults([]);
+      setPage(0);
+      setHasMore(true);
     }
   }, [open]);
 
@@ -57,9 +68,12 @@ export function SearchDialog({
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
+      setPage(0);
+      setHasMore(true);
       try {
-        const results = await searchConversations(query);
+        const results = await searchConversations(query, 20, 0);
         setSearchResults(results);
+        setHasMore(results.length === 20);
       } catch (error) {
         console.error("Search failed:", error);
       } finally {
@@ -69,6 +83,41 @@ export function SearchDialog({
 
     return () => clearTimeout(timer);
   }, [searchQuery, searchConversations]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore || !searchQuery.trim()) return;
+    
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const results = await searchConversations(searchQuery, 20, nextPage * 20);
+      setSearchResults(prev => [...prev, ...results]);
+      setPage(nextPage);
+      setHasMore(results.length === 20);
+    } catch (error) {
+      console.error("Load more failed:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, searchQuery, page, searchConversations]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   const filteredConversations = useMemo(() => {
     // If searching, use search results. Otherwise use initial conversations (recent)
@@ -143,7 +192,8 @@ export function SearchDialog({
           <ScrollArea className="flex-1">
             {isSearching ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground">
-                <p className="text-sm">Searching...</p>
+                <Loader variant="classic" size="lg" />
+                <p className="text-sm mt-4">Searching...</p>
               </div>
             ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground">
@@ -206,6 +256,13 @@ export function SearchDialog({
                     )}
                   </button>
                 ))}
+                
+                {/* Infinite Scroll Loader */}
+                {searchQuery.trim() && hasMore && (
+                  <div ref={observerTarget} className="flex justify-center py-4">
+                    {isLoadingMore && <Loader variant="classic" size="md" />}
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>

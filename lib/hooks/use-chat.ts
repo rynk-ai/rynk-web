@@ -658,9 +658,9 @@ export function useChat() {
     }
   }, [])
   
-  const searchConversations = useCallback(async (query: string) => {
+  const searchConversations = useCallback(async (query: string, limit: number = 20, offset: number = 0) => {
     try {
-      return await searchConversationsAction(query)
+      return await searchConversationsAction(query, limit, offset)
     } catch (err) {
       console.error('Failed to search conversations:', err)
       return []
