@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { chatService } from "@/lib/services/chat-service";
 
-export const runtime = 'edge'
+
 
 export async function POST(request: NextRequest) {
   try {

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import type { Metadata } from "next"
 
-export const runtime = 'edge'
+
 
 export const metadata: Metadata = {
   title: "Sign In",
