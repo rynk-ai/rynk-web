@@ -23,7 +23,7 @@ interface SearchDialogProps {
   onOpenChange: (open: boolean) => void;
   conversations: Conversation[];
   allTags: string[];
-  onSelectConversation: (id: string) => void;
+  onSelectConversation: (id: string, conversation: Conversation) => void;
 }
 
 export function SearchDialog({
@@ -209,7 +209,7 @@ export function SearchDialog({
                     key={conversation.id}
                     className="group w-full flex flex-col items-start gap-1.5 p-3 rounded-md hover:bg-accent/50 transition-colors text-left relative"
                     onClick={() => {
-                      onSelectConversation(conversation.id);
+                      onSelectConversation(conversation.id, conversation);
                       onOpenChange(false);
                     }}
                   >

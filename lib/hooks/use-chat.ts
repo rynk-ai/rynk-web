@@ -177,7 +177,14 @@ export function useChat() {
     }
   }, [currentConversationId, loadConversations])
 
-  const selectConversation = useCallback((id: string | null) => {
+  const selectConversation = useCallback((id: string | null, conversation?: Conversation) => {
+    if (id && conversation) {
+      setConversations(prev => {
+        if (prev.find(c => c.id === id)) return prev
+        // Add to the beginning of the list as it's now the active one
+        return [conversation, ...prev]
+      })
+    }
     setCurrentConversationId(id)
     // No need to reload conversations on selection - data hasn't changed
   }, [])

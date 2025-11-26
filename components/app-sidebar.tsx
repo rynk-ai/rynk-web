@@ -254,8 +254,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   // Helper to wrap selectConversation with mobile callback
-  const handleSelectConversation = (id: string | null) => {
-    selectConversation(id);
+  const handleSelectConversation = (id: string | null, conversation?: Conversation) => {
+    selectConversation(id, conversation);
   };
 
   return (
