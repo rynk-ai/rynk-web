@@ -208,11 +208,10 @@ export function PromptInputWithFiles({
       {editMode && onCancelEdit && (
         <div className="absolute -top-8 right-2 z-30">
           <Button
-            variant="ghost"
             size="sm"
             onClick={onCancelEdit}
             disabled={isLoading || isSubmittingEdit}
-            className="text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 text-xs"
+            className="gap-1.5 h-7 px-2 text-xs bg-red-800/50 hover:bg-red-800/70 text-white"
           >
             <X size={14} />
             Cancel

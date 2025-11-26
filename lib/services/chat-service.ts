@@ -137,13 +137,18 @@ export class ChatService {
       content: '',
     })
 
-    // 8. Call AI and Stream
-    console.log('📤 [chatService] Sending message to OpenRouter API (Direct)...');
-    const aiProvider = getAIProvider()
+    // 8. Detect if files/attachments are present in the conversation
+    // This determines whether we need multimodal support (OpenRouter) or can use text-only (Groq)
+    const hasFiles = this.hasFilesInConversation(messages, project)
+    console.log('📎 [chatService] File detection result:', { hasFiles })
+
+    // 9. Call AI and Stream (auto-select provider based on file presence)
+    console.log('📤 [chatService] Sending message to AI API...');
+    const aiProvider = getAIProvider(hasFiles)
     const stream = await aiProvider.sendMessage({ messages })
     console.log('📥 [chatService] Received response stream');
 
-    // 9. Return stream with message metadata in headers and progress updates
+    // 10. Return stream with message metadata in headers and progress updates
     return this.createStreamResponse(
       stream, 
       assistantMessage.id, 
@@ -584,6 +589,33 @@ export class ChatService {
     // Other text files
     return `**File: ${filename}**\n\`\`\`\n${content}\n\`\`\``
   }
+
+  /**
+   * Check if the conversation has any files/attachments that require multimodal support
+   * Returns true if images, PDFs, or any non-text-based files are present
+   */
+  private hasFilesInConversation(messages: ApiMessage[], project: any = null): boolean {
+    // Check project attachments (images specifically, as they're processed as multimodal)
+    if (project?.attachments && project.attachments.length > 0) {
+      const hasProjectImages = project.attachments.some((att: any) => att.type?.startsWith('image/'))
+      if (hasProjectImages) return true
+    }
+
+    // Check message attachments in the prepared messages
+    for (const msg of messages) {
+      // Skip system messages (they don't have user attachments)
+      if (msg.role === 'system') continue
+
+      // Check if message has multimodal content
+      if (Array.isArray(msg.content)) {
+        const hasImageContent = msg.content.some((item: any) => item.type === 'image_url')
+        if (hasImageContent) return true
+      }
+    }
+
+    return false
+  }
+
 
 
   private createStreamResponse(

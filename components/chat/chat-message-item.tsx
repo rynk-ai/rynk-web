@@ -126,7 +126,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         
         {/* Message Content */}
         <div className="flex flex-col items-end w-full">
-          <MessageContent className="text-foreground rounded-2xl md:rounded-2xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200">
+          <MessageContent className={cn(
+            "text-foreground rounded-2xl md:rounded-2xl px-4 md:px-5 py-2.5 md:py-3 prose prose-slate dark:prose-invert shadow-sm hover:shadow-md transition-shadow duration-200",
+            isEditing && "border-2 border-dashed border-primary/75 bg-primary/5 animate-pulse duration-3000 shadow-none"
+          )}>
             {message.content}
           </MessageContent>
         </div>
