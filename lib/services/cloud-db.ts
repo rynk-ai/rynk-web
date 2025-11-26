@@ -1,7 +1,18 @@
 import { type D1Database } from '@cloudflare/workers-types'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 // Helper to get DB binding
-const getDB = () => process.env.DB as unknown as D1Database
+const getDB = () => {
+  try {
+    return getCloudflareContext().env.DB
+  } catch (error) {
+    // Fallback for when context is not available (shouldn't happen with initOpenNextCloudflareForDev)
+    console.error('❌ Cloudflare context not available:', error)
+    throw new Error(
+      'D1 Database binding not available. Make sure initOpenNextCloudflareForDev() is called in next.config.mjs'
+    )
+  }
+}
 
 export interface CloudConversation {
   id: string

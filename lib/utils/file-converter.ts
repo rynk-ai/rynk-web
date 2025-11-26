@@ -187,10 +187,65 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 }
 
 /**
+ * Extracts text content from a PDF file
+ * Note: This function only works in browser environments
+ */
+export async function extractTextFromPDF(file: File): Promise<string> {
+  if (!isPDFFile(file)) {
+    throw new Error('File must be a PDF');
+  }
+
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new Error('PDF text extraction is only available in browser environments');
+  }
+
+  try {
+    // Load PDF.js from CDN
+    const pdfjsLib = await import('@/lib/utils/pdfjs-cdn-loader').then(m => m.getPdfJs());
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = '';
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Join all text items with spaces
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n\n';
+    }
+
+    return fullText.trim();
+  } catch (error) {
+    console.error('Failed to extract text from PDF:', error);
+    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Options for PDF to image conversion
+ */
+export interface PdfToImageOptions {
+  maxPages?: number;  // Maximum number of pages to convert (default: all)
+  scale?: number;     // Rendering scale (default: 1.0)
+  quality?: number;   // JPEG quality 0-1 (default: 0.6)
+}
+
+/**
  * Converts a PDF file to array of base64 images (one per page)
  * Note: This function only works in browser environments
  */
-export async function pdfToBase64Images(file: File): Promise<string[]> {
+export async function pdfToBase64Images(
+  file: File, 
+  options: PdfToImageOptions = {}
+): Promise<string[]> {
   if (!isPDFFile(file)) {
     throw new Error('File must be a PDF');
   }
@@ -200,6 +255,8 @@ export async function pdfToBase64Images(file: File): Promise<string[]> {
     throw new Error('PDF conversion is only available in browser environments');
   }
 
+  const { maxPages = Infinity, scale = 1.0, quality = 0.6 } = options;
+
   // Load PDF.js from CDN instead of bundling it
   const pdfjsLib = await import('@/lib/utils/pdfjs-cdn-loader').then(m => m.getPdfJs());
 
@@ -207,13 +264,12 @@ export async function pdfToBase64Images(file: File): Promise<string[]> {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   const images: string[] = [];
+  const pagesToRender = Math.min(pdf.numPages, maxPages);
 
   // Render each page
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+  for (let pageNum = 1; pageNum <= pagesToRender; pageNum++) {
     const page = await pdf.getPage(pageNum);
 
-    // Set scale for rendering (1.5 = good quality/size balance)
-    const scale = 1.5;
     const viewport = page.getViewport({ scale });
 
     // Create canvas
@@ -234,8 +290,8 @@ export async function pdfToBase64Images(file: File): Promise<string[]> {
       canvas: canvas,
     }).promise;
 
-    // Convert canvas to base64
-    const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+    // Convert canvas to base64 with specified quality
+    const imageBase64 = canvas.toDataURL('image/jpeg', quality);
     images.push(imageBase64);
 
     // Clean up

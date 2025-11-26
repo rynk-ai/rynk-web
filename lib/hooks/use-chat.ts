@@ -40,7 +40,9 @@ import {
   isPDFFile,
   isSupportedForMultimodal,
   pdfToBase64Images,
+  extractTextFromPDF,
 } from "@/lib/utils/file-converter"
+import { toast } from "sonner"
 
 export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -252,6 +254,98 @@ export function useChat() {
     }
   }, [])
 
+  /**
+   * Process file attachments, handling PDFs specially:
+   * 1. Try to extract text from PDFs
+   * 2. If text is insufficient, convert pages to images
+   * 3. Upload to R2 and return metadata with processed data
+   */
+  async function processAttachments(
+    files: File[],
+    onProgress?: (message: string) => void
+  ): Promise<any[]> {
+    const processed: any[] = []
+
+    for (const file of files) {
+      try {
+        // Process PDFs
+        if (isPDFFile(file)) {
+          console.log('[processAttachments] Processing PDF:', file.name)
+          
+          // Step 1: Try text extraction
+          onProgress?.(`Extracting text from ${file.name}...`)
+          
+          let extractedContent: string | null = null
+          let fallbackImages: string[] | null = null
+          
+          try {
+            extractedContent = await extractTextFromPDF(file)
+            
+            // Check if we got meaningful text (> 50 chars)
+            if (extractedContent && extractedContent.trim().length > 50) {
+              console.log('[processAttachments] Text extracted successfully, length:', extractedContent.length)
+            } else {
+              console.log('[processAttachments] Insufficient text extracted, falling back to images')
+              extractedContent = null
+            }
+          } catch (error) {
+            console.error('[processAttachments] Text extraction failed:', error)
+            extractedContent = null
+          }
+          
+          // Step 2: Fallback to images if no text
+          if (!extractedContent) {
+            onProgress?.(`Converting ${file.name} to images...`)
+            
+            try {
+              fallbackImages = await pdfToBase64Images(file, {
+                maxPages: 10,
+                scale: 1.0,
+                quality: 0.6
+              })
+              
+              console.log('[processAttachments] PDF converted to', fallbackImages.length, 'images')
+              
+              // Warn user if PDF has more than 10 pages
+              if (fallbackImages.length === 10) {
+                toast.warning(`${file.name} has more than 10 pages. Only the first 10 pages will be sent to AI.`)
+              }
+            } catch (error) {
+              console.error('[processAttachments] Image conversion failed:', error)
+              toast.error(`Failed to process ${file.name}`)
+            }
+          }
+          
+          // Step 3: Upload to R2
+          onProgress?.(`Uploading ${file.name}...`)
+          const formData = new FormData()
+          formData.append('file', file)
+          const uploaded = await uploadFileAction(formData)
+          
+          // Add processed data to attachment metadata
+          processed.push({
+            ...uploaded,
+            extractedContent: extractedContent || undefined,
+            fallbackImages: fallbackImages || undefined
+          })
+        }
+        // Regular file upload (images, etc.)
+        else {
+          onProgress?.(`Uploading ${file.name}...`)
+          const formData = new FormData()
+          formData.append('file', file)
+          const uploaded = await uploadFileAction(formData)
+          processed.push(uploaded)
+        }
+      } catch (error) {
+        console.error('[processAttachments] Failed to process file:', file.name, error)
+        toast.error(`Failed to upload ${file.name}`)
+      }
+    }
+
+    return processed
+  }
+
   const sendMessage = useCallback(async (
     content: string,
     files: File[] = [],
@@ -291,14 +385,14 @@ export function useChat() {
         }
       }
 
-      // Handle file uploads
+      // Handle file uploads with PDF processing
       let uploadedAttachments: any[] = []
       if (files && files.length > 0) {
-        uploadedAttachments = await Promise.all(files.map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          return await uploadFileAction(formData)
-        }))
+        // Process attachments (handles PDFs specially)
+        uploadedAttachments = await processAttachments(files, (msg) => {
+          console.log('[sendMessage] Processing:', msg)
+          // Progress messages will be shown via UI state later
+        })
       }
       
       // Call the unified API
@@ -446,27 +540,15 @@ export function useChat() {
     });
 
     try {
-      // Upload new attachments if any
+      // Upload new attachments if any, with PDF processing
       let uploadedAttachments: any[] | undefined;
       if (newAttachments && newAttachments.length > 0) {
-        console.log('📎 [editMessage] Uploading attachments:', newAttachments.length);
-        uploadedAttachments = await Promise.all(newAttachments.map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          })
-          if (!response.ok) throw new Error('Failed to upload file')
-          const data = await response.json() as { url: string }
-          return {
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            url: data.url
-          }
-        }))
-        console.log('✅ [editMessage] Attachments uploaded:', uploadedAttachments.length);
+        console.log('[editMessage] Processing attachments:', newAttachments.length);
+        uploadedAttachments = await processAttachments(newAttachments, (msg) => {
+          console.log('[editMessage] Processing:', msg)
+          // Progress messages will be shown via UI state later
+        })
+        console.log('✅ [editMessage] Attachments processed:', uploadedAttachments.length);
       }
 
       // Call server action to create new version

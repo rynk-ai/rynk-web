@@ -415,17 +415,37 @@ export class ChatService {
               })
               console.log('✅ [prepareMessagesForAI] Image processed:', att.name);
             }
-            // PDFs: Convert pages to images
+            // PDFs: Use processed data (text or images)
             else if (att.type === 'application/pdf' || getFileExtension(att.name) === '.pdf') {
-              // For PDFs, we need to fetch and convert to images
-              // Since we're server-side, we can't use browser APIs
-              // So we'll provide metadata and let the client handle conversion if needed
-              // Or we can fetch and try to extract text
-              console.log('📄 [prepareMessagesForAI] PDF detected, providing metadata:', att.name);
-              content.push({
-                type: 'text',
-                text: `📄 **PDF Document**: ${att.name}\n*(${att.size ? formatFileSize(att.size) : 'size unknown'})*\n\n*Note: PDF content extraction is not yet implemented server-side. The AI can see this is a PDF attachment but cannot read its contents.*`
-              })
+              console.log('📄 [prepareMessagesForAI] PDF detected:', att.name);
+              
+              // Priority 1: Use extracted text content
+              if (att.extractedContent) {
+                console.log('✅ [prepareMessagesForAI] Using extracted text, length:', att.extractedContent.length);
+                content.push({
+                  type: 'text',
+                  text: `📄 **PDF: ${att.name}**\n\n${att.extractedContent}`
+                })
+              }
+              // Priority 2: Use fallback images (REUSE image_url logic!)
+              else if (att.fallbackImages && att.fallbackImages.length > 0) {
+                console.log('✅ [prepareMessagesForAI] Using fallback images, count:', att.fallbackImages.length);
+                att.fallbackImages.forEach((base64Url: string, index: number) => {
+                  content.push({
+                    type: 'image_url',
+                    image_url: { url: base64Url }
+                  })
+                  console.log(`   📸 Added page ${index + 1}`);
+                })
+              }
+              // Priority 3: Metadata only (legacy or processing failed)
+              else {
+                console.log('⚠️ [prepareMessagesForAI] No processed data, using metadata only');
+                content.push({
+                  type: 'text',
+                  text: `📄 **PDF Document**: ${att.name}\n*(${att.size ? formatFileSize(att.size) : 'size unknown'})*\n\n*Note: PDF content could not be extracted. This may be an encrypted or corrupted file.*`
+                })
+              }
             }
             // TEXT/CODE/DATA FILES: Extract content
             else if (this.isTextBasedFile(att)) {
