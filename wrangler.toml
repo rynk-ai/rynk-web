@@ -13,6 +13,16 @@ database_id = "eace923b-b0d6-4a99-a82e-6a4d144e4ca5"
 binding = "BUCKET"
 bucket_name = "simplechat-assets"
 
+# R2 bucket for Next.js incremental cache (ISR)
+[[r2_buckets]]
+binding = "NEXT_INC_CACHE_R2_BUCKET"
+bucket_name = "simplechat-cache"
+
+# Self-reference service binding for revalidation
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "simplechat"
+
 # Environment variables for local development only
 # Production environment variables should be set in Cloudflare Dashboard
 # Do NOT put sensitive values here - use .dev.vars instead
