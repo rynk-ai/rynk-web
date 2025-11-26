@@ -1,16 +1,13 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import { D1Adapter } from "@auth/d1-adapter"
-import { getRequestContext } from "@cloudflare/next-on-pages"
 
 export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
   // Try to get D1 binding from Cloudflare context
   let db: any = undefined
   
   try {
-    const context = getRequestContext()
-    // @ts-ignore - CloudflareEnv type will be available in production
-    db = context?.env?.DB
+    db = process?.env?.DB
   } catch (error) {
     // In local dev, we'll use JWT-based sessions instead
     console.log('No D1 binding available - using JWT sessions')

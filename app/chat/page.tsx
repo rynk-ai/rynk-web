@@ -44,7 +44,7 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
-import { useRef, useState, useEffect, useMemo, useCallback } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
@@ -901,7 +901,38 @@ function FullChatApp() {
       <AppSidebar />
       <SidebarInset>
         <ChatHeader />
-        <ChatContent />
+        <Suspense fallback={
+          <div className="flex h-full flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto w-full">
+              <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6">
+                {/* User Message Skeleton */}
+                <div className="flex w-full flex-col gap-2 px-0 items-end">
+                  <div className="flex flex-col items-end gap-1 w-full">
+                    <div className="rounded-2xl px-5 py-3 bg-primary/10 shadow-sm max-w-[85%] animate-pulse">
+                      <div className="h-4 bg-primary/20 rounded w-64 mb-2"></div>
+                      <div className="h-4 bg-primary/20 rounded w-48"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Response Skeleton */}
+                <div className="flex w-full flex-col gap-2 px-0 items-start">
+                  <div className="flex w-full flex-col gap-2 max-w-[85%]">
+                    <div className="space-y-2.5 animate-pulse">
+                      <div className="h-4 bg-muted rounded w-full"></div>
+                      <div className="h-4 bg-muted rounded w-5/6"></div>
+                      <div className="h-4 bg-muted rounded w-4/6"></div>
+                      <div className="h-4 bg-muted rounded w-full"></div>
+                      <div className="h-4 bg-muted rounded w-3/4"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }>
+          <ChatContent />
+        </Suspense>
       </SidebarInset>
     </SidebarProvider>
   );
