@@ -1,7 +1,7 @@
 name = "simplechat"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat_v2"]
-pages_build_output_dir = ".vercel/output/static"
+main = ".open-next/worker.js"
 
 # Bindings for local development
 [[d1_databases]]
@@ -17,11 +17,6 @@ bucket_name = "simplechat-assets"
 [[r2_buckets]]
 binding = "NEXT_INC_CACHE_R2_BUCKET"
 bucket_name = "simplechat-cache"
-
-# Self-reference service binding for revalidation
-[[services]]
-binding = "WORKER_SELF_REFERENCE"
-service = "simplechat"
 
 # Environment variables for local development only
 # Production environment variables should be set in Cloudflare Dashboard

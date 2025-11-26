@@ -2,7 +2,6 @@
 
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from "react"
-import { codeToHtml } from "shiki"
 
 export type CodeBlockProps = {
   children?: React.ReactNode
@@ -50,6 +49,8 @@ function CodeBlockCode({
 
       try {
         setError(null)
+        // Dynamically import Shiki only when needed (lazy loading)
+        const { codeToHtml } = await import('shiki')
         const html = await codeToHtml(code, {
           lang: language as any,
           theme,

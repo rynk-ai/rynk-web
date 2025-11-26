@@ -200,12 +200,8 @@ export async function pdfToBase64Images(file: File): Promise<string[]> {
     throw new Error('PDF conversion is only available in browser environments');
   }
 
-  // Dynamically import pdfjs-dist to avoid SSR issues
-  const pdfjsLib = await import('pdfjs-dist');
-
-  // Configure PDF.js worker (required for pdfjs-dist)
-  // Use local worker file instead of CDN
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+  // Load PDF.js from CDN instead of bundling it
+  const pdfjsLib = await import('@/lib/utils/pdfjs-cdn-loader').then(m => m.getPdfJs());
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
