@@ -517,7 +517,7 @@ export function useChat() {
   const editMessage = useCallback(async (
     messageId: string,
     newContent: string,
-    newAttachments?: File[],
+    newAttachments?: (File | any)[], // Accept both File and existing Attachment objects
     referencedConversations?: { id: string; title: string }[],
     referencedFolders?: { id: string; name: string }[]
   ): Promise<{ newMessage: any; conversationPath: string[] }> => {
@@ -531,13 +531,30 @@ export function useChat() {
     });
 
     try {
-      // Upload new attachments if any, with PDF processing
-      let uploadedAttachments: any[] | undefined;
-      if (newAttachments && newAttachments.length > 0) {
-        console.log('[editMessage] Processing attachments:', newAttachments.length);
-        uploadedAttachments = await processAttachments(newAttachments)
-        console.log('✅ [editMessage] Attachments processed:', uploadedAttachments.length);
+      // Separate new files (File objects) from existing attachments (objects with url)
+      const filesToUpload: File[] = [];
+      const existingAttachments: any[] = [];
+
+      if (newAttachments) {
+        newAttachments.forEach(item => {
+          if (item instanceof File) {
+            filesToUpload.push(item);
+          } else {
+            existingAttachments.push(item);
+          }
+        });
       }
+
+      // Upload new attachments if any, with PDF processing
+      let uploadedAttachments: any[] = [];
+      if (filesToUpload.length > 0) {
+        console.log('[editMessage] Processing new attachments:', filesToUpload.length);
+        uploadedAttachments = await processAttachments(filesToUpload)
+        console.log('✅ [editMessage] New attachments processed:', uploadedAttachments.length);
+      }
+
+      // Combine existing and new attachments
+      const finalAttachments = [...existingAttachments, ...uploadedAttachments];
 
       // Call server action to create new version
       console.log('🔄 [editMessage] Calling createMessageVersionAction...');
@@ -545,7 +562,7 @@ export function useChat() {
         currentConversationId!,
         messageId,
         newContent,
-        uploadedAttachments,
+        finalAttachments,
         referencedConversations,
         referencedFolders
       )

@@ -128,6 +128,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     isEditing, setIsEditing, 
     editingMessageId, 
     editContent, setEditContent,
+    editAttachments, setEditAttachments,
     editContext, setEditContext,
     startEdit, cancelEdit 
   } = editState;
@@ -442,11 +443,12 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     cancelEdit();
   }, [cancelEdit]);
 
-  const handleSaveEdit = async (newContent?: string, newFiles?: File[]) => {
+  const handleSaveEdit = async (newContent?: string, newFiles?: (File | any)[]) => {
     // Use passed content if available, otherwise fallback to state (for safety)
     const contentToEdit = newContent ?? editContent;
+    const attachmentsToEdit = newFiles ?? editAttachments;
     
-    if (!editingMessageId || isEditing || !contentToEdit.trim()) return;
+    if (!editingMessageId || isEditing || (!contentToEdit.trim() && attachmentsToEdit.length === 0)) return;
     
     // ✅ STEP 1: Store edit state in local variables BEFORE resetting state
     const messageIdToEdit = editingMessageId;
@@ -485,7 +487,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       const result = await editMessage(
         messageIdToEdit,
         contentToEdit,
-        undefined,
+        attachmentsToEdit,
         referencedConversations,
         referencedFolders
       );
@@ -839,24 +841,29 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
             <PromptInputWithFiles
               onSubmit={handleSubmit}
-              onSaveEdit={handleSaveEdit}
-              onCancelEdit={handleCancelEdit}
               isLoading={isLoading}
-              isSubmittingEdit={isEditing}
-              editMode={!!editingMessageId}
-              initialValue={editContent}
               placeholder={
-                !currentConversationId ? "Message..." : "Type a message..."
+                isEditing ? "Edit your message..." : (!currentConversationId ? "Message..." : "Type a message...")
               }
+              disabled={isLoading && !isEditing}
+              context={isEditing ? editContext : activeContext}
+              onContextChange={isEditing ? setEditContext : handleContextChange}
+              currentConversationId={currentConversationId}
+              conversations={conversations}
+              folders={folders}
+              // Edit mode props
+              editMode={!!editingMessageId}
+              initialValue={isEditing ? editContent : ''}
+              initialAttachments={isEditing ? editAttachments : []}
+              onCancelEdit={isEditing ? handleCancelEdit : undefined}
+              onSaveEdit={isEditing ? handleSaveEdit : undefined}
+              isSubmittingEdit={isEditing}
+              // Hide actions when editing to focus on content
+              hideActions={isEditing}
               className={cn(
                 "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300",
                 !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
               )}
-              context={editingMessageId ? editContext : activeContext}
-              onContextChange={editingMessageId ? setEditContext : handleContextChange}
-              currentConversationId={currentConversationId}
-              conversations={conversations}
-              folders={folders}
             />
           </div>
         </div>

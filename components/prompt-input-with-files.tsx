@@ -11,7 +11,7 @@ import {
   FileUpload,
   FileUploadTrigger,
 } from "@/components/prompt-kit/file-upload";
-import { FilePreviewList } from "@/components/file-preview";
+import { FilePreviewList, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Paperclip, Send, Folder, MessageSquare, Plus, X } from "lucide-react";
@@ -36,8 +36,9 @@ type PromptInputWithFilesProps = {
   // Edit mode props
   editMode?: boolean;
   initialValue?: string;
+  initialAttachments?: (File | Attachment)[];
   onCancelEdit?: () => void;
-  onSaveEdit?: (text: string, files: File[]) => Promise<void>;
+  onSaveEdit?: (text: string, files: (File | Attachment)[]) => Promise<void>;
   isSubmittingEdit?: boolean;
   // Hide attachment and context buttons
   hideActions?: boolean;
@@ -56,18 +57,27 @@ export function PromptInputWithFiles({
   folders = [],
   editMode = false,
   initialValue = '',
+  initialAttachments = [],
   onCancelEdit,
   onSaveEdit,
   isSubmittingEdit = false,
   hideActions = false,
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<(File | Attachment)[]>([]);
 
-  // Update prompt when initialValue changes (for edit mode)
+  // Update prompt and files when initial values change (for edit mode)
   useEffect(() => {
     setPrompt(initialValue);
   }, [initialValue]);
+
+  useEffect(() => {
+    if (editMode) {
+      setFiles(initialAttachments);
+    } else {
+      setFiles([]);
+    }
+  }, [editMode, initialAttachments]);
 
   // Context search state
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -103,7 +113,7 @@ export function PromptInputWithFiles({
     setFiles((prev) => [...prev, ...newFiles]);
   };
 
-  const handleRemoveFile = (fileToRemove: File) => {
+  const handleRemoveFile = (fileToRemove: File | Attachment) => {
     setFiles((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
@@ -119,7 +129,9 @@ export function PromptInputWithFiles({
       setFiles([]);
     } else if (onSubmit) {
       // Normal mode: submit new message
-      onSubmit(currentPrompt, files);
+      // Filter out Attachments (shouldn't be there in normal mode anyway)
+      const newFiles = files.filter((f): f is File => f instanceof File);
+      onSubmit(currentPrompt, newFiles);
       setPrompt("");
       setFiles([]);
     }

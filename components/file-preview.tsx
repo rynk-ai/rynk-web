@@ -4,9 +4,17 @@ import { cn } from "@/lib/utils";
 import { FileIcon, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+export type Attachment = {
+  name: string;
+  type: string;
+  size: number;
+  url?: string;
+  [key: string]: any;
+};
+
 type FilePreviewProps = {
-  file: File;
-  onRemove?: (file: File) => void;
+  file: File | Attachment;
+  onRemove?: (file: File | Attachment) => void;
   showRemove?: boolean;
 };
 
@@ -17,7 +25,14 @@ export function FilePreview({
 }: FilePreviewProps) {
   const isImage = file.type.startsWith("image/");
   const isPDF = file.type === "application/pdf";
-  const fileURL = URL.createObjectURL(file);
+  
+  // Handle both File objects (local) and Attachment objects (remote)
+  let fileURL: string;
+  if (file instanceof File) {
+    fileURL = URL.createObjectURL(file);
+  } else {
+    fileURL = file.url || "";
+  }
 
   const handleRemove = () => {
     if (onRemove) {
@@ -27,7 +42,7 @@ export function FilePreview({
 
   // PDFs are processed for AI but NOT shown as previews in chat
   // They show as document icons only (like other non-image files)
-  const shouldShowPreview = isImage && !isPDF;
+  const shouldShowPreview = isImage && !isPDF && fileURL;
 
   if (!shouldShowPreview) {
     // Show as document icon for PDFs and other files
@@ -88,8 +103,8 @@ export function FilePreview({
 }
 
 type FilePreviewListProps = {
-  files: File[];
-  onRemove?: (file: File) => void;
+  files: (File | Attachment)[];
+  onRemove?: (file: File | Attachment) => void;
   showRemove?: boolean;
 };
 
@@ -102,9 +117,9 @@ export function FilePreviewList({
 
   return (
     <div className="flex flex-wrap gap-2 pt-2">
-      {files.map((file) => (
+      {files.map((file, index) => (
         <FilePreview
-          key={file.name}
+          key={`${file.name}-${index}`}
           file={file}
           onRemove={onRemove}
           showRemove={showRemove}

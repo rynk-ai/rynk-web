@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
+import type { Attachment } from '@/components/file-preview';
 
 /**
  * Custom hook to manage message edit state independently.
@@ -10,6 +11,7 @@ export function useMessageEdit() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [editAttachments, setEditAttachments] = useState<(File | Attachment)[]>([]);
   const [editContext, setEditContext] = useState<
     { type: 'conversation' | 'folder'; id: string; title: string; status?: 'loading' | 'loaded' }[]
   >([]);
@@ -24,6 +26,7 @@ export function useMessageEdit() {
   ) => {
     setEditingMessageId(message.id);
     setEditContent(message.content);
+    setEditAttachments(message.attachments || []);
     setEditContext(initialContext);
   }, []);
   
@@ -33,6 +36,7 @@ export function useMessageEdit() {
   const cancelEdit = useCallback(() => {
     setEditingMessageId(null);
     setEditContent('');
+    setEditAttachments([]);
     setEditContext([]);
   }, []);
   
@@ -59,6 +63,7 @@ export function useMessageEdit() {
     setIsEditing,
     editingMessageId,
     editContent,
+    editAttachments,
     editContext,
     
     // Actions
@@ -67,6 +72,7 @@ export function useMessageEdit() {
     updateEditContent,
     updateEditContext,
     setEditContent,
+    setEditAttachments,
     setEditContext
   };
 }
