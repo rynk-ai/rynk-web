@@ -7,6 +7,12 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push("shiki");
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
