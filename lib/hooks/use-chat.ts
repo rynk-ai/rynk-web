@@ -265,6 +265,9 @@ export function useChat() {
   ): Promise<any[]> {
     const processed: any[] = []
 
+    // Maximum text content size (to prevent oversized requests)
+    const MAX_TEXT_CONTENT_SIZE = 30000 // ~30KB to leave room for other request data
+
     for (const file of files) {
       try {
         // Process PDFs
@@ -282,6 +285,17 @@ export function useChat() {
             // Check if we got meaningful text (> 50 chars)
             if (extractedContent && extractedContent.trim().length > 50) {
               console.log('[processAttachments] Text extracted successfully, length:', extractedContent.length)
+              
+              // Truncate if too large
+              if (extractedContent.length > MAX_TEXT_CONTENT_SIZE) {
+                console.warn('[processAttachments] PDF text too large, truncating:', {
+                  original: extractedContent.length,
+                  truncated: MAX_TEXT_CONTENT_SIZE
+                })
+                extractedContent = extractedContent.substring(0, MAX_TEXT_CONTENT_SIZE) + 
+                  '\n\n...[Content truncated due to size. Only first ~30KB shown]'
+                toast.warning(`${file.name} is very large. Only the first ~30KB of text will be sent to AI.`)
+              }
             } else {
               console.log('[processAttachments] Insufficient text extracted, falling back to images')
               extractedContent = null
