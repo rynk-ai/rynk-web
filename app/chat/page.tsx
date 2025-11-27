@@ -25,6 +25,7 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -57,6 +58,7 @@ import {
   MessageSquare,
   X,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 
@@ -916,14 +918,24 @@ function FullChatApp() {
 }
 
 function ChatHeader() {
-  const { currentConversation } = useChatContext();
-  
-  return (
+  const { selectConversation } = useChatContext();
+  const { state } = useSidebar();
 
-      <div className=" m-4 min-w-max absolute z-20 bg-muted rounded-lg">
-        <SidebarTrigger size={'lg'} className="w-10 h-10"/>
-      </div>
-        
+  return (
+    <div className=" m-4 min-w-max absolute z-20 bg-muted rounded-lg flex items-center gap-2 px-2">
+      <SidebarTrigger size={'lg'} className="w-10 h-10"/>
+      {state === "collapsed" && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-10 h-10 hover:bg-muted-foreground/10"
+          onClick={() => selectConversation(null)}
+          title="Start new chat"
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
+      )}
+    </div>
   );
 }
 
