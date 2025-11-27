@@ -190,9 +190,9 @@ export function ContextPicker({
                   <div
                     key={id}
                     className={cn(
-                      "group p-4 rounded-xl border cursor-pointer transition-all hover:shadow-sm active:scale-[0.99]",
-                      isSelected 
-                        ? "bg-primary/5 border-primary/50" 
+                      "group p-2.5 rounded-lg border cursor-pointer transition-all hover:shadow-sm active:scale-[0.99]",
+                      isSelected
+                        ? "bg-primary/5 border-primary/50"
                         : isCovered
                           ? "opacity-50 cursor-not-allowed bg-muted/30 border-border/30"
                           : "border-border/50 hover:bg-muted/50 hover:border-primary/20"
@@ -203,37 +203,42 @@ export function ContextPicker({
                       }
                     }}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className={cn("p-1 rounded-md", isFolder ? "bg-blue-500/10 text-blue-500" : "bg-primary/10 text-primary")}>
-                            {isFolder ? <FolderIcon className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-                          </div>
-                          <span>{isFolder ? 'Folder' : new Date(data.updatedAt).toLocaleDateString()}</span>
+                          {isFolder && (
+                            <div className="p-0.5 rounded bg-blue-500/10 text-blue-500 flex-shrink-0">
+                              <FolderIcon className="h-3 w-3" />
+                            </div>
+                          )}
+                          <span>
+                            {isFolder
+                              ? 'Folder'
+                              : new Date(data.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                            }
+                          </span>
                           {isCovered && (
-                            <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] italic">
-                              Included in folder
+                            <span className="bg-muted px-1 py-0.5 rounded text-[10px] italic">
+                              In folder
                             </span>
                           )}
                         </div>
-                        <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                        <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors mt-0.5 truncate">
                           {title}
                         </div>
                       </div>
                       {isSelected && (
-                        <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                        <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
                           <Check className="h-3 w-3" />
                         </div>
                       )}
+                      <div className="text-[10px] text-muted-foreground/70 flex items-center h-full">
+                        {isFolder
+                          ? `${(data as Folder).conversationIds.length}`
+                          : `${(data as CloudConversation).path.length}`
+                        }
+                      </div>
                     </div>
-
-                    {/* Show details */}
-                    <p className="text-xs text-muted-foreground/70 mt-1 pl-7">
-                      {isFolder 
-                        ? `${(data as Folder).conversationIds.length} conversations` 
-                        : `${(data as CloudConversation).path.length} messages`
-                      }
-                    </p>
                   </div>
                 );
               })
