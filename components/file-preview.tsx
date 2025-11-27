@@ -59,6 +59,12 @@ export function FilePreview({
                 {(file.size / 1024).toFixed(1)} KB
                 {isPDF && " • PDF"}
               </p>
+              {(file as any).useRAG && (
+                <p className="text-[10px] text-green-600 flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  Indexed ({(file as any).chunkCount || '?'} chunks)
+                </p>
+              )}
             </div>
             {showRemove && onRemove && (
               <Button
