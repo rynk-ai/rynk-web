@@ -71,13 +71,19 @@ export function PromptInputWithFiles({
     setPrompt(initialValue);
   }, [initialValue]);
 
+  // Handle entering edit mode or updating attachments while editing
   useEffect(() => {
     if (editMode) {
       setFiles(initialAttachments);
-    } else {
-      setFiles([]);
     }
   }, [editMode, initialAttachments]);
+
+  // Handle exiting edit mode
+  useEffect(() => {
+    if (!editMode) {
+      setFiles([]);
+    }
+  }, [editMode]);
 
   // Context search state
   const [cursorPosition, setCursorPosition] = useState(0);
