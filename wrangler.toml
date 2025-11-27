@@ -22,3 +22,10 @@ bucket_name = "simplechat-cache"
 # Environment variables for local development only
 # Production environment variables should be set in Cloudflare Dashboard
 # Do NOT put sensitive values here - use .dev.vars instead
+
+[observability]
+[observability.logs]
+enabled = false
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
