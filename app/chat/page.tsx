@@ -155,6 +155,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     conversation?: string;
     messageCount?: number;
   }>>([]);
+  
+  // PDF processing progress state
+  const [processingProgress, setProcessingProgress] = useState<string[]>([]);
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -194,8 +197,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const handleSubmit = useCallback(async (text: string, files: File[]) => {
     if (!text.trim() && files.length === 0) return;
 
-    // Clear previous context progress
+    // Clear previous progress
     setContextProgress([]);
+    setProcessingProgress([]);
     
     setIsSending(true);
 
@@ -248,7 +252,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         text,
         files,
         referencedConversations,
-        referencedFolders
+        referencedFolders,
+        // Pass progress callback
+        (msg) => setProcessingProgress(prev => [...prev, msg])
       );
 
       if (!result) {
@@ -781,6 +787,21 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                  className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6"
                  style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
                >
+                {/* PDF Processing Progress */}
+                {processingProgress.length > 0 && (
+                  <div className="mx-auto w-full max-w-4xl">
+                    <ChainOfThought>
+                      {processingProgress.map((msg, i) => (
+                        <ChainOfThoughtStep key={i}>
+                          <ChainOfThoughtTrigger>
+                            {msg}
+                          </ChainOfThoughtTrigger>
+                        </ChainOfThoughtStep>
+                      ))}
+                    </ChainOfThought>
+                  </div>
+                )}
+                
                 <MessageList
                   messages={messages}
                   isSending={isSending}

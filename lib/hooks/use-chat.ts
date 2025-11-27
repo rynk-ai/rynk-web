@@ -350,7 +350,8 @@ export function useChat() {
     content: string,
     files: File[] = [],
     referencedConversations: { id: string; title: string }[] = [],
-    referencedFolders: { id: string; name: string }[] = []
+    referencedFolders: { id: string; name: string }[] = [],
+    onProgress?: (message: string) => void
   ): Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>;
     conversationId: string;
@@ -389,10 +390,7 @@ export function useChat() {
       let uploadedAttachments: any[] = []
       if (files && files.length > 0) {
         // Process attachments (handles PDFs specially)
-        uploadedAttachments = await processAttachments(files, (msg) => {
-          console.log('[sendMessage] Processing:', msg)
-          // Progress messages will be shown via UI state later
-        })
+        uploadedAttachments = await processAttachments(files, onProgress)
       }
       
       // Call the unified API
