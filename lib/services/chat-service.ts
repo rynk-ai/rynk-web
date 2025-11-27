@@ -139,8 +139,10 @@ export class ChatService {
 
     // 8. Detect if files/attachments are present in the conversation
     // This determines whether we need multimodal support (OpenRouter) or can use text-only (Groq)
-    const hasFiles = this.hasFilesInConversation(messages, project)
-    console.log('📎 [chatService] File detection result:', { hasFiles })
+    // In edit flow, use message attachments; in normal flow, use passed attachments
+    const attachmentsToCheck = userMessage.attachments || attachments || []
+    const hasFiles = this.hasFilesInConversation(messages, project, attachmentsToCheck)
+    console.log('📎 [chatService] File detection result:', { hasFiles, attachmentCount: attachmentsToCheck.length })
 
     // 9. Call AI and Stream (auto-select provider based on file presence)
     console.log('📤 [chatService] Sending message to AI API...');
