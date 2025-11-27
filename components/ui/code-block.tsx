@@ -55,9 +55,29 @@ function CodeBlockCode({
       }
 
       // Dynamically import Shiki only when needed (lazy loading)
-      const { codeToHtml } = await import('shiki')
-      const html = await codeToHtml(code, { lang: language, theme })
+      // Use createHighlighterCore for better tree-shaking
+      const { createHighlighterCore } = await import('shiki/core')
+      const { createOnigurumaEngine } = await import('shiki/engine/oniguruma')
+      
+      const highlighter = await createHighlighterCore({
+        themes: [
+          import('shiki/themes/vitesse-dark.mjs')
+        ],
+        langs: [
+          import('shiki/langs/typescript.mjs'),
+          import('shiki/langs/javascript.mjs'),
+          import('shiki/langs/tsx.mjs'),
+          import('shiki/langs/jsx.mjs'),
+          import('shiki/langs/json.mjs'),
+          import('shiki/langs/css.mjs'),
+          import('shiki/langs/html.mjs')
+        ],
+        engine: createOnigurumaEngine(() => import('shiki/wasm'))
+      })
+      
+      const html = highlighter.codeToHtml(code, { lang: language, theme })
       setHighlightedHtml(html)
+      highlighter.dispose()
     }
     highlight()
   }, [code, language, theme])

@@ -49,11 +49,34 @@ function CodeBlockCode({
 
       try {
         setError(null)
-        // Dynamically import Shiki only when needed (lazy loading)
-        const { codeToHtml } = await import('shiki')
-        const html = await codeToHtml(code, {
-          lang: language as any,
-          theme,
+        // Use createHighlighterCore for better tree-shaking
+        const { createHighlighterCore } = await import('shiki/core')
+        const { createOnigurumaEngine } = await import('shiki/engine/oniguruma')
+        
+        const highlighter = await createHighlighterCore({
+          themes: [
+            import('shiki/themes/tokyo-night.mjs'),
+            import('shiki/themes/vitesse-dark.mjs')
+          ],
+          langs: [
+            import('shiki/langs/typescript.mjs'),
+            import('shiki/langs/javascript.mjs'),
+            import('shiki/langs/tsx.mjs'),
+            import('shiki/langs/jsx.mjs'),
+            import('shiki/langs/json.mjs'),
+            import('shiki/langs/css.mjs'),
+            import('shiki/langs/html.mjs'),
+            import('shiki/langs/markdown.mjs'),
+            import('shiki/langs/python.mjs'),
+            import('shiki/langs/bash.mjs'),
+            import('shiki/langs/sql.mjs')
+          ],
+          engine: createOnigurumaEngine(() => import('shiki/wasm'))
+        })
+
+        const html = highlighter.codeToHtml(code, {
+          lang: language,
+          theme: theme || 'tokyo-night',
           transformers: [
             {
               pre(node) {
@@ -68,6 +91,7 @@ function CodeBlockCode({
           ],
         })
         setHighlightedHtml(html)
+        highlighter.dispose()
       } catch (err) {
         console.error("Syntax highlighting error:", err)
         setError(String(err))
