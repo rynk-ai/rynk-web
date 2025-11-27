@@ -671,7 +671,31 @@ export class ChatService {
    * Check if the conversation has any files/attachments that require multimodal support
    * Returns true if images, PDFs, or any non-text-based files are present
    */
-  private hasFilesInConversation(messages: ApiMessage[], project: any = null): boolean {
+  private hasFilesInConversation(messages: ApiMessage[], project: any = null, rawAttachments: any[] = []): boolean {
+    // Check raw attachments first (before they're processed into messages)
+    // This catches PDFs with RAG processing which may not have image_url content
+    if (rawAttachments && rawAttachments.length > 0) {
+      const hasPDFsOrImages = rawAttachments.some((att: any) => {
+        // Check for PDFs (both RAG and non-RAG)
+        if (att.type === 'application/pdf' || att.name?.endsWith('.pdf')) {
+          return true
+        }
+        // Check for images
+        if (att.type?.startsWith('image/')) {
+          return true
+        }
+        // Check for RAG processed files
+        if (att.useRAG) {
+          return true
+        }
+        return false
+      })
+      if (hasPDFsOrImages) {
+        console.log('✅ [hasFilesInConversation] Found PDF/RAG/Image in raw attachments')
+        return true
+      }
+    }
+
     // Check project attachments (images specifically, as they're processed as multimodal)
     if (project?.attachments && project.attachments.length > 0) {
       const hasProjectImages = project.attachments.some((att: any) => att.type?.startsWith('image/'))
