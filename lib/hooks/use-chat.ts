@@ -43,6 +43,7 @@ import {
   extractTextFromPDF,
 } from "@/lib/utils/file-converter"
 import { toast } from "sonner"
+import { createAttachmentMetadataAction, processFileForRAGAction } from '@/lib/actions/rag-actions'
 
 export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -267,6 +268,7 @@ export function useChat() {
 
     // Maximum text content size (to prevent oversized requests)
     const MAX_TEXT_CONTENT_SIZE = 30000 // ~30KB to leave room for other request data
+    const RAG_THRESHOLD = 10000 // Use RAG for files larger than 10KB
 
     for (const file of files) {
       try {
@@ -274,10 +276,17 @@ export function useChat() {
         if (isPDFFile(file)) {
           console.log('[processAttachments] Processing PDF:', file.name)
           
-          // Step 1: Try text extraction
+          // Step 1: Upload to R2 first (we need the URL for metadata)
+          const formData = new FormData()
+          formData.append('file', file)
+          const uploaded = await uploadFileAction(formData)
           
+          // Step 2: Try text extraction
           let extractedContent: string | null = null
           let fallbackImages: string[] | null = null
+          let useRAG = false
+          let attachmentId: string | undefined
+          let chunkCount: number | undefined
           
           try {
             extractedContent = await extractTextFromPDF(file)
@@ -286,8 +295,40 @@ export function useChat() {
             if (extractedContent && extractedContent.trim().length > 50) {
               console.log('[processAttachments] Text extracted successfully, length:', extractedContent.length)
               
-              // Truncate if too large
-              if (extractedContent.length > MAX_TEXT_CONTENT_SIZE) {
+              // Check if we should use RAG
+              if (extractedContent.length > RAG_THRESHOLD) {
+                console.log('[processAttachments] Large PDF detected, initiating RAG processing')
+                try {
+                  // Create metadata
+                  attachmentId = await createAttachmentMetadataAction({
+                    fileName: uploaded.name,
+                    fileType: uploaded.type,
+                    fileSize: uploaded.size,
+                    r2Key: uploaded.url,
+                    messageId: null
+                  })
+                  
+                  // Start RAG processing
+                  toast.info(`Indexing ${file.name} for search...`)
+                  const result = await processFileForRAGAction(attachmentId, extractedContent, {
+                    fileName: uploaded.name,
+                    fileType: uploaded.type,
+                    fileSize: uploaded.size
+                  })
+                  
+                  useRAG = true
+                  chunkCount = result.chunkCount
+                  toast.success(`${file.name} indexed (${result.chunkCount} chunks)`)
+                  
+                } catch (ragError) {
+                  console.error('[processAttachments] RAG processing failed:', ragError)
+                  toast.error(`Failed to index ${file.name}, falling back to standard mode`)
+                  // Fallback to truncation logic below
+                }
+              }
+              
+              // If not using RAG (or RAG failed), apply truncation if needed
+              if (!useRAG && extractedContent.length > MAX_TEXT_CONTENT_SIZE) {
                 console.warn('[processAttachments] PDF text too large, truncating:', {
                   original: extractedContent.length,
                   truncated: MAX_TEXT_CONTENT_SIZE
@@ -305,9 +346,8 @@ export function useChat() {
             extractedContent = null
           }
           
-          // Step 2: Fallback to images if no text
-          if (!extractedContent) {
-            
+          // Step 3: Fallback to images if no text (and not using RAG)
+          if (!extractedContent && !useRAG) {
             try {
               fallbackImages = await pdfToBase64Images(file, {
                 maxPages: 10,
@@ -317,7 +357,6 @@ export function useChat() {
               
               console.log('[processAttachments] PDF converted to', fallbackImages.length, 'images')
               
-              // Warn user if PDF has more than 10 pages
               if (fallbackImages.length === 10) {
                 toast.warning(`${file.name} has more than 10 pages. Only the first 10 pages will be sent to AI.`)
               }
@@ -327,16 +366,14 @@ export function useChat() {
             }
           }
           
-          // Step 3: Upload to R2
-          const formData = new FormData()
-          formData.append('file', file)
-          const uploaded = await uploadFileAction(formData)
-          
           // Add processed data to attachment metadata
           processed.push({
             ...uploaded,
-            extractedContent: extractedContent || undefined,
-            fallbackImages: fallbackImages || undefined
+            extractedContent: useRAG ? undefined : (extractedContent || undefined),
+            fallbackImages: fallbackImages || undefined,
+            useRAG,
+            attachmentId,
+            chunkCount
           })
         }
         // Regular file upload (images, etc.)

@@ -419,8 +419,63 @@ export class ChatService {
             else if (att.type === 'application/pdf' || getFileExtension(att.name) === '.pdf') {
               console.log('📄 [prepareMessagesForAI] PDF detected:', att.name);
               
-              // Priority 1: Use extracted text content
-              if (att.extractedContent) {
+              // Priority 0: Use RAG if available
+              if (att.useRAG && att.attachmentId) {
+                console.log('🔍 [prepareMessagesForAI] Using RAG for PDF:', att.name);
+                
+                try {
+                  // Get user's current query from the last message
+                  const lastMsg = messages[messages.length - 1];
+                  const userQuery = lastMsg?.content || '';
+                  
+                  if (userQuery) {
+                    // Generate query embedding
+                    const aiProvider = getAIProvider()
+                    const queryVector = await aiProvider.getEmbeddings(userQuery)
+                    
+                    // Search for relevant chunks
+                    const { vectorDb } = await import('@/lib/services/vector-db')
+                    const relevantChunks = await vectorDb.searchFileChunks(
+                      att.attachmentId,
+                      queryVector,
+                      { limit: 5, minScore: 0.4 } // Slightly lower threshold to ensure we get something
+                    )
+                    
+                    if (relevantChunks.length > 0) {
+                      const contextText = relevantChunks
+                        .map((chunk, i) => `[${att.name} - Excerpt ${i + 1}]\n${chunk.content}`)
+                        .join('\n\n---\n\n')
+                      
+                      content.push({
+                        type: 'text',
+                        text: `📄 **PDF: ${att.name}** (${att.chunkCount} chunks total, showing ${relevantChunks.length} most relevant)\n\n${contextText}`
+                      })
+                      
+                      console.log('✅ [prepareMessagesForAI] Added RAG context:', {
+                        fileName: att.name,
+                        chunksRetrieved: relevantChunks.length,
+                        totalSize: contextText.length
+                      });
+                    } else {
+                      content.push({
+                        type: 'text',
+                        text: `📄 **PDF: ${att.name}** - File uploaded but no relevant content found for this query.`
+                      })
+                    }
+                  }
+                } catch (ragError) {
+                  console.error('❌ [prepareMessagesForAI] RAG retrieval failed:', ragError);
+                  // Fallback to extracted content if available (and not too large)
+                  if (att.extractedContent) {
+                     content.push({
+                      type: 'text',
+                      text: `📄 **PDF: ${att.name}**\n\n${att.extractedContent}`
+                    })
+                  }
+                }
+              }
+              // Priority 1: Use extracted text content (legacy/small files)
+              else if (att.extractedContent) {
                 console.log('✅ [prepareMessagesForAI] Using extracted text, length:', att.extractedContent.length);
                 content.push({
                   type: 'text',
