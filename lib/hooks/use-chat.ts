@@ -43,7 +43,12 @@ import {
   extractTextFromPDF,
 } from "@/lib/utils/file-converter"
 import { toast } from "sonner"
-import { createAttachmentMetadataAction, processFileForRAGAction } from '@/lib/actions/rag-actions'
+import { 
+  createAttachmentMetadataAction, 
+  processBatchForRAGAction,
+  completeRAGProcessingAction
+} from '@/lib/actions/rag-actions'
+import { chunkText } from '@/lib/utils/chunking'
 
 export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -309,21 +314,47 @@ export function useChat() {
                   })
                   
                   // Start RAG processing
-                  toast.info(`Indexing ${file.name} for search...`)
-                  const result = await processFileForRAGAction(attachmentId, extractedContent, {
-                    fileName: uploaded.name,
-                    fileType: uploaded.type,
-                    fileSize: uploaded.size
-                  })
+                  toast.info(`Indexing ${file.name}...`)
+                  
+                  // 1. Chunk text locally
+                  const chunks = chunkText(extractedContent, { chunkSize: 4000, overlap: 400 })
+                  console.log(`[processAttachments] Chunked locally: ${chunks.length} chunks`)
+                  
+                  // 2. Upload in batches
+                  const BATCH_SIZE = 5
+                  let processedCount = 0
+                  
+                  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+                    const batch = chunks.slice(i, i + BATCH_SIZE)
+                    toast.loading(`Indexing ${file.name} (${Math.round((i / chunks.length) * 100)}%)`, { duration: Infinity })
+                    
+                    await processBatchForRAGAction(
+                      attachmentId, 
+                      batch, 
+                      i, 
+                      {
+                        fileName: uploaded.name,
+                        fileType: uploaded.type,
+                        fileSize: uploaded.size
+                      }
+                    )
+                    processedCount += batch.length
+                  }
+                  
+                  // 3. Mark as complete
+                  await completeRAGProcessingAction(attachmentId, chunks.length)
                   
                   useRAG = true
-                  chunkCount = result.chunkCount
-                  toast.success(`${file.name} indexed (${result.chunkCount} chunks)`)
+                  chunkCount = chunks.length
+                  toast.dismiss()
+                  toast.success(`${file.name} indexed (${chunks.length} chunks)`)
                   
                 } catch (ragError) {
                   console.error('[processAttachments] RAG processing failed:', ragError)
-                  toast.error(`Failed to index ${file.name}, falling back to standard mode`)
-                  // Fallback to truncation logic below
+                  toast.dismiss()
+                  toast.error(`Failed to process ${file.name}. Please try again.`)
+                  // Re-throw to prevent message from being sent
+                  throw new Error(`RAG processing failed for ${file.name}: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`)
                 }
               }
               
