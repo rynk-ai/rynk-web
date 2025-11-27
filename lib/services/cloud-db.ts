@@ -141,6 +141,13 @@ export const cloudDb = {
 
   async createConversation(userId: string, title: string = 'New Conversation', projectId?: string) {
     const db = getDB()
+    
+    // DEFENSIVE: Ensure user exists before creating conversation
+    const user = await db.prepare('SELECT id FROM users WHERE id = ?').bind(userId).first()
+    if (!user) {
+      throw new Error(`User ${userId} not found in database. Please log in again.`)
+    }
+    
     const id = crypto.randomUUID()
     const now = Date.now()
     await db.prepare(
