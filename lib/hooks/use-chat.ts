@@ -261,8 +261,7 @@ export function useChat() {
    * 3. Upload to R2 and return metadata with processed data
    */
   async function processAttachments(
-    files: File[],
-    onProgress?: (message: string) => void
+    files: File[]
   ): Promise<any[]> {
     const processed: any[] = []
 
@@ -273,7 +272,6 @@ export function useChat() {
           console.log('[processAttachments] Processing PDF:', file.name)
           
           // Step 1: Try text extraction
-          onProgress?.(`Extracting text from ${file.name}...`)
           
           let extractedContent: string | null = null
           let fallbackImages: string[] | null = null
@@ -295,7 +293,6 @@ export function useChat() {
           
           // Step 2: Fallback to images if no text
           if (!extractedContent) {
-            onProgress?.(`Converting ${file.name} to images...`)
             
             try {
               fallbackImages = await pdfToBase64Images(file, {
@@ -317,7 +314,6 @@ export function useChat() {
           }
           
           // Step 3: Upload to R2
-          onProgress?.(`Uploading ${file.name}...`)
           const formData = new FormData()
           formData.append('file', file)
           const uploaded = await uploadFileAction(formData)
@@ -331,7 +327,6 @@ export function useChat() {
         }
         // Regular file upload (images, etc.)
         else {
-          onProgress?.(`Uploading ${file.name}...`)
           const formData = new FormData()
           formData.append('file', file)
           const uploaded = await uploadFileAction(formData)
@@ -350,8 +345,7 @@ export function useChat() {
     content: string,
     files: File[] = [],
     referencedConversations: { id: string; title: string }[] = [],
-    referencedFolders: { id: string; name: string }[] = [],
-    onProgress?: (message: string) => void
+    referencedFolders: { id: string; name: string }[] = []
   ): Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>;
     conversationId: string;
@@ -389,8 +383,7 @@ export function useChat() {
       // Handle file uploads with PDF processing
       let uploadedAttachments: any[] = []
       if (files && files.length > 0) {
-        // Process attachments (handles PDFs specially)
-        uploadedAttachments = await processAttachments(files, onProgress)
+        uploadedAttachments = await processAttachments(files)
       }
       
       // Call the unified API
@@ -542,10 +535,7 @@ export function useChat() {
       let uploadedAttachments: any[] | undefined;
       if (newAttachments && newAttachments.length > 0) {
         console.log('[editMessage] Processing attachments:', newAttachments.length);
-        uploadedAttachments = await processAttachments(newAttachments, (msg) => {
-          console.log('[editMessage] Processing:', msg)
-          // Progress messages will be shown via UI state later
-        })
+        uploadedAttachments = await processAttachments(newAttachments)
         console.log('✅ [editMessage] Attachments processed:', uploadedAttachments.length);
       }
 

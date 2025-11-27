@@ -57,17 +57,9 @@ import {
   MessageSquare,
   X,
   Loader2,
-  CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
-import {
-  ChainOfThought,
-  ChainOfThoughtStep,
-  ChainOfThoughtTrigger,
-  ChainOfThoughtContent,
-  ChainOfThoughtItem,
-} from "@/components/ui/chain-of-thought";
+
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -150,14 +142,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   // Other local state
   const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [contextProgress, setContextProgress] = useState<Array<{
-    type: 'loading' | 'loaded' | 'complete';
-    conversation?: string;
-    messageCount?: number;
-  }>>([]);
-  
-  // PDF processing progress state
-  const [processingProgress, setProcessingProgress] = useState<string[]>([]);
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -176,8 +160,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const isLoading = isSending || isEditing || !!isDeleting || contextIsLoading;
 
   // Local context state (used for all conversations now, transient)
+  // Added 'status' field to track loading state for minimal progress feedback
   const [localContext, setLocalContext] = useState<
-    { type: "conversation" | "folder"; id: string; title: string }[]
+    { type: "conversation" | "folder"; id: string; title: string; status?: 'loading' | 'loaded' }[]
   >([]);
 
   // Derived active context (source of truth) - now just localContext
@@ -197,10 +182,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const handleSubmit = useCallback(async (text: string, files: File[]) => {
     if (!text.trim() && files.length === 0) return;
 
-    // Clear previous progress
-    setContextProgress([]);
-    setProcessingProgress([]);
-    
     setIsSending(true);
 
     // ✅ OPTIMISTIC UI: Create temp IDs and messages
@@ -252,9 +233,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         text,
         files,
         referencedConversations,
-        referencedFolders,
-        // Pass progress callback
-        (msg) => setProcessingProgress(prev => [...prev, msg])
+        referencedFolders
       );
 
       if (!result) {
@@ -278,10 +257,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         startStreaming(assistantMessageId);
       }
 
-      // Read the stream and parse progress markers
+      // Read the stream
       const decoder = new TextDecoder();
       let fullContent = "";
-      let buffer = "";
 
       try {
         while (true) {
@@ -289,29 +267,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           if (done) break;
           
           const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-          
-          // Parse progress markers
-          while (buffer.includes('[CONTEXT_PROGRESS]')) {
-            const startIdx = buffer.indexOf('[CONTEXT_PROGRESS]');
-            const endIdx = buffer.indexOf('\n', startIdx);
-            
-            if (endIdx === -1) break; // Incomplete marker, wait for more data
-            
-            const progressLine = buffer.substring(startIdx + '[CONTEXT_PROGRESS]'.length, endIdx);
-            buffer = buffer.substring(endIdx + 1);
-            
-            try {
-              const progress = JSON.parse(progressLine);
-              console.log('📊 [Context Progress]', progress);
-              setContextProgress(prev => [...prev, progress]);
-            } catch (e) {
-              console.error('Failed to parse progress:', e, 'Line:', progressLine);
-            }
-          }
-          
-          // Remaining buffer is AI response content
-          fullContent = buffer;
+          fullContent += chunk;
           updateStreamContent(fullContent);
         }
       } catch (err) {
@@ -447,6 +403,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       type: "conversation" | "folder";
       id: string;
       title: string;
+      status?: 'loading' | 'loaded';
     }[] = [];
     if (message.referencedConversations) {
       initialContext.push(
@@ -787,20 +744,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                  className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6"
                  style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
                >
-                {/* PDF Processing Progress */}
-                {processingProgress.length > 0 && (
-                  <div className="mx-auto w-full max-w-4xl">
-                    <ChainOfThought>
-                      {processingProgress.map((msg, i) => (
-                        <ChainOfThoughtStep key={i}>
-                          <ChainOfThoughtTrigger>
-                            {msg}
-                          </ChainOfThoughtTrigger>
-                        </ChainOfThoughtStep>
-                      ))}
-                    </ChainOfThought>
-                  </div>
-                )}
                 
                 <MessageList
                   messages={messages}
@@ -813,7 +756,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onBranchFromMessage={handleBranchFromMessage}
                   messageVersions={messageVersions}
                   onSwitchVersion={switchToMessageVersion}
-                  contextProgress={contextProgress}
                 />
               </ChatContainerContent>
             </ChatContainerRoot>
@@ -836,39 +778,46 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             {/* Show editContext when editing, activeContext otherwise */}
             {(editingMessageId ? editContext.length > 0 : activeContext.length > 0) && (
               <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
-                {(editingMessageId ? editContext : activeContext).map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
-                  >
-                    {c.type === "folder" ? (
-                      <FolderIcon className="h-3 w-3 text-blue-500" />
-                    ) : (
-                      <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                    )}
-                    <span className="font-medium text-foreground max-w-[100px] truncate">
-                      {c.title}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (editingMessageId) {
-                          setEditContext(editContext.filter((_, idx) => idx !== i));
-                        } else {
-                          handleContextChange(
-                            activeContext.filter((_, idx) => idx !== i)
-                          );
-                        }
-                      }}
+                {(editingMessageId ? editContext : activeContext).map((c, i) => {
+                  const isLoading = c.status === 'loading';
+                  
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
                     >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                      {/* Show spinner when loading, otherwise show normal icon */}
+                      {isLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      ) : c.type === "folder" ? (
+                        <FolderIcon className="h-3 w-3 text-blue-500" />
+                      ) : (
+                        <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                      )}
+                      <span className="font-medium text-foreground max-w-[100px] truncate">
+                        {c.title}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (editingMessageId) {
+                            setEditContext(editContext.filter((_, idx) => idx !== i));
+                          } else {
+                            handleContextChange(
+                              activeContext.filter((_, idx) => idx !== i)
+                            );
+                          }
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
                 <Button
                   variant="ghost"
                   size="sm"

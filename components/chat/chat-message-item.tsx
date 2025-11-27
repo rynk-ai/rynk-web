@@ -4,7 +4,7 @@ import { memo, useCallback } from 'react';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { Message, MessageContent, MessageActions, MessageAction } from '@/components/ui/message';
 import { Button } from '@/components/ui/button';
-import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquare, Paperclip, MessageSquareDashedIcon } from 'lucide-react';
+import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquare, Paperclip, MessageSquareDashedIcon, Loader2 } from 'lucide-react';
 import { Markdown } from '@/components/ui/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
@@ -119,6 +119,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   }
   
   // User message
+  const isLoading = isLastMessage && isSending && !isStreaming;
+
   return (
     <Message className={cn("mx-auto flex w-full max-w-4xl flex-col gap-2 px-0 items-end")}>
       <div className="group flex flex-col items-end gap-1 w-full">
@@ -142,7 +144,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 key={`f-${f.id}`}
                 className="flex items-center gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] border border-blue-500/20"
               >
-                <FolderIcon size={10} />
+                {isLoading ? (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                ) : (
+                  <FolderIcon size={10} />
+                )}
                 <span className="font-medium truncate max-w-[100px]">{f.name}</span>
               </div>
             ))}
@@ -151,7 +157,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 key={`c-${c.id}`}
                 className="flex items-center gap-1 bg-primary/5 text-primary px-2 py-0.5 rounded-full text-[10px] "
               >
-                <MessageSquareDashedIcon size={10} />
+                {isLoading ? (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                ) : (
+                  <MessageSquareDashedIcon size={10} />
+                )}
                 <span className="font-medium truncate max-w-[100px]">{c.title}</span>
               </div>
             ))}
@@ -164,7 +174,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             {message.attachments.map((file, i) => (
               <div key={i} className="relative group/file">
                 <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-lg text-xs border border-border/50">
-                  <Paperclip className="h-3 w-3 text-muted-foreground" />
+                  {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Paperclip className="h-3 w-3 text-muted-foreground" />
+                  )}
                   <span className="truncate max-w-[120px]">{file.name}</span>
                 </div>
               </div>

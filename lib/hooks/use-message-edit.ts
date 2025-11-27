@@ -11,7 +11,7 @@ export function useMessageEdit() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editContext, setEditContext] = useState<
-    { type: 'conversation' | 'folder'; id: string; title: string }[]
+    { type: 'conversation' | 'folder'; id: string; title: string; status?: 'loading' | 'loaded' }[]
   >([]);
   
   /**
@@ -20,7 +20,7 @@ export function useMessageEdit() {
    */
   const startEdit = useCallback((
     message: ChatMessage,
-    initialContext: { type: 'conversation' | 'folder'; id: string; title: string }[]
+    initialContext: { type: 'conversation' | 'folder'; id: string; title: string; status?: 'loading' | 'loaded' }[]
   ) => {
     setEditingMessageId(message.id);
     setEditContent(message.content);
@@ -48,7 +48,7 @@ export function useMessageEdit() {
    * Update edit context (referenced conversations/folders).
    */
   const updateEditContext = useCallback((
-    context: { type: 'conversation' | 'folder'; id: string; title: string }[]
+    context: { type: 'conversation' | 'folder'; id: string; title: string; status?: 'loading' | 'loaded' }[]
   ) => {
     setEditContext(context);
   }, []);
