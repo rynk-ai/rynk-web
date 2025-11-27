@@ -25,7 +25,21 @@ bucket_name = "simplechat-cache"
 
 [observability]
 [observability.logs]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 invocation_logs = true
 persist = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
+[[routes]]
+pattern = "rynk.io"
+custom_domain = true
+
+[vars]
+AUTH_TRUST_HOST = "true"
+AUTH_URL = "https://rynk.io"
+NEXTAUTH_URL = "https://rynk.io"

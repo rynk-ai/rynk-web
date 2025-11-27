@@ -14,6 +14,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
   }
   
   return {
+    trustHost: true,
     adapter: db ? D1Adapter(db) : undefined,
     providers: [
       Google({
