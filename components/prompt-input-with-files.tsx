@@ -40,6 +40,10 @@ type PromptInputWithFilesProps = {
   onCancelEdit?: () => void;
   onSaveEdit?: (text: string, files: (File | Attachment)[]) => Promise<void>;
   isSubmittingEdit?: boolean;
+  // State sync props
+  onValueChange?: (value: string) => void;
+  onFilesChange?: (files: (File | Attachment)[]) => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
   // Hide attachment and context buttons
   hideActions?: boolean;
 };
@@ -61,6 +65,9 @@ export function PromptInputWithFiles({
   onCancelEdit,
   onSaveEdit,
   isSubmittingEdit = false,
+  onValueChange,
+  onFilesChange,
+  onKeyDown,
   hideActions = false,
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
@@ -110,17 +117,29 @@ export function PromptInputWithFiles({
       // Only add valid files
       const validFiles = results.filter(r => r.validation.valid).map(r => r.file);
       if (validFiles.length > 0) {
-        setFiles((prev) => [...prev, ...validFiles]);
+        setFiles((prev) => {
+          const updated = [...prev, ...validFiles];
+          onFilesChange?.(updated);
+          return updated;
+        });
       }
       return;
     }
     
     // All files valid
-    setFiles((prev) => [...prev, ...newFiles]);
+    setFiles((prev) => {
+      const updated = [...prev, ...newFiles];
+      onFilesChange?.(updated);
+      return updated;
+    });
   };
 
   const handleRemoveFile = (fileToRemove: File | Attachment) => {
-    setFiles((prev) => prev.filter((f) => f !== fileToRemove));
+    setFiles((prev) => {
+      const updated = prev.filter((f) => f !== fileToRemove);
+      onFilesChange?.(updated);
+      return updated;
+    });
   };
 
   const handleSubmit = async () => {
@@ -146,6 +165,7 @@ export function PromptInputWithFiles({
   // Handle input changes to detect @
   const handlePromptChange = (value: string) => {
     setPrompt(value);
+    onValueChange?.(value);
     
     // Find the last @ before cursor
     const lastAt = value.lastIndexOf('@');
@@ -204,6 +224,7 @@ export function PromptInputWithFiles({
     if (lastAt !== -1) {
       const newPrompt = prompt.slice(0, lastAt).trimEnd(); // Remove @ and text after it
       setPrompt(newPrompt + " "); // Add a space
+      onValueChange?.(newPrompt + " ");
     }
     
     
@@ -217,7 +238,9 @@ export function PromptInputWithFiles({
 
   // Handle keyboard navigation for suggestions
   const handleKeyDown = (e: React.KeyboardEvent) => {
-  
+    if (onKeyDown) {
+      onKeyDown(e);
+    }
   };
 
   return (

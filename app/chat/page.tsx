@@ -860,6 +860,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               onCancelEdit={isEditing ? handleCancelEdit : undefined}
               onSaveEdit={isEditing ? handleSaveEdit : undefined}
               isSubmittingEdit={isEditing}
+              // State sync for edit mode
+              onValueChange={isEditing ? setEditContent : undefined}
+              onFilesChange={isEditing ? setEditAttachments : undefined}
+              onKeyDown={handleKeyDown}
               // Hide actions when editing to focus on content
               hideActions={isEditing}
               className={cn(

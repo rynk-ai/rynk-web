@@ -37,6 +37,15 @@ export interface FileChunk {
   timestamp: number
 }
 
+export interface Source {
+  id: string
+  hash: string
+  type: string
+  name: string
+  metadata: any
+  createdAt: number
+}
+
 export const vectorDb = {
   // --- Attachment Metadata ---
 
@@ -117,6 +126,130 @@ export const vectorDb = {
     }))
     
     return results
+      .filter(r => r.score >= minScore)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+  },
+
+  // --- Unified Knowledge Base ---
+
+  // 1. Sources (Deduplicated)
+  async createSource(data: { hash: string; type: string; name: string; metadata: any }) {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    
+    await db.prepare(`
+      INSERT INTO sources (id, hash, type, name, metadata, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      id, data.hash, data.type, data.name, JSON.stringify(data.metadata), now
+    ).run()
+    
+    return id
+  },
+
+  async getSourceByHash(hash: string): Promise<Source | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM sources WHERE hash = ?').bind(hash).first()
+    if (!result) return null
+    return {
+      ...(result as any),
+      metadata: JSON.parse((result as any).metadata as string || '{}')
+    } as Source
+  },
+
+  async getSource(id: string): Promise<Source | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM sources WHERE id = ?').bind(id).first()
+    if (!result) return null
+    return {
+      ...(result as any),
+      metadata: JSON.parse((result as any).metadata as string || '{}')
+    } as Source
+  },
+
+  // 2. Knowledge Chunks
+  async addKnowledgeChunk(data: { sourceId: string; content: string; vector: number[]; chunkIndex: number; metadata?: any }) {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    
+    await db.prepare(`
+      INSERT INTO knowledge_chunks (id, sourceId, content, vector, chunkIndex, metadata)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      id, data.sourceId, data.content, JSON.stringify(data.vector), data.chunkIndex, JSON.stringify(data.metadata || {})
+    ).run()
+  },
+
+  async getKnowledgeChunks(sourceId: string) {
+    const db = getDB()
+    const results = await db.prepare('SELECT * FROM knowledge_chunks WHERE sourceId = ? ORDER BY chunkIndex ASC').bind(sourceId).all()
+    
+    return results.results.map((row: any) => ({
+      ...row,
+      vector: JSON.parse(row.vector as string),
+      metadata: JSON.parse(row.metadata as string || '{}')
+    }))
+  },
+
+  // 3. Conversation Links
+  async linkSourceToConversation(conversationId: string, sourceId: string, messageId?: string) {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    
+    await db.prepare(`
+      INSERT INTO conversation_sources (id, conversationId, sourceId, messageId, createdAt)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(
+      id, conversationId, sourceId, messageId || null, now
+    ).run()
+  },
+
+  async getSourcesForConversation(conversationId: string) {
+    const db = getDB()
+    // Join with sources table to get details
+    const results = await db.prepare(`
+      SELECT s.*, cs.messageId 
+      FROM conversation_sources cs
+      JOIN sources s ON cs.sourceId = s.id
+      WHERE cs.conversationId = ?
+    `).bind(conversationId).all()
+    
+    return results.results.map((row: any) => ({
+      ...row,
+      metadata: JSON.parse(row.metadata as string || '{}')
+    }))
+  },
+
+  // Search across multiple sources
+  async searchKnowledgeBase(sourceIds: string[], queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
+    const { limit = 10, minScore = 0.5 } = options
+    if (sourceIds.length === 0) return []
+
+    const db = getDB()
+    
+    // Fetch chunks for ALL provided sources
+    // Note: In a real production D1 (with vector support), this would be a single vector query.
+    // Here we fetch and filter in memory.
+    const placeholders = sourceIds.map(() => '?').join(',')
+    const results = await db.prepare(
+      `SELECT * FROM knowledge_chunks WHERE sourceId IN (${placeholders})`
+    ).bind(...sourceIds).all()
+    
+    const chunks = results.results.map((row: any) => ({
+      ...row,
+      vector: JSON.parse(row.vector as string),
+      metadata: JSON.parse(row.metadata as string || '{}')
+    }))
+
+    const scored = chunks.map(chunk => ({
+      ...chunk,
+      score: cosineSimilarity(queryVector, chunk.vector)
+    }))
+    
+    return scored
       .filter(r => r.score >= minScore)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)

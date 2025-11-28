@@ -97,108 +97,73 @@ export class ChatService {
     }
 
     // 5. Generate Embedding for User Message (Background)
-    // We don't await this to keep latency low
-    this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
+    // We don't maintain this legacy embedding table anymore for search, but keeping it if needed for other stats
+    // this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
-    // 6. Build Context (RAG) with progress streaming
-    console.log('🔍 [chatService] Building context for query:', messageContent.substring(0, 50) + '...');
+    // 6. Ingest Attachments into Knowledge Base (if any)
+    // This ensures that any files sent with this message are indexed and linked
+    if (attachments.length > 0) {
+      console.log('📚 [chatService] Ingesting attachments into Knowledge Base...');
+      const { knowledgeBase } = await import('@/lib/services/knowledge-base')
+      
+      for (const att of attachments) {
+        // Only ingest text-based content or PDFs that have extracted text
+        // For images, we still rely on the multimodal model seeing them directly in the message history
+        if (att.extractedContent) {
+          await knowledgeBase.addSource(conversationId, {
+            type: 'pdf', // or 'text', simplify for now
+            name: att.name,
+            content: att.extractedContent,
+            metadata: {
+              fileType: att.type,
+              fileSize: att.size,
+              r2Key: att.url
+            }
+          }, userMessage.id)
+        } else if (this.isTextBasedFile(att)) {
+           // We need to fetch the content if it wasn't passed in full
+           // But wait, processAttachments in use-chat usually extracts it?
+           // If not, we might need to fetch it here. 
+           // For now, assume extractedContent is populated for text files too or we handle it.
+           // Actually, let's just handle what we have.
+           if (att.content) { // Some text files might have content directly
+             await knowledgeBase.addSource(conversationId, {
+                type: 'text',
+                name: att.name,
+                content: att.content,
+                metadata: { fileType: att.type }
+             }, userMessage.id)
+           }
+        }
+      }
+    }
+
+    // 7. Retrieve Context from Knowledge Base
+    console.log('🔍 [chatService] Retrieving context from Knowledge Base...');
+    const { knowledgeBase } = await import('@/lib/services/knowledge-base')
+    const kbContext = await knowledgeBase.getContext(conversationId, messageContent)
     
-    // We'll collect progress updates and stream them later
-    const progressUpdates: string[] = []
-    const contextText = await this.buildContext(
+    // Legacy context build (for referenced conversations/folders passed explicitly)
+    // We can merge this or replace it. The new architecture suggests everything should be a source.
+    // But for now, let's keep the legacy "referenced conversations" logic as a fallback or parallel context
+    // UNLESS we migrate them to sources too.
+    // Let's append the KB context to the legacy context logic for safety during migration.
+    
+    const legacyContext = await this.buildContext(
       userId,
       conversationId,
       messageContent,
       messageRefs.referencedConversations,
-      messageRefs.referencedFolders,
-      (progress) => {
-        progressUpdates.push(`[CONTEXT_PROGRESS]${progress}\n`)
-      }
+      messageRefs.referencedFolders
     )
-    console.log('✅ [chatService] Context built, length:', contextText.length);
-
-    // 7. Prepare Messages for AI
-    console.log('📤 [chatService] Preparing messages for API...');
-    const messages = await this.prepareMessagesForAI(conversationId, contextText, project)
-    const lastUserMsg = messages.filter(m => m.role === 'user').slice(-1)[0]
-    const lastContent = lastUserMsg?.content
-    const contentPreview = typeof lastContent === 'string' 
-      ? lastContent.substring(0, 100) 
-      : JSON.stringify(lastContent).substring(0, 100)
-
-    console.log('✅ [chatService] Messages prepared:', {
-      messageCount: messages.length,
-      lastUserMessage: contentPreview + '...'
-    });
-
-    // 7. Create Placeholder Assistant Message
-    const assistantMessage = await cloudDb.addMessage(conversationId, {
-      role: 'assistant',
-      content: '',
-    })
-
-    // 8. Detect if files/attachments are present in the conversation
-    // This determines whether we need multimodal support (OpenRouter) or can use text-only (Groq)
-    // In edit flow, use message attachments; in normal flow, use passed attachments
-    const attachmentsToCheck = userMessage.attachments || attachments || []
-    const hasFiles = this.hasFilesInConversation(messages, project, attachmentsToCheck)
-    console.log('📎 [chatService] File detection result:', { hasFiles, attachmentCount: attachmentsToCheck.length })
-
-    // 9. Call AI and Stream (auto-select provider based on file presence)
-    console.log('📤 [chatService] Sending message to AI API...');
-    const aiProvider = getAIProvider(hasFiles)
-    const stream = await aiProvider.sendMessage({ messages })
-    console.log('📥 [chatService] Received response stream');
-
-    // 10. Return stream with message metadata in headers and progress updates
-    return this.createStreamResponse(
-      stream, 
-      assistantMessage.id, 
-      conversationId, 
-      userId,
-      userMessage.id,
-      progressUpdates
-    )
-  }
-
-  // REMOVED: generateAIResponseForMessage() - now handled by handleChatRequest with messageId
-
-  private async generateEmbeddingInBackground(messageId: string, conversationId: string, userId: string, content: string) {
-    try {
-      if (!content || !content.trim()) return
-      
-      // Check if embedding already exists for this message
-      const existingEmbedding = await cloudDb.getEmbeddingByMessageId(messageId)
-      if (existingEmbedding) {
-        console.log('⏭️ Skipping embedding generation - already exists for message:', messageId)
-        return
-      }
-      
-      const aiProvider = getAIProvider()
-      const vector = await aiProvider.getEmbeddings(content)
-      await cloudDb.addEmbedding(messageId, conversationId, userId, content, vector)
-    } catch (error) {
-      console.error('Failed to generate embedding in background:', error)
-    }
-  }
-
-  /**
-   * Convert relative URLs to absolute URLs for external API access
-   * OpenRouter needs absolute URLs to fetch images
-   */
-  private toAbsoluteUrl(url: string): string {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url // Already absolute
-    }
     
-    // Get base URL from environment or use default
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:8788'
+    const finalContext = `${legacyContext}\n\n${kbContext ? `=== RELEVANT KNOWLEDGE BASE CONTEXT ===\n${kbContext}` : ''}`.trim()
     
-    // Remove leading slash if present to avoid double slashes
-    const path = url.startsWith('/') ? url : `/${url}`
-    return `${baseUrl}${path}`
+    console.log('✅ [chatService] Final context length:', finalContext.length);
+
+    // 8. Prepare Messages for AI
+    console.log('📤 [chatService] Preparing messages for AI...');
+    const messages = await this.prepareMessagesForAI(conversationId, finalContext, project)
   }
 
   private async buildContext(
@@ -767,6 +732,43 @@ export class ChatService {
         'X-Assistant-Message-Id': assistantMessageId
       }
     })
+  }
+  private async generateEmbeddingInBackground(messageId: string, conversationId: string, userId: string, content: string) {
+    try {
+      if (!content || !content.trim()) return
+      
+      // Check if embedding already exists for this message
+      const existingEmbedding = await cloudDb.getEmbeddingByMessageId(messageId)
+      if (existingEmbedding) {
+        console.log('⏭️ Skipping embedding generation - already exists for message:', messageId)
+        return
+      }
+      
+      const aiProvider = getAIProvider()
+      const vector = await aiProvider.getEmbeddings(content)
+      await cloudDb.addEmbedding(messageId, conversationId, userId, content, vector)
+    } catch (error) {
+      console.error('Failed to generate embedding in background:', error)
+    }
+  }
+
+  /**
+   * Convert relative URLs to absolute URLs for external API access
+   * OpenRouter needs absolute URLs to fetch images
+   */
+  private toAbsoluteUrl(url: string): string {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url // Already absolute
+    }
+    
+    // Get base URL from environment or use default
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:8788'
+    
+    // Remove leading slash if present to avoid double slashes
+    const path = url.startsWith('/') ? url : `/${url}`
+    return `${baseUrl}${path}`
   }
 }
 

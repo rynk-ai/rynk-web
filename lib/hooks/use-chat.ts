@@ -266,14 +266,22 @@ export function useChat() {
    * 2. If text is insufficient, convert pages to images
    * 3. Upload to R2 and return metadata with processed data
    */
+  /**
+   * Process file attachments, handling PDFs specially:
+   * 1. Try to extract text from PDFs
+   * 2. If text is insufficient, convert pages to images
+   * 3. Upload to R2 and return metadata with processed data
+   */
   async function processAttachments(
     files: File[]
   ): Promise<any[]> {
     const processed: any[] = []
 
     // Maximum text content size (to prevent oversized requests)
-    const MAX_TEXT_CONTENT_SIZE = 30000 // ~30KB to leave room for other request data
-    const RAG_THRESHOLD = 10000 // Use RAG for files larger than 10KB
+    // We still limit the payload size, but now we can handle larger files via backend ingestion
+    // However, for the initial HTTP request, we still need to be mindful of body size limits.
+    // The backend KnowledgeBase will handle the actual chunking and storage.
+    const MAX_TEXT_CONTENT_SIZE = 100000 // Increased to ~100KB as we are not sending all chunks in body, just the text
 
     for (const file of files) {
       try {
@@ -289,9 +297,6 @@ export function useChat() {
           // Step 2: Try text extraction
           let extractedContent: string | null = null
           let fallbackImages: string[] | null = null
-          let useRAG = false
-          let attachmentId: string | undefined
-          let chunkCount: number | undefined
           
           try {
             extractedContent = await extractTextFromPDF(file)
@@ -300,73 +305,20 @@ export function useChat() {
             if (extractedContent && extractedContent.trim().length > 50) {
               console.log('[processAttachments] Text extracted successfully, length:', extractedContent.length)
               
-              // Check if we should use RAG
-              if (extractedContent.length > RAG_THRESHOLD) {
-                console.log('[processAttachments] Large PDF detected, initiating RAG processing')
-                try {
-                  // Create metadata
-                  attachmentId = await createAttachmentMetadataAction({
-                    fileName: uploaded.name,
-                    fileType: uploaded.type,
-                    fileSize: uploaded.size,
-                    r2Key: uploaded.url,
-                    messageId: null
-                  })
-                  
-                  // Start RAG processing
-                  toast.info(`Indexing ${file.name}...`)
-                  
-                  // 1. Chunk text locally
-                  const chunks = chunkText(extractedContent, { chunkSize: 4000, overlap: 400 })
-                  console.log(`[processAttachments] Chunked locally: ${chunks.length} chunks`)
-                  
-                  // 2. Upload in batches
-                  const BATCH_SIZE = 5
-                  let processedCount = 0
-                  
-                  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-                    const batch = chunks.slice(i, i + BATCH_SIZE)
-                    toast.loading(`Indexing ${file.name} (${Math.round((i / chunks.length) * 100)}%)`, { duration: Infinity })
-                    
-                    await processBatchForRAGAction(
-                      attachmentId, 
-                      batch, 
-                      i, 
-                      {
-                        fileName: uploaded.name,
-                        fileType: uploaded.type,
-                        fileSize: uploaded.size
-                      }
-                    )
-                    processedCount += batch.length
-                  }
-                  
-                  // 3. Mark as complete
-                  await completeRAGProcessingAction(attachmentId, chunks.length)
-                  
-                  useRAG = true
-                  chunkCount = chunks.length
-                  toast.dismiss()
-                  toast.success(`${file.name} indexed (${chunks.length} chunks)`)
-                  
-                } catch (ragError) {
-                  console.error('[processAttachments] RAG processing failed:', ragError)
-                  toast.dismiss()
-                  toast.error(`Failed to process ${file.name}. Please try again.`)
-                  // Re-throw to prevent message from being sent
-                  throw new Error(`RAG processing failed for ${file.name}: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`)
-                }
-              }
+              // We no longer do client-side RAG here. 
+              // We just pass the extracted text to the backend, which will ingest it into the Knowledge Base.
               
-              // If not using RAG (or RAG failed), apply truncation if needed
-              if (!useRAG && extractedContent.length > MAX_TEXT_CONTENT_SIZE) {
-                console.warn('[processAttachments] PDF text too large, truncating:', {
+              // Optional: Truncate if EXTREMELY large to avoid HTTP 413
+              if (extractedContent.length > MAX_TEXT_CONTENT_SIZE) {
+                console.warn('[processAttachments] PDF text very large, truncating for transport:', {
                   original: extractedContent.length,
                   truncated: MAX_TEXT_CONTENT_SIZE
                 })
+                // We might want a better strategy here (e.g. upload text file to R2 and pass URL)
+                // But for now, simple truncation for the API call. 
+                // Ideally, we should upload the full text as a blob if it's huge.
                 extractedContent = extractedContent.substring(0, MAX_TEXT_CONTENT_SIZE) + 
-                  '\n\n...[Content truncated due to size. Only first ~30KB shown]'
-                toast.warning(`${file.name} is very large. Only the first ~30KB of text will be sent to AI.`)
+                  '\n\n...[Content truncated for transport]'
               }
             } else {
               console.log('[processAttachments] Insufficient text extracted, falling back to images')
@@ -377,8 +329,8 @@ export function useChat() {
             extractedContent = null
           }
           
-          // Step 3: Fallback to images if no text (and not using RAG)
-          if (!extractedContent && !useRAG) {
+          // Step 3: Fallback to images if no text
+          if (!extractedContent) {
             try {
               fallbackImages = await pdfToBase64Images(file, {
                 maxPages: 10,
@@ -400,11 +352,9 @@ export function useChat() {
           // Add processed data to attachment metadata
           processed.push({
             ...uploaded,
-            extractedContent: useRAG ? undefined : (extractedContent || undefined),
+            extractedContent: extractedContent || undefined,
             fallbackImages: fallbackImages || undefined,
-            useRAG,
-            attachmentId,
-            chunkCount
+            // useRAG flag is no longer needed as backend decides based on content
           })
         }
         // Regular file upload (images, etc.)
