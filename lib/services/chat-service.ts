@@ -101,39 +101,44 @@ export class ChatService {
     // this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
     // 6. Ingest Attachments into Knowledge Base (if any)
-    // This ensures that any files sent with this message are indexed and linked
+    // CRITICAL: Do this BEFORE retrieving context so the PDFs are indexed first
     if (attachments.length > 0) {
       console.log('📚 [chatService] Ingesting attachments into Knowledge Base...');
       const { knowledgeBase } = await import('@/lib/services/knowledge-base')
       
       for (const att of attachments) {
-        // Only ingest text-based content or PDFs that have extracted text
-        // For images, we still rely on the multimodal model seeing them directly in the message history
-        if (att.extractedContent) {
-          await knowledgeBase.addSource(conversationId, {
-            type: 'pdf', // or 'text', simplify for now
-            name: att.name,
-            content: att.extractedContent,
-            metadata: {
-              fileType: att.type,
-              fileSize: att.size,
-              r2Key: att.url
-            }
-          }, userMessage.id)
-        } else if (this.isTextBasedFile(att)) {
-           // We need to fetch the content if it wasn't passed in full
-           // But wait, processAttachments in use-chat usually extracts it?
-           // If not, we might need to fetch it here. 
-           // For now, assume extractedContent is populated for text files too or we handle it.
-           // Actually, let's just handle what we have.
-           if (att.content) { // Some text files might have content directly
-             await knowledgeBase.addSource(conversationId, {
-                type: 'text',
-                name: att.name,
-                content: att.content,
-                metadata: { fileType: att.type }
-             }, userMessage.id)
-           }
+        try {
+          // Only ingest text-based content or PDFs that have extracted text
+          // For images, we still rely on the multimodal model seeing them directly in the message history
+          if (att.extractedContent) {
+            await knowledgeBase.addSource(conversationId, {
+              type: 'pdf', // or 'text', simplify for now
+              name: att.name,
+              content: att.extractedContent,
+              metadata: {
+                fileType: att.type,
+                fileSize: att.size,
+                r2Key: att.url
+              }
+            }, userMessage.id)
+          } else if (this.isTextBasedFile(att)) {
+             // We need to fetch the content if it wasn't passed in full
+             // But wait, processAttachments in use-chat usually extracts it?
+             // If not, we might need to fetch it here. 
+             // For now, assume extractedContent is populated for text files too or we handle it.
+             // Actually, let's just handle what we have.
+             if (att.content) { // Some text files might have content directly
+               await knowledgeBase.addSource(conversationId, {
+                  type: 'text',
+                  name: att.name,
+                  content: att.content,
+                  metadata: { fileType: att.type }
+               }, userMessage.id)
+             }
+          }
+        } catch (error) {
+          console.error('❌ [chatService] Failed to ingest attachment into Knowledge Base:', att.name, error)
+          // Continue processing other attachments even if one fails
         }
       }
     }
@@ -141,7 +146,14 @@ export class ChatService {
     // 7. Retrieve Context from Knowledge Base
     console.log('🔍 [chatService] Retrieving context from Knowledge Base...');
     const { knowledgeBase } = await import('@/lib/services/knowledge-base')
-    const kbContext = await knowledgeBase.getContext(conversationId, messageContent)
+    let kbContext = ''
+    
+    try {
+      kbContext = await knowledgeBase.getContext(conversationId, messageContent)
+    } catch (error) {
+      console.error('❌ [chatService] Failed to retrieve Knowledge Base context:', error)
+      // Continue without KB context rather than failing the entire request
+    }
     
     // Legacy context build (for referenced conversations/folders passed explicitly)
     // We can merge this or replace it. The new architecture suggests everything should be a source.
@@ -164,6 +176,36 @@ export class ChatService {
     // 8. Prepare Messages for AI
     console.log('📤 [chatService] Preparing messages for AI...');
     const messages = await this.prepareMessagesForAI(conversationId, finalContext, project)
+
+    // 9. Determine if we have files (for AI provider selection)
+    const hasFiles = this.hasFilesInConversation(messages, project, attachments)
+    console.log('📎 [chatService] Has files:', hasFiles);
+
+    // 10. Get AI provider based on content type
+    const aiProvider = getAIProvider(hasFiles)
+    console.log('🤖 [chatService] Using AI provider:', hasFiles ? 'OpenRouter (multimodal)' : 'Groq (text-only)');
+
+    // 11. Create assistant message placeholder
+    const assistantMessage = await cloudDb.addMessage(conversationId, {
+      role: 'assistant',
+      content: '', // Will be filled by streaming
+      attachments: [],
+    })
+    console.log('✅ [chatService] Assistant message created:', assistantMessage.id);
+
+    // 12. Stream AI response
+    console.log('🚀 [chatService] Starting AI stream...');
+    const stream = aiProvider.sendMessage({ messages })
+
+    // 13. Return streaming response
+    return this.createStreamResponse(
+      stream,
+      assistantMessage.id,
+      conversationId,
+      userId,
+      userMessage.id,
+      [] // No progress updates for now
+    )
   }
 
   private async buildContext(
@@ -672,10 +714,12 @@ export class ChatService {
       // Skip system messages (they don't have user attachments)
       if (msg.role === 'system') continue
 
-      // Check if message has multimodal content
-      if (Array.isArray(msg.content)) {
-        const hasImageContent = msg.content.some((item: any) => item.type === 'image_url')
-        if (hasImageContent) return true
+      // Check if message has multimodal content (array format indicates files)
+      // This includes images (image_url), PDFs (text with PDF content), etc.
+      if (Array.isArray(msg.content) && msg.content.length > 1) {
+        // Array content with more than just text indicates files are present
+        console.log('✅ [hasFilesInConversation] Found multimodal content in message history')
+        return true
       }
     }
 

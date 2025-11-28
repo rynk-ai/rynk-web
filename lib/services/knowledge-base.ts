@@ -66,7 +66,7 @@ export class KnowledgeBaseService {
     query: string, 
     targetMessageId?: string // If null, uses the end of the conversation
   ): Promise<string> {
-    console.log('🔍 [KnowledgeBase] Getting context for query:', query)
+    console.log('🔍 [KnowledgeBase] Getting context for query:', query.substring(0, 50))
     
     // 1. Get Active Sources for this path
     const activeSourceIds = await this.getActiveSourcesForPath(conversationId, targetMessageId)
@@ -80,23 +80,33 @@ export class KnowledgeBaseService {
 
     // 2. Generate Query Embedding
     // Always use OpenRouter/Multimodal provider for embeddings to match ingestion
-    const { getOpenRouter } = await import('@/lib/services/openrouter')
-    const aiProvider = getOpenRouter()
-    const queryVector = await aiProvider.getEmbeddings(query)
-    
-    // 3. Vector Search
-    const chunks = await vectorDb.searchKnowledgeBase(activeSourceIds, queryVector, { limit: 15, minScore: 0.45 })
-    
-    if (chunks.length === 0) return ''
-    
-    // 4. Format Context
-    // Group chunks by source for better readability
-    const contextParts = chunks.map((chunk, i) => {
-      // We could fetch source name here if we joined tables, but for now just use content
-      return `[Source Content - Excerpt ${i + 1}]\n${chunk.content}`
-    })
-    
-    return contextParts.join('\n\n---\n\n')
+    try {
+      console.log('🔄 [KnowledgeBase] Generating embeddings...')
+      const { getOpenRouter } = await import('@/lib/services/openrouter')
+      const aiProvider = getOpenRouter()
+      const queryVector = await aiProvider.getEmbeddings(query, 10000) // 10s timeout
+      console.log('✅ [KnowledgeBase] Embeddings generated')
+      
+      // 3. Vector Search
+      console.log('🔍 [KnowledgeBase] Searching knowledge base...')
+      const chunks = await vectorDb.searchKnowledgeBase(activeSourceIds, queryVector, { limit: 15, minScore: 0.45 })
+      console.log(`✅ [KnowledgeBase] Found ${chunks.length} relevant chunks`)
+      
+      if (chunks.length === 0) return ''
+      
+      // 4. Format Context
+      // Group chunks by source for better readability
+      const contextParts = chunks.map((chunk, i) => {
+        // We could fetch source name here if we joined tables, but for now just use content
+        return `[Source Content - Excerpt ${i + 1}]\n${chunk.content}`
+      })
+      
+      return contextParts.join('\n\n---\n\n')
+    } catch (error) {
+      console.error('❌ [KnowledgeBase] Failed to get context:', error)
+      // Return empty string instead of crashing
+      return ''
+    }
   }
 
   /**
