@@ -22,11 +22,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://rynk.io"),
   title: {
-    default: "rynk. - AI Chat with File Uploads & Message Versioning",
+    default: "rynk. - Branch Conversations, Edit History, Chat with Files",
     template: "%s | rynk."
   },
   description:
-    "rynk. is a powerful AI chat application featuring file uploads, message versioning, conversation branching, and context-aware responses. Edit messages, reference past conversations, and collaborate with AI.",
+    "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
   keywords: [
     "AI chat",
     "artificial intelligence",
@@ -59,9 +59,9 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://rynk.io",
-    title: "rynk. - AI Chat with File Uploads & Message Versioning",
+    title: "rynk. - Branch Conversations, Edit History, Chat with Files",
     description:
-      "rynk. is a powerful AI chat application featuring file uploads, message versioning, conversation branching, and context-aware responses. Edit messages, reference past conversations, and collaborate with AI.",
+      "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
     siteName: "rynk.",
     images: [
       {
@@ -74,9 +74,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "rynk. - AI Chat with File Uploads & Message Versioning",
+    title: "rynk. - Branch Conversations, Edit History, Chat with Files",
     description:
-      "rynk. is a powerful AI chat application featuring file uploads, message versioning, conversation branching, and context-aware responses. Edit messages, reference past conversations, and collaborate with AI.",
+      "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
     creator: "@rynk",
     images: ["/og-image.png"]
   },
@@ -121,7 +121,7 @@ export default function RootLayout({
               "name": "rynk.",
               "url": "https://rynk.io",
               "logo": "https://rynk.io/favicon.ico",
-              "description": "AI chat application with advanced features like file uploads, message versioning, and conversation branching.",
+              "description": "AI chat that lets you branch conversations, edit message history, and get intelligent responses from your uploaded files.",
               "sameAs": [
                 "https://twitter.com/rynk",
                 "https://github.com/rynk"
@@ -140,7 +140,7 @@ export default function RootLayout({
               "name": "rynk.",
               "applicationCategory": "AI Application",
               "operatingSystem": "Any",
-              "description": "AI chat application featuring file uploads, message versioning, conversation branching, and context-aware responses.",
+              "description": "Explore multiple conversation paths, refine AI responses by editing messages, and chat with your PDFs and documents.",
               "offers": {
                 "@type": "Offer",
                 "price": "0",
@@ -170,7 +170,7 @@ export default function RootLayout({
               "@type": "WebSite",
               "name": "rynk.",
               "url": "https://rynk.io",
-              "description": "AI chat application with file uploads, message versioning, and conversation branching.",
+              "description": "AI chat with conversation branching, message editing, and file-aware responses.",
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": "https://rynk.io/search?q={search_term_string}",
