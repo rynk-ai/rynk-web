@@ -391,10 +391,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           } catch (err) {
             console.error("Error reading stream:", err);
           } finally {
-            finishStreaming();
             if (assistantMessageId) {
               messageState.updateMessage(assistantMessageId, { content: fullContent });
             }
+            finishStreaming();
           }
           
           return; // Exit here since we handled the send
@@ -408,7 +408,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         uploadedAttachments,
         referencedConversationsList,
         referencedFoldersList,
-        targetConversationId, 
+        currentConversationId || undefined, 
         tempUserMessageId,    
         tempAssistantMessageId 
       );
@@ -452,10 +452,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       } catch (err) {
         console.error("Error reading stream:", err);
       } finally {
-        finishStreaming();
         if (assistantMessageId) {
           messageState.updateMessage(assistantMessageId, { content: fullContent });
         }
+        finishStreaming();
       }
 
     } catch (err) {
@@ -831,14 +831,25 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       // Filter to show only active versions (no duplicates)
       const filteredMessages = filterActiveVersions(loadedMessages);
       
-      // ✅ PRESERVE OPTIMISTIC MESSAGES
+      // ✅ PRESERVE OPTIMISTIC MESSAGES & FIX RACE CONDITION
       setMessages(prev => {
+        // 1. Merge DB messages with local state to prevent overwriting fresh content with stale DB data
+        const mergedMessages = filteredMessages.map(serverMsg => {
+          const localMsg = prev.find(m => m.id === serverMsg.id);
+          // If local message has content and server message is empty (and is assistant), keep local content
+          // This handles the race condition where server hasn't finished writing to DB yet
+          if (localMsg && localMsg.role === 'assistant' && localMsg.content && !serverMsg.content) {
+             return { ...serverMsg, content: localMsg.content };
+          }
+          return serverMsg;
+        });
+
         const optimistic = prev.filter(m => m.id.startsWith('temp-'));
         
         // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
         // This prevents "flash of duplicates" if server returns the message before we replace the temp one
         const uniqueOptimistic = optimistic.filter(opt => {
-          const isDuplicate = filteredMessages.some(serverMsg => {
+          const isDuplicate = mergedMessages.some(serverMsg => {
             // Match by role and approximate timestamp
             if (serverMsg.role !== opt.role) return false;
             
@@ -853,7 +864,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         });
 
         // If we have optimistic messages, append them to the loaded messages
-        return [...filteredMessages, ...uniqueOptimistic];
+        return [...mergedMessages, ...uniqueOptimistic];
       });
 
       // Load versions for each message (load from all versions, not just active)
@@ -876,10 +887,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   // Load messages from conversation path
   useEffect(() => {
     // Skip if we're in the middle of an edit to prevent race conditions
-    if (isEditing) return;
+    // Also skip if sending (streaming) to prevent overwriting stream with partial DB data
+    if (isEditing || isSending) return;
 
     reloadMessages();
-  }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, reloadMessages]); // Reload when ID or timestamp changes
+  }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, isSending, reloadMessages]); // Reload when ID or timestamp changes
 
   return (
     <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
