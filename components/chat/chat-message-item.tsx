@@ -90,7 +90,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         transition={{ duration: 0.3, ease: "easeOut" }}
         className="w-full"
       >
-        <Message className={cn("mx-auto flex w-full max-w-4xl flex-col gap-2 px-0 items-start")}>
+        <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-start")}>
           <div className="group flex w-full flex-col gap-0">
             <div className="px-5 py-2 rounded-2xl hover:bg-muted/30 transition-colors duration-200 -ml-5">
               <Markdown className="prose prose-slate dark:prose-invert max-w-none leading-relaxed">
@@ -98,10 +98,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               </Markdown>
             </div>
             <MessageActions className={cn(
-              "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pl-1",
+              "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-2",
               isLastMessage && "opacity-100"
             )}>
-              <MessageAction tooltip="Copy" delayDuration={100}>
+              <MessageAction tooltip="Copy" delayDuration={100} >
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -138,7 +138,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="w-full"
     >
-      <Message className={cn("mx-auto flex w-full max-w-4xl flex-col gap-2 px-0 items-end")}>
+      <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-end")}>
         <div className="group flex flex-col items-end gap-1 w-full">
         
           

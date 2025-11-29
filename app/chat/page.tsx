@@ -67,6 +67,7 @@ import {
   Bookmark,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
+import { Loader } from "@/components/ui/loader";
 
 
 // Helper function to filter messages to show only active versions
@@ -963,20 +964,25 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               className="h-full px-2 md:px-3 lg:px-4 "
             >
                <ChatContainerContent
-                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative pt-10 max-xl:pt-20 max-md:px-5"
+                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative pt-10 max-xl:pt-20 max-md:px-5 "
                  style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
                >
                 {/* Indexing Progress Badge */}
                 {jobs.filter(j => j.status === 'processing' || j.status === 'parsing').length > 0 && (
-                  <div className="absolute top-2 right-4 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                      <span>
-                        {jobs.find(j => j.status === 'processing')?.fileName
-                          ? `Indexing ${jobs.find(j => j.status === 'processing')?.fileName}... ${jobs.find(j => j.status === 'processing')?.progress}%`
-                          : 'Preparing PDF...'}
-                      </span>
-                    </div>
+                                          <Loader
+                      className="opacity-50"
+                      variant="text-shimmer"
+                      size="sm"
+                      text={(() => {
+                        const processingJob = jobs.find(j => j.status === 'processing');
+                        return processingJob?.fileName
+                          ? `Indexing ${processingJob.fileName}... ${processingJob.progress}%`
+                          : 'Preparing PDF...';
+                      })()}
+                    />
+                       </div>
                   </div>
                 )}
 
@@ -1039,8 +1045,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                     }}
                   />
                 )}
+            
               </ChatContainerContent>
             </ChatContainerRoot>
+                <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100]"></div>
           </div>
         </div>
 
