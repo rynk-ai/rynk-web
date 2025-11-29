@@ -24,6 +24,7 @@ export function useMessageEdit() {
     message: ChatMessage,
     initialContext: { type: 'conversation' | 'folder'; id: string; title: string; status?: 'loading' | 'loaded' }[]
   ) => {
+    setIsEditing(true);
     setEditingMessageId(message.id);
     setEditContent(message.content);
     setEditAttachments(message.attachments || []);
@@ -34,6 +35,7 @@ export function useMessageEdit() {
    * Cancel edit mode and reset all edit state.
    */
   const cancelEdit = useCallback(() => {
+    setIsEditing(false);
     setEditingMessageId(null);
     setEditContent('');
     setEditAttachments([]);

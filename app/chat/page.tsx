@@ -148,6 +148,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   
   // Other local state
   const [isSending, setIsSending] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   // Auto-focus input when starting a new chat
@@ -164,7 +165,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [currentConversationId]);
 
-  const isLoading = isSending || isEditing || !!isDeleting || contextIsLoading;
+  const isLoading = isSending || isSavingEdit || !!isDeleting || contextIsLoading;
 
   // Local context state (used for all conversations now, transient)
   // Added 'status' field to track loading state for minimal progress feedback
@@ -566,7 +567,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   }, []);
 
   const handleStartEdit = useCallback((message: ChatMessage) => {
-    if (isLoading) return;
+    if (isLoading || isEditing) return;
 
     // Populate initial context from message references
     const initialContext: {
@@ -617,7 +618,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     const contentToEdit = newContent ?? editContent;
     const attachmentsToEdit = newFiles ?? editAttachments;
     
-    if (!editingMessageId || isEditing || (!contentToEdit.trim() && attachmentsToEdit.length === 0)) return;
+    if (!editingMessageId || isSavingEdit || (!contentToEdit.trim() && attachmentsToEdit.length === 0)) return;
     
     // ✅ STEP 1: Store edit state in local variables BEFORE resetting state
     const messageIdToEdit = editingMessageId;
@@ -631,7 +632,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       contextItems: contextToEdit.length
     });
     
-    setIsEditing(true);
+    setIsSavingEdit(true);
     
     try {
       // ✅ STEP 2: Extract context from STORED state (not reset state)
@@ -779,13 +780,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         console.error("Failed to revert after error:", fetchError);
       }
     } finally {
+      setIsSavingEdit(false);
       setIsEditing(false);
       console.log('🏁 [handleSaveEdit] Edit operation complete');
     }
   };
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
-    if (isLoading) return;
+    if (isLoading || isEditing) return;
     setIsDeleting(messageId);
     try {
       await deleteMessageAction(messageId);
@@ -795,7 +797,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   }, [isLoading, deleteMessageAction]);
 
   const handleBranchFromMessage = useCallback(async (messageId: string) => {
-    if (isLoading) return;
+    if (isLoading || isEditing) return;
 
     if (confirm("Create a new conversation from this point?")) {
       try {
@@ -888,10 +890,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   useEffect(() => {
     // Skip if we're in the middle of an edit to prevent race conditions
     // Also skip if sending (streaming) to prevent overwriting stream with partial DB data
-    if (isEditing || isSending) return;
+    if (isEditing || isSending || isSavingEdit) return;
 
     reloadMessages();
-  }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, isSending, reloadMessages]); // Reload when ID or timestamp changes
+  }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, isSending, isSavingEdit, reloadMessages]); // Reload when ID or timestamp changes
 
   return (
     <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
@@ -1053,13 +1055,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               initialAttachments={isEditing ? editAttachments : []}
               onCancelEdit={isEditing ? handleCancelEdit : undefined}
               onSaveEdit={isEditing ? handleSaveEdit : undefined}
-              isSubmittingEdit={isEditing}
+              isSubmittingEdit={isSavingEdit}
               // State sync for edit mode
               onValueChange={isEditing ? setEditContent : undefined}
               onFilesChange={isEditing ? setEditAttachments : undefined}
               onKeyDown={handleKeyDown}
-              // Hide actions when editing to focus on content
-              hideActions={isEditing}
               className={cn(
                 "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300",
                 !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
