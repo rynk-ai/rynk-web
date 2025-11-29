@@ -1013,13 +1013,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             )}
           >
             <div
-              className="h-full flex flex-col px-2 md:px-3 lg:px-4"
+              className="relative h-full flex flex-col px-2 md:px-3 lg:px-4"
             >
-              {/* Sticky content at top */}
-              <div className="flex-shrink-0 space-y-4">
-                {/* Indexing Progress Badge */}
                 {jobs.filter(j => j.status === 'processing' || j.status === 'parsing').length > 0 && (
-                  <div className="relative top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="absolute  top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground">
                       <Loader
                         className="opacity-50"
@@ -1035,6 +1032,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                     </div>
                   </div>
                 )}
+              {/* Sticky content at top */}
+              <div className="flex-shrink-0 space-y-4">
+                {/* Indexing Progress Badge */}
 
                 {/* Tags Section - Fixed Top Right */}
                 {currentConversationId && (

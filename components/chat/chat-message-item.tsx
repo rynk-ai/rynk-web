@@ -84,10 +84,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     const displayContent = isStreaming ? streamingContent : message.content;
     
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+      <div
         className="w-full px-3"
       >
         <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-start")}>
@@ -124,7 +121,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             </MessageActions>
           </div>
         </Message>
-      </motion.div>
+      </div>
     );
   }
   
@@ -132,10 +129,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const isLoading = isLastMessage && isSending && !isStreaming;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+    <div
+
       className="w-full px-3 "
     >
       <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-end")}>
@@ -240,7 +235,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           )}
         </div>
       </Message>
-    </motion.div>
+    </div>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for fine-grained control over re-renders

@@ -214,44 +214,51 @@ export class KnowledgeBaseService {
     // 1. Get all sources linked to this conversation
     const allLinks = await vectorDb.getSourcesForConversation(conversationId)
     
-    // 2. If no target message, we assume we are at the "end" of the active branch
-    // But wait, sources might be linked to messages that are NOT in the active branch.
-    // So we MUST always walk the path.
-    
-    let path: string[] = []
-    
-    if (targetMessageId) {
-      // We need to find the path ending at targetMessageId
-      // This is tricky without a direct "getPathToMessage" method.
-      // We can use cloudDb.getMessages(conversationId) which returns the *active* path.
-      // If targetMessageId is in the active path, great.
-      // If it's in a different branch, we might need more complex logic.
-      // For now, let's assume we are generating for the *active* path or a specific message in it.
-      
-      // Actually, cloudDb.getMessages returns the active path.
-      // If we are editing, the "new" path hasn't been saved to DB as the main path yet?
-      // No, createMessageVersion updates the conversation path.
-      // So fetching the conversation's current path is correct for the "new head".
-    }
-    
-    // Fetch current conversation path
-    // Fetch current conversation path (fetch all/large limit to get full path)
+    // 2. Fetch current conversation path (fetch all/large limit to get full path)
     const { messages } = await cloudDb.getMessages(conversationId, 10000)
     const messageIdsInPath = new Set(messages.map(m => m.id))
     
-    // 3. Filter links
-    // A link is active if:
-    // a) It has NO messageId (global conversation context, e.g. added via settings)
-    // b) It has a messageId AND that messageId is in the current path
+    // 3. Build a set of ALL message IDs including version lineage
+    // This is the FIX: Include sources linked to ANY version of messages in the current path
+    const equivalentMessageIds = new Set<string>()
+    
+    for (const message of messages) {
+      // Add the message itself
+      equivalentMessageIds.add(message.id)
+      
+      // If this message is a version of another message, fetch all versions
+      if (message.versionOf || message.versionNumber > 1) {
+        try {
+          // Get the root message ID
+          const rootId = message.versionOf || message.id
+          
+          // Fetch all versions of this message (including the root)
+          const versions = await cloudDb.getMessageVersions(rootId)
+          
+          // Add all version IDs to the set
+          versions.forEach(v => equivalentMessageIds.add(v.id))
+          
+          console.log(`🔗 [KnowledgeBase] Message ${message.id} has ${versions.length} versions (root: ${rootId})`)
+        } catch (error) {
+          console.error(`⚠️ [KnowledgeBase] Failed to fetch versions for message ${message.id}:`, error)
+          // Continue even if version fetch fails - at least we have the message itself
+        }
+      }
+    }
     
     console.log(`🔍 [KnowledgeBase] Filtering links: Found ${allLinks.length} total links`)
     console.log(`🔍 [KnowledgeBase] Path has ${messageIdsInPath.size} messages`)
+    console.log(`🔍 [KnowledgeBase] Including ${equivalentMessageIds.size} message IDs (with versions)`)
     
+    // 4. Filter links using the expanded set
+    // A link is active if:
+    // a) It has NO messageId (global conversation context, e.g. added via settings)
+    // b) It has a messageId AND that messageId is in the version lineage of current path
     const activeSourceIds = allLinks
       .filter((link: any) => {
-        const isActive = !link.messageId || messageIdsInPath.has(link.messageId)
+        const isActive = !link.messageId || equivalentMessageIds.has(link.messageId)
         if (!isActive) {
-           console.log(`⚠️ [KnowledgeBase] Filtered out link ${link.id} (Source: ${link.sourceId}) - MessageId ${link.messageId} not in path`)
+           console.log(`⚠️ [KnowledgeBase] Filtered out link ${link.id} (Source: ${link.sourceId}) - MessageId ${link.messageId} not in path or version lineage`)
         } else {
            console.log(`✅ [KnowledgeBase] Keeping link ${link.id} (Source: ${link.sourceId}) - MessageId ${link.messageId || 'GLOBAL'}`)
         }
