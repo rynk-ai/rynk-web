@@ -158,6 +158,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const [isSending, setIsSending] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  
+  // Pagination state
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
 
@@ -712,7 +717,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       // ✅ STEP 6: Fetch updated messages ONCE to get the new conversation state
       console.log('📥 [handleSaveEdit] Fetching updated messages...');
-      const updatedMessages = await getMessages(conversationId!);
+      const { messages: updatedMessages } = await getMessages(conversationId!);
       const filteredMessages = filterActiveVersions(updatedMessages);
       setMessages(filteredMessages);
       console.log('📋 [handleSaveEdit] Messages updated:', {
@@ -809,7 +814,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       console.error("❌ [handleSaveEdit] Failed to save edit:", error);
       // Revert optimistic update on error by fetching from server
       try {
-        const revertedMessages = await getMessages(conversationId!);
+        const { messages: revertedMessages } = await getMessages(conversationId!);
         const filteredRevertedMessages = filterActiveVersions(revertedMessages);
         setMessages(filteredRevertedMessages);
       } catch (fetchError) {
@@ -855,19 +860,66 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   };
 
+  // Load more messages (pagination)
+  const loadMoreMessages = useCallback(async () => {
+    if (!currentConversation || isLoadingMore || !hasMoreMessages) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const { messages: olderMessages, nextCursor } = await getMessages(
+        currentConversation.id,
+        50,
+        messageCursor || undefined
+      );
+      
+      if (olderMessages.length > 0) {
+        const filteredOlder = filterActiveVersions(olderMessages);
+        
+        // Prepend older messages
+        setMessages(prev => [...filteredOlder, ...prev]);
+        
+        // Load versions for older messages
+        const currentVersionsMap = new Map<string, ChatMessage[]>(messageVersions);
+        for (const message of olderMessages) {
+          const rootId = message.versionOf || message.id;
+          if (!currentVersionsMap.has(rootId)) {
+            const versions = await getMessageVersions(rootId);
+            currentVersionsMap.set(rootId, versions);
+          }
+        }
+        setMessageVersions(currentVersionsMap);
+        
+        setMessageCursor(nextCursor);
+        setHasMoreMessages(!!nextCursor);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [currentConversation, isLoadingMore, hasMoreMessages, messageCursor, getMessages, getMessageVersions, messageVersions, setMessages, setMessageVersions]);
+
   // Reload messages (can be called from version switching)
   const reloadMessages = useCallback(async () => {
     if (!currentConversation) {
       setMessages([]);
       setMessageVersions(new Map());
+      setHasMoreMessages(true); // Reset pagination state
+      setMessageCursor(null);   // Reset pagination state
       return;
     }
 
     try {
-      const loadedMessages = await getMessages(currentConversation.id);
+      const { messages: loadedMessages, nextCursor } = await getMessages(currentConversation.id);
       console.log("✅ Loaded", loadedMessages.length, "messages");
       // Filter to show only active versions (no duplicates)
       const filteredMessages = filterActiveVersions(loadedMessages);
+      
+      // Set pagination state
+      setMessageCursor(nextCursor);
+      setHasMoreMessages(!!nextCursor);
       
       // ✅ PRESERVE OPTIMISTIC MESSAGES & FIX RACE CONDITION
       setMessages(prev => {
@@ -920,7 +972,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       setMessages([]);
       setMessageVersions(new Map());
     }
-  }, [currentConversation?.id, getMessages, getMessageVersions]);
+  }, [currentConversation?.id, getMessages, getMessageVersions, setMessages, setMessageVersions]);
 
   // Load messages from conversation path
   useEffect(() => {
@@ -960,35 +1012,33 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
             )}
           >
-            <ChatContainerRoot
-              className="h-full px-2 md:px-3 lg:px-4 "
+            <div
+              className="h-full flex flex-col px-2 md:px-3 lg:px-4"
             >
-               <ChatContainerContent
-                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative pt-10 max-xl:pt-20 max-md:px-5 "
-                 style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
-               >
+              {/* Sticky content at top */}
+              <div className="flex-shrink-0 space-y-4">
                 {/* Indexing Progress Badge */}
                 {jobs.filter(j => j.status === 'processing' || j.status === 'parsing').length > 0 && (
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="relative top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground">
-                                          <Loader
-                      className="opacity-50"
-                      variant="text-shimmer"
-                      size="sm"
-                      text={(() => {
-                        const processingJob = jobs.find(j => j.status === 'processing');
-                        return processingJob?.fileName
-                          ? `Indexing ${processingJob.fileName}... ${processingJob.progress}%`
-                          : 'Preparing PDF...';
-                      })()}
-                    />
-                       </div>
+                      <Loader
+                        className="opacity-50"
+                        variant="text-shimmer"
+                        size="sm"
+                        text={(() => {
+                          const processingJob = jobs.find(j => j.status === 'processing');
+                          return processingJob?.fileName
+                            ? `Indexing ${processingJob.fileName}... ${processingJob.progress}%`
+                            : 'Preparing PDF...';
+                        })()}
+                      />
+                    </div>
                   </div>
                 )}
 
                 {/* Tags Section - Fixed Top Right */}
                 {currentConversationId && (
-                  <div className="fixed top-4 right-5 z-30 flex flex-col  items-end gap-2">
+                  <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
                     {/* Existing Tags */}
                     {currentTags.length > 0 && (
                       <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
@@ -1019,8 +1069,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                     </Button>
                   </div>
                 )}
-                
-                <MessageList
+              </div>
+
+              {/* Messages List - Virtuoso handles its own scrolling */}
+              <div 
+                className="flex-1 relative"
+              >
+                <VirtualizedMessageList
                   messages={messages}
                   isSending={isSending}
                   streamingMessageId={streamingMessageId}
@@ -1031,23 +1086,24 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onBranchFromMessage={handleBranchFromMessage}
                   messageVersions={messageVersions}
                   onSwitchVersion={switchToMessageVersion}
+                  onLoadMore={loadMoreMessages}
+                  isLoadingMore={isLoadingMore}
                 />
+              </div>
 
-                {/* Tag Dialog */}
-                {tagDialogOpen && currentConversationId && (
-                  <TagDialog
-                    conversationId={currentConversationId}
-                    currentTags={currentTags}
-                    allTags={allTags}
-                    onSave={handleSaveTags}
-                    onClose={() => {
-                      setTagDialogOpen(false);
-                    }}
-                  />
-                )}
-            
-              </ChatContainerContent>
-            </ChatContainerRoot>
+              {/* Tag Dialog */}
+              {tagDialogOpen && currentConversationId && (
+                <TagDialog
+                  conversationId={currentConversationId}
+                  currentTags={currentTags}
+                  allTags={allTags}
+                  onSave={handleSaveTags}
+                  onClose={() => {
+                    setTagDialogOpen(false);
+                  }}
+                />
+              )}
+            </div>
                 <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100]"></div>
           </div>
         </div>

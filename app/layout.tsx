@@ -6,6 +6,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { LayoutGroup } from "motion/react";
 import "./globals.css";
 
@@ -105,9 +106,11 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased dark`}
       >
         <AuthProvider>
-          <ChatProvider>
-              {children}
-          </ChatProvider>
+          <QueryProvider>
+            <ChatProvider>
+                {children}
+            </ChatProvider>
+          </QueryProvider>
         </AuthProvider>
 
         {/* Structured Data (JSON-LD) for SEO */}

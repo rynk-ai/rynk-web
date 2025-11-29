@@ -88,7 +88,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="w-full"
+        className="w-full px-3"
       >
         <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-start")}>
           <div className="group flex w-full flex-col gap-0">
@@ -136,7 +136,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="w-full"
+      className="w-full px-3 "
     >
       <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-end")}>
         <div className="group flex flex-col items-end gap-1 w-full">

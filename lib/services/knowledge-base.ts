@@ -235,7 +235,8 @@ export class KnowledgeBaseService {
     }
     
     // Fetch current conversation path
-    const messages = await cloudDb.getMessages(conversationId)
+    // Fetch current conversation path (fetch all/large limit to get full path)
+    const { messages } = await cloudDb.getMessages(conversationId, 10000)
     const messageIdsInPath = new Set(messages.map(m => m.id))
     
     // 3. Filter links

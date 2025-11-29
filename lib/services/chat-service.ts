@@ -322,7 +322,8 @@ export class ChatService {
 
   private async prepareMessagesForAI(conversationId: string, contextText: string, project: any = null): Promise<ApiMessage[]> {
     console.log('📋 [prepareMessagesForAI] Fetching messages for conversation:', conversationId);
-    const messages = await cloudDb.getMessages(conversationId)
+    // Fetch up to 1000 messages for AI context (should be enough for most cases)
+    const { messages } = await cloudDb.getMessages(conversationId, 1000)
     console.log('📋 [prepareMessagesForAI] Messages retrieved:', {
       count: messages.length,
       messageIds: messages.map(m => m.id),

@@ -53,7 +53,7 @@ interface ChatContextValue {
   deleteMessage: (messageId: string) => Promise<void>
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
-  getMessages: (conversationId: string) => Promise<Message[]>
+  getMessages: (conversationId: string, limit?: number, cursor?: string) => Promise<{ messages: Message[], nextCursor: string | null }>
   // Folders
   folders: Folder[]
   createFolder: (name: string, description?: string, conversationIds?: string[]) => Promise<Folder>

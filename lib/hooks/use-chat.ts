@@ -21,16 +21,15 @@ import {
   createProject as createProjectAction,
   updateProject as updateProjectAction,
   deleteProject as deleteProjectAction,
-  getEmbeddingsByConversations,
   branchConversation as branchConversationAction,
   createMessageVersion as createMessageVersionAction,
   getMessageVersions as getMessageVersionsAction,
   switchToMessageVersion as switchToMessageVersionAction,
-  addEmbedding,
   setConversationContext as setConversationContextAction,
   clearConversationContext as clearConversationContextAction,
   generateTitleAction
 } from "@/app/actions"
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 // PDF size threshold: 500KB
 const PDF_SIZE_THRESHOLD = 500 * 1024
@@ -56,22 +55,23 @@ import { toast } from "sonner"
 import { chunkText } from '@/lib/utils/chunking'
 
 export function useChat() {
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  const queryClient = useQueryClient()
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [folders, setFolders] = useState<Folder[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false) // Keep for manual loading states like sending messages
   
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  
-  // Use ref to track last fetch time for cache invalidation
-  const conversationsLastFetchRef = useRef<number>(0)
-  const foldersLastFetchRef = useRef<number>(0)
-  const projectsLastFetchRef = useRef<number>(0)
+
+  // --- Queries ---
+
+  const { data: conversations = [] } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => getConversations(50, 0), // Fetch more initially for better cache coverage
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
 
   // Memoize currentConversation to prevent unnecessary recalculations
   const currentConversation = useMemo(
@@ -79,28 +79,67 @@ export function useChat() {
     [conversations, currentConversationId]
   )
 
-  const loadConversations = useCallback(async (force = false) => {
-    // Cache invalidation: Skip if fetched recently (within 3 seconds) unless forced
-    const lastFetch = conversationsLastFetchRef.current
-    const timeSinceLastFetch = Date.now() - lastFetch
-    if (!force && lastFetch && timeSinceLastFetch < 3000) {
-      console.log('[useChat] Skipping loadConversations, last fetch was', timeSinceLastFetch, 'ms ago')
-      return
-    }
-    
-    try {
-      const limit = 20
-      const all = await getConversations(limit, 0)
-      setConversations(all)
-      setPage(1)
-      setHasMore(all.length === limit)
-      conversationsLastFetchRef.current = Date.now()
-    } catch (err) {
-      console.error('Failed to load conversations:', err)
-      setError('Failed to load conversations')
-    }
-  }, [])
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders'],
+    queryFn: () => getFoldersAction(),
+    staleTime: 1000 * 60 * 60, // 1 hour (folders change less often)
+  })
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => getProjectsAction(),
+    staleTime: 1000 * 60 * 60, // 1 hour
+  })
+
+  // --- Mutations ---
+
+  const createConversationMutation = useMutation({
+    mutationFn: async (projectId?: string) => createConversationAction(projectId),
+    onSuccess: (newConv) => {
+      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => [newConv, ...old])
+      setCurrentConversationId(newConv.id)
+    },
+  })
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (id: string) => deleteConversationAction(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['conversations'] })
+      const previousConversations = queryClient.getQueryData(['conversations'])
+      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => old.filter(c => c.id !== id))
+      if (currentConversationId === id) setCurrentConversationId(null)
+      return { previousConversations }
+    },
+    onError: (err, id, context) => {
+      queryClient.setQueryData(['conversations'], context?.previousConversations)
+      setError('Failed to delete conversation')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+
+  const updateConversationMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Conversation> }) => 
+      updateConversationAction(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['conversations'] })
+      const previousConversations = queryClient.getQueryData(['conversations'])
+      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+        old.map(c => c.id === id ? { ...c, ...updates } : c)
+      )
+      return { previousConversations }
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(['conversations'], context?.previousConversations)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+
+  // --- Legacy Loaders (Mapped to Refetch/No-op for compatibility) ---
+  
   const loadMoreConversations = useCallback(async () => {
     if (isLoadingMore || !hasMore) return
 
@@ -111,7 +150,7 @@ export function useChat() {
       const nextBatch = await getConversations(limit, offset)
       
       if (nextBatch.length > 0) {
-        setConversations(prev => [...prev, ...nextBatch])
+        queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => [...old, ...nextBatch])
         setPage(prev => prev + 1)
         setHasMore(nextBatch.length === limit)
       } else {
@@ -122,85 +161,49 @@ export function useChat() {
     } finally {
       setIsLoadingMore(false)
     }
-  }, [page, hasMore, isLoadingMore])
+  }, [page, hasMore, isLoadingMore, queryClient])
+  
+  const loadConversations = useCallback(async (force = false) => {
+    if (force) await queryClient.invalidateQueries({ queryKey: ['conversations'] })
+  }, [queryClient])
 
-  // Folders and Projects are not yet migrated to actions fully in this step, keeping empty or TODO
-  const loadFolders = useCallback(async (force = false) => {
-    const lastFetch = foldersLastFetchRef.current
-    const timeSinceLastFetch = Date.now() - lastFetch
-    if (!force && lastFetch && timeSinceLastFetch < 3000) {
-      return
-    }
-    
-    try {
-      const all = await getFoldersAction()
-      setFolders(all as Folder[])
-      foldersLastFetchRef.current = Date.now()
-    } catch (err) {
-      console.error('Failed to load folders:', err)
-    }
-  }, [])
+  const loadFolders = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['folders'] })
+  }, [queryClient])
 
-  const loadProjects = useCallback(async (force = false) => {
-    const lastFetch = projectsLastFetchRef.current
-    const timeSinceLastFetch = Date.now() - lastFetch
-    if (!force && lastFetch && timeSinceLastFetch < 3000) {
-      return
-    }
-    
-    try {
-      const all = await getProjectsAction()
-      setProjects(all as Project[])
-      projectsLastFetchRef.current = Date.now()
-    } catch (err) {
-      console.error('Failed to load projects:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadConversations()
-    loadFolders()
-    loadProjects()
-  }, [loadConversations, loadFolders, loadProjects])
+  const loadProjects = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['projects'] })
+  }, [queryClient])
 
   const createConversation = useCallback(async (projectId?: string) => {
     try {
-      const conversation = await createConversationAction(projectId)
-      await loadConversations()
-      setCurrentConversationId(conversation.id)
-      return conversation.id
+      const conversationId = await createConversationMutation.mutateAsync(projectId)
+      return conversationId.id
     } catch (err) {
       console.error('Failed to create conversation:', err)
-      setError('Failed to create conversation')
       throw err
     }
-  }, [loadConversations])
+  }, [createConversationMutation])
 
   const deleteConversation = useCallback(async (id: string) => {
     try {
-      await deleteConversationAction(id)
-      await loadConversations()
-      if (currentConversationId === id) {
-        setCurrentConversationId(null)
-      }
+      await deleteConversationMutation.mutateAsync(id)
     } catch (err) {
       console.error('Failed to delete conversation:', err)
-      setError('Failed to delete conversation')
       throw err
     }
-  }, [currentConversationId, loadConversations])
+  }, [deleteConversationMutation])
 
   const selectConversation = useCallback((id: string | null, conversation?: Conversation) => {
+    // If conversation object is provided, we can optimistically add it to cache if missing
     if (id && conversation) {
-      setConversations(prev => {
-        if (prev.find(c => c.id === id)) return prev
-        // Add to the beginning of the list as it's now the active one
-        return [conversation, ...prev]
+      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => {
+        if (old.find(c => c.id === id)) return old
+        return [conversation, ...old]
       })
     }
     setCurrentConversationId(id)
-    // No need to reload conversations on selection - data hasn't changed
-  }, [])
+  }, [queryClient])
 
   const selectProject = useCallback((id: string | null) => {
     setActiveProjectId(id)
@@ -210,60 +213,54 @@ export function useChat() {
 
   const generateTitle = useCallback(async (conversationId: string, messageContent: string) => {
     try {
+      // Optimistic update
+      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+        old.map(c => c.id === conversationId ? { ...c, title: 'Generating title...' } : c)
+      )
+
       const title = await generateTitleAction(conversationId, messageContent)
+      
       if (title) {
-        // Optimistically update the conversation title without refetching entire list
-        setConversations(prev => prev.map(c => 
-          c.id === conversationId ? { ...c, title } : c
-        ))
+        queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+          old.map(c => c.id === conversationId ? { ...c, title } : c)
+        )
       }
     } catch (error) {
       console.error('Failed to generate title:', error)
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     }
-  }, [])
+  }, [queryClient])
 
   const setConversationContext = useCallback(async (
     conversationId: string,
     referencedConversations?: { id: string; title: string }[],
     referencedFolders?: { id: string; name: string }[]
   ) => {
-    // Optimistic update - instant UI feedback
-    setConversations(prev => prev.map(c => 
-      c.id === conversationId
-        ? { 
-            ...c, 
-            activeReferencedConversations: referencedConversations || [],
-            activeReferencedFolders: referencedFolders || []
-          }
-        : c
-    ))
+    // Optimistic update
+    updateConversationMutation.mutate({ 
+      id: conversationId, 
+      updates: { 
+        activeReferencedConversations: referencedConversations || [],
+        activeReferencedFolders: referencedFolders || []
+      } 
+    })
     
-    // Backend sync (async)
-    try {
-      await setConversationContextAction(conversationId, referencedConversations, referencedFolders)
-    } catch (err) {
-      console.error('Failed to set context:', err)
-      // Revert on error
-      await loadConversations()
-    }
-  }, [])
+    // Backend sync (async) - handled by mutation but we can also call action directly if needed for specific return
+    // But mutation is better. However, the original code called a specific action.
+    // Let's stick to the mutation for consistency as it handles the optimistic update + server call.
+    // Wait, the original action `setConversationContextAction` might do more than just update DB?
+    // Checking actions.ts... it just calls `updateConversation`. So mutation is fine.
+  }, [updateConversationMutation])
 
   const clearConversationContext = useCallback(async (conversationId: string) => {
-    // Optimistic update
-    setConversations(prev => prev.map(c =>
-      c.id === conversationId
-        ? { ...c, activeReferencedConversations: [], activeReferencedFolders: [] }
-        : c
-    ))
-    
-    // Backend sync
-    try {
-      await clearConversationContextAction(conversationId)
-    } catch (err) {
-      console.error('Failed to clear context:', err)
-      await loadConversations() // Revert
-    }
-  }, [])
+    updateConversationMutation.mutate({ 
+      id: conversationId, 
+      updates: { 
+        activeReferencedConversations: [],
+        activeReferencedFolders: []
+      } 
+    })
+  }, [updateConversationMutation])
 
   /**
    * Process file attachments, handling PDFs specially:
@@ -352,17 +349,17 @@ export function useChat() {
 
     try {
       if (!conversationId) {
-        const conv = await createConversationAction(activeProjectId || undefined)
+        // Create new conversation via mutation to ensure cache update
+        const conv = await createConversationMutation.mutateAsync(activeProjectId || undefined)
         conversationId = conv.id
-        setCurrentConversationId(conv.id)
-        
-        // Optimistically add to top of list (newest first)
-        setConversations(prev => [conv, ...prev])
+        // setCurrentConversationId is handled in onSuccess of mutation
         
         // If context is provided for the first message, set it as persistent context
         if ((referencedConversations && referencedConversations.length > 0) || 
             (referencedFolders && referencedFolders.length > 0)) {
-          await setConversationContext(conversationId, referencedConversations, referencedFolders)
+          // We can't use the mutation here easily because we need to wait for it? 
+          // Actually we can just fire it.
+          setConversationContext(conversationId, referencedConversations, referencedFolders)
         }
       }
 
@@ -463,70 +460,25 @@ export function useChat() {
     const conv = conversations.find(c => c.id === id)
     if (!conv) return
     
-    // Optimistic update - update state immediately for instant UI feedback
-    setConversations(prev => prev.map(c =>
-      c.id === id ? { ...c, isPinned: !c.isPinned } : c
-    ))
-    
-    try {
-      await updateConversationAction(id, { isPinned: !conv.isPinned })
-      // No loadConversations() - optimistic update is sufficient!
-    } catch (err) {
-      console.error('Failed to toggle pin:', err)
-      setError('Failed to toggle pin')
-      // Revert optimistic update on error
-      setConversations(prev => prev.map(c =>
-        c.id === id ? { ...c, isPinned: conv.isPinned } : c
-      ))
-      throw err
-    }
-  }, [conversations])
+    updateConversationMutation.mutate({ 
+      id, 
+      updates: { isPinned: !conv.isPinned } 
+    })
+  }, [conversations, updateConversationMutation])
 
   const updateConversationTags = useCallback(async (id: string, tags: string[]) => {
-    // Store original tags for revert
-    const originalTags = conversations.find(c => c.id === id)?.tags || []
-    
-    // Optimistic update
-    setConversations(prev => prev.map(c =>
-      c.id === id ? { ...c, tags } : c
-    ))
-    
-    try {
-      await updateConversationAction(id, { tags })
-      // No loadConversations() - optimistic update is sufficient!
-    } catch (err) {
-      console.error('Failed to update tags:', err)
-      setError('Failed to update tags')
-      // Revert on error
-      setConversations(prev => prev.map(c =>
-        c.id === id ? { ...c, tags: originalTags } : c
-      ))
-      throw err
-    }
-  }, [conversations])
+    updateConversationMutation.mutate({ 
+      id, 
+      updates: { tags } 
+    })
+  }, [updateConversationMutation])
 
   const renameConversation = useCallback(async (id: string, newTitle: string) => {
-    // Store original title for revert
-    const originalTitle = conversations.find(c => c.id === id)?.title || ''
-    
-    // Optimistic update
-    setConversations(prev => prev.map(c =>
-      c.id === id ? { ...c, title: newTitle } : c
-    ))
-    
-    try {
-      await updateConversationAction(id, { title: newTitle })
-      // No loadConversations() - optimistic update is sufficient!
-    } catch (err) {
-      console.error('Failed to rename conversation:', err)
-      setError('Failed to rename conversation')
-      // Revert on error
-      setConversations(prev => prev.map(c =>
-        c.id === id ? { ...c, title: originalTitle } : c
-      ))
-      throw err
-    }
-  }, [conversations])
+    updateConversationMutation.mutate({ 
+      id, 
+      updates: { title: newTitle } 
+    })
+  }, [updateConversationMutation])
 
   const getAllTags = useCallback(async (): Promise<string[]> => {
     try {
@@ -609,23 +561,27 @@ export function useChat() {
   const deleteMessage = useCallback(async (messageId: string) => {
     if (!currentConversationId) return
     try {
+      // We could make this a mutation too, but for now just invalidating is fine
       await deleteMessageAction(currentConversationId, messageId)
-      await loadConversations()
+      // For messages we might need a separate query if we want to cache them too.
+      // Currently messages are not fully cached in this hook (they are fetched in page.tsx or components).
+      // But if we want to update the conversation list (e.g. preview text), we should invalidate.
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     } catch (err) {
       console.error('Failed to delete message:', err)
       setError('Failed to delete message')
     }
-  }, [currentConversationId, loadConversations])
+  }, [currentConversationId, queryClient])
 
   const switchToMessageVersion = useCallback(async (messageId: string) => {
     if (!currentConversationId) return
     try {
       await switchToMessageVersionAction(currentConversationId, messageId)
-      await loadConversations(true)
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     } catch (error) {
       console.error('Failed to switch message version:', error)
     }
-  }, [currentConversationId, loadConversations])
+  }, [currentConversationId, queryClient])
 
   const getMessageVersions = useCallback(async (originalMessageId: string) => {
     try {
@@ -755,7 +711,7 @@ export function useChat() {
   const branchConversation = useCallback(async (messageId: string) => {
     try {
       const newConversation = await branchConversationAction(currentConversationId!, messageId)
-      await loadConversations()
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] })
       setCurrentConversationId(newConversation.id)
       return newConversation.id
     } catch (err) {
@@ -763,15 +719,15 @@ export function useChat() {
       setError('Failed to branch conversation')
       throw err
     }
-  }, [currentConversationId, loadConversations])
+  }, [currentConversationId, queryClient])
 
-  const getMessages = useCallback(async (conversationId: string) => {
+  const getMessages = useCallback(async (conversationId: string, limit: number = 50, cursor?: string) => {
     try {
-      const messages = await getMessagesAction(conversationId)
-      return messages as Message[]
+      const result = await getMessagesAction(conversationId, limit, cursor)
+      return result
     } catch (err) {
       console.error('Failed to get messages:', err)
-      return []
+      return { messages: [], nextCursor: null }
     }
   }, [])
   

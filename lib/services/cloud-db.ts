@@ -233,42 +233,56 @@ export const cloudDb = {
     return result
   },
 
-  async getMessages(conversationId: string) {
+  async getMessages(conversationId: string, limit: number = 50, cursor?: string) {
     const db = getDB()
     // First get conversation to know the path
     const conversation = await db.prepare('SELECT path FROM conversations WHERE id = ?').bind(conversationId).first()
-    if (!conversation) return []
+    if (!conversation) return { messages: [], nextCursor: null }
     
     const path = JSON.parse(conversation.path as string || '[]') as string[]
     
     console.log('📋 [cloudDb.getMessages]', {
       conversationId,
-      path,
-      pathLength: path.length
+      pathLength: path.length,
+      limit,
+      cursor
     });
     
-    if (path.length === 0) return []
+    if (path.length === 0) return { messages: [], nextCursor: null }
+
+    // Pagination Logic:
+    // We want to fetch messages from the END of the array (most recent) backwards.
+    // If no cursor is provided, we start from the end.
+    // Cursor represents the ID of the last message we fetched (the "oldest" one in the previous batch).
+    // So we want to fetch messages BEFORE the cursor in the path array.
+
+    let endIndex = path.length;
+    
+    if (cursor) {
+      const cursorIndex = path.indexOf(cursor);
+      if (cursorIndex !== -1) {
+        endIndex = cursorIndex;
+      }
+    }
+
+    const startIndex = Math.max(0, endIndex - limit);
+    const slicedPath = path.slice(startIndex, endIndex);
+    
+    // If we reached the start (startIndex is 0), there is no next cursor
+    const nextCursor = startIndex > 0 ? slicedPath[0] : null;
+
+    if (slicedPath.length === 0) return { messages: [], nextCursor: null }
 
     // Optimized: Only fetch messages that are in the path using IN clause
-    const placeholders = path.map(() => '?').join(',')
+    const placeholders = slicedPath.map(() => '?').join(',')
     const messages = await db.prepare(
       `SELECT * FROM messages WHERE id IN (${placeholders})`
-    ).bind(...path).all()
-    
-    console.log('✅ [cloudDb.getMessages] Fetched from DB:', {
-      count: messages.results.length,
-      ids: messages.results.map((m: any) => m.id),
-      userMessages: messages.results.filter((m: any) => m.role === 'user').map((m: any) => ({
-        id: m.id,
-        contentPreview: m.content ? (m.content as string).substring(0, 50) + '...' : 'N/A',
-        contentLength: m.content ? (m.content as string).length : 0
-      }))
-    });
+    ).bind(...slicedPath).all()
     
     const msgMap = new Map(messages.results.map((m: any) => [m.id as string, m]))
     
     // Return messages in path order
-    return path.map(id => {
+    const orderedMessages = slicedPath.map(id => {
       const m = msgMap.get(id)
       if (!m) return null
       return {
@@ -280,6 +294,11 @@ export const cloudDb = {
         versionNumber: m.versionNumber || 1 // Default to 1
       }
     }).filter(Boolean) as CloudMessage[]
+
+    return {
+      messages: orderedMessages,
+      nextCursor
+    }
   },
 
   async getMessage(messageId: string) {

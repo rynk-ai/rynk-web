@@ -32,11 +32,11 @@ export async function createConversation(projectId?: string) {
 
 
 
-export async function getMessages(conversationId: string) {
+export async function getMessages(conversationId: string, limit: number = 50, cursor?: string) {
   const session = await auth()
-  if (!session?.user?.id) return []
+  if (!session?.user?.id) return { messages: [], nextCursor: null }
   // TODO: Verify user owns conversation
-  return await cloudDb.getMessages(conversationId)
+  return await cloudDb.getMessages(conversationId, limit, cursor)
 }
 
 
