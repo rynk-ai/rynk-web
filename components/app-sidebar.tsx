@@ -272,37 +272,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent className="">
-        <div className="flex flex-col gap-2 p-3">
-          <div className="flex gap-1.5">
-            <Button
-              variant="default"
-              className="flex-1 items-center justify-start pl-3 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-              onClick={() => {
-                handleSelectConversation(null);
-              }}
-            >
-              <span className="text-sm font-medium">
-                New Chat {activeProjectId ? "in Project" : ""}
-              </span>
-            </Button>
+        <div className="flex flex-col gap-2 p-2">
+          <div className="flex gap-1">
             <Button
               variant="outline"
-              size="icon"
-              className="shrink-0"
-              onClick={handleCreateFolder}
-              title="New Folder"
+              className="flex-1 justify-start gap-2 px-3 shadow-none border-border/50 bg-background/50 hover:bg-accent hover:text-accent-foreground transition-all"
+              onClick={() => handleSelectConversation(null)}
             >
-              <FolderPlus className="size-4" />
+              <Plus className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">New Chat</span>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              title="Search"
-              onClick={() => setSearchDialogOpen(true)}
-            >
-              <Search className="size-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={handleCreateFolder}
+                >
+                  <FolderPlus className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New Folder</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearchDialogOpen(true)}
+                >
+                  <Search className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Search</TooltipContent>
+            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-auto">
@@ -394,34 +399,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   key={folder.id}
                   className="mb-5 group/collapsible"
                 >
-                  <div className="mb-1 flex items-center justify-between px-2 group/folder">
-                    <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-semibold text-foreground pl-2 hover:opacity-80 text-muted-foreground">
-                      <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                      <FolderIcon className="h-4 w-4 " />
-                      <span className="">{folder.name}</span>
-                      <span className="text-xs  font-normal">
-                        ({folderConversations.length})
+                  <div className="mb-0.5 flex items-center justify-between px-2 py-1 group/folder hover:bg-muted/50 rounded-md transition-colors">
+                    <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                      <FolderIcon className="h-3.5 w-3.5" />
+                      <span className="truncate">{folder.name}</span>
+                      <span className="text-[10px] text-muted-foreground/50 ml-auto mr-2">
+                        {folderConversations.length}
                       </span>
                     </CollapsibleTrigger>
-                    <div className="flex items-center gap-1 opacity-0 group-hover/folder:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-muted"
-                        onClick={(e) => handleEditFolder(folder, e)}
-                        title="Edit folder"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-muted text-destructive hover:text-destructive"
-                        onClick={(e) => handleDeleteFolder(folder.id, e)}
-                        title="Delete folder"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center opacity-0 group-hover/folder:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleEditFolder(folder, e)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => handleDeleteFolder(folder.id, e)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                   <CollapsibleContent>
@@ -501,11 +509,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {/* Pinned Conversations */}
           {conversations.some((c) => c.isPinned) && (
             <div className="mb-4">
-              <div className="px-3 mb-1.5 text-xs font-medium text-muted-foreground flex items-center gap-2">
-                <PinIcon className="h-3 w-3" />
+              <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 flex items-center gap-2">
                 Pinned
               </div>
-              <div className="space-y-1 px-2">
+              <div className="space-y-0.5 px-2">
                 {conversations
                   .filter(
                     (c) =>
@@ -516,67 +523,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <div key={conversation.id} className="relative group/item">
                       <button
                         className={cn(
-                          "flex w-full items-center gap-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10",
-                          currentConversationId === conversation.id && "bg-muted "
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-all hover:bg-muted/80 pr-8",
+                          currentConversationId === conversation.id 
+                            ? "bg-muted font-medium text-foreground" 
+                            : "text-muted-foreground"
                         )}
                         onClick={() => handleSelectConversation(conversation.id)}
                       >
-                        <div className="flex w-full flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate pl-1">
-                              {conversation.title}
-                            </span>
-                          </div>
-                        </div>
+                        <span className="truncate flex-1">
+                          {conversation.title}
+                        </span>
                       </button>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePinConversation(conversation.id);
-                        }}
-                        title="Unpin conversation"
-                      >
-                        <PinIcon className="h-4 w-4 fill-current" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleAddToFolder(conversation.id)}
-                          >
-                            Add to folder
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleRename(conversation.id)}
-                          >
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleTagClick(conversation.id)}
-                          >
-                            Edit tags
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteSimple(conversation.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            Delete conversation
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover/item:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePinConversation(conversation.id);
+                          }}
+                          title="Unpin"
+                        >
+                          <PinIcon className="h-3 w-3 fill-current" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
               </div>

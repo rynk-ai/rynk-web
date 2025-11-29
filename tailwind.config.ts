@@ -12,6 +12,10 @@ export default {
         'xs': '475px',
         // Default breakpoints are preserved: sm (640px), md (768px), lg (1024px), xl (1280px), 2xl (1536px)
       },
+      fontFamily: {
+        sans: ["var(--font-sans)", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

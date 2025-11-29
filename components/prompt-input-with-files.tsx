@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -244,7 +245,7 @@ export function PromptInputWithFiles({
   };
 
   return (
-    <div className={cn("flex flex-col gap-2 relative", className)}>
+    <div  className={cn("flex flex-col gap-2 relative", className)}>
       {/* Edit mode indicator */}
       {editMode && onCancelEdit && (
         <div className="absolute -top-8 right-2 z-30">
@@ -300,9 +301,9 @@ export function PromptInputWithFiles({
                     <PromptInputAction tooltip="Attach files">
                       <FileUploadTrigger asChild>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="icon"
-                          className="size-8 rounded-full"
+                          className="size-8 rounded-full text-muted-foreground hover:text-foreground"
                           disabled={isLoading || isSubmittingEdit || disabled}
                         >
                           <Paperclip size={16} />
@@ -319,9 +320,9 @@ export function PromptInputWithFiles({
                       tooltip="Add chats"
                       trigger={
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="icon"
-                          className="size-8 rounded-full"
+                          className="size-8 rounded-full text-muted-foreground hover:text-foreground"
                           disabled={isLoading || isSubmittingEdit || disabled}
                         >
                           <Plus size={16} />
@@ -340,7 +341,7 @@ export function PromptInputWithFiles({
                       (!prompt.trim() && files.length === 0) || isLoading || isSubmittingEdit
                     }
                     size="icon"
-                    className="size-8 rounded-full"
+                    className="size-8 rounded-full bg-foreground text-background hover:bg-foreground/90"
                   >
                     <Send size={16} />
                   </Button>

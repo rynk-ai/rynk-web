@@ -963,7 +963,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               className="h-full px-2 md:px-3 lg:px-4 "
             >
                <ChatContainerContent
-                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative max-md:pt-20 max-md:px-5"
+                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative pt-10 max-xl:pt-20 max-md:px-5"
                  style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
                >
                 {/* Indexing Progress Badge */}
@@ -985,14 +985,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   <div className="fixed top-4 right-5 z-30 flex flex-col  items-end gap-2">
                     {/* Existing Tags */}
                     {currentTags.length > 0 && (
-                      <div className="flex items-center gap-1.5 max-w-[400px] overflow-x-auto">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
                         {currentTags.map((tag, index) => (
                           <div
                             key={index}
                             className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
                           >
                             <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-medium">{tag}</span>
+                            <span className="lg:font-medium">{tag}</span>
                           </div>
                         ))}
                       </div>
@@ -1202,19 +1202,20 @@ function ChatHeader() {
   const { state } = useSidebar();
 
   return (
-    <div className="m-4 min-w-max absolute z-20 bg-muted rounded-lg flex items-center gap-2 px-2">
-      <SidebarTrigger size={'lg'} className="w-10 h-10"/>
-      {state === "collapsed" && (
+    <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
+      <div className="flex items-center gap-1 bg-background/60 backdrop-blur-md border border-border/40 shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-background/80 hover:shadow-md hover:border-border/60">
+        <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="w-10 h-10 hover:bg-muted-foreground/10"
+          className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
           onClick={() => selectConversation(null)}
           title="Start new chat"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
         </Button>
-      )}
+      </div>
     </div>
   );
 }

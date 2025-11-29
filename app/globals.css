@@ -12,84 +12,84 @@
 
 @layer base {
     :root {
-        /* Backgrounds */
-        --background: 0 0% 99%;
-        --foreground: 222 15% 12%;
+        /* Backgrounds - Zinc 50 */
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
 
-        /* Card/Surface */
+        /* Card/Surface - White */
         --card: 0 0% 100%;
-        --card-foreground: 222 15% 12%;
+        --card-foreground: 240 10% 3.9%;
 
-        /* Popover */
+        /* Popover - White */
         --popover: 0 0% 100%;
-        --popover-foreground: 222 15% 12%;
+        --popover-foreground: 240 10% 3.9%;
 
-        /* Primary - Rich Purple-Blue */
-        --primary: 250 85% 60%;
-        --primary-foreground: 0 0% 100%;
+        /* Primary - Zinc 900 */
+        --primary: 240 5.9% 10%;
+        --primary-foreground: 0 0% 98%;
 
-        /* Secondary */
-        --secondary: 220 15% 96%;
-        --secondary-foreground: 222 15% 12%;
+        /* Secondary - Zinc 100 */
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
 
-        /* Muted */
-        --muted: 220 15% 96%;
-        --muted-foreground: 220 10% 45%;
+        /* Muted - Zinc 100 */
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
 
-        /* Accent - Vibrant Teal */
-        --accent: 180 75% 55%;
-        --accent-foreground: 0 0% 100%;
+        /* Accent - Zinc 100 */
+        --accent: 240 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
 
-        /* Destructive */
-        --destructive: 0 85% 60%;
-        --destructive-foreground: 0 0% 100%;
+        /* Destructive - Red 500 */
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
 
-        /* Borders & Inputs */
-        --border: 220 15% 88%;
-        --input: 220 15% 88%;
-        --ring: 250 85% 60%;
+        /* Borders & Inputs - Zinc 200 */
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 240 5.9% 10%;
 
         /* Radius */
         --radius: 0.75rem;
     }
 
     .dark {
-        /* Backgrounds - Deep OLED-friendly */
-        --background: 222 25% 8%;
+        /* Backgrounds - Zinc 950 */
+        --background: 240 10% 3.9%;
         --foreground: 0 0% 98%;
 
-        /* Card/Surface */
-        --card: 222 20% 10%;
+        /* Card/Surface - Zinc 900 */
+        --card: 240 10% 3.9%;
         --card-foreground: 0 0% 98%;
 
-        /* Popover */
-        --popover: 222 20% 12%;
+        /* Popover - Zinc 950 */
+        --popover: 240 10% 3.9%;
         --popover-foreground: 0 0% 98%;
 
-        /* Primary - Brighter in dark mode */
-        --primary: 250 90% 65%;
-        --primary-foreground: 0 0% 100%;
+        /* Primary - White */
+        --primary: 0 0% 98%;
+        --primary-foreground: 240 5.9% 10%;
 
-        /* Secondary */
-        --secondary: 222 20% 15%;
+        /* Secondary - Zinc 800 */
+        --secondary: 240 3.7% 15.9%;
         --secondary-foreground: 0 0% 98%;
 
-        /* Muted */
-        --muted: 222 20% 15%;
-        --muted-foreground: 220 10% 65%;
+        /* Muted - Zinc 800 */
+        --muted: 240 3.7% 15.9%;
+        --muted-foreground: 240 5% 64.9%;
 
-        /* Accent */
-        --accent: 180 80% 60%;
-        --accent-foreground: 0 0% 100%;
+        /* Accent - Zinc 800 */
+        --accent: 240 3.7% 15.9%;
+        --accent-foreground: 0 0% 98%;
 
-        /* Destructive */
-        --destructive: 0 75% 58%;
-        --destructive-foreground: 0 0% 100%;
+        /* Destructive - Red 900 */
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
 
-        /* Borders & Inputs */
-        --border: 222 20% 20%;
-        --input: 222 20% 18%;
-        --ring: 250 90% 65%;
+        /* Borders & Inputs - Zinc 800 */
+        --border: 240 3.7% 15.9%;
+        --input: 240 3.7% 15.9%;
+        --ring: 240 4.9% 83.9%;
     }
 }
 

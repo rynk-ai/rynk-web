@@ -55,19 +55,23 @@ export default function HomePage() {
   return (
     <main className="relative flex min-h-screen w-full overflow-hidden">
       {/* Background layer with inner rounded corners */}
-      <div className="absolute inset-2 rounded-xl bg-background border border-sidebar-border shadow-sm " />
+      {/* Background layer */}
+      <div className="absolute inset-0 bg-background" />
       
-      {/* Top-right icon */}
+      
+      {/* Auth Button - Prominent and Clear */}
       {isAuthenticated !== null && (
         <button
           onClick={() => router.push(isAuthenticated ? "/chat" : "/login")}
-          className="absolute top-6 right-6 z-20 p-2.5 rounded-full hover:bg-muted/80 transition-colors border border-border/40 hover:border-border bg-background/50 backdrop-blur-sm"
-          aria-label={isAuthenticated ? "Go to chat" : "Login"}
+          className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full hover:bg-muted/80 transition-all duration-200 border border-border/50 hover:border-border bg-background/80 backdrop-blur-sm shadow-sm hover:shadow-md group"
         >
+          <span className="text-sm font-medium text-foreground">
+            {isAuthenticated ? "Go to Chat" : "Sign In"}
+          </span>
           {isAuthenticated ? (
-            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+            <MessageSquare className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
           ) : (
-            <LogIn className="h-5 w-5 text-muted-foreground" />
+            <LogIn className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
           )}
         </button>
       )}
@@ -78,11 +82,11 @@ export default function HomePage() {
         style={{ transform: `translateY(-${keyboardHeight / 2}px)` }}
       >
         {/* Branding */}
-        <div className="mb-6 flex flex-col items-center">
+        <div className="mb-8 flex flex-col items-center">
           <TextShimmer
-            spread={7}
-            duration={6}
-            className="text-3xl md:text-4xl lg:text-7xl font-bold tracking-tighter text-foreground/70 mb-10 leading-24"
+            spread={3}
+            duration={4}
+            className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground mb-4"
           >
             rynk.
           </TextShimmer>
@@ -99,7 +103,7 @@ export default function HomePage() {
           />
           
           {/* Suggestion chips */}
-          <div className="flex flex-wrap justify-center gap-2 mt-2">
+          <div className="flex flex-wrap justify-center gap-2 mt-4 px-4">
             {[
               "Explain quantum computing",
               "Write a poem about AI",
@@ -109,7 +113,7 @@ export default function HomePage() {
               <button
                 key={suggestion}
                 onClick={() => handleSubmit(suggestion, [])}
-                className="px-4 py-2 text-xs sm:text-sm rounded-full border border-border bg-card/50 hover:bg-card hover:border-foreground/20 text-muted-foreground hover:text-foreground transition-all duration-200"
+                className="px-3 py-1.5 text-xs rounded-full border border-border/50 bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200"
               >
                 {suggestion}
               </button>
