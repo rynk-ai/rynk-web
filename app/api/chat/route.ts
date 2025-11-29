@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userMessageIdHeader = request.headers.get('X-User-Message-Id')
+    const assistantMessageIdHeader = request.headers.get('X-Assistant-Message-Id')
+
     return await chatService.handleChatRequest(
       session.user.id,
       conversationId,
@@ -43,7 +46,9 @@ export async function POST(request: NextRequest) {
       messageId,
       attachments,
       referencedConversations,
-      referencedFolders
+      referencedFolders,
+      userMessageIdHeader,
+      assistantMessageIdHeader
     )
 
   } catch (error: any) {

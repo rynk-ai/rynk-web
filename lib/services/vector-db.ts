@@ -196,6 +196,18 @@ export const vectorDb = {
   // 3. Conversation Links
   async linkSourceToConversation(conversationId: string, sourceId: string, messageId?: string) {
     const db = getDB()
+    
+    // Check if link already exists
+    const existing = await db.prepare(`
+      SELECT id FROM conversation_sources 
+      WHERE conversationId = ? AND sourceId = ? AND (messageId = ? OR (messageId IS NULL AND ? IS NULL))
+    `).bind(conversationId, sourceId, messageId || null, messageId || null).first()
+
+    if (existing) {
+      console.log('♻️ [vectorDb] Link already exists:', existing.id)
+      return
+    }
+
     const id = crypto.randomUUID()
     const now = Date.now()
     
@@ -209,6 +221,15 @@ export const vectorDb = {
 
   async getSourcesForConversation(conversationId: string) {
     const db = getDB()
+    console.log('🔍 [vectorDb] Getting sources for conversation:', conversationId)
+    
+    // Debug: Check raw links first
+    const rawLinks = await db.prepare('SELECT * FROM conversation_sources WHERE conversationId = ?').bind(conversationId).all()
+    console.log(`🔍 [vectorDb] Found ${rawLinks.results.length} raw links in conversation_sources`)
+    if (rawLinks.results.length > 0) {
+      console.log('🔍 [vectorDb] First raw link:', rawLinks.results[0])
+    }
+
     // Join with sources table to get details
     const results = await db.prepare(`
       SELECT s.*, cs.messageId 
@@ -226,6 +247,8 @@ export const vectorDb = {
   // Search across multiple sources
   async searchKnowledgeBase(sourceIds: string[], queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
     const { limit = 10, minScore = 0.5 } = options
+    console.log('🔍 [searchKnowledgeBase] Searching sources:', sourceIds.length, 'MinScore:', minScore);
+
     if (sourceIds.length === 0) return []
 
     const db = getDB()
@@ -238,6 +261,8 @@ export const vectorDb = {
       `SELECT * FROM knowledge_chunks WHERE sourceId IN (${placeholders})`
     ).bind(...sourceIds).all()
     
+    console.log('🔍 [searchKnowledgeBase] Fetched chunks from DB:', results.results.length);
+
     const chunks = results.results.map((row: any) => ({
       ...row,
       vector: JSON.parse(row.vector as string),
@@ -248,6 +273,10 @@ export const vectorDb = {
       ...chunk,
       score: cosineSimilarity(queryVector, chunk.vector)
     }))
+    
+    // Log top scores for debugging
+    const topScores = scored.map(s => s.score).sort((a, b) => b - a).slice(0, 5);
+    console.log('🔍 [searchKnowledgeBase] Top 5 scores:', topScores);
     
     return scored
       .filter(r => r.score >= minScore)

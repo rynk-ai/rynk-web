@@ -3,6 +3,7 @@
 // ChatContainer imports removed as we use VirtualizedMessageList directly
 import { MessageList } from "@/components/chat/message-list";
 import { VirtualizedMessageList } from "@/components/chat/virtualized-message-list";
+import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue";
 import {
   Message,
   MessageContent,
@@ -100,6 +101,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const searchParams = useSearchParams();
   const {
     sendMessage,
+    uploadAttachments,
+    sendChatRequest,
+    createConversation,
     currentConversation,
     currentConversationId,
     selectConversation,
@@ -178,36 +182,80 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [currentConversationId]);
 
+  // Indexing Queue for background PDF processing
+  const { jobs, enqueueFile } = useIndexingQueue();
+  
+  // Keep a ref to jobs for the polling interval to access latest state
+  const jobsRef = useRef(jobs);
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
+
+  // Show toast when indexing starts/progresses
+  useEffect(() => {
+    const processingJobs = jobs.filter((j: any) => j.status === 'processing');
+    if (processingJobs.length > 0) {
+      // The hook handles the toast updates internally, but we can add extra UI here if needed
+    }
+  }, [jobs]);
+
+  // Helper: Wait for PDF indexing to complete
+  const waitForIndexing = useCallback((jobId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const checkInterval = setInterval(() => {
+        // Use ref to get latest jobs state
+        const job = jobsRef.current.find(j => j.id === jobId);
+        
+        if (job?.status === 'completed') {
+          clearInterval(checkInterval);
+          resolve();
+        } else if (job?.status === 'failed') {
+          clearInterval(checkInterval);
+          reject(new Error(job.error || 'Indexing failed'));
+        }
+      }, 500); // Check every 500ms
+      
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        reject(new Error('Indexing timeout'));
+      }, 5 * 60 * 1000);
+    });
+  }, []);
+
   const handleContextChange = useCallback(async (newContext: typeof localContext) => {
     setLocalContext(newContext);
   }, []);
 
-  const handleSubmit = useCallback(async (text: string, files: File[]) => {
+  const handleSubmit = useCallback(async (
+    text: string,
+    files: File[]
+  ) => {
     if (!text.trim() && files.length === 0) return;
 
     setIsSending(true);
 
     // ✅ OPTIMISTIC UI: Create temp IDs and messages
-    const tempUserMessageId = `temp-user-${Date.now()}`;
-    const tempAssistantMessageId = `temp-assistant-${Date.now()}`;
+    const tempUserMessageId = crypto.randomUUID();
+    const tempAssistantMessageId = crypto.randomUUID();
     const timestamp = Date.now();
 
-    const referencedConversations = activeContext
+    const referencedConversationsList = activeContext
       .filter((c) => c.type === "conversation")
       .map((c) => ({ id: c.id, title: c.title }));
 
-    const referencedFolders = activeContext
+    const referencedFoldersList = activeContext
       .filter((c) => c.type === "folder")
       .map((c) => ({ id: c.id, name: c.title }));
 
     const optimisticUserMessage: ChatMessage = {
       id: tempUserMessageId,
-      conversationId: currentConversationId || 'temp-conversation',
+      conversationId: currentConversationId || crypto.randomUUID(),
       role: 'user',
       content: text,
       attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
-      referencedConversations,
-      referencedFolders,
+      referencedConversations: referencedConversationsList,
+      referencedFolders: referencedFoldersList,
       createdAt: timestamp,
       timestamp,
       userId: '',
@@ -216,7 +264,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
     const optimisticAssistantMessage: ChatMessage = {
       id: tempAssistantMessageId,
-      conversationId: currentConversationId || 'temp-conversation',
+      conversationId: currentConversationId || crypto.randomUUID(),
       role: 'assistant',
       content: '', // Empty content initially (loading state)
       createdAt: timestamp + 1,
@@ -232,15 +280,140 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     setLocalContext([]);
 
     try {
-      const result = await sendMessage(
+      // 1. Upload files first
+      let uploadedAttachments: any[] = [];
+      if (files.length > 0) {
+        uploadedAttachments = await uploadAttachments(files);
+      }
+
+      // 2. Handle large PDFs: enqueue and WAIT for indexing
+      // We need a conversation ID for indexing. If we don't have one, we might need to create it?
+      // Actually, the worker needs it. But `enqueueFile` takes it.
+      // If we are creating a new conversation, we don't have the ID yet until we call `sendChatRequest`...
+      // CATCH-22: We need conversation ID for indexing, but we get it from sending the message.
+      // FIX: We can generate the conversation ID optimistically if it doesn't exist!
+      // `sendChatRequest` allows passing an override ID.
+      
+      const targetConversationId = currentConversationId || optimisticUserMessage.conversationId;
+
+      if (uploadedAttachments.length > 0) {
+        const largePDFs = uploadedAttachments.filter((f: any) => f.isLargePDF);
+        
+        if (largePDFs.length > 0) {
+          // 🚨 CRITICAL: If we have large PDFs to index, we MUST have a real conversation ID in the DB.
+          // If we are in a new chat (no currentConversationId), the optimistic ID won't work for the backend.
+          // So we must create the conversation explicitly here.
+          let effectiveConversationId = targetConversationId;
+          
+          if (!currentConversationId) {
+            console.log('🆕 [ChatPage] Creating new conversation for PDF indexing...');
+            try {
+              // Create conversation and wait for it
+              const newConversationId = await createConversation();
+              effectiveConversationId = newConversationId;
+              console.log('✅ [ChatPage] New conversation created:', effectiveConversationId);
+            } catch (err) {
+              console.error('❌ [ChatPage] Failed to create conversation:', err);
+              throw err;
+            }
+          }
+
+          console.log(`🔄 [ChatPage] Waiting for ${largePDFs.length} large PDF(s) to index...`);
+          
+          const jobIds: string[] = [];
+          for (const att of largePDFs) {
+            // We need the original File object for indexing, which is in `att.file` (preserved by processAttachments)
+            if (att.file) {
+              const jobId = await enqueueFile(att.file, effectiveConversationId, tempUserMessageId, att.url);
+              if (jobId) jobIds.push(jobId);
+            }
+          }
+          
+          // Wait for all large PDFs to complete indexing
+          if (jobIds.length > 0) {
+            await Promise.all(jobIds.map(jobId => waitForIndexing(jobId)));
+            console.log('✅ [ChatPage] All large PDFs indexed');
+          }
+
+          // Update target for sendChatRequest
+          // We must use the REAL ID if we created one
+          if (!currentConversationId) {
+             // We can't easily update 'targetConversationId' const, so we pass effectiveConversationId to sendChatRequest
+             // But wait, sendChatRequest takes conversationIdParam.
+          }
+          
+          // 3. Send Chat Request (NOW safe to send)
+          const result = await sendChatRequest(
+            text,
+            uploadedAttachments,
+            referencedConversationsList,
+            referencedFoldersList,
+            effectiveConversationId, // Pass the REAL ID
+            tempUserMessageId,    
+            tempAssistantMessageId 
+          );
+          
+          if (!result) {
+            removeMessage(tempUserMessageId);
+            removeMessage(tempAssistantMessageId);
+            return;
+          }
+          
+          // ... handle result ...
+          const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
+
+          if (userMessageId && userMessageId !== tempUserMessageId) {
+            const realUserMessage = { ...optimisticUserMessage, id: userMessageId, conversationId };
+            replaceMessage(tempUserMessageId, realUserMessage);
+          }
+          
+          if (assistantMessageId && assistantMessageId !== tempAssistantMessageId) {
+            const realAssistantMessage = { ...optimisticAssistantMessage, id: assistantMessageId, conversationId };
+            replaceMessage(tempAssistantMessageId, realAssistantMessage);
+          }
+
+          if (assistantMessageId) {
+            startStreaming(assistantMessageId);
+          }
+
+          const decoder = new TextDecoder();
+          let fullContent = "";
+
+          try {
+            while (true) {
+              const { done, value } = await streamReader.read();
+              if (done) break;
+              
+              const chunk = decoder.decode(value, { stream: true });
+              fullContent += chunk;
+              updateStreamContent(fullContent);
+            }
+          } catch (err) {
+            console.error("Error reading stream:", err);
+          } finally {
+            finishStreaming();
+            if (assistantMessageId) {
+              messageState.updateMessage(assistantMessageId, { content: fullContent });
+            }
+          }
+          
+          return; // Exit here since we handled the send
+        }
+      }
+
+      // Fallback for non-large-PDF flow (or if no files)
+      // 3. Send Chat Request
+      const result = await sendChatRequest(
         text,
-        files,
-        referencedConversations,
-        referencedFolders
+        uploadedAttachments,
+        referencedConversationsList,
+        referencedFoldersList,
+        targetConversationId, 
+        tempUserMessageId,    
+        tempAssistantMessageId 
       );
 
       if (!result) {
-        // Rollback if failed
         removeMessage(tempUserMessageId);
         removeMessage(tempAssistantMessageId);
         return;
@@ -248,19 +421,22 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
-      // ✅ REPLACE OPTIMISTIC MESSAGES WITH REAL ONES
-      if (userMessageId) {
+      // Replace optimistic messages with real ones
+      if (userMessageId && userMessageId !== tempUserMessageId) {
         const realUserMessage = { ...optimisticUserMessage, id: userMessageId, conversationId };
         replaceMessage(tempUserMessageId, realUserMessage);
       }
       
-      if (assistantMessageId) {
+      if (assistantMessageId && assistantMessageId !== tempAssistantMessageId) {
         const realAssistantMessage = { ...optimisticAssistantMessage, id: assistantMessageId, conversationId };
         replaceMessage(tempAssistantMessageId, realAssistantMessage);
+      }
+
+      // Start streaming
+      if (assistantMessageId) {
         startStreaming(assistantMessageId);
       }
 
-      // Read the stream
       const decoder = new TextDecoder();
       let fullContent = "";
 
@@ -277,8 +453,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         console.error("Error reading stream:", err);
       } finally {
         finishStreaming();
-        
-        // Update final content
         if (assistantMessageId) {
           messageState.updateMessage(assistantMessageId, { content: fullContent });
         }
@@ -292,10 +466,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     } finally {
       setIsSending(false);
     }
-  }, [activeContext, sendMessage, messageState, startStreaming, updateStreamContent, finishStreaming, currentConversationId, replaceMessage, removeMessage]);
-
-  // Track if we've processed a pending query to avoid re-processing
-  const processedQueryRef = useRef(false);
+  }, [activeContext, uploadAttachments, sendChatRequest, messageState, startStreaming, updateStreamContent, finishStreaming, currentConversationId, replaceMessage, removeMessage, enqueueFile, waitForIndexing, jobs]);
 
   // Handle pending query from URL params (?q=...) or localStorage
   useEffect(() => {
@@ -393,10 +564,6 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       container.removeEventListener('touchmove', handleTouchMove);
     };
   }, []);
-
-  // ... (rest of the component)
-
-  // ... (handleSubmit remains same)
 
   const handleStartEdit = useCallback((message: ChatMessage) => {
     if (isLoading) return;
@@ -743,11 +910,26 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
             )}
           >
-            <ChatContainerRoot className="h-full px-2 md:px-3 lg:px-4">
-               <ChatContainerContent 
-                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6"
+            <ChatContainerRoot
+              className="h-full px-2 md:px-3 lg:px-4"
+            >
+               <ChatContainerContent
+                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative"
                  style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
                >
+                {/* Indexing Progress Badge */}
+                {jobs.filter(j => j.status === 'processing' || j.status === 'parsing').length > 0 && (
+                  <div className="absolute top-2 right-4 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      <span>
+                        {jobs.find(j => j.status === 'processing')?.fileName 
+                          ? `Indexing ${jobs.find(j => j.status === 'processing')?.fileName}... ${jobs.find(j => j.status === 'processing')?.progress}%`
+                          : 'Preparing PDF...'}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 
                 <MessageList
                   messages={messages}

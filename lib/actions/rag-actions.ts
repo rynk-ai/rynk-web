@@ -1,14 +1,13 @@
 'use server'
 
-import { vectorDb } from '@/lib/services/vector-db'
-import { getOpenRouter } from '@/lib/services/openrouter'
-import { chunkText } from '@/lib/utils/chunking'
+import { knowledgeBase } from '@/lib/services/knowledge-base'
 import { auth } from '@/lib/auth'
 
-export async function processBatchForRAGAction(
-  attachmentId: string,
-  chunks: string[],
-  startIndex: number,
+export async function ingestProcessedFileAction(
+  conversationId: string,
+  messageId: string,
+  file: { name: string, type: string, r2Url: string, size: number },
+  chunks: { content: string, metadata: any }[],
   metadata: any
 ) {
   const session = await auth()
@@ -17,68 +16,30 @@ export async function processBatchForRAGAction(
   }
 
   try {
-    // Update status to processing if it's the first batch
-    if (startIndex === 0) {
-      await vectorDb.updateProcessingStatus(attachmentId, 'processing')
-    }
-
-    console.log(`[RAG] Processing batch of ${chunks.length} chunks starting at index ${startIndex}`)
+    console.log(`[RAG Action] Ingesting file: ${file.name} (${chunks.length} chunks)`)
     
-    // Generate embeddings and store chunks
-    // ALWAYS use OpenRouter for embeddings as it supports the embedding model
-    const aiProvider = getOpenRouter()
+    const sourceId = await knowledgeBase.ingestProcessedSource(
+      conversationId,
+      {
+        name: file.name,
+        type: file.type,
+        r2Key: file.r2Url,
+        metadata: {
+          ...metadata,
+          fileSize: file.size
+        }
+      },
+      chunks,
+      messageId
+    )
     
-    // Process chunks in parallel
-    const batchPromises = chunks.map(async (chunk, batchIndex) => {
-      const globalIndex = startIndex + batchIndex
-      try {
-        const vector = await aiProvider.getEmbeddings(chunk)
-        
-        await vectorDb.addFileChunk({
-          attachmentId,
-          userId: session.user!.id!,
-          chunkIndex: globalIndex,
-          content: chunk,
-          vector,
-          metadata: {
-            ...metadata,
-            chunkIndex: globalIndex,
-          }
-        })
-        return true
-      } catch (e) {
-        console.error(`[RAG] Failed to embed chunk ${globalIndex}:`, e)
-        return false
-      }
-    })
-    
-    await Promise.all(batchPromises)
-    
-    return { success: true, processedCount: chunks.length }
-  } catch (error) {
-    console.error('RAG Batch Processing Failed:', error)
-    // Only mark as failed if it's a critical error, otherwise let frontend decide
-    throw error
+    return { success: true, sourceId }
+  } catch (error: any) {
+    console.error('[RAG Action] Ingestion failed:', error)
+    throw new Error(error.message || 'Failed to ingest file')
   }
 }
 
-export async function completeRAGProcessingAction(attachmentId: string, totalChunks: number) {
-  const session = await auth()
-  if (!session?.user?.id) throw new Error('Unauthorized')
-  
-  await vectorDb.updateProcessingStatus(attachmentId, 'completed', totalChunks)
-  return { success: true }
-}
+// Legacy actions (keeping for backward compatibility if needed, but likely can be removed)
+// ...
 
-export async function createAttachmentMetadataAction(data: any) {
-  const session = await auth()
-  if (!session?.user?.id) throw new Error('Unauthorized')
-  
-  return await vectorDb.createAttachmentMetadata({
-    ...data,
-    userId: session.user.id,
-    processingStatus: 'pending',
-    chunkCount: 0,
-    messageId: null // Explicitly null initially
-  })
-}

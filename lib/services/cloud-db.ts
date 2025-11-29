@@ -306,7 +306,8 @@ export const cloudDb = {
 
   async addMessage(conversationId: string, message: any) {
     const db = getDB()
-    const id = crypto.randomUUID()
+    // Use provided ID if specified, otherwise generate new one
+    const id = message.id || crypto.randomUUID()
     const now = Date.now()
     
     // Get conversation data once

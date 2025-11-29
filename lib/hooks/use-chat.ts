@@ -31,6 +31,16 @@ import {
   clearConversationContext as clearConversationContextAction,
   generateTitleAction
 } from "@/app/actions"
+
+// PDF size threshold: 500KB
+const PDF_SIZE_THRESHOLD = 500 * 1024
+
+/**
+ * Determine if a PDF should use async indexing (large) or inline text extraction (small)
+ */
+function isPDFLarge(file: File): boolean {
+  return file.size >= PDF_SIZE_THRESHOLD
+}
 import { type CloudConversation as Conversation, type CloudMessage as Message, type Folder, type Project } from "@/lib/services/cloud-db"
 import { searchEmbeddings } from "@/lib/utils/vector"
 import {
@@ -43,11 +53,6 @@ import {
   extractTextFromPDF,
 } from "@/lib/utils/file-converter"
 import { toast } from "sonner"
-import { 
-  createAttachmentMetadataAction, 
-  processBatchForRAGAction,
-  completeRAGProcessingAction
-} from '@/lib/actions/rag-actions'
 import { chunkText } from '@/lib/utils/chunking'
 
 export function useChat() {
@@ -267,131 +272,80 @@ export function useChat() {
    * 3. Upload to R2 and return metadata with processed data
    */
   /**
-   * Process file attachments, handling PDFs specially:
-   * 1. Try to extract text from PDFs
-   * 2. If text is insufficient, convert pages to images
-   * 3. Upload to R2 and return metadata with processed data
+   * Process file attachments - FAST R2 upload only
+   * PDF indexing happens in background via indexing queue
    */
-  async function processAttachments(
-    files: File[]
-  ): Promise<any[]> {
-    const processed: any[] = []
+  const processAttachments = useCallback(async (files: File[]): Promise<any[]> => {
+    if (files.length === 0) return []
 
-    // Maximum text content size (to prevent oversized requests)
-    // We still limit the payload size, but now we can handle larger files via backend ingestion
-    // However, for the initial HTTP request, we still need to be mindful of body size limits.
-    // The backend KnowledgeBase will handle the actual chunking and storage.
-    const MAX_TEXT_CONTENT_SIZE = 100000 // Increased to ~100KB as we are not sending all chunks in body, just the text
+    console.log('[processAttachments] Processing files:', files.length)
+    const processed: any[] = []
 
     for (const file of files) {
       try {
-        // Process PDFs
-        if (isPDFFile(file)) {
-          console.log('[processAttachments] Processing PDF:', file.name)
-          
-          // Step 1: Upload to R2 first (we need the URL for metadata)
-          const formData = new FormData()
-          formData.append('file', file)
-          const uploaded = await uploadFileAction(formData)
-          
-          // Step 2: Try text extraction
-          let extractedContent: string | null = null
-          let fallbackImages: string[] | null = null
-          
-          try {
-            extractedContent = await extractTextFromPDF(file)
-            
-            // Check if we got meaningful text (> 50 chars)
-            if (extractedContent && extractedContent.trim().length > 50) {
-              console.log('[processAttachments] Text extracted successfully, length:', extractedContent.length)
-              
-              // We no longer do client-side RAG here. 
-              // We just pass the extracted text to the backend, which will ingest it into the Knowledge Base.
-              
-              // Optional: Truncate if EXTREMELY large to avoid HTTP 413
-              if (extractedContent.length > MAX_TEXT_CONTENT_SIZE) {
-                console.warn('[processAttachments] PDF text very large, truncating for transport:', {
-                  original: extractedContent.length,
-                  truncated: MAX_TEXT_CONTENT_SIZE
-                })
-                // We might want a better strategy here (e.g. upload text file to R2 and pass URL)
-                // But for now, simple truncation for the API call. 
-                // Ideally, we should upload the full text as a blob if it's huge.
-                extractedContent = extractedContent.substring(0, MAX_TEXT_CONTENT_SIZE) + 
-                  '\n\n...[Content truncated for transport]'
-              }
-            } else {
-              console.log('[processAttachments] Insufficient text extracted, falling back to images')
-              extractedContent = null
-            }
-          } catch (error) {
-            console.error('[processAttachments] Text extraction failed:', error)
-            extractedContent = null
-          }
-          
-          // Step 3: Fallback to images if no text
-          if (!extractedContent) {
-            try {
-              fallbackImages = await pdfToBase64Images(file, {
-                maxPages: 10,
-                scale: 1.0,
-                quality: 0.6
-              })
-              
-              console.log('[processAttachments] PDF converted to', fallbackImages.length, 'images')
-              
-              if (fallbackImages.length === 10) {
-                toast.warning(`${file.name} has more than 10 pages. Only the first 10 pages will be sent to AI.`)
-              }
-            } catch (error) {
-              console.error('[processAttachments] Image conversion failed:', error)
-              toast.error(`Failed to process ${file.name}`)
-            }
-          }
-          
-          // Add processed data to attachment metadata
-          processed.push({
-            ...uploaded,
-            extractedContent: extractedContent || undefined,
-            fallbackImages: fallbackImages || undefined,
-            // useRAG flag is no longer needed as backend decides based on content
-          })
+        // Check if PDF is large (needs async indexing)
+        const isLarge = file.type === 'application/pdf' && isPDFLarge(file)
+        
+        if (isLarge) {
+          console.log(`[processAttachments] Large PDF detected (${file.size} bytes):`, file.name)
+        } else if (file.type === 'application/pdf') {
+          console.log(`[processAttachments] Small PDF detected (${file.size} bytes):`, file.name)
         }
-        // Regular file upload (images, etc.)
-        else {
-          const formData = new FormData()
-          formData.append('file', file)
-          const uploaded = await uploadFileAction(formData)
-          processed.push(uploaded)
-        }
+        
+        // Upload to R2 (fast, < 1s per file)
+        const formData = new FormData()
+        formData.append('file', file)
+        const result = await uploadFileAction(formData)
+        
+        console.log('[processAttachments] ✅ File uploaded:', result.url)
+        
+        processed.push({
+          file, // ← CRITICAL: Keep original File for background indexing
+          url: result.url,
+          name: result.name,
+          type: result.type,
+          size: result.size,
+          isLargePDF: isLarge // Flag for later processing
+        })
       } catch (error) {
-        console.error('[processAttachments] Failed to process file:', file.name, error)
+        console.error('[processAttachments] Failed to upload file:', file.name, error)
         toast.error(`Failed to upload ${file.name}`)
       }
     }
 
     return processed
-  }
+  }, [])
 
-  const sendMessage = useCallback(async (
+  const uploadAttachments = useCallback(async (files: File[]): Promise<any[]> => {
+    if (!files || files.length === 0) return []
+    console.log('[uploadAttachments] Uploading files to R2...')
+    const uploaded = await processAttachments(files)
+    console.log('[uploadAttachments] ✅ Files uploaded to R2')
+    return uploaded
+  }, [processAttachments])
+
+  const sendChatRequest = useCallback(async (
     content: string,
-    files: File[] = [],
+    attachments: any[] = [], // Expects processed metadata/R2 URLs
     referencedConversations: { id: string; title: string }[] = [],
-    referencedFolders: { id: string; name: string }[] = []
+    referencedFolders: { id: string; name: string }[] = [],
+    conversationIdParam?: string, // Optional override
+    userMessageIdParam?: string, // Optional override
+    assistantMessageIdParam?: string // Optional override
   ): Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>;
     conversationId: string;
     userMessageId: string | null;
     assistantMessageId: string | null;
   } | null> => {
-    if (!content.trim() && (!files || files.length === 0)) return null
+    if (!content.trim() && (!attachments || attachments.length === 0)) return null
 
     setIsLoading(true)
     setError(null)
 
-    console.log('[sendMessage] activeProjectId:', activeProjectId)
+    console.log('[sendChatRequest] activeProjectId:', activeProjectId)
 
-    let conversationId = currentConversationId
+    let conversationId = conversationIdParam || currentConversationId
 
     // Only generate title if it's a new conversation or the title is still the default
     const shouldGenerateTitle = !currentConversationId || (currentConversation?.title === 'New Conversation')
@@ -412,22 +366,24 @@ export function useChat() {
         }
       }
 
-      // Handle file uploads with PDF processing
-      let uploadedAttachments: any[] = []
-      if (files && files.length > 0) {
-        uploadedAttachments = await processAttachments(files)
-      }
-      
+      // Generate IDs early so we can link attachments
+      const userMessageId = userMessageIdParam || crypto.randomUUID()
+      const assistantMessageId = assistantMessageIdParam || crypto.randomUUID()
+
       // Call the unified API
       // Note: Server-side ChatService creates REAL user and assistant messages immediately
-      // So we don't need client-side optimistic messages
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          // Pass IDs in headers so server uses them instead of generating new ones
+          'X-User-Message-Id': userMessageId,
+          'X-Assistant-Message-Id': assistantMessageId
+        },
         body: JSON.stringify({
           conversationId,
           message: content,
-          attachments: uploadedAttachments,
+          attachments: attachments, // Pass processed attachments
           referencedConversations,
           referencedFolders
         })
@@ -439,9 +395,11 @@ export function useChat() {
 
       if (!response.body) throw new Error('No response body')
 
-      // Extract message IDs from response headers
-      const userMessageId = response.headers.get('X-User-Message-Id')
-      const assistantMessageId = response.headers.get('X-Assistant-Message-Id')
+      // Read REAL message IDs from response headers (backend returns them)
+      const realUserMessageId = response.headers.get('X-User-Message-Id') || userMessageId
+      const realAssistantMessageId = response.headers.get('X-Assistant-Message-Id') || assistantMessageId
+
+      console.log('[sendChatRequest] Message IDs from backend:', { realUserMessageId, realAssistantMessageId })
 
       // Handle Streaming
       const reader = response.body.getReader()
@@ -451,12 +409,12 @@ export function useChat() {
         generateTitle(conversationId, content)
       }
       
-      // Return stream reader, conversationId, and message IDs
+      // Return stream reader, conversationId, REAL message IDs
       return {
         streamReader: reader,
         conversationId,
-        userMessageId,
-        assistantMessageId
+        userMessageId: realUserMessageId,
+        assistantMessageId: realAssistantMessageId
       }
 
     } catch (err) {
@@ -467,6 +425,39 @@ export function useChat() {
       setIsLoading(false)
     }
   }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId])
+
+  // Legacy wrapper for backward compatibility (if needed)
+  const sendMessage = useCallback(async (
+    content: string,
+    files: File[] = [],
+    referencedConversations: { id: string; title: string }[] = [],
+    referencedFolders: { id: string; name: string }[] = []
+  ) => {
+    // 1. Upload
+    const uploadedAttachments = await uploadAttachments(files)
+    
+    // 2. Send (Note: This skips the indexing wait, so it's the "old" behavior)
+    // We return the result + uploadedFiles for the caller to handle indexing if they want
+    const result = await sendChatRequest(content, uploadedAttachments, referencedConversations, referencedFolders)
+    
+    if (!result) return null
+
+    // Reconstruct the return shape expected by legacy callers
+    const uploadedFilesForIndexing: { file: File; r2Url: string }[] = []
+    files.forEach((file, i) => {
+      if (uploadedAttachments[i]?.url) {
+        uploadedFilesForIndexing.push({
+          file,
+          r2Url: uploadedAttachments[i].url
+        })
+      }
+    })
+
+    return {
+      ...result,
+      uploadedFiles: uploadedFilesForIndexing
+    }
+  }, [uploadAttachments, sendChatRequest])
 
   const togglePinConversation = useCallback(async (id: string) => {
     const conv = conversations.find(c => c.id === id)
@@ -805,6 +796,8 @@ export function useChat() {
     selectConversation,
     searchConversations,
     sendMessage,
+    uploadAttachments,
+    sendChatRequest,
     loadConversations,
     togglePinConversation,
     updateConversationTags,

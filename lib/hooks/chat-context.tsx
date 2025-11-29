@@ -26,6 +26,21 @@ interface ChatContextValue {
     userMessageId: string | null
     assistantMessageId: string | null
   } | null>
+  uploadAttachments: (files: File[]) => Promise<any[]>
+  sendChatRequest: (
+    content: string,
+    attachments?: any[],
+    referencedConversations?: { id: string; title: string }[],
+    referencedFolders?: { id: string; name: string }[],
+    conversationIdParam?: string,
+    userMessageIdParam?: string,
+    assistantMessageIdParam?: string
+  ) => Promise<{
+    streamReader: ReadableStreamDefaultReader<Uint8Array>
+    conversationId: string
+    userMessageId: string | null
+    assistantMessageId: string | null
+  } | null>
   loadConversations: () => Promise<void>
   togglePinConversation: (id: string) => Promise<void>
   updateConversationTags: (id: string, tags: string[]) => Promise<void>

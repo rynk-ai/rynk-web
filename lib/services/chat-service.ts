@@ -22,14 +22,18 @@ export class ChatService {
     userMessageId?: string,
     attachments: any[] = [],
     referencedConversations: any[] = [],
-    referencedFolders: any[] = []
+    referencedFolders: any[] = [],
+    providedUserMessageId?: string | null,
+    providedAssistantMessageId?: string | null
   ) {
     console.log('🚀 [chatService.handleChatRequest] Starting:', {
       userId,
       conversationId,
       isEditFlow: !!userMessageId,
       hasNewContent: !!userMessageContent,
-      userMessageId
+      userMessageId,
+      providedUserMessageId,
+      providedAssistantMessageId
     });
 
     // 1. Check credits
@@ -68,6 +72,7 @@ export class ChatService {
         throw new Error("Either userMessageContent or userMessageId must be provided")
       }
       userMessage = await cloudDb.addMessage(conversationId, {
+        id: providedUserMessageId || undefined,
         role: 'user',
         content: userMessageContent,
         attachments,
@@ -100,45 +105,34 @@ export class ChatService {
     // We don't maintain this legacy embedding table anymore for search, but keeping it if needed for other stats
     // this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
-    // 6. Ingest Attachments into Knowledge Base (if any)
-    // CRITICAL: Do this BEFORE retrieving context so the PDFs are indexed first
+    // 5. Ingest Attachments into Knowledge Base (Legacy)
+    // This is now handled by the frontend via /api/knowledge-base/ingest
+    // We keep this block empty or remove it entirely.
+    // The frontend sends 'processed: true' in attachment metadata if it handled it.
+    
+    // However, we might still want to handle text files or other types if not processed by frontend?
+    // For now, let's assume frontend handles everything or we add it there.
+    // But to be safe, we can check if 'processed' flag is missing.
+    
     if (attachments.length > 0) {
-      console.log('📚 [chatService] Ingesting attachments into Knowledge Base...');
       const { knowledgeBase } = await import('@/lib/services/knowledge-base')
       
       for (const att of attachments) {
+        // Skip if already processed by frontend pipeline
+        if (att.processed) continue
+        
         try {
-          // Only ingest text-based content or PDFs that have extracted text
-          // For images, we still rely on the multimodal model seeing them directly in the message history
-          if (att.extractedContent) {
-            await knowledgeBase.addSource(conversationId, {
-              type: 'pdf', // or 'text', simplify for now
-              name: att.name,
-              content: att.extractedContent,
-              metadata: {
-                fileType: att.type,
-                fileSize: att.size,
-                r2Key: att.url
-              }
-            }, userMessage.id)
-          } else if (this.isTextBasedFile(att)) {
-             // We need to fetch the content if it wasn't passed in full
-             // But wait, processAttachments in use-chat usually extracts it?
-             // If not, we might need to fetch it here. 
-             // For now, assume extractedContent is populated for text files too or we handle it.
-             // Actually, let's just handle what we have.
-             if (att.content) { // Some text files might have content directly
+           if (this.isTextBasedFile(att) && att.content) {
+             console.log('📚 [chatService] Ingesting legacy text file:', att.name)
                await knowledgeBase.addSource(conversationId, {
                   type: 'text',
                   name: att.name,
                   content: att.content,
                   metadata: { fileType: att.type }
                }, userMessage.id)
-             }
-          }
+           }
         } catch (error) {
-          console.error('❌ [chatService] Failed to ingest attachment into Knowledge Base:', att.name, error)
-          // Continue processing other attachments even if one fails
+          console.error('❌ [chatService] Failed to ingest legacy attachment:', att.name, error)
         }
       }
     }
@@ -187,6 +181,7 @@ export class ChatService {
 
     // 11. Create assistant message placeholder
     const assistantMessage = await cloudDb.addMessage(conversationId, {
+      id: providedAssistantMessageId || undefined,
       role: 'assistant',
       content: '', // Will be filled by streaming
       attachments: [],
@@ -349,11 +344,11 @@ export class ChatService {
       })
     }
 
-    // 2. Add Context from Referenced Conversations (as background knowledge)
+    // 2. Add Context from Knowledge Base & References
     if (contextText) {
       apiMessages.push({
         role: 'system',
-        content: `The following conversation histories are provided for your reference and awareness. Use this information naturally when relevant to the current discussion:\n\n${contextText}`
+        content: `Use the following context to answer the user's request. The context may contain extracted content from uploaded files (PDFs, docs) or previous conversation history:\n\n${contextText}`
       })
     }
 
@@ -428,60 +423,16 @@ export class ChatService {
             else if (att.type === 'application/pdf' || getFileExtension(att.name) === '.pdf') {
               console.log('📄 [prepareMessagesForAI] PDF detected:', att.name);
               
-              // Priority 0: Use RAG if available
-              if (att.useRAG && att.attachmentId) {
-                console.log('🔍 [prepareMessagesForAI] Using RAG for PDF:', att.name);
+              // Priority 0: Use RAG (Context already injected in system message)
+              if (att.useRAG) {
+                console.log('🔍 [prepareMessagesForAI] PDF uses RAG. Context should be in system message.');
                 
-                try {
-                  // Get user's current query from the last message
-                  const lastMsg = messages[messages.length - 1];
-                  const userQuery = lastMsg?.content || '';
-                  
-                  if (userQuery) {
-                    // Generate query embedding
-                    const aiProvider = getAIProvider()
-                    const queryVector = await aiProvider.getEmbeddings(userQuery)
-                    
-                    // Search for relevant chunks
-                    const { vectorDb } = await import('@/lib/services/vector-db')
-                    const relevantChunks = await vectorDb.searchFileChunks(
-                      att.attachmentId,
-                      queryVector,
-                      { limit: 5, minScore: 0.4 } // Slightly lower threshold to ensure we get something
-                    )
-                    
-                    if (relevantChunks.length > 0) {
-                      const contextText = relevantChunks
-                        .map((chunk, i) => `[${att.name} - Excerpt ${i + 1}]\n${chunk.content}`)
-                        .join('\n\n---\n\n')
-                      
-                      content.push({
-                        type: 'text',
-                        text: `📄 **PDF: ${att.name}** (${att.chunkCount} chunks total, showing ${relevantChunks.length} most relevant)\n\n${contextText}`
-                      })
-                      
-                      console.log('✅ [prepareMessagesForAI] Added RAG context:', {
-                        fileName: att.name,
-                        chunksRetrieved: relevantChunks.length,
-                        totalSize: contextText.length
-                      });
-                    } else {
-                      content.push({
-                        type: 'text',
-                        text: `📄 **PDF: ${att.name}** - File uploaded but no relevant content found for this query.`
-                      })
-                    }
-                  }
-                } catch (ragError) {
-                  console.error('❌ [prepareMessagesForAI] RAG retrieval failed:', ragError);
-                  // Fallback to extracted content if available (and not too large)
-                  if (att.extractedContent) {
-                     content.push({
-                      type: 'text',
-                      text: `📄 **PDF: ${att.name}**\n\n${att.extractedContent}`
-                    })
-                  }
-                }
+                // We don't need to inject chunks here again if they are in contextText.
+                // Just add a marker that the file is available.
+                content.push({
+                  type: 'text',
+                  text: `📄 **PDF: ${att.name}**\n*(Content provided in system context)*`
+                })
               }
               // Priority 1: Use extracted text content (legacy/small files)
               else if (att.extractedContent) {

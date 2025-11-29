@@ -13,6 +13,95 @@ export interface KnowledgeSource {
 export class KnowledgeBaseService {
   
   /**
+   * Ingest a source that has already been chunked (e.g. from frontend).
+   * This skips the internal chunking logic and uses the provided chunks.
+   */
+  async ingestProcessedSource(
+    conversationId: string,
+    source: { name: string, type: string, r2Key: string, metadata: any },
+    chunks: { content: string, metadata: any }[],
+    messageId?: string,
+    isFirstBatch: boolean = true
+  ) {
+    console.log('📚 [KnowledgeBase] Ingesting processed source:', { name: source.name, chunks: chunks.length, isFirstBatch })
+
+    try {
+      // 1. Generate Hash (from first few chunks to ensure consistency)
+      console.log('🔐 [KnowledgeBase] Generating hash...')
+      const contentSample = chunks.slice(0, Math.min(chunks.length, 5)).map(c => c.content).join('')
+      const hash = await this.generateHash(contentSample)
+      console.log('✅ [KnowledgeBase] Hash generated:', hash.substring(0, 16) + '...')
+
+      // 2. Check if Source already exists (for batched ingestion)
+      let sourceId: string
+      const existingSource = await vectorDb.getSourceByHash(hash)
+      
+      if (existingSource) {
+        console.log('♻️ [KnowledgeBase] Source already exists (batched ingestion):', existingSource.id)
+        sourceId = existingSource.id
+      } else {
+        console.log('📝 [KnowledgeBase] Creating new source...')
+        sourceId = await vectorDb.createSource({
+          hash,
+          type: source.type,
+          name: source.name,
+          metadata: {
+            ...source.metadata,
+            r2Key: source.r2Key
+          }
+        })
+        console.log('✅ [KnowledgeBase] Source created:', sourceId)
+      }
+
+      // Link to conversation only on first batch
+      if (isFirstBatch) {
+        console.log('🔗 [KnowledgeBase] Linking source to conversation...')
+        await vectorDb.linkSourceToConversation(conversationId, sourceId, messageId)
+        console.log('✅ [KnowledgeBase] Source linked to conversation')
+      }
+
+      // 3. Embed and Store Chunks (Batch)
+      console.log('🔄 [KnowledgeBase] Starting embedding generation for', chunks.length, 'chunks...')
+      const { getOpenRouter } = await import('@/lib/services/openrouter')
+      const aiProvider = getOpenRouter()
+
+      // Get current max chunk index for this source to append new chunks
+      const existingChunks = await vectorDb.getKnowledgeChunks(sourceId)
+      const startIndex = existingChunks.length
+
+      // Process in smaller batches to avoid rate limits
+      const BATCH_SIZE = 5
+      for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+        const batch = chunks.slice(i, i + BATCH_SIZE)
+        console.log(`🔄 [KnowledgeBase] Embedding batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)} (${batch.length} chunks)...`)
+        
+        await Promise.all(batch.map(async (chunk, batchIndex) => {
+          try {
+            const vector = await aiProvider.getEmbeddings(chunk.content)
+            await vectorDb.addKnowledgeChunk({
+              sourceId,
+              content: chunk.content,
+              vector,
+              chunkIndex: startIndex + i + batchIndex,
+              metadata: chunk.metadata
+            })
+          } catch (e) {
+            console.error(`❌ [KnowledgeBase] Failed to embed chunk ${startIndex + i + batchIndex}:`, e)
+            throw e // Re-throw to fail the entire operation
+          }
+        }))
+        console.log(`✅ [KnowledgeBase] Embedding batch ${Math.floor(i / BATCH_SIZE) + 1} complete`)
+      }
+
+      console.log('✅ [KnowledgeBase] Successfully ingested batch to source:', sourceId)
+      return sourceId
+    } catch (error) {
+      console.error('❌ [KnowledgeBase.ingestProcessedSource] Error:', error)
+      throw error
+    }
+  }
+
+  /**
    * Ingest a source into the knowledge base.
    * Handles hashing, deduplication, chunking, and linking.
    */
@@ -88,9 +177,17 @@ export class KnowledgeBaseService {
       console.log('✅ [KnowledgeBase] Embeddings generated')
       
       // 3. Vector Search
-      console.log('🔍 [KnowledgeBase] Searching knowledge base...')
-      const chunks = await vectorDb.searchKnowledgeBase(activeSourceIds, queryVector, { limit: 15, minScore: 0.45 })
-      console.log(`✅ [KnowledgeBase] Found ${chunks.length} relevant chunks`)
+      console.log('🔍 [KnowledgeBase] Searching knowledge base with 13 sources...')
+      // Lowered minScore to 0.1 for debugging
+      const chunks = await vectorDb.searchKnowledgeBase(activeSourceIds, queryVector, { limit: 15, minScore: 0.1 })
+      console.log(`✅ [KnowledgeBase] Found ${chunks.length} relevant chunks (minScore: 0.1)`)
+      
+      if (chunks.length > 0) {
+        console.log('🔍 [KnowledgeBase] Top chunk score:', chunks[0].score)
+        console.log('🔍 [KnowledgeBase] Top chunk content preview:', chunks[0].content.substring(0, 50))
+      } else {
+        console.log('⚠️ [KnowledgeBase] No chunks found even with low threshold')
+      }
       
       if (chunks.length === 0) return ''
       
@@ -146,8 +243,19 @@ export class KnowledgeBaseService {
     // a) It has NO messageId (global conversation context, e.g. added via settings)
     // b) It has a messageId AND that messageId is in the current path
     
+    console.log(`🔍 [KnowledgeBase] Filtering links: Found ${allLinks.length} total links`)
+    console.log(`🔍 [KnowledgeBase] Path has ${messageIdsInPath.size} messages`)
+    
     const activeSourceIds = allLinks
-      .filter((link: any) => !link.messageId || messageIdsInPath.has(link.messageId))
+      .filter((link: any) => {
+        const isActive = !link.messageId || messageIdsInPath.has(link.messageId)
+        if (!isActive) {
+           console.log(`⚠️ [KnowledgeBase] Filtered out link ${link.id} (Source: ${link.sourceId}) - MessageId ${link.messageId} not in path`)
+        } else {
+           console.log(`✅ [KnowledgeBase] Keeping link ${link.id} (Source: ${link.sourceId}) - MessageId ${link.messageId || 'GLOBAL'}`)
+        }
+        return isActive
+      })
       .map((link: any) => link.id) // This is the source ID (from the join)
       
     // Deduplicate IDs
