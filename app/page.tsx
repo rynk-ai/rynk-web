@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
+import { LogIn, MessageSquare } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
@@ -56,6 +57,21 @@ export default function HomePage() {
       {/* Background layer with inner rounded corners */}
       <div className="absolute inset-2 rounded-xl bg-background border border-sidebar-border shadow-sm " />
       
+      {/* Top-right icon */}
+      {isAuthenticated !== null && (
+        <button
+          onClick={() => router.push(isAuthenticated ? "/chat" : "/login")}
+          className="absolute top-6 right-6 z-20 p-2.5 rounded-full hover:bg-muted/80 transition-colors border border-border/40 hover:border-border bg-background/50 backdrop-blur-sm"
+          aria-label={isAuthenticated ? "Go to chat" : "Login"}
+        >
+          {isAuthenticated ? (
+            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <LogIn className="h-5 w-5 text-muted-foreground" />
+          )}
+        </button>
+      )}
+      
       {/* Content layer */}
       <div 
         className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 bg-muted transition-transform duration-200 ease-out"
@@ -81,16 +97,6 @@ export default function HomePage() {
             isLoading={false}
             hideActions={true}
           />
-          
-          {/* View all chats link */}
-          {isAuthenticated && (
-            <button
-              onClick={() => router.push("/chat")}
-              className="pt-2 text-sm text-muted-foreground hover:text-foreground transition-colors  underline-offset-4 uppercase underline "
-            >
-              view all chats
-            </button>
-          )}
           
           {/* Suggestion chips */}
           <div className="flex flex-wrap justify-center gap-2 mt-2">

@@ -188,7 +188,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         
         {/* Action Buttons */}
         {!isEditing && (
-          <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-2 mt-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
             {/* Version Indicator */}
             {onSwitchVersion && versions.length > 1 && (
               <VersionIndicator
@@ -216,7 +216,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   className="h-7 w-7 rounded-full text-destructive hover:text-destructive" 
                   onClick={handleDelete}
                 >
-                  <Trash className="h-3 w-3" />
+                  <Trash className="h-2 w-2 md:h-3 md:w-3 text-black dark:text-white/50" />
                 </Button>
               
             </MessageActions>

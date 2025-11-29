@@ -132,44 +132,7 @@ export function ConversationList({
                         <PinIcon className="h-3 w-3 text-primary shrink-0" />
                       )}
                     </div>
-                    {conversation.tags?.length > 0 && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex flex-wrap gap-1">
-                              {conversation.tags.slice(0, 3).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-muted-foreground"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                  }}
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                              {conversation.tags.length > 3 && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-muted-foreground">
-                                  +{conversation.tags.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="p-2" side="right">
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] font-medium text-muted-foreground px-1">Tags</span>
-                              <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                {conversation.tags.map((tag) => (
-                                  <span key={tag} className="inline-flex items-center rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+              
                   </div>
                 </button>
 

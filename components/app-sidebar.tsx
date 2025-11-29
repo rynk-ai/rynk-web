@@ -23,6 +23,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Plus,
   Search,
   FolderPlus,
@@ -35,6 +40,7 @@ import {
   ChevronLeft,
   Pencil,
   Trash,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/hooks/chat-context";
@@ -299,7 +305,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto pt-4">
+        <div className="flex-1 overflow-auto">
           {!activeProjectId ? (
             <div className="mb-2">
               <ProjectList
@@ -333,6 +339,165 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </div>
           )}
 
+
+
+
+          {/* Folders Section - Show grouped conversations */}
+          <div className="px-3 mb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Folders</h2>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-4 w-4">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      <span className="sr-only">What are folders?</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-sm">
+                    <p>
+                      Folders help you organize your chats by grouping related conversations together.
+                      You can reference these organized chats in your conversation input to maintain context across your chats.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={handleCreateFolder}
+              >
+                <Plus className="h-4 w-4" />
+                <span className="sr-only">New Folder</span>
+              </Button>
+            </div>
+          </div>
+
+          {folders.length === 0 ? (
+            <div className="text-xs text-center text-muted-foreground py-4 px-4">
+              No folders yet.
+              <br />
+              Create one to organize your chats!
+            </div>
+          ) : (
+            folders.map((folder) => {
+              const folderConversations = conversations.filter(
+                (c) =>
+                  folder.conversationIds.includes(c.id) &&
+                  !c.isPinned &&
+                  (!activeProjectId || c.projectId === activeProjectId)
+              );
+
+              return (
+                <Collapsible
+                  key={folder.id}
+                  className="mb-5 group/collapsible"
+                >
+                  <div className="mb-1 flex items-center justify-between px-2 group/folder">
+                    <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-semibold text-foreground pl-2 hover:opacity-80 text-muted-foreground">
+                      <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                      <FolderIcon className="h-4 w-4 " />
+                      <span className="">{folder.name}</span>
+                      <span className="text-xs  font-normal">
+                        ({folderConversations.length})
+                      </span>
+                    </CollapsibleTrigger>
+                    <div className="flex items-center gap-1 opacity-0 group-hover/folder:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-muted"
+                        onClick={(e) => handleEditFolder(folder, e)}
+                        title="Edit folder"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-muted text-destructive hover:text-destructive"
+                        onClick={(e) => handleDeleteFolder(folder.id, e)}
+                        title="Delete folder"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <CollapsibleContent>
+                    <div className="space-y-1 pl-7">
+                      {folderConversations.length === 0 ? (
+                        <div className="text-xs text-muted-foreground py-2 px-2 pl-6">
+                          Empty folder
+                        </div>
+                      ) : (
+                        folderConversations.map((conversation) => (
+                          <div key={conversation.id} className="group/convo relative text-muted-foreground
+">
+                            <button
+                              className={cn(
+                                "flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-8"
+                              )}
+                              onClick={() =>
+                                handleSelectConversation(conversation.id)
+                              }
+                            >
+                              <div className="flex w-full flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate pl-1">
+                                    {conversation.title}
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+
+                          
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleAddToFolder(conversation.id)}
+                                >
+                                  Add to folder
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleRename(conversation.id)}
+                                >
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleTagClick(conversation.id)}
+                                >
+                                  Edit tags
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteSimple(conversation.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  Delete conversation
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })
+          )}
+          
           {/* Pinned Conversations */}
           {conversations.some((c) => c.isPinned) && (
             <div className="mb-4">
@@ -418,145 +583,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </div>
           )}
 
-          {/* Visual separator */}
-          {(folders.length > 0 ||
-            (() => {
-              const groupedConversationIds = new Set(
-                folders.flatMap((f) => f.conversationIds)
-              );
-              const ungroupedConversations = conversations.filter(
-                (c) =>
-                  !groupedConversationIds.has(c.id) &&
-                  !c.isPinned &&
-                  (!activeProjectId || c.projectId === activeProjectId)
-              );
-              return ungroupedConversations.length > 0;
-            })()) && <></>}
 
-          {/* Folders Section - Show grouped conversations */}
-          {folders.map((folder) => {
-            const folderConversations = conversations.filter(
-              (c) =>
-                folder.conversationIds.includes(c.id) &&
-                !c.isPinned &&
-                (!activeProjectId || c.projectId === activeProjectId)
-            );
-
-            // Even if empty, we might want to show the folder so users can add to it?
-            // But original logic hid it. Let's keep hiding if empty for now, unless we want to allow managing empty folders.
-            if (folderConversations.length === 0) return null;
-
-            return (
-              <Collapsible
-                key={folder.id}
-                className="my-2 px-2 group/collapsible"
-              >
-                <div className="mb-1 flex items-center justify-between px-2 group/folder">
-                  <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-semibold text-foreground pl-2 hover:opacity-80">
-                    <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                    <FolderIcon className="h-4 w-4 text-muted-foreground/70" />
-                    <span>{folder.name}</span>
-                    <span className="text-xs text-muted-foreground font-normal">
-                      ({folderConversations.length})
-                    </span>
-                  </CollapsibleTrigger>
-                  <div className="flex items-center gap-1 opacity-0 group-hover/folder:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 hover:bg-muted"
-                      onClick={(e) => handleEditFolder(folder, e)}
-                      title="Edit folder"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 hover:bg-muted text-destructive hover:text-destructive"
-                      onClick={(e) => handleDeleteFolder(folder.id, e)}
-                      title="Delete folder"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <CollapsibleContent>
-                  <div className="space-y-1 pl-4">
-                    {folderConversations.map((conversation) => (
-                      <div key={conversation.id} className="group/convo relative">
-                        <button
-                          className={cn(
-                            "flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-8"
-                          )}
-                          onClick={() =>
-                            handleSelectConversation(conversation.id)
-                          }
-                        >
-                          <div className="flex w-full flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate pl-1">
-                                {conversation.title}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePinConversation(conversation.id);
-                          }}
-                          title="Pin conversation"
-                        >
-                          <PinIcon className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleAddToFolder(conversation.id)}
-                            >
-                              Add to folder
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleRename(conversation.id)}
-                            >
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleTagClick(conversation.id)}
-                            >
-                              Edit tags
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteSimple(conversation.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              Delete conversation
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
 
           {/* Time-based conversation sections (Today, Yesterday, etc.) - Only show ungrouped */}
           <ConversationList

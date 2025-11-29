@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import { Search, Tag, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface TagDialogProps {
@@ -58,16 +64,13 @@ export function TagDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg">
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Manage Tags</h2>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <span className="sr-only">Close</span>×
-            </Button>
-          </div>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Manage Tags</DialogTitle>
+        </DialogHeader>
 
+        <div className="flex flex-col space-y-4">
           {/* Current Tags */}
           {selectedTags.length > 0 && (
             <div className="space-y-2">
@@ -151,7 +154,7 @@ export function TagDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

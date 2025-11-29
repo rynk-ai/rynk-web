@@ -54,12 +54,17 @@ import { FilePreviewList } from "@/components/file-preview";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { VersionIndicator } from "@/components/ui/version-indicator";
 import { ContextPicker } from "@/components/context-picker";
+import { TagDialog } from "@/components/tag-dialog";
 import {
   Folder as FolderIcon,
   MessageSquare,
   X,
   Loader2,
   Plus,
+  Tag,
+  Tags,
+  BookmarkPlus,
+  Bookmark,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 
@@ -118,6 +123,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     folders,
     setConversationContext,
     clearConversationContext,
+    updateConversationTags,
+    getAllTags,
   } = useChatContext();
   
   // Use custom hooks for separated state management
@@ -150,6 +157,34 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const [isSending, setIsSending] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+
+  const loadTags = useCallback(async () => {
+    try {
+      const tags = await getAllTags();
+      setAllTags(tags);
+    } catch (err) {
+      console.error("Failed to load tags:", err);
+    }
+  }, [getAllTags]);
+
+  // Load all tags when component mounts
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+
+  const handleTagClick = () => {
+    setTagDialogOpen(true);
+  };
+
+  const handleSaveTags = async (tags: string[]) => {
+    if (!currentConversationId) return;
+    await updateConversationTags(currentConversationId, tags);
+    await loadTags();
+  };
+
+  const currentTags = currentConversation?.tags || [];
 
   // Auto-focus input when starting a new chat
   useEffect(() => {
@@ -925,10 +960,10 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             )}
           >
             <ChatContainerRoot
-              className="h-full px-2 md:px-3 lg:px-4"
+              className="h-full px-2 md:px-3 lg:px-4 "
             >
                <ChatContainerContent
-                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative"
+                 className="space-y-4 md:space-y-5 lg:space-y-6 px-0 sm:px-1 md:px-2 pt-6 relative max-md:pt-20 max-md:px-5"
                  style={{ paddingBottom: `calc(20rem + ${keyboardHeight}px)` }}
                >
                 {/* Indexing Progress Badge */}
@@ -937,11 +972,45 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                     <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin text-primary" />
                       <span>
-                        {jobs.find(j => j.status === 'processing')?.fileName 
+                        {jobs.find(j => j.status === 'processing')?.fileName
                           ? `Indexing ${jobs.find(j => j.status === 'processing')?.fileName}... ${jobs.find(j => j.status === 'processing')?.progress}%`
                           : 'Preparing PDF...'}
                       </span>
                     </div>
+                  </div>
+                )}
+
+                {/* Tags Section - Fixed Top Right */}
+                {currentConversationId && (
+                  <div className="fixed top-4 right-5 z-30 flex flex-col  items-end gap-2">
+                    {/* Existing Tags */}
+                    {currentTags.length > 0 && (
+                      <div className="flex items-center gap-1.5 max-w-[400px] overflow-x-auto">
+                        {currentTags.map((tag, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
+                          >
+                            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-medium">{tag}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add Tag Button */}
+                    <Button
+                      variant={"outline"}
+                      size="icon"
+                      className="w-min px-1 h-6 hover:bg-muted shrink-0 text-xs flex gap-0.5"
+                      onClick={handleTagClick}
+                      title="Edit tags"
+                    >
+                      <Plus className="h-3 w-2" />
+                      <span>
+                      Tags
+                      </span>
+                    </Button>
                   </div>
                 )}
                 
@@ -957,6 +1026,19 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   messageVersions={messageVersions}
                   onSwitchVersion={switchToMessageVersion}
                 />
+
+                {/* Tag Dialog */}
+                {tagDialogOpen && currentConversationId && (
+                  <TagDialog
+                    conversationId={currentConversationId}
+                    currentTags={currentTags}
+                    allTags={allTags}
+                    onSave={handleSaveTags}
+                    onClose={() => {
+                      setTagDialogOpen(false);
+                    }}
+                  />
+                )}
               </ChatContainerContent>
             </ChatContainerRoot>
           </div>
@@ -1120,7 +1202,7 @@ function ChatHeader() {
   const { state } = useSidebar();
 
   return (
-    <div className=" m-4 min-w-max absolute z-20 bg-muted rounded-lg flex items-center gap-2 px-2">
+    <div className="m-4 min-w-max absolute z-20 bg-muted rounded-lg flex items-center gap-2 px-2">
       <SidebarTrigger size={'lg'} className="w-10 h-10"/>
       {state === "collapsed" && (
         <Button

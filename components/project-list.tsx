@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Folder, MoreVertical, Pencil, Trash2, FolderOpen } from "lucide-react"
+import { Plus, Folder, MoreVertical, Pencil, Trash2, FolderOpen, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ProjectDialog } from "./project-dialog"
 import { Project } from "@/lib/services/indexeddb"
 import { cn } from "@/lib/utils"
@@ -51,7 +52,24 @@ export function ProjectList({
   return (
     <div className={cn("flex flex-col h-full", className)}>
       <div className="flex items-center justify-between px-4 py-2">
-        <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Projects</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Projects</h2>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-4 w-4">
+                <HelpCircle className="h-2 w-2  text-muted-foreground" />
+                <span className="sr-only">What are projects?</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-sm">
+              <p>
+                Projects are custom AI workspaces like Custom GPTs. They include predefined
+                instructions, files, and can be configured with custom prompts to make the AI
+                behave in specific ways for various use cases.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           <span className="sr-only">New Project</span>
