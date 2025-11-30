@@ -1255,15 +1255,21 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         </div>
 
         {/* Input Section - Always rendered, absolute positioned at bottom */}
-        <div 
+        <div
           ref={inputContainerRef}
           className={cn(
             "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
-            !currentConversationId 
-              ? "bottom-1/3" 
+            !currentConversationId
+              ? "bottom-1/3"
               : "bottom-0 mb-4"
           )}
-          style={{ transform: `translateY(-${keyboardHeight}px)` }}
+          style={{
+            transform: `translateY(-${
+              currentConversationId
+                ? keyboardHeight
+                : Math.max(0, keyboardHeight - (typeof window !== 'undefined' ? window.innerHeight * 0.33 : 200))
+            }px)`,
+          }}
         >
           {/* Background for input section */}
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
