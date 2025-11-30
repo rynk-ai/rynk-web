@@ -828,6 +828,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         conversationPath: result.conversationPath
       });
 
+
       // ✅ STEP 6: Fetch updated messages ONCE to get the new conversation state
       console.log('📥 [handleSaveEdit] Fetching updated messages...');
       const { messages: updatedMessages } = await getMessages(conversationId!);
@@ -837,6 +838,24 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         totalMessages: updatedMessages.length,
         filteredMessages: filteredMessages.length
       });
+
+
+      // ✅ STEP 6.5: Update messageVersions Map for the edited message group
+      // This is critical for showing the version indicator
+      const rootId = messageIdToEdit; // The original message ID (root of versions)
+      const allVersions = await getMessageVersions(rootId);
+
+      console.log('🔄 [handleSaveEdit] Updating versions map:', {
+        rootId,
+        versionCount: allVersions.length
+      });
+
+      setMessageVersions(prev => {
+        const updated = new Map(prev);
+        updated.set(rootId, allVersions);
+        return updated;
+      });
+
 
       // ✅ STEP 7: Check if we need to generate an AI response
       // Only generate if the edited message is at the END of the conversation
@@ -958,12 +977,37 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     if (isLoading || isEditing) return;
     setIsDeleting(messageId);
+    
     try {
+      // Get the message to find its version root before deleting
+      const message = messages.find(m => m.id === messageId);
+      const rootId = message ? (message.versionOf || message.id) : null;
+      
       await deleteMessageAction(messageId);
+      
+      // After successful delete, update versions map if this was a versioned message
+      if (rootId) {
+        const remainingVersions = await getMessageVersions(rootId);
+        
+        console.log('🗑️ [handleDeleteMessage] Updating versions map after delete:', {
+          rootId,
+          remainingVersions: remainingVersions.length
+        });
+        
+        setMessageVersions(prev => {
+          const updated = new Map(prev);
+          if (remainingVersions.length > 1) {
+            updated.set(rootId, remainingVersions);
+          } else {
+            updated.delete(rootId); // Remove if only 1 version left
+          }
+          return updated;
+        });
+      }
     } finally {
       setIsDeleting(null);
     }
-  }, [isLoading, deleteMessageAction]);
+  }, [isLoading, isEditing, messages, deleteMessageAction, getMessageVersions]);
 
   const handleBranchFromMessage = useCallback(async (messageId: string) => {
     if (isLoading || isEditing) return;
@@ -1102,6 +1146,37 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [currentConversation?.id, getMessages, getMessageVersions, setMessages, setMessageVersions]);
 
+  // Wrapper for switchToMessageVersion that refreshes versions map
+  const handleSwitchVersion = useCallback(async (messageId: string) => {
+    if (!currentConversationId) return;
+    
+    console.log('🔄 [handleSwitchVersion] Switching to version:', messageId);
+    
+    // Call the context function to switch version
+    await switchToMessageVersion(messageId);
+    
+    // Reload messages to reflect the switched version
+    await reloadMessages();
+    
+    // Reload versions map for all messages with versions
+    console.log('🔄 [handleSwitchVersion] Refreshing versions map...');
+    const { messages: reloadedMessages } = await getMessages(currentConversationId);
+    const versionsMap = new Map<string, ChatMessage[]>();
+    
+    for (const msg of reloadedMessages) {
+      const rootId = msg.versionOf || msg.id;
+      if (!versionsMap.has(rootId)) {
+        const versions = await getMessageVersions(rootId);
+        if (versions.length > 1) {
+          versionsMap.set(rootId, versions);
+        }
+      }
+    }
+    
+    setMessageVersions(versionsMap);
+    console.log('✅ [handleSwitchVersion] Versions map refreshed, count:', versionsMap.size);
+  }, [currentConversationId, switchToMessageVersion, reloadMessages, getMessages, getMessageVersions]);
+
   // Load messages from conversation path
   useEffect(() => {
     // Skip if we're in the middle of an edit to prevent race conditions
@@ -1188,7 +1263,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onBranchFromMessage={handleBranchFromMessage}
                   onQuote={handleQuote}
                   messageVersions={messageVersions}
-                  onSwitchVersion={switchToMessageVersion}
+                  onSwitchVersion={handleSwitchVersion}
                   onLoadMore={loadMoreMessages}
                   isLoadingMore={isLoadingMore}
                 />
