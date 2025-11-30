@@ -68,6 +68,7 @@ import {
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
+import { toast } from "sonner";
 
 
 // Helper function to filter messages to show only active versions
@@ -640,8 +641,23 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         finishStreaming();
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to send message:", err);
+
+      // Check for insufficient credits error
+      if (err?.message?.includes("Insufficient credits")) {
+        toast.error("Insufficient credits", {
+          description: "Please add more credits to continue using the chat.",
+          duration: 5000,
+        });
+      } else {
+        // Generic error toast for other errors
+        toast.error("Failed to send message", {
+          description: err?.message || "An unexpected error occurred. Please try again.",
+          duration: 4000,
+        });
+      }
+
       // Rollback on error
       removeMessage(tempUserMessageId);
       removeMessage(tempAssistantMessageId);
@@ -950,8 +966,23 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ [handleSaveEdit] Failed to save edit:", error);
+
+      // Check for insufficient credits error
+      if (error?.message?.includes("Insufficient credits")) {
+        toast.error("Insufficient credits", {
+          description: "Please add more credits to continue editing messages.",
+          duration: 5000,
+        });
+      } else {
+        // Generic error toast for other errors
+        toast.error("Failed to save edit", {
+          description: error?.message || "An unexpected error occurred. Please try again.",
+          duration: 4000,
+        });
+      }
+
       // Revert optimistic update on error by fetching from server
       try {
         const { messages: revertedMessages } = await getMessages(conversationId!);

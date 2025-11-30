@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -106,6 +107,14 @@ export default function RootLayout({
           >
             <QueryProvider>
               <ChatProvider>{children}</ChatProvider>
+              <Toaster
+                position="top-center"
+                richColors
+                closeButton
+                toastOptions={{
+                  duration: 5000,
+                }}
+              />
             </QueryProvider>
           </ThemeProvider>
         </AuthProvider>
