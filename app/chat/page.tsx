@@ -279,6 +279,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
+  
+  // Quote state
+  const [quotedMessage, setQuotedMessage] = useState<{
+    messageId: string;
+    quotedText: string;
+    authorRole: 'user' | 'assistant';
+  } | null>(null);
 
   const loadTags = useCallback(async () => {
     try {
@@ -335,6 +342,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   useEffect(() => {
     if (currentConversationId) {
       setLocalContext([]);
+      setQuotedMessage(null); // Clear any pending quote when switching conversations
     }
   }, [currentConversationId]);
 
@@ -381,6 +389,23 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
   const handleContextChange = useCallback(async (newContext: typeof localContext) => {
     setLocalContext(newContext);
+  }, []);
+  
+  // Quote handlers
+  const handleQuote = useCallback((text: string, messageId: string, role: 'user' | 'assistant') => {
+    setQuotedMessage({ messageId, quotedText: text, authorRole: role });
+    
+    // Focus input after a short delay
+    setTimeout(() => {
+      const input = document.getElementById('main-chat-input');
+      if (input) {
+        input.focus();
+      }
+    }, 100);
+  }, []);
+  
+  const handleClearQuote = useCallback(() => {
+    setQuotedMessage(null);
   }, []);
 
   const handleSubmit = useCallback(async (
@@ -432,8 +457,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     // Add optimistic messages IMMEDIATELY
     messageState.addMessages([optimisticUserMessage, optimisticAssistantMessage]);
     
-    // Clear context immediately
+    // Clear context and quote immediately
     setLocalContext([]);
+    setQuotedMessage(null);
 
     try {
       // 1. Upload files first
@@ -1172,6 +1198,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onStartEdit={handleStartEdit}
                   onDeleteMessage={handleDeleteMessage}
                   onBranchFromMessage={handleBranchFromMessage}
+                  onQuote={handleQuote}
                   messageVersions={messageVersions}
                   onSwitchVersion={switchToMessageVersion}
                   onLoadMore={loadMoreMessages}
@@ -1251,6 +1278,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               onValueChange={isEditing ? setEditContent : undefined}
               onFilesChange={isEditing ? setEditAttachments : undefined}
               onKeyDown={handleKeyDown}
+              // Quote props
+              quotedMessage={quotedMessage}
+              onClearQuote={handleClearQuote}
               className={cn(
                 "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-lg hover:shadow-xl",
                 !currentConversationId ? "shadow-xl" : "shadow-sm hover:shadow-md"

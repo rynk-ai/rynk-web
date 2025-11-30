@@ -1,10 +1,11 @@
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { Message, MessageContent, MessageActions, MessageAction } from '@/components/ui/message';
 import { Button } from '@/components/ui/button';
-import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquareDashedIcon, Paperclip, Loader2 } from 'lucide-react';
+import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquareDashedIcon, Paperclip, Loader2, Quote } from 'lucide-react';
 import { Markdown } from '@/components/ui/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ interface ChatMessageItemProps {
   onDelete: (messageId: string) => void;
   onBranch: (messageId: string) => void;
   onCopy?: (content: string) => void;
+  onQuote?: (text: string, messageId: string, role: 'user' | 'assistant') => void;
   versions?: ChatMessage[];
   onSwitchVersion?: (messageId: string) => Promise<void>;
 }
@@ -43,10 +45,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onDelete,
   onBranch,
   onCopy,
+  onQuote,
   versions = [],
   onSwitchVersion
 }: ChatMessageItemProps) {
   const isAssistant = message.role === 'assistant';
+  
+  // Quote button state
+  const [showQuoteButton, setShowQuoteButton] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
   
   // Memoize handlers to prevent child re-renders
   const handleCopy = useCallback(() => {
@@ -70,6 +78,43 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     onStartEdit(message);
   }, [message, onStartEdit]);
   
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() || '';
+    
+    if (text.length > 0 && selection && selection.rangeCount > 0) {
+      // Get the bounding rectangle of the selection
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      // Position button at the bottom-right of the selection
+      // Using absolute positioning with scroll offsets for document-level coordinates
+      setButtonPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.right + window.scrollX
+      });
+      
+      setSelectedText(text);
+      setShowQuoteButton(true);
+    } else {
+      setShowQuoteButton(false);
+      setSelectedText('');
+    }
+  }, [message.id, message.role]);
+  
+  const handleQuoteClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (selectedText && onQuote && (message.role === 'user' || message.role === 'assistant')) {
+      onQuote(selectedText, message.id, message.role);
+      setShowQuoteButton(false);
+      setSelectedText('');
+      // Clear selection
+      window.getSelection()?.removeAllRanges();
+    }
+  }, [selectedText, onQuote, message.id, message.role]);
+  
   if (isAssistant) {
     // Show skeleton only if it's the last message, we're sending, and content is empty (even if streaming started but has no tokens yet)
     const showSkeleton = isLastMessage && isSending && 
@@ -86,13 +131,36 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       <div
         className="w-full px-3 animate-in-up"
       >
-        <Message className={cn("mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-start")}>
-          <div className="group flex w-fit flex-col gap-0">
-            <div className="px-5 py-2 rounded-2xl bg-muted/35 hover:bg-muted/45 transition-colors duration-200 border border-border/30 shadow-sm">
+        <Message className={cn("py-2 mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-start")}>
+          <div className="group flex w-fit flex-col gap-0 relative">
+            <div 
+              className="px-5 py-2 rounded-2xl bg-muted/35 hover:bg-muted/45 transition-colors duration-200 border border-border/30 shadow-sm"
+              onMouseUp={handleTextSelection}
+            >
               <Markdown className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-foreground/90">
                 {displayContent}
               </Markdown>
             </div>
+            
+            {/* Floating Quote Button - Rendered via Portal to avoid positioning issues */}
+            {showQuoteButton && onQuote && selectedText && typeof window !== 'undefined' && createPortal(
+              <Button
+                size="sm"
+                variant="secondary"
+                className="absolute z-[9999] h-7 gap-1.5 px-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+                style={{
+                  top: `${buttonPosition.top + 4}px`,
+                  left: `${buttonPosition.left + 8}px`
+                }}
+                onClick={handleQuoteClick}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <Quote className="h-3.5 w-3.5" />
+                Quote
+              </Button>,
+              document.body
+            )}
+            
             <MessageActions className={cn(
               "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-1 pl-1",
               isLastMessage && "opacity-100"
@@ -131,19 +199,41 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     <div
       className="w-full px-3 animate-in-up"
     >
-      <Message className={cn("mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-end")}>
-        <div className="group flex flex-col items-end gap-1 w-full">
+      <Message className={cn("py-2 mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-end")}>
+        <div className="group flex flex-col items-end gap-1 w-full relative">
         
           
           {/* Message Content */}
           <div className="flex flex-col items-end w-full">
-            <MessageContent className={cn(
-              "text-foreground bg-secondary/60 hover:bg-secondary/85 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/20",
-              isEditing && "opacity-50"
-            )}>
+            <MessageContent 
+              className={cn(
+                "text-foreground bg-secondary/60 hover:bg-secondary/85 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/20",
+                isEditing && "opacity-50"
+              )}
+              onMouseUp={handleTextSelection}
+            >
               {message.content}
             </MessageContent>
           </div>
+          
+          {/* Floating Quote Button - Rendered via Portal to avoid positioning issues */}
+          {showQuoteButton && onQuote && selectedText && typeof window !== 'undefined' && createPortal(
+            <Button
+              size="sm"
+              variant="secondary"
+              className="absolute z-[9999] h-7 gap-1.5 px-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+              style={{
+                top: `${buttonPosition.top + 4}px`,
+                left: `${buttonPosition.left + 8}px`
+              }}
+              onClick={handleQuoteClick}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              <Quote className="h-3.5 w-3.5" />
+              Quote
+            </Button>,
+            document.body
+          )}
             {/* Context Badges */}
           {((message.referencedConversations?.length ?? 0) > 0 || 
             (message.referencedFolders?.length ?? 0) > 0) && (

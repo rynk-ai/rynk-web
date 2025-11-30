@@ -15,6 +15,7 @@ interface VirtualizedMessageListProps {
   onStartEdit: (message: ChatMessage) => void
   onDeleteMessage: (messageId: string) => void
   onBranchFromMessage: (messageId: string) => void
+  onQuote?: (text: string, messageId: string, role: 'user' | 'assistant') => void
   messageVersions: Map<string, ChatMessage[]>
   onSwitchVersion: (messageId: string) => Promise<void>
   onLoadMore?: () => void
@@ -30,6 +31,7 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
   onStartEdit,
   onDeleteMessage,
   onBranchFromMessage,
+  onQuote,
   messageVersions,
   onSwitchVersion,
   onLoadMore,
@@ -81,6 +83,7 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
         onStartEdit={onStartEdit}
         onDelete={onDeleteMessage}
         onBranch={onBranchFromMessage}
+        onQuote={onQuote}
         versions={versions}
         onSwitchVersion={onSwitchVersion}
       />
@@ -95,6 +98,7 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
     onStartEdit,
     onDeleteMessage,
     onBranchFromMessage,
+    onQuote,
     onSwitchVersion
   ])
   

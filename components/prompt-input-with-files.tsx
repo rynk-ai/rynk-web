@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -46,6 +46,13 @@ type PromptInputWithFilesProps = {
   onKeyDown?: (e: React.KeyboardEvent) => void;
   // Hide attachment and context buttons
   hideActions?: boolean;
+  // Quote props
+  quotedMessage?: {
+    messageId: string;
+    quotedText: string;
+    authorRole: 'user' | 'assistant';
+  } | null;
+  onClearQuote?: () => void;
 };
 
 export const PromptInputWithFiles = memo(function
@@ -70,6 +77,8 @@ export const PromptInputWithFiles = memo(function
   onFilesChange,
   onKeyDown,
   hideActions = false,
+  quotedMessage,
+  onClearQuote,
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
   const [files, setFiles] = useState<(File | Attachment)[]>([]);
@@ -97,6 +106,22 @@ export const PromptInputWithFiles = memo(function
   const [cursorPosition, setCursorPosition] = useState(0);
   const { query, setQuery, results, isLoading: isSearching, allFolders } = useContextSearch(currentConversationId);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  
+  // Add quote to input when quotedMessage changes
+  useEffect(() => {
+    if (quotedMessage && !editMode) {
+      // Format the quote as markdown blockquote
+      const quoteLines = quotedMessage.quotedText.split('\n').map(line => `> ${line}`).join('\n');
+      const quoteText = `${quoteLines}\n\n`;
+      
+      // Add quote to the beginning of the input
+      setPrompt(prev => {
+        const newValue = quoteText + prev;
+        onValueChange?.(newValue);
+        return newValue;
+      });
+    }
+  }, [quotedMessage?.messageId, editMode]); // Only trigger when a new quote is added
 
   const handleFilesAdded = (newFiles: File[]) => {
     // Validate each file
@@ -260,6 +285,42 @@ export const PromptInputWithFiles = memo(function
           </Button>
         </div>
       )}
+      
+      {/* Quote Preview */}
+      {quotedMessage && onClearQuote && (
+        <div className="px-2.5 mt-2">
+          <div className="flex items-start gap-2 bg-muted/50 border border-border/30 rounded-lg px-3 py-2.5 text-sm">
+            <QuoteIcon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-muted-foreground mb-1">
+                Replying to {quotedMessage.authorRole === 'assistant' ? 'Assistant' : 'You'}
+              </div>
+              <div className="text-foreground/90 line-clamp-2 italic">
+                {quotedMessage.quotedText}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full hover:bg-background/60 flex-shrink-0"
+              onClick={(e) => {
+                e.preventDefault();
+                onClearQuote();
+                // Remove quote from input
+                setPrompt(prev => {
+                  const lines = prev.split('\n');
+                  const firstNonQuoteLine = lines.findIndex(line => !line.startsWith('>') && line.trim() !== '');
+                  const newValue = firstNonQuoteLine >= 0 ? lines.slice(firstNonQuoteLine).join('\n') : '';
+                  onValueChange?.(newValue);
+                  return newValue;
+                });
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* File previews */}
       {files.length > 0 && (
@@ -363,6 +424,7 @@ export const PromptInputWithFiles = memo(function
     prevProps.isSubmittingEdit === nextProps.isSubmittingEdit &&
     prevProps.currentConversationId === nextProps.currentConversationId &&
     prevProps.context === nextProps.context &&
-    prevProps.hideActions === nextProps.hideActions
+    prevProps.hideActions === nextProps.hideActions &&
+    prevProps.quotedMessage?.messageId === nextProps.quotedMessage?.messageId // Include quote check
   );
 });
