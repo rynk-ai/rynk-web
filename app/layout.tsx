@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-;
-
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
@@ -15,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://rynk.io"),
   title: {
     default: "rynk. - Branch Conversations, Edit History, Chat with Files",
-    template: "%s | rynk."
+    template: "%s | rynk.",
   },
   description:
     "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
@@ -31,7 +29,7 @@ export const metadata: Metadata = {
     "conversation branching",
     "AI assistant",
     "chat history",
-    "context picker"
+    "context picker",
   ],
   authors: [{ name: "rynk. Team" }],
   creator: "rynk.",
@@ -44,8 +42,8 @@ export const metadata: Metadata = {
       follow: true,
       "max-video-preview": -1,
       "max-image-preview": "large",
-      "max-snippet": -1
-    }
+      "max-snippet": -1,
+    },
   },
   openGraph: {
     type: "website",
@@ -60,9 +58,9 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "rynk. - AI Chat Application Interface"
-      }
-    ]
+        alt: "rynk. - AI Chat Application Interface",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -70,20 +68,20 @@ export const metadata: Metadata = {
     description:
       "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
     creator: "@rynk",
-    images: ["/og-image.png"]
+    images: ["/og-image.png"],
   },
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon-16x16.png",
-    apple: "/apple-touch-icon.png"
+    apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.json",
   verification: {
     google: "verification-token",
   },
   alternates: {
-    canonical: "https://rynk.io"
-  }
+    canonical: "https://rynk.io",
+  },
 };
 
 export default function RootLayout({
@@ -96,11 +94,6 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased tracking-tight`}
       >
-<script
-  crossOrigin="anonymous"
-  src="//unpkg.com/react-scan/dist/auto.global.js"
-></script>
-
         <AuthProvider>
           <ThemeProvider
             attribute="class"
@@ -109,9 +102,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <QueryProvider>
-              <ChatProvider>
-                {children}
-              </ChatProvider>
+              <ChatProvider>{children}</ChatProvider>
             </QueryProvider>
           </ThemeProvider>
         </AuthProvider>
@@ -124,15 +115,13 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              "name": "rynk.",
-              "url": "https://rynk.io",
-              "logo": "https://rynk.io/favicon.ico",
-              "description": "AI chat that lets you branch conversations, edit message history, and get intelligent responses from your uploaded files.",
-              "sameAs": [
-                "https://twitter.com/rynk",
-                "https://github.com/rynk"
-              ]
-            })
+              name: "rynk.",
+              url: "https://rynk.io",
+              logo: "https://rynk.io/favicon.ico",
+              description:
+                "AI chat that lets you branch conversations, edit message history, and get intelligent responses from your uploaded files.",
+              sameAs: ["https://twitter.com/rynk", "https://github.com/rynk"],
+            }),
           }}
         />
 
@@ -143,16 +132,17 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "rynk.",
-              "applicationCategory": "AI Application",
-              "operatingSystem": "Any",
-              "description": "Explore multiple conversation paths, refine AI responses by editing messages, and chat with your PDFs and documents.",
-              "offers": {
+              name: "rynk.",
+              applicationCategory: "AI Application",
+              operatingSystem: "Any",
+              description:
+                "Explore multiple conversation paths, refine AI responses by editing messages, and chat with your PDFs and documents.",
+              offers: {
                 "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
+                price: "0",
+                priceCurrency: "USD",
               },
-              "featureList": [
+              featureList: [
                 "AI-powered chat with file uploads",
                 "Message versioning and editing",
                 "Conversation branching",
@@ -160,10 +150,10 @@ export default function RootLayout({
                 "PDF and markdown support",
                 "Streamed AI responses",
                 "Dark mode interface",
-                "Google authentication"
+                "Google authentication",
               ],
-              "screenshot": "https://rynk.io/og-image.png"
-            })
+              screenshot: "https://rynk.io/og-image.png",
+            }),
           }}
         />
 
@@ -174,15 +164,16 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-              "name": "rynk.",
-              "url": "https://rynk.io",
-              "description": "AI chat with conversation branching, message editing, and file-aware responses.",
-              "potentialAction": {
+              name: "rynk.",
+              url: "https://rynk.io",
+              description:
+                "AI chat with conversation branching, message editing, and file-aware responses.",
+              potentialAction: {
                 "@type": "SearchAction",
-                "target": "https://rynk.io/search?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              }
-            })
+                target: "https://rynk.io/search?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            }),
           }}
         />
       </body>

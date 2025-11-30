@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from 'react'
+import React, { useRef, useEffect, useMemo, useCallback } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { ChatMessageItem } from './chat-message-item'
 import { type CloudMessage as ChatMessage } from '@/lib/services/cloud-db'
@@ -64,7 +64,9 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
     }
   }, [streamingContent, streamingMessageId, messages.length])
 
-  const itemContent = (index: number, message: ChatMessage) => {
+  // Memoize itemContent to prevent recreation on every render
+  // This is critical for performance as it affects all message items
+  const itemContent = useCallback((index: number, message: ChatMessage) => {
     const rootId = message.versionOf || message.id
     const versions = messageVersions.get(rootId) || [message]
     
@@ -83,7 +85,19 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
         onSwitchVersion={onSwitchVersion}
       />
     )
-  }
+  }, [
+    messages.length,
+    messageVersions,
+    isSending,
+    streamingMessageId,
+    streamingContent,
+    editingMessageId,
+    onStartEdit,
+    onDeleteMessage,
+    onBranchFromMessage,
+    onSwitchVersion
+  ])
+  
   const Header = () => {
     return <div style={{ height: '3rem' }} />
 }
