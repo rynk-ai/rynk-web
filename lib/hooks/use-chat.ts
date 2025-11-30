@@ -276,9 +276,9 @@ export function useChat() {
     if (files.length === 0) return []
 
     console.log('[processAttachments] Processing files:', files.length)
-    const processed: any[] = []
 
-    for (const file of files) {
+
+    const uploadPromises = files.map(async (file) => {
       try {
         // Check if PDF is large (needs async indexing)
         const isLarge = file.type === 'application/pdf' && isPDFLarge(file)
@@ -296,19 +296,23 @@ export function useChat() {
         
         console.log('[processAttachments] ✅ File uploaded:', result.url)
         
-        processed.push({
+        return {
           file, // ← CRITICAL: Keep original File for background indexing
           url: result.url,
           name: result.name,
           type: result.type,
           size: result.size,
           isLargePDF: isLarge // Flag for later processing
-        })
+        }
       } catch (error) {
         console.error('[processAttachments] Failed to upload file:', file.name, error)
         toast.error(`Failed to upload ${file.name}`)
+        return null
       }
-    }
+    })
+
+    const results = await Promise.all(uploadPromises)
+    const processed = results.filter(Boolean)
 
     return processed
   }, [])

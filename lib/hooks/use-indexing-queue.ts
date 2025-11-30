@@ -105,7 +105,7 @@ export function useIndexingQueue() {
     file: File,
     conversationId: string,
     messageId: string,
-    r2Url: string
+    r2Url: string | Promise<string>
   ): Promise<string> => { // ← Return job ID for tracking
     if (!isPDFFile(file)) {
       console.warn('[Indexing Queue] Not a PDF file, skipping:', file.name);
@@ -156,6 +156,16 @@ export function useIndexingQueue() {
         throw new Error('Worker not initialized');
       }
 
+      // Wait for R2 URL if it's a promise
+      let resolvedR2Url = '';
+      if (r2Url instanceof Promise) {
+        console.log(`[Indexing Queue] Waiting for R2 upload to complete for ${file.name}...`);
+        resolvedR2Url = await r2Url;
+        console.log(`[Indexing Queue] R2 upload complete for ${file.name}`);
+      } else {
+        resolvedR2Url = r2Url;
+      }
+
       worker.postMessage({
         type: 'INGEST_CHUNKS',
         data: {
@@ -164,11 +174,11 @@ export function useIndexingQueue() {
           file: {
             name: file.name,
             type: file.type,
-            r2Url,
+            r2Url: resolvedR2Url,
             metadata: processedPDF.metadata
           },
           chunks: processedPDF.chunks,
-          batchSize: 10 // Process 10 chunks at a time
+          batchSize: 10 // Process 10 chunks at a time (worker handles concurrency)
         }
       });
 

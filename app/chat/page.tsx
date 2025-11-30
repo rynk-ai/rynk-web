@@ -4,6 +4,7 @@
 import { MessageList } from "@/components/chat/message-list";
 import { VirtualizedMessageList } from "@/components/chat/virtualized-message-list";
 import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue";
+import { uploadFile as uploadFileAction } from "@/app/actions"; // Import direct action
 import {
   Message,
   MessageContent,
@@ -463,135 +464,91 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     setQuotedMessage(null);
 
     try {
-      // 1. Upload files first
+      // 1. Upload files & Start Indexing PARALLEL
       let uploadedAttachments: any[] = [];
+      let effectiveConversationId = currentConversationId;
+
       if (files.length > 0) {
-        uploadedAttachments = await uploadAttachments(files);
-      }
-
-      // 2. Handle large PDFs: enqueue and WAIT for indexing
-      // We need a conversation ID for indexing. If we don't have one, we might need to create it?
-      // Actually, the worker needs it. But `enqueueFile` takes it.
-      // If we are creating a new conversation, we don't have the ID yet until we call `sendChatRequest`...
-      // CATCH-22: We need conversation ID for indexing, but we get it from sending the message.
-      // FIX: We can generate the conversation ID optimistically if it doesn't exist!
-      // `sendChatRequest` allows passing an override ID.
-      
-      const targetConversationId = currentConversationId || optimisticUserMessage.conversationId;
-
-      if (uploadedAttachments.length > 0) {
-        const largePDFs = uploadedAttachments.filter((f: any) => f.isLargePDF);
+        // Check if we have any large PDFs which require a real conversation ID for indexing
+        const hasLargePDFs = files.some(f => f.type === 'application/pdf' && f.size >= 500 * 1024);
         
-        if (largePDFs.length > 0) {
-          // 🚨 CRITICAL: If we have large PDFs to index, we MUST have a real conversation ID in the DB.
-          // If we are in a new chat (no currentConversationId), the optimistic ID won't work for the backend.
-          // So we must create the conversation explicitly here.
-          let effectiveConversationId = targetConversationId;
-          
-          if (!currentConversationId) {
-            console.log('🆕 [ChatPage] Creating new conversation for PDF indexing...');
-            try {
-              // Create conversation and wait for it
-              const newConversationId = await createConversation();
-              effectiveConversationId = newConversationId;
-              console.log('✅ [ChatPage] New conversation created:', effectiveConversationId);
-            } catch (err) {
-              console.error('❌ [ChatPage] Failed to create conversation:', err);
-              throw err;
-            }
-          }
-
-          console.log(`🔄 [ChatPage] Waiting for ${largePDFs.length} large PDF(s) to index...`);
-          
-          const jobIds: string[] = [];
-          for (const att of largePDFs) {
-            // We need the original File object for indexing, which is in `att.file` (preserved by processAttachments)
-            if (att.file) {
-              const jobId = await enqueueFile(att.file, effectiveConversationId, tempUserMessageId, att.url);
-              if (jobId) jobIds.push(jobId);
-            }
-          }
-          
-          // Wait for all large PDFs to complete indexing
-          if (jobIds.length > 0) {
-            await Promise.all(jobIds.map(jobId => waitForIndexing(jobId)));
-            console.log('✅ [ChatPage] All large PDFs indexed');
-          }
-
-          // Update target for sendChatRequest
-          // We must use the REAL ID if we created one
-          if (!currentConversationId) {
-             // We can't easily update 'targetConversationId' const, so we pass effectiveConversationId to sendChatRequest
-             // But wait, sendChatRequest takes conversationIdParam.
-          }
-          
-          // 3. Send Chat Request (NOW safe to send)
-          const result = await sendChatRequest(
-            text,
-            uploadedAttachments,
-            referencedConversationsList,
-            referencedFoldersList,
-            effectiveConversationId, // Pass the REAL ID
-            tempUserMessageId,    
-            tempAssistantMessageId 
-          );
-          
-          if (!result) {
-            removeMessage(tempUserMessageId);
-            removeMessage(tempAssistantMessageId);
-            return;
-          }
-          
-          // ... handle result ...
-          const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
-
-          if (userMessageId && userMessageId !== tempUserMessageId) {
-            const realUserMessage = { ...optimisticUserMessage, id: userMessageId, conversationId };
-            replaceMessage(tempUserMessageId, realUserMessage);
-          }
-          
-          if (assistantMessageId && assistantMessageId !== tempAssistantMessageId) {
-            const realAssistantMessage = { ...optimisticAssistantMessage, id: assistantMessageId, conversationId };
-            replaceMessage(tempAssistantMessageId, realAssistantMessage);
-          }
-
-          if (assistantMessageId) {
-            startStreaming(assistantMessageId);
-          }
-
-          const decoder = new TextDecoder();
-          let fullContent = "";
-
+        // If we have large PDFs and no conversation ID, create one NOW
+        if (hasLargePDFs && !effectiveConversationId) {
+          console.log('🆕 [ChatPage] Creating new conversation for PDF indexing...');
           try {
-            while (true) {
-              const { done, value } = await streamReader.read();
-              if (done) break;
-              
-              const chunk = decoder.decode(value, { stream: true });
-              fullContent += chunk;
-              updateStreamContent(fullContent);
-            }
+            const newConversationId = await createConversation();
+            effectiveConversationId = newConversationId;
+            // Update optimistic messages with real ID
+            messageState.updateMessage(tempUserMessageId, { conversationId: effectiveConversationId });
+            messageState.updateMessage(tempAssistantMessageId, { conversationId: effectiveConversationId });
           } catch (err) {
-            console.error("Error reading stream:", err);
-          } finally {
-            if (assistantMessageId) {
-              messageState.updateMessage(assistantMessageId, { content: fullContent });
-            }
-            finishStreaming();
+            console.error('❌ [ChatPage] Failed to create conversation:', err);
+            throw err;
           }
-          
-          return; // Exit here since we handled the send
+        }
+
+        // Process files in parallel
+        const processingPromises = files.map(async (file) => {
+           const isLargePDF = file.type === 'application/pdf' && file.size >= 500 * 1024;
+           
+           // Start Upload
+           const fd = new FormData();
+           fd.append('file', file);
+           const uploadPromise = uploadFileAction(fd).then((res: any) => res.url);
+           
+           // Start Indexing (if large PDF)
+           let indexingPromise: Promise<void> | undefined;
+           if (isLargePDF && effectiveConversationId) {
+             const jobId = await enqueueFile(file, effectiveConversationId, tempUserMessageId, uploadPromise);
+             if (jobId) {
+                indexingPromise = waitForIndexing(jobId);
+             }
+           }
+           
+           try {
+             // Wait for upload to complete
+             const url = await uploadPromise;
+             
+             return {
+               attachment: {
+                 file,
+                 url,
+                 name: file.name,
+                 type: file.type,
+                 size: file.size,
+                 isLargePDF
+               },
+               indexingPromise
+             };
+           } catch (e) {
+             console.error('Upload failed for', file.name, e);
+             return null;
+           }
+        });
+        
+        // Wait for all uploads and indexing initiations
+        const results = await Promise.all(processingPromises);
+        const validResults = results.filter(Boolean) as any[];
+        
+        // Extract attachments
+        uploadedAttachments = validResults.map(r => r.attachment);
+        
+        // Wait for indexing to complete (so AI has context)
+        const indexingPromises = validResults.map(r => r.indexingPromise).filter(Boolean);
+        if (indexingPromises.length > 0) {
+           console.log(`⏳ [ChatPage] Waiting for ${indexingPromises.length} indexing jobs...`);
+           await Promise.all(indexingPromises);
+           console.log('✅ [ChatPage] Indexing complete');
         }
       }
 
-      // Fallback for non-large-PDF flow (or if no files)
       // 3. Send Chat Request
       const result = await sendChatRequest(
         text,
         uploadedAttachments,
         referencedConversationsList,
         referencedFoldersList,
-        currentConversationId || undefined, 
+        effectiveConversationId || undefined, 
         tempUserMessageId,    
         tempAssistantMessageId 
       );
