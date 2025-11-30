@@ -9,6 +9,7 @@ import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquareDashedIcon, Pa
 import { Markdown } from '@/components/ui/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
+import { DeleteMessageDialog } from '@/components/delete-message-dialog';
 
 import { VersionIndicator } from '@/components/ui/version-indicator';
 
@@ -56,6 +57,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const [selectedText, setSelectedText] = useState('');
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
   
+  // Delete confirmation dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
   // Memoize handlers to prevent child re-renders
   const handleCopy = useCallback(() => {
     const content = isStreaming ? streamingContent : message.content;
@@ -71,7 +75,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   }, [message.id, onBranch]);
   
   const handleDelete = useCallback(() => {
+    setShowDeleteDialog(true);
+  }, []);
+  
+  const handleConfirmDelete = useCallback(() => {
     onDelete(message.id);
+    setShowDeleteDialog(false);
   }, [message.id, onDelete]);
   
   const handleEdit = useCallback(() => {
@@ -323,6 +332,14 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           )}
         </div>
       </Message>
+      
+      {/* Delete Confirmation Dialog */}
+      <DeleteMessageDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        messageRole={message.role as 'user' | 'assistant'}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }, (prevProps, nextProps) => {
