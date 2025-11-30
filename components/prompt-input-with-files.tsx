@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -48,7 +48,8 @@ type PromptInputWithFilesProps = {
   hideActions?: boolean;
 };
 
-export function PromptInputWithFiles({
+export const PromptInputWithFiles = memo(function
+  PromptInputWithFiles({
   onSubmit,
   isLoading = false,
   placeholder = "Ask anything",
@@ -352,4 +353,16 @@ export function PromptInputWithFiles({
       </FileUpload>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison for fine-grained control over re-renders
+  return (
+    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.editMode === nextProps.editMode &&
+    prevProps.initialValue === nextProps.initialValue &&
+    prevProps.isSubmittingEdit === nextProps.isSubmittingEdit &&
+    prevProps.currentConversationId === nextProps.currentConversationId &&
+    prevProps.context === nextProps.context &&
+    prevProps.hideActions === nextProps.hideActions
+  );
+});

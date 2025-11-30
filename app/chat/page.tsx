@@ -46,7 +46,7 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
-import { useRef, useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback, Suspense, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
@@ -97,6 +97,120 @@ function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
   // Sort by timestamp to maintain conversation order
   return activeMessages.sort((a, b) => a.timestamp - b.timestamp)
 }
+
+// Memoized TagSection component to prevent re-renders when parent state changes
+const TagSection = memo(function TagSection({
+  conversationId,
+  tags,
+  onTagClick
+}: {
+  conversationId: string;
+  tags: string[];
+  onTagClick: () => void;
+}) {
+  return (
+    <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
+      {/* Existing Tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
+          {tags.map((tag, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
+            >
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="lg:font-medium">{tag}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Tag Button */}
+      <Button
+        variant={"outline"}
+        size="icon"
+        className="w-min px-1 h-6 hover:bg-muted shrink-0 text-xs flex gap-0.5"
+        onClick={onTagClick}
+        title="Edit tags"
+      >
+        <Plus className="h-3 w-2" />
+        <span>Tags</span>
+      </Button>
+    </div>
+  );
+});
+
+// Memoized ContextBadges component to prevent re-renders
+type ContextItem = {
+  type: "conversation" | "folder";
+  id: string;
+  title: string;
+  status?: 'loading' | 'loaded';
+};
+
+const ContextBadges = memo(function ContextBadges({
+  context,
+  onRemove,
+  onClearAll
+}: {
+  context: ContextItem[];
+  onRemove: (index: number) => void;
+  onClearAll: () => void;
+}) {
+  if (context.length === 0) return null;
+
+  return (
+    <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
+      {context.map((c, i) => {
+        const isLoading = c.status === 'loading';
+        
+        return (
+          <div
+            key={i}
+            className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
+          >
+            {/* Show spinner when loading, otherwise show normal icon */}
+            {isLoading ? (
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            ) : c.type === "folder" ? (
+              <FolderIcon className="h-3 w-3 text-blue-500" />
+            ) : (
+              <MessageSquare className="h-3 w-3 text-muted-foreground" />
+            )}
+            <span className="font-medium text-foreground max-w-[100px] truncate">
+              {c.title}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRemove(i);
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+      })}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClearAll();
+        }}
+      >
+        Clear all
+      </Button>
+    </div>
+  );
+});
+
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -1037,36 +1151,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
                 {/* Tags Section - Fixed Top Right */}
                 {currentConversationId && (
-                  <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
-                    {/* Existing Tags */}
-                    {currentTags.length > 0 && (
-                      <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
-                        {currentTags.map((tag, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
-                          >
-                            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="lg:font-medium">{tag}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Add Tag Button */}
-                    <Button
-                      variant={"outline"}
-                      size="icon"
-                      className="w-min px-1 h-6 hover:bg-muted shrink-0 text-xs flex gap-0.5"
-                      onClick={handleTagClick}
-                      title="Edit tags"
-                    >
-                      <Plus className="h-3 w-2" />
-                      <span>
-                      Tags
-                      </span>
-                    </Button>
-                  </div>
+                  <TagSection
+                    conversationId={currentConversationId}
+                    tags={currentTags}
+                    onTagClick={handleTagClick}
+                  />
                 )}
               </div>
 
@@ -1121,66 +1210,23 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           {/* Background for input section */}
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
             {/* Show editContext when editing, activeContext otherwise */}
-            {(editingMessageId ? editContext.length > 0 : activeContext.length > 0) && (
-              <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
-                {(editingMessageId ? editContext : activeContext).map((c, i) => {
-                  const isLoading = c.status === 'loading';
-                  
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
-                    >
-                      {/* Show spinner when loading, otherwise show normal icon */}
-                      {isLoading ? (
-                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                      ) : c.type === "folder" ? (
-                        <FolderIcon className="h-3 w-3 text-blue-500" />
-                      ) : (
-                        <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      <span className="font-medium text-foreground max-w-[100px] truncate">
-                        {c.title}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (editingMessageId) {
-                            setEditContext(editContext.filter((_, idx) => idx !== i));
-                          } else {
-                            handleContextChange(
-                              activeContext.filter((_, idx) => idx !== i)
-                            );
-                          }
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  );
-                })}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (editingMessageId) {
-                      setEditContext([]);
-                    } else {
-                      handleContextChange([]);
-                    }
-                  }}
-                >
-                  Clear all
-                </Button>
-              </div>
-            )}
+            <ContextBadges
+              context={editingMessageId ? editContext : activeContext}
+              onRemove={(index) => {
+                if (editingMessageId) {
+                  setEditContext(editContext.filter((_, idx) => idx !== index));
+                } else {
+                  handleContextChange(activeContext.filter((_, idx) => idx !== index));
+                }
+              }}
+              onClearAll={() => {
+                if (editingMessageId) {
+                  setEditContext([]);
+                } else {
+                  handleContextChange([]);
+                }
+              }}
+            />
 
             <PromptInputWithFiles
               onSubmit={handleSubmit}
@@ -1246,9 +1292,14 @@ function FullChatApp() {
   );
 }
 
-function ChatHeader() {
+// Memoized ChatHeader to prevent re-renders when parent state changes
+const ChatHeader = memo(function ChatHeader() {
   const { selectConversation } = useChatContext();
   const { state } = useSidebar();
+
+  const handleNewChat = useCallback(() => {
+    selectConversation(null);
+  }, [selectConversation]);
 
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
@@ -1259,7 +1310,7 @@ function ChatHeader() {
           variant="ghost"
           size="icon"
           className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-          onClick={() => selectConversation(null)}
+          onClick={handleNewChat}
           title="Start new chat"
         >
           <Plus className="h-4 w-4" />
@@ -1267,7 +1318,7 @@ function ChatHeader() {
       </div>
     </div>
   );
-}
+});
 
 export default function ChatPage() {
   return <FullChatApp />;

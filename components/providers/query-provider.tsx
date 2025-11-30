@@ -26,6 +26,8 @@ const createPersister = () => {
 }
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false)
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -44,33 +46,25 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       })
   )
 
-  const [persister] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return createPersister()
-    }
-    return undefined
-  })
+  const [persister] = useState(() => createPersister())
 
-  if (persister) {
-    return (
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{
-          persister,
-          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-          buster: 'v1', // Increment this to bust the cache on breaking changes
-        }}
-      >
-        {children}
-        {/* <ReactQueryDevtools initialIsOpen={false} /> */}
-      </PersistQueryClientProvider>
-    )
-  }
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
+  // Always render the same tree structure to avoid hydration mismatch
+  // But only enable persistence after client-side mount
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: isMounted ? 1000 * 60 * 60 * 24 * 7 : 0, // 7 days when mounted, 0 on server
+        buster: 'v1', // Increment this to bust the cache on breaking changes
+      }}
+    >
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+      {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+    </PersistQueryClientProvider>
   )
 }
