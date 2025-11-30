@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { toast } from 'sonner';
+
 import { isPDFFile } from '@/lib/utils/file-converter';
 
 export interface IndexingJob {
@@ -17,7 +17,7 @@ export interface IndexingJob {
 export function useIndexingQueue() {
   const [jobs, setJobs] = useState<IndexingJob[]>([]);
   const workerRef = useRef<Worker | null>(null);
-  const toastIdRef = useRef<string | number | null>(null);
+
 
   // Initialize worker on first use
   const initWorker = useCallback(() => {
@@ -41,14 +41,7 @@ export function useIndexingQueue() {
                 : job
             ));
 
-            // Update toast
-            const currentJob = jobs.find(j => j.status === 'processing');
-            if (currentJob && toastIdRef.current) {
-              toast.loading(
-                `Indexing ${currentJob.fileName}... ${data.percentage}%`,
-                { id: toastIdRef.current }
-              );
-            }
+
           } else if (type === 'COMPLETE') {
             // Mark job as completed
             setJobs(prev => prev.map(job =>
@@ -57,18 +50,12 @@ export function useIndexingQueue() {
                 : job
             ));
 
-            // Show success toast
-            if (toastIdRef.current) {
-              toast.success(`PDF indexed: ${data.file}`, { id: toastIdRef.current });
-              toastIdRef.current = null;
-            }
+
           } else if (type === 'ERROR') {
             console.error(`[Indexing Queue] Batch ${data.batch} error:`, data.error);
             
             // Continue processing, just log the error
-            if (data.canRetry) {
-              toast.error(`Batch ${data.batch} failed, retrying...`, { duration: 2000 });
-            }
+
           } else if (type === 'FATAL_ERROR') {
             // Mark job as failed
             setJobs(prev => prev.map(job =>
@@ -77,22 +64,19 @@ export function useIndexingQueue() {
                 : job
             ));
 
-            if (toastIdRef.current) {
-              toast.error(`Indexing failed: ${data.error}`, { id: toastIdRef.current });
-              toastIdRef.current = null;
-            }
+
           }
         };
 
         workerRef.current.onerror = (error) => {
           console.error('[Indexing Queue] Worker error:', error);
-          toast.error('PDF indexing worker error');
+
         };
 
         console.log('[Indexing Queue] Worker initialized');
       } catch (error) {
         console.error('[Indexing Queue] Failed to initialize worker:', error);
-        toast.error('Failed to initialize PDF indexing');
+
       }
     }
     return workerRef.current;
@@ -147,8 +131,7 @@ export function useIndexingQueue() {
           : j
       ));
 
-      // Show loading toast
-      toastIdRef.current = toast.loading(`Indexing ${file.name}... 0%`);
+
 
       // Initialize worker and send chunks
       const worker = initWorker();
@@ -189,7 +172,7 @@ export function useIndexingQueue() {
           ? { ...j, status: 'failed', error: error.message }
           : j
       ));
-      toast.error(`Failed to process ${file.name}: ${error.message}`);
+
     }
     
     return jobId; // ← Return the ID
