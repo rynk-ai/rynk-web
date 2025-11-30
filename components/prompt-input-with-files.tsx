@@ -244,7 +244,7 @@ export function PromptInputWithFiles({
   };
 
   return (
-    <div  className={cn("flex flex-col gap-2 relative", className)}>
+    <div className={cn("flex flex-col gap-2 relative", className)}>
       {/* Edit mode indicator */}
       {editMode && onCancelEdit && (
         <div className="absolute -top-8 right-2 z-30">

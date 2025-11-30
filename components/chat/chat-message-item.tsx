@@ -4,13 +4,12 @@ import { memo, useCallback } from 'react';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { Message, MessageContent, MessageActions, MessageAction } from '@/components/ui/message';
 import { Button } from '@/components/ui/button';
-import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquare, Paperclip, MessageSquareDashedIcon, Loader2 } from 'lucide-react';
+import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquareDashedIcon, Paperclip, Loader2 } from 'lucide-react';
 import { Markdown } from '@/components/ui/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
 
 import { VersionIndicator } from '@/components/ui/version-indicator';
-import { motion } from "motion/react";
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -85,24 +84,24 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     
     return (
       <div
-        className="w-full px-3"
+        className="w-full px-3 animate-in-up"
       >
-        <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-start")}>
-          <div className="group flex w-full flex-col gap-0">
-            <div className="px-5 py-2 rounded-2xl hover:bg-muted/30 transition-colors duration-200 -ml-5">
-              <Markdown className="prose prose-slate dark:prose-invert max-w-none leading-relaxed">
+        <Message className={cn("mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-start")}>
+          <div className="group flex w-fit flex-col gap-0">
+            <div className="px-5 py-2 rounded-2xl bg-muted/20 hover:bg-muted/30 transition-colors duration-200">
+              <Markdown className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-foreground/90">
                 {displayContent}
               </Markdown>
             </div>
             <MessageActions className={cn(
-              "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-2",
+              "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-1 pl-1",
               isLastMessage && "opacity-100"
             )}>
               <MessageAction tooltip="Copy" delayDuration={100} >
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="rounded-full h-7 w-7 text-muted-foreground hover:text-foreground" 
+                  className="rounded-full h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50" 
                   onClick={handleCopy}
                 >
                   <Copy className="h-3.5 w-3.5" />
@@ -112,7 +111,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="rounded-full h-7 w-7 text-muted-foreground hover:text-foreground" 
+                  className="rounded-full h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50" 
                   onClick={handleBranch}
                 >
                   <GitBranch className="h-3.5 w-3.5" />
@@ -130,17 +129,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
   return (
     <div
-
-      className="w-full px-3 "
+      className="w-full px-3 animate-in-up"
     >
-      <Message className={cn("mx-auto flex w-full max-w-3xl flex-col gap-2 px-0 items-end")}>
+      <Message className={cn("mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-end")}>
         <div className="group flex flex-col items-end gap-1 w-full">
         
           
           {/* Message Content */}
           <div className="flex flex-col items-end w-full">
             <MessageContent className={cn(
-              "text-foreground bg-secondary/80 hover:bg-secondary/100 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200",
+              "text-foreground bg-secondary/50 hover:bg-secondary/80 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/10",
               isEditing && "opacity-50"
             )}>
               {message.content}
@@ -153,7 +151,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {message.referencedFolders?.map((f) => (
                 <div
                   key={`f-${f.id}`}
-                  className="flex items-center gap-1 bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-[10px] border border-border/50"
+                  className="flex items-center gap-1 bg-muted/50 text-muted-foreground px-2 py-0.5 rounded-full text-[10px] border border-border/30"
                 >
                   {isLoading ? (
                     <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -166,7 +164,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {message.referencedConversations?.map((c) => (
                 <div
                   key={`c-${c.id}`}
-                  className="flex items-center gap-1 bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-[10px] border border-border/50"
+                  className="flex items-center gap-1 bg-muted/50 text-muted-foreground px-2 py-0.5 rounded-full text-[10px] border border-border/30"
                 >
                   {isLoading ? (
                     <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -184,7 +182,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             <div className="flex flex-wrap gap-2 justify-end max-w-[85%] sm:max-w-[75%] mt-1">
               {message.attachments.map((file, i) => (
                 <div key={i} className="relative group/file">
-                  <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-lg text-xs border border-border/50">
+                  <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg text-xs border border-border/30 hover:bg-muted/80 transition-colors">
                     {isLoading ? (
                       <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                     ) : (
@@ -214,7 +212,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground" 
+                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50" 
                     onClick={handleEdit}
                   >
                     <Pencil className="h-3 w-3" />
@@ -224,7 +222,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive" 
+                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
                     onClick={handleDelete}
                   >
                     <Trash className="h-3 w-3" />

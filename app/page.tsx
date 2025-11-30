@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { LogIn, MessageSquare } from "lucide-react";
@@ -53,19 +54,17 @@ export default function HomePage() {
   };
 
   return (
-    <main className="relative flex min-h-screen w-full overflow-hidden">
-      {/* Background layer with inner rounded corners */}
-      {/* Background layer */}
-      <div className="absolute inset-0 bg-background" />
-      
+    <main className="relative flex min-h-screen w-full overflow-hidden bg-background selection:bg-primary/10 selection:text-primary">
+      {/* Background layer with subtle gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-muted/20" />
       
       {/* Auth Button - Prominent and Clear */}
       {isAuthenticated !== null && (
         <button
           onClick={() => router.push(isAuthenticated ? "/chat" : "/login")}
-          className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full hover:bg-muted/80 transition-all duration-200 border border-border/50 hover:border-border bg-background/80 backdrop-blur-sm shadow-sm hover:shadow-md group"
+          className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 rounded-full hover:bg-muted/50 transition-all duration-200 border border-border/40 hover:border-border/80 bg-background/50 backdrop-blur-md shadow-sm hover:shadow-md group animate-in-down"
         >
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
             {isAuthenticated ? "Go to Chat" : "Sign In"}
           </span>
           {isAuthenticated ? (
@@ -76,44 +75,55 @@ export default function HomePage() {
         </button>
       )}
       
+      {/* Theme Toggle - Bottom Right */}
+      <div className="absolute bottom-6 right-6 z-20 hidden md:block animate-in-up">
+        <ThemeToggle />
+      </div>
+
       {/* Content layer */}
       <div 
-        className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 bg-muted transition-transform duration-200 ease-out"
+        className="relative z-10 flex h-screen w-full flex-col items-center justify-center px-4 transition-transform duration-200 ease-out"
         style={{ transform: `translateY(-${keyboardHeight / 2}px)` }}
       >
         {/* Branding */}
-        <div className="mb-8 flex flex-col items-center">
+        <div className="mb-10 flex flex-col items-center animate-in-up" style={{ animationDelay: '0.1s' }}>
           <TextShimmer
             spread={3}
             duration={4}
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground mb-4"
+            className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-foreground mb-4"
           >
             rynk.
           </TextShimmer>
+          <p className="text-muted-foreground text-sm md:text-base max-w-md text-center opacity-0 animate-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
+            Chat with AI that remembers and adapts.
+          </p>
         </div>
 
         {/* Input Field */}
-        <div className="w-full max-w-2xl lg:max-w-3xl flex flex-col items-center gap-3">
-          <PromptInputWithFiles
-            onSubmit={handleSubmit}
-            placeholder="Message..."
-            className="glass relative z-10 w-full rounded-3xl shadow-lg transition-all duration-500"
-            isLoading={false}
-            hideActions={true}
-          />
+        <div className="w-full max-w-2xl lg:max-w-3xl flex flex-col items-center gap-6 opacity-0 animate-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
+          <div className="w-full glass rounded-3xl p-1.5 shadow-xl shadow-black/5 ring-1 ring-black/5 dark:ring-white/10 transition-all duration-500 hover:shadow-2xl hover:shadow-black/10">
+            <PromptInputWithFiles
+              onSubmit={handleSubmit}
+              placeholder="Ask anything..."
+              className="w-full bg-transparent border-none shadow-none focus-within:ring-0"
+              isLoading={false}
+              hideActions={true}
+            />
+          </div>
           
           {/* Suggestion chips */}
-          <div className="flex flex-wrap justify-center gap-2 mt-4 px-4">
+          <div className="flex flex-wrap justify-center gap-2 px-4">
             {[
               "Explain quantum computing",
               "Write a poem about AI",
               "Help me debug my code",
               "Plan a weekend trip"
-            ].map((suggestion) => (
+            ].map((suggestion, i) => (
               <button
                 key={suggestion}
                 onClick={() => handleSubmit(suggestion, [])}
-                className="px-3 py-1.5 text-xs rounded-full border border-border/50 bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200"
+                className="px-4 py-2 text-xs md:text-sm rounded-full border border-border/40 bg-background/40 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-105 hover:border-border/80"
+                style={{ animationDelay: `${0.4 + (i * 0.05)}s` }}
               >
                 {suggestion}
               </button>

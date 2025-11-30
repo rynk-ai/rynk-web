@@ -1000,7 +1000,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
           >
             <TextShimmer
               spread={5}
-      duration={4} className="text-3xl md:text-4xl lg:text-7xl font-bold tracking-tighter text-foreground/70 mb-10 leading-24">
+              duration={4} className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up">
               rynk.
             </TextShimmer>
           </div>
@@ -1207,8 +1207,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               onFilesChange={isEditing ? setEditAttachments : undefined}
               onKeyDown={handleKeyDown}
               className={cn(
-                "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300",
-                !currentConversationId ? "shadow-lg" : "shadow-sm hover:shadow-md"
+                "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-lg hover:shadow-xl",
+                !currentConversationId ? "shadow-xl" : "shadow-sm hover:shadow-md"
               )}
             />
           </div>
@@ -1266,8 +1266,8 @@ function ChatHeader() {
   const { state } = useSidebar();
 
   return (
-    <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
-      <div className="flex items-center gap-1 bg-background/60 backdrop-blur-md border border-border/40 shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-background/80 hover:shadow-md hover:border-border/60">
+    <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
+      <div className="flex items-center gap-1 bg-background/60 backdrop-blur-md border border-border/40 shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-background/80 hover:shadow-md hover:border-border/60 group">
         <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button

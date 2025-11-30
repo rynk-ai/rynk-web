@@ -2,23 +2,14 @@ import type { Metadata } from "next";
 
 ;
 
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { LayoutGroup } from "motion/react";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rynk.io"),
@@ -101,16 +92,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased dark`}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased tracking-tight`}
       >
         <AuthProvider>
-          <QueryProvider>
-            <ChatProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>
+              <ChatProvider>
                 {children}
-            </ChatProvider>
-          </QueryProvider>
+              </ChatProvider>
+            </QueryProvider>
+          </ThemeProvider>
         </AuthProvider>
 
         {/* Structured Data (JSON-LD) for SEO */}
