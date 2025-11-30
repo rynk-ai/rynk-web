@@ -19,6 +19,11 @@ bucket_name = "simplechat-assets"
 binding = "NEXT_INC_CACHE_R2_BUCKET"
 bucket_name = "simplechat-cache"
 
+# Vectorize Index for Embeddings
+[[vectorize]]
+binding = "VECTORIZE_INDEX"
+index_name = "simplechat-index"
+
 # Environment variables for local development only
 # Production environment variables should be set in Cloudflare Dashboard
 # Do NOT put sensitive values here - use .dev.vars instead

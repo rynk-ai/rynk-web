@@ -139,6 +139,20 @@ export const cloudDb = {
     } as CloudConversation
   },
 
+  async getConversationsByProjectId(projectId: string): Promise<CloudConversation[]> {
+    const db = getDB()
+    const results = await db.prepare('SELECT * FROM conversations WHERE projectId = ? ORDER BY updatedAt DESC').bind(projectId).all()
+    return results.results.map((c: any) => ({
+      ...c,
+      path: JSON.parse(c.path as string || '[]'),
+      tags: JSON.parse(c.tags as string || '[]'),
+      branches: JSON.parse(c.branches as string || '[]'),
+      isPinned: Boolean(c.isPinned),
+      activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+    })) as CloudConversation[]
+  },
+
   async createConversation(userId: string, title: string = 'New Conversation', projectId?: string) {
     const db = getDB()
     

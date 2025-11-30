@@ -14,6 +14,7 @@ declare namespace Cloudflare {
 		BUCKET: R2Bucket;
 		NEXT_INC_CACHE_R2_BUCKET: R2Bucket;
 		DB: D1Database;
+		VECTORIZE_INDEX: VectorizeIndex;
 	}
 }
 interface CloudflareEnv extends Cloudflare.Env {}

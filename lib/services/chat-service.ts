@@ -1,5 +1,6 @@
 import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
+import { vectorDb } from "@/lib/services/vector-db" // Import vectorDb
 import { getAIProvider } from "@/lib/services/ai-factory"
 import { type Message as ApiMessage } from "@/lib/services/ai-provider"
 import { searchEmbeddings } from "@/lib/utils/vector"
@@ -160,7 +161,8 @@ export class ChatService {
       conversationId,
       messageContent,
       messageRefs.referencedConversations,
-      messageRefs.referencedFolders
+      messageRefs.referencedFolders,
+      project?.id // Pass projectId
     )
     
     const finalContext = `${legacyContext}\n\n${kbContext ? `=== RELEVANT KNOWLEDGE BASE CONTEXT ===\n${kbContext}` : ''}`.trim()
@@ -209,6 +211,7 @@ export class ChatService {
     query: string,
     referencedConversations: any[],
     referencedFolders: any[],
+    projectId?: string,
     onProgress?: (message: string) => void
   ) {
     // Logic adapted from generateAIResponseAction
@@ -315,6 +318,63 @@ export class ChatService {
 
     } catch (err) {
       console.error('Error building context:', err)
+    }
+
+    // --- PROJECT MEMORY INJECTION (VECTORIZE) ---
+    if (projectId && query.trim()) {
+      try {
+        console.log('🧠 [buildContext] Searching Project Memory (Vectorize) for:', projectId);
+        
+        // Generate embedding for the query
+        const aiProvider = getAIProvider();
+        const queryVector = await aiProvider.getEmbeddings(query);
+        
+        // Search Vectorize
+        const relevantMessages = await vectorDb.searchProjectMemory(projectId, queryVector, {
+          limit: 10, 
+          minScore: 0.4,
+          excludeConversationId: currentConversationId
+        });
+        
+        if (relevantMessages.length > 0) {
+          console.log(`🧠 [buildContext] Found ${relevantMessages.length} relevant memories from project`);
+          
+          contextText += `\n\n=== RELEVANT MEMORIES FROM OTHER PROJECT CONVERSATIONS ===\n`;
+          contextText += `The following are relevant excerpts from other conversations in this project. Use them to maintain continuity.\n\n`;
+          
+          // Group by conversation for better readability
+          const memoriesByConv = new Map<string, string[]>();
+          
+          for (const mem of relevantMessages) {
+            if (!memoriesByConv.has(mem.conversationId)) {
+              memoriesByConv.set(mem.conversationId, []);
+            }
+            memoriesByConv.get(mem.conversationId)!.push(mem.content);
+          }
+          
+          // Fetch conversation titles for better context
+          // We need to fetch titles for the conversation IDs returned by Vectorize
+          const uniqueConvIds = Array.from(memoriesByConv.keys());
+          const conversations = await cloudDb.getConversationsBatch(uniqueConvIds);
+          const convMap = new Map(conversations.map(c => [c.id, c]));
+          
+          for (const [convId, snippets] of memoriesByConv) {
+            const convTitle = convMap.get(convId)?.title || 'Unknown Conversation';
+            contextText += `--- From "${convTitle}" ---\n`;
+            snippets.forEach(snippet => {
+              contextText += `> ${snippet}\n\n`;
+            });
+          }
+          
+          contextText += `=== END OF PROJECT MEMORIES ===\n`;
+        } else {
+          console.log('🧠 [buildContext] No relevant memories found (score too low)');
+        }
+
+      } catch (err) {
+        console.error('❌ [buildContext] Error retrieving project memory:', err);
+        // Continue without project memory
+      }
     }
 
     return contextText
@@ -742,7 +802,16 @@ export class ChatService {
       
       const aiProvider = getAIProvider()
       const vector = await aiProvider.getEmbeddings(content)
+      
+      // Store in D1 (Legacy/Backup)
       await cloudDb.addEmbedding(messageId, conversationId, userId, content, vector)
+      
+      // Store in Vectorize (New)
+      // We need to fetch the conversation to get the projectId
+      const conversation = await cloudDb.getConversation(conversationId)
+      if (conversation?.projectId) {
+        await vectorDb.upsertProjectMemory(messageId, conversationId, conversation.projectId, content, vector)
+      }
     } catch (error) {
       console.error('Failed to generate embedding in background:', error)
     }

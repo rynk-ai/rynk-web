@@ -83,13 +83,17 @@ export const vectorDb = {
     return await db.prepare('SELECT * FROM attachments_metadata WHERE id = ?').bind(id).first()
   },
 
-  // --- File Chunks ---
+  // --- File Chunks (Legacy D1 for now, but could move to Vectorize too) ---
+  // For now, we keep file chunks in D1 because they are small and scoped to a file.
+  // But we could also put them in Vectorize with metadata filter `attachmentId`.
+  // Let's keep D1 for file chunks to minimize risk, and use Vectorize for Project Memory (messages).
 
   async addFileChunk(data: Omit<FileChunk, 'id' | 'timestamp'>) {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = Date.now()
     
+    // 1. Store in D1 (Source of Truth)
     await db.prepare(`
       INSERT INTO file_chunks (
         id, attachmentId, userId, chunkIndex, content, vector, metadata, timestamp
@@ -98,6 +102,26 @@ export const vectorDb = {
       id, data.attachmentId, data.userId, data.chunkIndex, data.content, 
       JSON.stringify(data.vector), JSON.stringify(data.metadata), now
     ).run()
+
+    // 2. Upsert to Vectorize (Search Index)
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (index) {
+        await index.upsert([{
+          id: id,
+          values: data.vector,
+          metadata: {
+            type: 'file_chunk',
+            attachmentId: data.attachmentId,
+            chunkIndex: data.chunkIndex.toString(),
+            content: data.content.substring(0, 1000), // Limit metadata size
+            ...data.metadata
+          }
+        }]);
+      }
+    } catch (error) {
+      console.error('❌ [vectorDb] Failed to upsert file chunk to Vectorize:', error);
+    }
   },
 
   async getFileChunks(attachmentId: string): Promise<FileChunk[]> {
@@ -114,10 +138,35 @@ export const vectorDb = {
   async searchFileChunks(attachmentId: string, queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
     const { limit = 5, minScore = 0.5 } = options
     
-    // Fetch all chunks for the attachment
-    // Note: For very large files, we might want to do this differently, 
-    // but D1 doesn't support vector search natively yet, so we fetch and filter in memory.
-    // Since we chunk per file, this is usually manageable (e.g. 100 chunks for a 50 page PDF).
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (index) {
+        // Search Vectorize
+        const results = await index.query(queryVector, {
+          topK: limit,
+          filter: { attachmentId: attachmentId },
+          returnMetadata: true
+        });
+
+        return results.matches
+          .filter(match => match.score >= minScore)
+          .map(match => ({
+            id: match.id,
+            attachmentId: match.metadata?.attachmentId as string,
+            chunkIndex: parseInt(match.metadata?.chunkIndex as string || '0'),
+            content: match.metadata?.content as string,
+            vector: match.values || [], // Vectorize might not return values by default unless requested? Actually query returns matches.
+            // Note: We might not get the full content if we truncated it. 
+            // For full fidelity, we could fetch from D1 using ID, but for now let's use metadata.
+            metadata: match.metadata,
+            score: match.score
+          }));
+      }
+    } catch (error) {
+      console.error('❌ [vectorDb] Vectorize search failed, falling back to D1:', error);
+    }
+
+    // Fallback to D1 (Legacy)
     const chunks = await this.getFileChunks(attachmentId)
     
     const results = chunks.map(chunk => ({
@@ -174,12 +223,33 @@ export const vectorDb = {
     const db = getDB()
     const id = crypto.randomUUID()
     
+    // 1. Store in D1
     await db.prepare(`
       INSERT INTO knowledge_chunks (id, sourceId, content, vector, chunkIndex, metadata)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       id, data.sourceId, data.content, JSON.stringify(data.vector), data.chunkIndex, JSON.stringify(data.metadata || {})
     ).run()
+
+    // 2. Upsert to Vectorize
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (index) {
+        await index.upsert([{
+          id: id,
+          values: data.vector,
+          metadata: {
+            type: 'knowledge_chunk',
+            sourceId: data.sourceId,
+            chunkIndex: data.chunkIndex.toString(),
+            content: data.content.substring(0, 1000),
+            ...data.metadata
+          }
+        }]);
+      }
+    } catch (error) {
+      console.error('❌ [vectorDb] Failed to upsert knowledge chunk to Vectorize:', error);
+    }
   },
 
   async getKnowledgeChunks(sourceId: string) {
@@ -223,14 +293,6 @@ export const vectorDb = {
     const db = getDB()
     console.log('🔍 [vectorDb] Getting sources for conversation:', conversationId)
     
-    // Debug: Check raw links first
-    const rawLinks = await db.prepare('SELECT * FROM conversation_sources WHERE conversationId = ?').bind(conversationId).all()
-    console.log(`🔍 [vectorDb] Found ${rawLinks.results.length} raw links in conversation_sources`)
-    if (rawLinks.results.length > 0) {
-      console.log('🔍 [vectorDb] First raw link:', rawLinks.results[0])
-    }
-
-    // Join with sources table to get details
     const results = await db.prepare(`
       SELECT s.*, cs.messageId 
       FROM conversation_sources cs
@@ -251,18 +313,53 @@ export const vectorDb = {
 
     if (sourceIds.length === 0) return []
 
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (index) {
+        // Parallel query for each sourceId (since Vectorize might not support efficient IN clause yet)
+        // We limit per-source results to 'limit' to ensure we get enough candidates
+        const searchPromises = sourceIds.map(sourceId => 
+          index.query(queryVector, {
+            topK: limit,
+            filter: { sourceId: sourceId },
+            returnMetadata: true
+          })
+        );
+
+        const results = await Promise.all(searchPromises);
+        
+        // Flatten and sort
+        const allMatches = results.flatMap(r => r.matches);
+        
+        // Deduplicate by ID (just in case)
+        const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
+
+        return uniqueMatches
+          .filter(match => match.score >= minScore)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, limit)
+          .map(match => ({
+            id: match.id,
+            sourceId: match.metadata?.sourceId as string,
+            chunkIndex: parseInt(match.metadata?.chunkIndex as string || '0'),
+            content: match.metadata?.content as string,
+            vector: match.values || [],
+            metadata: match.metadata,
+            score: match.score
+          }));
+      }
+    } catch (error) {
+      console.error('❌ [vectorDb] Vectorize knowledge search failed, falling back to D1:', error);
+    }
+
+    // Fallback to D1
     const db = getDB()
     
-    // Fetch chunks for ALL provided sources
-    // Note: In a real production D1 (with vector support), this would be a single vector query.
-    // Here we fetch and filter in memory.
     const placeholders = sourceIds.map(() => '?').join(',')
     const results = await db.prepare(
       `SELECT * FROM knowledge_chunks WHERE sourceId IN (${placeholders})`
     ).bind(...sourceIds).all()
     
-    console.log('🔍 [searchKnowledgeBase] Fetched chunks from DB:', results.results.length);
-
     const chunks = results.results.map((row: any) => ({
       ...row,
       vector: JSON.parse(row.vector as string),
@@ -274,13 +371,96 @@ export const vectorDb = {
       score: cosineSimilarity(queryVector, chunk.vector)
     }))
     
-    // Log top scores for debugging
-    const topScores = scored.map(s => s.score).sort((a, b) => b - a).slice(0, 5);
-    console.log('🔍 [searchKnowledgeBase] Top 5 scores:', topScores);
-    
     return scored
       .filter(r => r.score >= minScore)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
+  },
+
+  // --- CLOUDFLARE VECTORIZE (Project Memory) ---
+
+  async upsertProjectMemory(
+    messageId: string, 
+    conversationId: string, 
+    projectId: string, 
+    content: string, 
+    vector: number[]
+  ) {
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (!index) {
+        console.warn('⚠️ [vectorDb] Vectorize index not bound, skipping upsert');
+        return;
+      }
+
+      console.log('🧠 [vectorDb] Upserting to Vectorize:', { messageId, projectId });
+
+      await index.upsert([{
+        id: messageId,
+        values: vector,
+        metadata: {
+          conversationId,
+          projectId,
+          content: content.substring(0, 1000) // Store snippet in metadata for retrieval
+        }
+      }]);
+    } catch (error) {
+      console.error('❌ [vectorDb] Failed to upsert to Vectorize:', error);
+    }
+  },
+
+  async searchProjectMemory(
+    projectId: string, 
+    queryVector: number[], 
+    options: { limit?: number, minScore?: number, excludeConversationId?: string } = {}
+  ) {
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (!index) {
+        console.warn('⚠️ [vectorDb] Vectorize index not bound, skipping search');
+        return [];
+      }
+
+      const { limit = 10, minScore = 0.4, excludeConversationId } = options;
+
+      console.log('🧠 [vectorDb] Searching Vectorize:', { projectId, excludeConversationId });
+
+      // Build filter query
+      // Note: Vectorize filtering syntax depends on the API version, but generally supports simple equality
+      // We want: projectId == ? AND conversationId != ?
+      // Currently Vectorize supports simple filters.
+      // If excludeConversationId is provided, we might need to filter post-query if negative filters aren't supported yet,
+      // OR use a negative filter if supported.
+      // Let's assume we filter by projectId and then filter results in memory for exclusion if needed.
+      
+      const results = await index.query(queryVector, {
+        topK: limit,
+        filter: { projectId: projectId },
+        returnMetadata: true
+      });
+
+      console.log(`🧠 [vectorDb] Vectorize returned ${results.matches.length} matches`);
+
+      return results.matches
+        .filter(match => {
+          // Filter by score
+          if (match.score < minScore) return false;
+          
+          // Filter excluded conversation
+          if (excludeConversationId && match.metadata?.conversationId === excludeConversationId) return false;
+          
+          return true;
+        })
+        .map(match => ({
+          messageId: match.id,
+          conversationId: match.metadata?.conversationId as string,
+          content: match.metadata?.content as string,
+          score: match.score
+        }));
+
+    } catch (error) {
+      console.error('❌ [vectorDb] Failed to search Vectorize:', error);
+      return [];
+    }
   }
 }
