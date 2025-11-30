@@ -88,7 +88,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       >
         <Message className={cn("mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-start")}>
           <div className="group flex w-fit flex-col gap-0">
-            <div className="px-5 py-2 rounded-2xl bg-muted/20 hover:bg-muted/30 transition-colors duration-200">
+            <div className="px-5 py-2 rounded-2xl bg-muted/35 hover:bg-muted/45 transition-colors duration-200 border border-border/30 shadow-sm">
               <Markdown className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-foreground/90">
                 {displayContent}
               </Markdown>
@@ -138,7 +138,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           {/* Message Content */}
           <div className="flex flex-col items-end w-full">
             <MessageContent className={cn(
-              "text-foreground bg-secondary/50 hover:bg-secondary/80 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/10",
+              "text-foreground bg-secondary/60 hover:bg-secondary/85 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/20",
               isEditing && "opacity-50"
             )}>
               {message.content}

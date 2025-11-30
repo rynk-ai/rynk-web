@@ -13,86 +13,112 @@
 
 @layer base {
     :root {
-        /* Backgrounds - Clean White */
-        --background: 0 0% 100%;
-        --foreground: 240 10% 3.9%;
+        /* Backgrounds - Warm Off-White (reduces eye strain) */
+        --background: 45 30% 98%;
+        --foreground: 220 15% 12%;
 
-        /* Card/Surface - White */
-        --card: 0 0% 100%;
-        --card-foreground: 240 10% 3.9%;
+        /* Card/Surface - Slightly darker with warmth */
+        --card: 45 25% 96%;
+        --card-foreground: 220 15% 12%;
 
-        /* Popover - White */
+        /* Popover - Clean white with warmth */
         --popover: 0 0% 100%;
-        --popover-foreground: 240 10% 3.9%;
+        --popover-foreground: 220 15% 12%;
 
-        /* Primary - Zinc 900 */
-        --primary: 240 5.9% 10%;
-        --primary-foreground: 0 0% 98%;
+        /* Primary - Deep navy for contrast */
+        --primary: 220 25% 15%;
+        --primary-foreground: 45 30% 96%;
 
-        /* Secondary - Zinc 100 */
-        --secondary: 240 4.8% 95.9%;
-        --secondary-foreground: 240 5.9% 10%;
+        /* Secondary - Neutral warm gray */
+        --secondary: 220 13% 92%;
+        --secondary-foreground: 220 15% 12%;
 
-        /* Muted - Zinc 100 */
-        --muted: 240 4.8% 95.9%;
-        --muted-foreground: 240 3.8% 46.1%;
+        /* Muted - Warm gray for secondary info */
+        --muted: 220 13% 92%;
+        --muted-foreground: 220 8% 45%;
 
-        /* Accent - Zinc 100 */
-        --accent: 240 4.8% 95.9%;
-        --accent-foreground: 240 5.9% 10%;
+        /* Accent - Subtle warm blue */
+        --accent: 220 20% 90%;
+        --accent-foreground: 220 20% 15%;
 
         /* Destructive - Red 500 */
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 0 0% 98%;
 
-        /* Borders & Inputs - Zinc 200 */
-        --border: 240 5.9% 90%;
-        --input: 240 5.9% 90%;
-        --ring: 240 5.9% 10%;
+        /* Borders & Inputs - Soft gray */
+        --border: 220 13% 88%;
+        --input: 220 13% 88%;
+        --ring: 220 25% 15%;
 
         /* Radius */
         --radius: 0.75rem;
     }
 
     .dark {
-        /* Backgrounds - Deep Zinc */
-        --background: 240 10% 3.9%;
-        --foreground: 0 0% 98%;
+        /* Backgrounds - Soft dark gray (not pure black) */
+        --background: 220 15% 10%;
+        --foreground: 45 20% 92%;
 
-        /* Card/Surface - Zinc 900 */
-        --card: 240 10% 3.9%;
-        --card-foreground: 0 0% 98%;
+        /* Card/Surface - Slightly lighter than background */
+        --card: 220 16% 12%;
+        --card-foreground: 45 20% 92%;
 
-        /* Popover - Zinc 950 */
-        --popover: 240 10% 3.9%;
-        --popover-foreground: 0 0% 98%;
+        /* Popover - Darker surface */
+        --popover: 220 15% 9%;
+        --popover-foreground: 45 20% 92%;
 
-        /* Primary - White */
-        --primary: 0 0% 98%;
-        --primary-foreground: 240 5.9% 10%;
+        /* Primary - Warm light */
+        --primary: 45 20% 92%;
+        --primary-foreground: 220 15% 10%;
 
-        /* Secondary - Zinc 800 */
-        --secondary: 240 3.7% 15.9%;
-        --secondary-foreground: 0 0% 98%;
+        /* Secondary - Elevated surface */
+        --secondary: 220 15% 15%;
+        --secondary-foreground: 45 20% 88%;
 
-        /* Muted - Zinc 800 */
-        --muted: 240 3.7% 15.9%;
-        --muted-foreground: 240 5% 64.9%;
+        /* Muted - For secondary info */
+        --muted: 220 15% 15%;
+        --muted-foreground: 45 10% 65%;
 
-        /* Accent - Zinc 800 */
-        --accent: 240 3.7% 15.9%;
-        --accent-foreground: 0 0% 98%;
+        /* Accent - Subtle warm */
+        --accent: 45 15% 18%;
+        --accent-foreground: 45 20% 88%;
 
         /* Destructive - Red 900 */
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 0 0% 98%;
 
-        /* Borders & Inputs - Zinc 800 */
-        --border: 240 3.7% 15.9%;
-        --input: 240 3.7% 15.9%;
-        --ring: 240 4.9% 83.9%;
+        /* Borders & Inputs - Dark surface */
+        --border: 220 15% 18%;
+        --input: 220 15% 18%;
+        --ring: 45 20% 88%;
     }
 
+}
+
+@layer base {
+    :root {
+        /* Sidebar Colors - Light Mode */
+        --sidebar: 45 20% 96%;
+        --sidebar-foreground: 220 15% 12%;
+        --sidebar-primary: 220 25% 15%;
+        --sidebar-primary-foreground: 45 30% 96%;
+        --sidebar-accent: 220 13% 90%;
+        --sidebar-accent-foreground: 220 15% 12%;
+        --sidebar-border: 220 13% 85%;
+        --sidebar-ring: 220 25% 15%;
+    }
+
+    .dark {
+        /* Sidebar Colors - Dark Mode */
+        --sidebar: 220 15% 11%;
+        --sidebar-foreground: 45 20% 92%;
+        --sidebar-primary: 45 20% 92%;
+        --sidebar-primary-foreground: 220 15% 10%;
+        --sidebar-accent: 220 15% 16%;
+        --sidebar-accent-foreground: 45 20% 88%;
+        --sidebar-border: 220 15% 20%;
+        --sidebar-ring: 45 20% 88%;
+    }
 }
 
 @theme inline {
@@ -213,8 +239,8 @@
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -222,5 +248,14 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
+    @apply bg-muted-foreground/15 rounded-full hover:bg-muted-foreground/30 transition-colors;
+    border-radius: 10px;
+}
+
+/* Enable thin scrollbars and prevent layout shift */
+@supports selector(::-webkit-scrollbar) {
+    * {
+        scrollbar-width: thin;
+        scrollbar-gutter: stable;
+    }
 }
