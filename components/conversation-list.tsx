@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ConversationListItem } from "@/components/sidebar/conversation-list-item"
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -136,70 +137,17 @@ export function ConversationList({
           </div>
           <div className="space-y-2 ">
             {group.conversations.map((conversation) => (
-              <div key={conversation.id} className="group/conversation relative">
-                <button
-                  className={cn(
-                    "flex w-full items-center gap-1 rounded-md px-1 py-1 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10  text-muted-foreground ",
-                    currentConversationId === conversation.id &&
-                      "bg-muted text-foreground"
-                  )}
-                  onClick={() => onSelectConversation(conversation.id)}
-                >
-                  <div className="flex w-full flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate pl-1 ">{conversation.title}</span>
-                      {conversation.isPinned && (
-                        <PinIcon className="h-3 w-3 text-primary shrink-0" />
-                      )}
-                    </div>
-              
-                  </div>
-                </button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/conversation:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onTogglePin(conversation.id)
-                    }}
-                    title={conversation.isPinned ? "Unpin conversation" : "Pin conversation"}
-                  >
-                    <PinIcon className={cn("h-4 w-4", conversation.isPinned && "fill-current")} />
-                  </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/conversation:opacity-100 transition-opacity"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onAddToFolder(conversation.id)}>
-                      Add to folder
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onRename(conversation.id)}>
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEditTags(conversation.id)}>
-                      Edit tags
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => onDelete(conversation.id)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      Delete conversation
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <ConversationListItem
+                key={conversation.id}
+                conversation={conversation}
+                isActive={currentConversationId === conversation.id}
+                onSelect={onSelectConversation}
+                onTogglePin={onTogglePin}
+                onAddToFolder={onAddToFolder}
+                onRename={onRename}
+                onEditTags={onEditTags}
+                onDelete={onDelete}
+              />
             ))}
           </div>
         </div>

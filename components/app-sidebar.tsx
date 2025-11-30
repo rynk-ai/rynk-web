@@ -47,6 +47,8 @@ import { useChatContext } from "@/lib/hooks/chat-context";
 import { UserProfileDropdown } from "@/components/user-profile-dropdown";
 import { ConversationList } from "@/components/conversation-list";
 import { ProjectList } from "@/components/project-list";
+import { ConversationListItem } from "@/components/sidebar/conversation-list-item";
+import { FolderListItem } from "@/components/sidebar/folder-list-item";
 import { FolderDialog } from "@/components/folder-dialog";
 import { DeleteConversationDialog } from "@/components/delete-conversation-dialog";
 import { TagDialog } from "@/components/tag-dialog";
@@ -424,124 +426,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               Create one to organize your chats!
             </div>
           ) : (
-            folders.map((folder) => {
-              const folderConversations = conversations.filter(
-                (c) =>
-                  folder.conversationIds.includes(c.id) &&
-                  !c.isPinned &&
-                  (!activeProjectId || c.projectId === activeProjectId)
-              );
 
-              return (
-                <Collapsible
-                  key={folder.id}
-                  className="mb-5 group/collapsible"
-                >
-                  <div className="mb-0.5 flex items-center justify-between px-2 py-1 group/folder hover:bg-muted/50 rounded-md transition-colors">
-                    <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                      <FolderIcon className="h-3.5 w-3.5" />
-                      <span className="truncate">{folder.name}</span>
-                      <span className="text-[10px] text-muted-foreground/50 ml-auto mr-2">
-                        {folderConversations.length}
-                      </span>
-                    </CollapsibleTrigger>
-                    <div className="flex items-center opacity-0 group-hover/folder:opacity-100 transition-opacity">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => handleEditFolder(folder, e)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={(e) => handleDeleteFolder(folder.id, e)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                  <CollapsibleContent>
-                    <div className="space-y-1 pl-7">
-                      {folderConversations.length === 0 ? (
-                        <div className="text-xs text-muted-foreground py-2 px-2 pl-6">
-                          Empty folder
-                        </div>
-                      ) : (
-                        folderConversations.map((conversation) => (
-                          <div key={conversation.id} className="group/convo relative text-muted-foreground
-">
-                            <button
-                              className={cn(
-                                "flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-8"
-                              )}
-                              onClick={() =>
-                                handleSelectConversation(conversation.id)
-                              }
-                            >
-                              <div className="flex w-full flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="truncate pl-1">
-                                    {conversation.title}
-                                  </span>
-                                </div>
-                              </div>
-                            </button>
-
-                          
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/convo:opacity-100 transition-opacity"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleAddToFolder(conversation.id)}
-                                >
-                                  Add to folder
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleRename(conversation.id)}
-                                >
-                                  Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleTagClick(conversation.id)}
-                                >
-                                  Edit tags
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteSimple(conversation.id)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  Delete conversation
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              );
-            })
+            folders.map((folder) => (
+              <FolderListItem
+                key={folder.id}
+                folder={folder}
+                conversations={conversations}
+                currentConversationId={currentConversationId}
+                activeProjectId={activeProjectId || null}
+                onSelectConversation={handleSelectConversation}
+                onEditFolder={handleEditFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onAddToFolder={handleAddToFolder}
+                onRenameConversation={handleRename}
+                onEditTags={handleTagClick}
+                onDeleteConversation={handleDeleteSimple}
+              />
+            ))
           )}
           
           {/* Pinned Conversations */}
@@ -558,36 +459,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       (!activeProjectId || c.projectId === activeProjectId)
                   )
                   .map((conversation) => (
-                    <div key={conversation.id} className="relative group/item">
-                      <button
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-all hover:bg-muted/80 pr-8",
-                          currentConversationId === conversation.id 
-                            ? "bg-muted font-medium text-foreground" 
-                            : "text-muted-foreground"
-                        )}
-                        onClick={() => handleSelectConversation(conversation.id)}
-                      >
-                        <span className="truncate flex-1">
-                          {conversation.title}
-                        </span>
-                      </button>
-
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover/item:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePinConversation(conversation.id);
-                          }}
-                          title="Unpin"
-                        >
-                          <PinIcon className="h-3 w-3 fill-current" />
-                        </Button>
-                      </div>
-                    </div>
+                    <ConversationListItem
+                      key={conversation.id}
+                      conversation={conversation}
+                      isActive={currentConversationId === conversation.id}
+                      onSelect={handleSelectConversation}
+                      onTogglePin={togglePinConversation}
+                      showMenu={false}
+                    />
                   ))}
               </div>
             </div>

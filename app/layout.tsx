@@ -94,6 +94,9 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased tracking-tight`}
       >
+
+
+
         <AuthProvider>
           <ThemeProvider
             attribute="class"
