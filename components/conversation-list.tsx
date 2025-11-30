@@ -21,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -32,6 +33,7 @@ interface ConversationListProps {
   onEditTags: (id: string) => void
   onRename: (id: string) => void
   onDelete: (id: string) => void
+  isLoading?: boolean;
 }
 
 interface GroupedByTime {
@@ -86,7 +88,25 @@ export function ConversationList({
   onEditTags,
   onRename,
   onDelete,
+  isLoading = false,
 }: ConversationListProps) {
+  // Show skeleton while loading
+  if (isLoading) {
+    return (
+      <div className="px-4 space-y-4">
+        {[...Array(2)].map((_, groupIdx) => (
+          <div key={groupIdx} className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <div className="space-y-1.5">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full rounded-md" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   // Get all conversation IDs that are in folders
   const groupedConversationIds = new Set(
     folders.flatMap((f) => f.conversationIds)

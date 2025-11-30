@@ -1017,9 +1017,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             >
                 {jobs.filter(j => j.status === 'processing' || j.status === 'parsing').length > 0 && (
                   <div className="absolute  top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-foreground">
                       <Loader
-                        className="opacity-50"
                         variant="text-shimmer"
                         size="sm"
                         text={(() => {
@@ -1225,31 +1224,17 @@ function FullChatApp() {
       <SidebarInset>
         <ChatHeader />
         <Suspense fallback={
-          <div className="flex h-full flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto w-full">
-              <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6">
-                {/* User Message Skeleton */}
-                <div className="flex w-full flex-col gap-2 px-0 items-end">
-                  <div className="flex flex-col items-end gap-1 w-full">
-                    <div className="rounded-2xl px-5 py-3 bg-primary/10 shadow-sm max-w-[85%] animate-pulse">
-                      <div className="h-4 bg-primary/20 rounded w-64 mb-2"></div>
-                      <div className="h-4 bg-primary/20 rounded w-48"></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Response Skeleton */}
-                <div className="flex w-full flex-col gap-2 px-0 items-start">
-                  <div className="flex w-full flex-col gap-2 max-w-[85%]">
-                    <div className="space-y-2.5 animate-pulse">
-                      <div className="h-4 bg-muted rounded w-full"></div>
-                      <div className="h-4 bg-muted rounded w-5/6"></div>
-                      <div className="h-4 bg-muted rounded w-4/6"></div>
-                      <div className="h-4 bg-muted rounded w-full"></div>
-                      <div className="h-4 bg-muted rounded w-3/4"></div>
-                    </div>
-                  </div>
-                </div>
+          <div className="flex h-full flex-col overflow-hidden relative">
+            <div className="flex-1 overflow-y-auto w-full relative">
+              {/* Empty State - rynk branding */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <TextShimmer
+                  spread={5}
+                  duration={4} 
+                  className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
+                >
+                  rynk.
+                </TextShimmer>
               </div>
             </div>
           </div>

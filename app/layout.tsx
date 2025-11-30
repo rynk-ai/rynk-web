@@ -96,6 +96,11 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased tracking-tight`}
       >
+<script
+  crossOrigin="anonymous"
+  src="//unpkg.com/react-scan/dist/auto.global.js"
+></script>
+
         <AuthProvider>
           <ThemeProvider
             attribute="class"

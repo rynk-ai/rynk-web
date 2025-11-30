@@ -53,6 +53,7 @@ import { TagDialog } from "@/components/tag-dialog";
 import { SearchDialog } from "@/components/search-dialog";
 import { AddToFolderDialog } from "@/components/add-to-folder-dialog";
 import { RenameDialog } from "@/components/rename-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   CloudConversation as Conversation,
   Folder,
@@ -88,6 +89,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     selectProject,
   } = useChatContext();
 
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(true);
+
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<
@@ -121,19 +126,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [getAllTags]);
 
   useEffect(() => {
-    loadProjects();
+    const initProjects = async () => {
+      setIsLoadingProjects(true);
+      await loadProjects();
+      setIsLoadingProjects(false);
+    };
+    initProjects();
   }, [loadProjects]);
 
   useEffect(() => {
-    const fetchTags = async () => {
+    const fetchData = async () => {
+      setIsLoadingConversations(true);
+      setIsLoadingFolders(true);
       try {
         const tags = await getAllTags();
         setAllTags(tags);
       } catch (err) {
         console.error("Failed to load tags:", err);
       }
+      setIsLoadingConversations(false);
+      setIsLoadingFolders(false);
     };
-    fetchTags();
+    fetchData();
   }, [getAllTags]);
 
   const handleTagClick = (conversationId: string) => {
@@ -313,16 +327,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <div className="flex-1 overflow-auto">
           {!activeProjectId ? (
             <div className="mb-2">
-              <ProjectList
-                projects={projects}
-                activeProjectId={activeProjectId || undefined}
-                onSelectProject={(id) =>
-                  selectProject(id === activeProjectId ? null : id)
-                }
-                onCreateProject={createProject}
-                onUpdateProject={updateProject}
-                onDeleteProject={deleteProject}
-              />
+              {isLoadingProjects ? (
+                <div className="px-4 py-2 space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                  </div>
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-8 w-full rounded-md" />
+                  ))}
+                </div>
+              ) : (
+                <ProjectList
+                  projects={projects}
+                  activeProjectId={activeProjectId || undefined}
+                  onSelectProject={(id) =>
+                    selectProject(id === activeProjectId ? null : id)
+                  }
+                  onCreateProject={createProject}
+                  onUpdateProject={updateProject}
+                  onDeleteProject={deleteProject}
+                />
+              )}
             </div>
           ) : (
             <div className="px-4 mb-4">
@@ -379,7 +405,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </div>
           </div>
 
-          {folders.length === 0 ? (
+          {isLoadingFolders ? (
+            <div className="px-5 space-y-3 mb-5">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-6 w-32" />
+                  <div className="pl-6 space-y-1.5">
+                    <Skeleton className="h-6 w-full" />
+                    <Skeleton className="h-6 w-4/5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : folders.length === 0 ? (
             <div className="text-xs text-center text-muted-foreground py-4 px-4">
               No folders yet.
               <br />
@@ -572,6 +610,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             onEditTags={handleTagClick}
             onRename={handleRename}
             onDelete={handleDeleteSimple}
+            isLoading={isLoadingConversations}
           />
 
           {hasMoreConversations && (
