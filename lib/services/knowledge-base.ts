@@ -21,7 +21,8 @@ export class KnowledgeBaseService {
     source: { name: string, type: string, r2Key: string, metadata: any },
     chunks: { content: string, metadata: any }[],
     messageId?: string,
-    isFirstBatch: boolean = true
+    isFirstBatch: boolean = true,
+    isLastBatch: boolean = false
   ) {
     console.log('📚 [KnowledgeBase] Ingesting processed source:', { name: source.name, chunks: chunks.length, isFirstBatch })
 
@@ -98,13 +99,16 @@ export class KnowledgeBaseService {
         await Promise.all(batch.map(async (chunk, batchIndex) => {
           try {
             const vector = await aiProvider.getEmbeddings(chunk.content)
+            const isLastChunkOfBatch = (startIndex + i + batchIndex) === (startIndex + chunks.length - 1);
+            const shouldWait = isLastBatch && isLastChunkOfBatch;
+            
             await vectorDb.addKnowledgeChunk({
               sourceId,
               content: chunk.content,
               vector,
               chunkIndex: startIndex + i + batchIndex,
               metadata: chunk.metadata
-            })
+            }, { waitForIndexing: shouldWait })
           } catch (e) {
             console.error(`❌ [KnowledgeBase] Failed to embed chunk ${startIndex + i + batchIndex}:`, e)
             throw e // Re-throw to fail the entire operation

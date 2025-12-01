@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
       },
       chunks,
       messageId,
-      batchNumber === 1 // isFirstBatch
+      batchNumber === 1, // isFirstBatch
+      batchNumber === totalBatches // isLastBatch - will trigger indexing verification
     );
 
     console.log(`✅ [API /ingest] Batch ${batchNumber}/${totalBatches} complete, sourceId: ${sourceId}`);

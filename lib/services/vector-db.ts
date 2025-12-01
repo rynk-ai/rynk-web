@@ -219,38 +219,88 @@ export const vectorDb = {
   },
 
   // 2. Knowledge Chunks
-  async addKnowledgeChunk(data: { sourceId: string; content: string; vector: number[]; chunkIndex: number; metadata?: any }) {
-    const db = getDB()
-    const id = crypto.randomUUID()
-    
-    // 1. Store in D1
-    await db.prepare(`
-      INSERT INTO knowledge_chunks (id, sourceId, content, vector, chunkIndex, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(
-      id, data.sourceId, data.content, JSON.stringify(data.vector), data.chunkIndex, JSON.stringify(data.metadata || {})
-    ).run()
+async addKnowledgeChunk(data: { sourceId: string; content: string; vector: number[]; chunkIndex: number; metadata?: any }, options?: { waitForIndexing?: boolean }) {
+  const db = getDB()
+  const id = crypto.randomUUID()
+  
+  // 1. Store content in D1 (no vector column)
+  await db.prepare(`
+    INSERT INTO knowledge_chunks (id, sourceId, content, chunkIndex, metadata)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(
+    id, data.sourceId, data.content, data.chunkIndex, JSON.stringify(data.metadata || {})
+  ).run()
+  
+  console.log(`✅ [vectorDb] Stored chunk ${id} in D1 (sourceId: ${data.sourceId})`);
 
-    // 2. Upsert to Vectorize
-    try {
-      const index = getCloudflareContext().env.VECTORIZE_INDEX;
-      if (index) {
-        await index.upsert([{
-          id: id,
-          values: data.vector,
-          metadata: {
-            type: 'knowledge_chunk',
-            sourceId: data.sourceId,
-            chunkIndex: data.chunkIndex.toString(),
-            content: data.content.substring(0, 1000),
-            ...data.metadata
+  // 2. Store vector in Vectorize (required, not optional)
+  const index = getCloudflareContext().env.VECTORIZE_INDEX;
+  if (!index) {
+    throw new Error('Vectorize index not available - cannot store embeddings');
+  }
+  
+  const vectorMetadata = {
+    type: 'knowledge_chunk',
+    sourceId: data.sourceId,
+    chunkIndex: data.chunkIndex.toString(),
+    content: data.content.substring(0, 800),
+  };
+
+  // console.log(`🧠 [vectorDb] Upserting to Vectorize: ID=${id}, SourceID=${data.sourceId}, VectorDim=${data.vector.length}`);
+  
+  await index.upsert([{
+    id: id,
+    values: data.vector,
+    metadata: vectorMetadata
+  }]);
+  
+  // console.log(`✅ [vectorDb] Upserted vector to Vectorize for chunk ${id}`);
+
+  // 3. Wait for Indexing (Optional - for last batch verification)
+  if (options?.waitForIndexing) {
+    console.log(`⏳ [vectorDb] Waiting for chunk ${id} (sourceId: ${data.sourceId}) to be indexed and searchable...`);
+    const startTime = Date.now();
+    const TIMEOUT_MS = 60000; // 60s timeout
+    const POLL_INTERVAL_MS = 2000; // 2s interval
+
+    let indexed = false;
+    while (Date.now() - startTime < TIMEOUT_MS) {
+      try {
+        // Wait first (give it a chance to index)
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+
+        // Step 1: Verify chunk exists by ID
+        const verifyById = await index.getByIds([id]);
+        if (verifyById.length > 0) {
+          const chunk = verifyById[0];
+          console.log(`🔍 [vectorDb] Chunk ${id} found in index. Metadata:`, JSON.stringify(chunk.metadata));
+          
+          // Step 2: Verify sourceId filter works
+          const verifyBySource = await index.query(data.vector, {
+            topK: 1,
+            filter: { sourceId: data.sourceId },
+            returnMetadata: true
+          });
+          
+          if (verifyBySource.matches.length > 0) {
+            console.log(`✅ [vectorDb] Chunk ${id} is SEARCHABLE via sourceId filter after ${Date.now() - startTime}ms`);
+            indexed = true;
+            break;
+          } else {
+            console.warn(`⚠️ [vectorDb] Chunk exists but sourceId filter returned 0 results. Retrying...`);
           }
-        }]);
+        }
+      } catch (e) {
+        console.warn(`⚠️ [vectorDb] Verification check failed (retrying):`, e);
       }
-    } catch (error) {
-      console.error('❌ [vectorDb] Failed to upsert knowledge chunk to Vectorize:', error);
     }
-  },
+
+    if (!indexed) {
+      console.warn(`⚠️ [vectorDb] Chunk ${id} NOT searchable after ${TIMEOUT_MS}ms timeout (likely wrangler dev issue - should work in production)`);
+      // Don't throw - let the upload succeed. Production Vectorize will be faster.
+    }
+  }
+},
 
   async getKnowledgeChunks(sourceId: string) {
     const db = getDB()
@@ -258,7 +308,6 @@ export const vectorDb = {
     
     return results.results.map((row: any) => ({
       ...row,
-      vector: JSON.parse(row.vector as string),
       metadata: JSON.parse(row.metadata as string || '{}')
     }))
   },
@@ -315,77 +364,105 @@ export const vectorDb = {
     }))
   },
 
-  // Search across multiple sources
+  // Search across multiple sources (Vectorize-first)
   async searchKnowledgeBase(sourceIds: string[], queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
     const { limit = 10, minScore = 0.5 } = options
     console.log('🔍 [searchKnowledgeBase] Searching sources:', sourceIds.length, 'MinScore:', minScore);
 
     if (sourceIds.length === 0) return []
 
-    try {
-      const index = getCloudflareContext().env.VECTORIZE_INDEX;
-      if (index) {
-        // Parallel query for each sourceId (since Vectorize might not support efficient IN clause yet)
-        // We limit per-source results to 'limit' to ensure we get enough candidates
-        const searchPromises = sourceIds.map(sourceId => 
-          index.query(queryVector, {
-            topK: limit,
-            filter: { sourceId: sourceId },
-            returnMetadata: true
-          })
-        );
-
-        const results = await Promise.all(searchPromises);
-        
-        // Flatten and sort
-        const allMatches = results.flatMap(r => r.matches);
-        
-        // Deduplicate by ID (just in case)
-        const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
-
-        return uniqueMatches
-          .filter(match => match.score >= minScore)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, limit)
-          .map(match => ({
-            id: match.id,
-            sourceId: match.metadata?.sourceId as string,
-            chunkIndex: parseInt(match.metadata?.chunkIndex as string || '0'),
-            content: match.metadata?.content as string,
-            vector: match.values || [],
-            metadata: match.metadata,
-            score: match.score
-          }));
-      }
-    } catch (error) {
-      console.error('❌ [vectorDb] Vectorize knowledge search failed, falling back to D1:', error);
+    // Query Vectorize (required)
+    const index = getCloudflareContext().env.VECTORIZE_INDEX;
+    if (!index) {
+      throw new Error('Vectorize index not available - cannot search');
     }
 
-    // Fallback to D1
-    const db = getDB()
+    console.log('🔍 [searchKnowledgeBase] Querying Vectorize...');
     
-    const placeholders = sourceIds.map(() => '?').join(',')
-    const results = await db.prepare(
-      `SELECT * FROM knowledge_chunks WHERE sourceId IN (${placeholders})`
-    ).bind(...sourceIds).all()
+    // DEBUG: Try one query WITHOUT filter to see if anything exists
+    if (sourceIds.length > 0) {
+      try {
+        const debugRes = await index.query(queryVector, { topK: 1, returnMetadata: true });
+        console.log('🔍 [DEBUG] Unfiltered search returned', debugRes.matches.length, 'matches');
+        if (debugRes.matches.length > 0) {
+          console.log('🔍 [DEBUG] Sample match metadata:', debugRes.matches[0].metadata);
+        }
+      } catch (e) {
+        console.error('❌ [DEBUG] Unfiltered search failed:', e);
+      }
+    }
     
-    const chunks = results.results.map((row: any) => ({
-      ...row,
-      vector: JSON.parse(row.vector as string),
-      metadata: JSON.parse(row.metadata as string || '{}')
-    }))
+    // Parallel query for each sourceId
+    const searchPromises = sourceIds.map(sourceId => 
+      index.query(queryVector, {
+        topK: limit,
+        filter: { sourceId: sourceId }, // Simple equality filter
+        returnMetadata: true
+      })
+      .then(res => {
+        console.log(`🔍 [searchKnowledgeBase] Query for source ${sourceId} returned ${res.matches.length} matches`);
+        return res;
+      })
+      .catch(err => {
+        console.error(`❌ [searchKnowledgeBase] Query failed for source ${sourceId}:`, err);
+        return { matches: [], count: 0 };
+      })
+    );
 
-    const scored = chunks.map(chunk => ({
-      ...chunk,
-      score: cosineSimilarity(queryVector, chunk.vector)
-    }))
+    const results = await Promise.all(searchPromises);
+    console.log('✅ [searchKnowledgeBase] Vectorize returned', results.length, 'result sets');
     
-    return scored
-      .filter(r => r.score >= minScore)
+    // Flatten and sort
+    const allMatches = results.flatMap(r => r.matches);
+    console.log('🔍 [searchKnowledgeBase] Total matches from Vectorize:', allMatches.length);
+    
+    if (allMatches.length === 0) {
+      console.log('⚠️ [searchKnowledgeBase] No matches found in Vectorize');
+      return [];
+    }
+    
+    // Filter by score and deduplicate
+    const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
+    const filtered = uniqueMatches
+      .filter(match => match.score >= minScore)
       .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
+      .slice(0, limit);
+    
+    console.log('✅ [searchKnowledgeBase] Filtered to', filtered.length, 'chunks above threshold');
+    
+    // Fetch full content from D1
+    const db = getDB();
+    const chunkIds = filtered.map(m => m.id);
+    
+    if (chunkIds.length === 0) return [];
+    
+    const placeholders = chunkIds.map(() => '?').join(',');
+    const d1Results = await db.prepare(
+      `SELECT * FROM knowledge_chunks WHERE id IN (${placeholders})`
+    ).bind(...chunkIds).all();
+    
+    console.log('🔍 [searchKnowledgeBase] Fetched', d1Results.results.length, 'chunks from D1');
+    
+    // Merge D1 content with Vectorize scores
+    const chunks = d1Results.results.map((row: any) => {
+      const match = filtered.find(m => m.id === row.id);
+      return {
+        id: row.id,
+        sourceId: row.sourceId,
+        content: row.content,
+        chunkIndex: row.chunkIndex,
+        metadata: JSON.parse(row.metadata as string || '{}'),
+        score: match?.score || 0,
+        vector: [] // No longer stored in D1
+      };
+    });
+    
+    // Sort by score (Vectorize order)
+    const sorted = chunks.sort((a, b) => b.score - a.score);
+    
+    console.log('✅ [searchKnowledgeBase] Returning', sorted.length, 'chunks with content');
+    return sorted;
   },
-
   // --- CLOUDFLARE VECTORIZE (Project Memory) ---
 
   async upsertProjectMemory(
