@@ -144,7 +144,12 @@ export class ChatService {
     let kbContext = ''
     
     try {
-      kbContext = await knowledgeBase.getContext(conversationId, messageContent)
+      kbContext = await knowledgeBase.getContext(
+        conversationId, 
+        messageContent,
+        undefined, // targetMessageId
+        project?.id // Pass project ID for project-wide context
+      )
     } catch (error) {
       console.error('❌ [chatService] Failed to retrieve Knowledge Base context:', error)
       // Continue without KB context rather than failing the entire request
@@ -413,15 +418,16 @@ export class ChatService {
       })
     }
 
-    // 3. Add Project Attachments as USER message (images don't work in system messages)
+    // 3. Add Project Attachments as USER message (images only)
+    // PDFs are now handled via RAG (Knowledge Base), so we only inject images here for visual context
     if (project?.attachments && project.attachments.length > 0) {
-      console.log('📁 [prepareMessagesForAI] Adding project attachments:', project.attachments.length);
+      console.log('📁 [prepareMessagesForAI] Project has attachments (PDFs handled via KB)');
       
       const imageAttachments = project.attachments.filter((att: any) => att.type?.startsWith('image/'))
       
       if (imageAttachments.length > 0) {
         const content: any[] = [
-          { type: 'text', text: 'These are the project context files for reference:' }
+          { type: 'text', text: 'These are the project context images for reference:' }
         ]
         
         for (const att of imageAttachments) {
@@ -450,10 +456,9 @@ export class ChatService {
         // Add assistant acknowledgment so it doesn't respond to the files
         apiMessages.push({ 
           role: 'assistant', 
-          content: 'I can see the project context files. I\'ll use them as reference for our conversation.' 
+          content: 'I can see the project context images. I\'ll use them as reference for our conversation.' 
         })
       }
-      // TODO: Handle PDFs - for now they're included as attachments but not processed
     }
 
     // 4. Convert DB messages to API messages

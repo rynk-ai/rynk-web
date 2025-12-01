@@ -703,17 +703,44 @@ export function useChat() {
     attachments?: File[]
   ) => {
     try {
-      // Handle attachment uploads
-      let uploadedAttachments: any[] = []
+      // Process ALL file types (PDFs, code, markdown, text files, etc.)
+      let processedAttachments: any[] = []
       if (attachments && attachments.length > 0) {
-        uploadedAttachments = await Promise.all(attachments.map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          return await uploadFileAction(formData)
-        }))
+        console.log('[createProject] Processing attachments for vectorization:', attachments.length)
+        
+        // Import the universal file processor
+        const { processFile } = await import('@/lib/utils/universal-file-processor')
+        
+        // Process each file
+        for (const file of attachments) {
+          try {
+            // 1. Upload to R2 first
+            const formData = new FormData()
+            formData.append('file', file)
+            const uploadResult = await uploadFileAction(formData)
+            
+            // 2. Extract text and chunk the file
+            const processed = await processFile(file)
+            
+            console.log(`[createProject] Processed ${file.name}: ${processed.chunks.length} chunks`)
+            
+            // 3. Combine upload info with chunks
+            processedAttachments.push({
+              ...uploadResult,
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              chunks: processed.chunks, // ← Include chunks for backend ingestion
+              metadata: processed.metadata
+            })
+          } catch (error) {
+            console.error(`[createProject] Failed to process ${file.name}:`, error)
+            toast.error(`Failed to process ${file.name}`)
+          }
+        }
       }
 
-      const project = await createProjectAction(name, description, instructions, uploadedAttachments)
+      const project = await createProjectAction(name, description, instructions, processedAttachments)
       await loadProjects()
       return project as Project
     } catch (err) {

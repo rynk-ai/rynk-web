@@ -243,6 +243,16 @@ export async function createProject(name: string, description: string, instructi
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
   const project = await cloudDb.createProject(session.user.id, name, description, instructions, attachments)
+  
+  // Process attachments through knowledge base
+  if (attachments && attachments.length > 0) {
+    const { processProjectAttachments } = await import('@/lib/services/project-ingestion')
+    // Run in background to not block response
+    processProjectAttachments(project.id, attachments).catch(err => 
+      console.error('Failed to process project attachments:', err)
+    )
+  }
+
   revalidatePath('/chat')
   return project
 }
@@ -251,6 +261,16 @@ export async function updateProject(projectId: string, updates: any) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
   await cloudDb.updateProject(projectId, updates)
+  
+  // Process new attachments if any
+  if (updates.attachments && updates.attachments.length > 0) {
+    const { processProjectAttachments } = await import('@/lib/services/project-ingestion')
+    // Run in background
+    processProjectAttachments(projectId, updates.attachments).catch(err => 
+      console.error('Failed to process project attachments update:', err)
+    )
+  }
+
   revalidatePath('/chat')
 }
 

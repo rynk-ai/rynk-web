@@ -177,19 +177,32 @@ export class KnowledgeBaseService {
   async getContext(
     conversationId: string, 
     query: string, 
-    targetMessageId?: string // If null, uses the end of the conversation
+    targetMessageId?: string, // If null, uses the end of the conversation
+    projectId?: string // NEW PARAMETER
   ): Promise<string> {
     console.log('🔍 [KnowledgeBase] Getting context for query:', query.substring(0, 50))
     
-    // 1. Get Active Sources for this path
-    const activeSourceIds = await this.getActiveSourcesForPath(conversationId, targetMessageId)
+    // 1. Get Active Sources for this path (conversation-specific)
+    const conversationSourceIds = await this.getActiveSourcesForPath(conversationId, targetMessageId)
     
-    if (activeSourceIds.length === 0) {
+    // 2. Get Project Sources (if projectId provided) - NEW
+    let projectSourceIds: string[] = []
+    if (projectId) {
+      const projectSources = await vectorDb.getSourcesForProject(projectId)
+      projectSourceIds = projectSources.map((s: any) => s.sourceId)
+      console.log(`📁 [KnowledgeBase] Found ${projectSourceIds.length} project sources`)
+    }
+    
+    // 3. Combine both sets of source IDs
+    const allSourceIds = Array.from(new Set([...conversationSourceIds, ...projectSourceIds]))
+    
+    if (allSourceIds.length === 0) {
       console.log('⚠️ [KnowledgeBase] No active sources found')
       return ''
     }
     
-    console.log('📚 [KnowledgeBase] Active sources:', activeSourceIds.length)
+    console.log('📚 [KnowledgeBase] Total active sources:', allSourceIds.length, 
+      `(${conversationSourceIds.length} conversation + ${projectSourceIds.length} project)`)
 
     // 2. Generate Query Embedding
     // Always use OpenRouter/Multimodal provider for embeddings to match ingestion
@@ -203,7 +216,7 @@ export class KnowledgeBaseService {
       // 3. Vector Search
       console.log('🔍 [KnowledgeBase] Searching knowledge base with 13 sources...')
       // Lowered minScore to 0.1 for debugging
-      const chunks = await vectorDb.searchKnowledgeBase(activeSourceIds, queryVector, { limit: 15, minScore: 0.1 })
+      const chunks = await vectorDb.searchKnowledgeBase(allSourceIds, queryVector, { limit: 15, minScore: 0.1 })
       console.log(`✅ [KnowledgeBase] Found ${chunks.length} relevant chunks (minScore: 0.1)`)
       
       if (chunks.length > 0) {

@@ -364,6 +364,59 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
     }))
   },
 
+  // 4. Project Links
+  async linkSourceToProject(projectId: string, sourceId: string) {
+    const db = getDB()
+    
+    // Check if link already exists
+    const existing = await db.prepare(`
+      SELECT id FROM conversation_sources 
+      WHERE projectId = ? AND sourceId = ? AND conversationId IS NULL
+    `).bind(projectId, sourceId).first()
+
+    if (existing) {
+      console.log('♻️ [vectorDb] Project link already exists:', existing.id)
+      return
+    }
+
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    
+    await db.prepare(`
+      INSERT INTO conversation_sources (id, conversationId, sourceId, messageId, projectId, createdAt)
+      VALUES (?, NULL, ?, NULL, ?, ?)
+    `).bind(
+      id, sourceId, projectId, now
+    ).run()
+    
+    console.log(`✅ [vectorDb] Linked source ${sourceId} to project ${projectId}`)
+  },
+
+  async getSourcesForProject(projectId: string) {
+    const db = getDB()
+    console.log('🔍 [vectorDb] Getting sources for project:', projectId)
+    
+    const results = await db.prepare(`
+      SELECT 
+        cs.id as linkId, 
+        cs.sourceId, 
+        s.id as sourceTableId,
+        s.hash,
+        s.type,
+        s.name,
+        s.metadata,
+        s.createdAt
+      FROM conversation_sources cs
+      JOIN sources s ON cs.sourceId = s.id
+      WHERE cs.projectId = ?
+    `).bind(projectId).all()
+    
+    return results.results.map((row: any) => ({
+      ...row,
+      metadata: JSON.parse(row.metadata as string || '{}')
+    }))
+  },
+
   // Search across multiple sources (Vectorize-first)
   async searchKnowledgeBase(sourceIds: string[], queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
     const { limit = 10, minScore = 0.5 } = options
