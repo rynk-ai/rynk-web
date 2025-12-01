@@ -294,7 +294,16 @@ export const vectorDb = {
     console.log('🔍 [vectorDb] Getting sources for conversation:', conversationId)
     
     const results = await db.prepare(`
-      SELECT cs.id as linkId, cs.sourceId, cs.messageId, s.* 
+      SELECT 
+        cs.id as linkId, 
+        cs.sourceId, 
+        cs.messageId, 
+        s.id as sourceTableId,
+        s.hash,
+        s.type,
+        s.name,
+        s.metadata,
+        s.createdAt
       FROM conversation_sources cs
       JOIN sources s ON cs.sourceId = s.id
       WHERE cs.conversationId = ?
