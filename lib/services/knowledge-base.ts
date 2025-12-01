@@ -26,11 +26,12 @@ export class KnowledgeBaseService {
     console.log('📚 [KnowledgeBase] Ingesting processed source:', { name: source.name, chunks: chunks.length, isFirstBatch })
 
     try {
-      // 1. Generate Hash (from first few chunks to ensure consistency)
-      console.log('🔐 [KnowledgeBase] Generating hash...')
-      const contentSample = chunks.slice(0, Math.min(chunks.length, 5)).map(c => c.content).join('')
-      const hash = await this.generateHash(contentSample)
-      console.log('✅ [KnowledgeBase] Hash generated:', hash.substring(0, 16) + '...')
+    // 1. Generate Hash (from file metadata to ensure consistency across batches)
+    console.log('🔐 [KnowledgeBase] Generating hash...')
+    // Use file name + r2Key for consistent hash across all batches of the same file
+    const hashInput = `${source.name}:${source.r2Key}:${conversationId}:${messageId || ''}`
+    const hash = await this.generateHash(hashInput)
+    console.log('✅ [KnowledgeBase] Hash generated:', hash.substring(0, 16) + '...')
 
       // 2. Check if Source already exists (for batched ingestion)
       let sourceId: string
@@ -40,17 +41,36 @@ export class KnowledgeBaseService {
         console.log('♻️ [KnowledgeBase] Source already exists (batched ingestion):', existingSource.id)
         sourceId = existingSource.id
       } else {
-        console.log('📝 [KnowledgeBase] Creating new source...')
-        sourceId = await vectorDb.createSource({
-          hash,
-          type: source.type,
-          name: source.name,
-          metadata: {
-            ...source.metadata,
-            r2Key: source.r2Key
+        // Try to create source (might fail if another batch creates it concurrently)
+        try {
+          console.log('📝 [KnowledgeBase] Creating new source...')
+          sourceId = await vectorDb.createSource({
+            hash,
+            type: source.type,
+            name: source.name,
+            metadata: {
+              ...source.metadata,
+              r2Key: source.r2Key
+            }
+          })
+          console.log('✅ [KnowledgeBase] Source created:', sourceId)
+        } catch (createError: any) {
+          // Handle race condition: another batch created the source concurrently
+          if (createError.message?.includes('UNIQUE constraint failed') || createError.message?.includes('SQLITE_CONSTRAINT')) {
+            console.log('⚠️ [KnowledgeBase] Race condition detected, retrying lookup...')
+            const retrySource = await vectorDb.getSourceByHash(hash)
+            if (retrySource) {
+              console.log('✅ [KnowledgeBase] Found source created by concurrent batch:', retrySource.id)
+              sourceId = retrySource.id
+            } else {
+              // This should never happen, but throw original error if it does
+              throw createError
+            }
+          } else {
+            // Re-throw if it's not a constraint error
+            throw createError
           }
-        })
-        console.log('✅ [KnowledgeBase] Source created:', sourceId)
+        }
       }
 
       // Link to conversation only on first batch
@@ -264,7 +284,7 @@ export class KnowledgeBaseService {
         }
         return isActive
       })
-      .map((link: any) => link.id) // This is the source ID (from the join)
+      .map((link: any) => link.sourceId) // This is the source ID (from cs.sourceId)
       
     // Deduplicate IDs
     return Array.from(new Set(activeSourceIds))

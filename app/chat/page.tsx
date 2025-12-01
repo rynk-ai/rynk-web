@@ -501,7 +501,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
            // Start Upload
            // Use Multipart Upload (via Worker) to avoid body limits
            const uploadPromise = (async () => {
-              const CHUNK_SIZE = 1 * 1024 * 1024;
+              const CHUNK_SIZE = 6 * 1024 * 1024;
               if (file.size <= CHUNK_SIZE) {
                 const fd = new FormData();
                 fd.append('file', file);

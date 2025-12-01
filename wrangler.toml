@@ -23,6 +23,7 @@ bucket_name = "simplechat-cache"
 [[vectorize]]
 binding = "VECTORIZE_INDEX"
 index_name = "simplechat-index"
+remote=true
 
 # Environment variables for local development only
 # Production environment variables should be set in Cloudflare Dashboard
