@@ -89,6 +89,34 @@ export async function uploadFile(formData: FormData) {
   }
 }
 
+export async function initiateMultipartUpload(filename: string, contentType: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("Unauthorized")
+  
+  const sanitizedName = filename.replace(/[^a-zA-Z0-9.-]/g, '_')
+  const key = `${session.user.id}/${Date.now()}-${sanitizedName}`
+  
+  return await cloudStorage.createMultipartUpload(key, contentType)
+}
+
+export async function uploadPart(key: string, uploadId: string, partNumber: number, formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("Unauthorized")
+
+  const chunk = formData.get('chunk') as File
+  if (!chunk) throw new Error("No chunk provided")
+  
+  const buffer = await chunk.arrayBuffer()
+  return await cloudStorage.uploadPart(key, uploadId, partNumber, buffer)
+}
+
+export async function completeMultipartUpload(key: string, uploadId: string, parts: any[]) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("Unauthorized")
+
+  return await cloudStorage.completeMultipartUpload(key, uploadId, parts)
+}
+
 export async function createMessageVersion(
   conversationId: string,
   messageId: string,

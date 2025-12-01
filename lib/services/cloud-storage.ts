@@ -1,4 +1,4 @@
-import { type R2Bucket } from '@cloudflare/workers-types'
+import { type R2Bucket, type R2UploadedPart } from '@cloudflare/workers-types'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 const getBucket = () => {
@@ -38,5 +38,48 @@ export const cloudStorage = {
     const bucket = getBucket()
     if (!bucket) return null
     return await bucket.get(key)
+  },
+
+  // --- Multipart Upload ---
+
+  async createMultipartUpload(key: string, contentType: string) {
+    const bucket = getBucket()
+    if (!bucket) throw new Error('R2 Bucket binding not found')
+
+    const multipartUpload = await bucket.createMultipartUpload(key, {
+      httpMetadata: {
+        contentType: contentType,
+      },
+    })
+
+    return {
+      uploadId: multipartUpload.uploadId,
+      key: multipartUpload.key
+    }
+  },
+
+  async uploadPart(key: string, uploadId: string, partNumber: number, chunk: ArrayBuffer) {
+    const bucket = getBucket()
+    if (!bucket) throw new Error('R2 Bucket binding not found')
+
+    const multipartUpload = bucket.resumeMultipartUpload(key, uploadId)
+    const part = await multipartUpload.uploadPart(partNumber, chunk)
+
+    return part
+  },
+
+  async completeMultipartUpload(key: string, uploadId: string, parts: R2UploadedPart[]) {
+    const bucket = getBucket()
+    if (!bucket) throw new Error('R2 Bucket binding not found')
+
+    const multipartUpload = bucket.resumeMultipartUpload(key, uploadId)
+    await multipartUpload.complete(parts)
+
+    // Return the public URL
+    const publicUrl = getCloudflareContext().env.R2_PUBLIC_URL
+    if (!publicUrl) {
+      return `/api/files/${key}`
+    }
+    return `${publicUrl}/${key}`
   }
 }

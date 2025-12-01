@@ -11,6 +11,9 @@ import {
   getAllTags as getAllTagsAction,
   getMessages as getMessagesAction,
   uploadFile as uploadFileAction,
+  initiateMultipartUpload as initiateMultipartUploadAction,
+  uploadPart as uploadPartAction,
+  completeMultipartUpload as completeMultipartUploadAction,
   getFolders as getFoldersAction,
   createFolder as createFolderAction,
   updateFolder as updateFolderAction,
@@ -290,18 +293,49 @@ export function useChat() {
         }
         
         // Upload to R2 (fast, < 1s per file)
-        const formData = new FormData()
-        formData.append('file', file)
-        const result = await uploadFileAction(formData)
+        // Use Presigned URL to avoid Worker body limits
+        // Upload to R2 using Multipart Upload (via Worker)
+        // Chunk size: 50MB (safe for Worker 100MB limit)
+        const CHUNK_SIZE = 50 * 1024 * 1024; 
+        let publicUrl = '';
+
+        if (file.size <= CHUNK_SIZE) {
+           // Small file: Use simple upload
+           const formData = new FormData()
+           formData.append('file', file)
+           const result = await uploadFileAction(formData)
+           publicUrl = result.url
+        } else {
+           // Large file: Use Multipart Upload
+           console.log(`[processAttachments] Starting multipart upload for ${file.name} (${file.size} bytes)`)
+           const { uploadId, key } = await initiateMultipartUploadAction(file.name, file.type)
+           const parts = []
+           const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+
+           for (let i = 0; i < totalChunks; i++) {
+             const start = i * CHUNK_SIZE
+             const end = Math.min(start + CHUNK_SIZE, file.size)
+             const chunk = file.slice(start, end)
+             
+             const formData = new FormData()
+             formData.append('chunk', chunk)
+             
+             console.log(`[processAttachments] Uploading part ${i + 1}/${totalChunks}`)
+             const part = await uploadPartAction(key, uploadId, i + 1, formData)
+             parts.push(part)
+           }
+
+           publicUrl = await completeMultipartUploadAction(key, uploadId, parts)
+        }
         
-        console.log('[processAttachments] ✅ File uploaded:', result.url)
+        console.log('[processAttachments] ✅ File uploaded:', publicUrl)
         
         return {
           file, // ← CRITICAL: Keep original File for background indexing
-          url: result.url,
-          name: result.name,
-          type: result.type,
-          size: result.size,
+          url: publicUrl,
+          name: file.name,
+          type: file.type,
+          size: file.size,
           isLargePDF: isLarge // Flag for later processing
         }
       } catch (error) {

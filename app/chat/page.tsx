@@ -4,7 +4,12 @@
 import { MessageList } from "@/components/chat/message-list";
 import { VirtualizedMessageList } from "@/components/chat/virtualized-message-list";
 import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue";
-import { uploadFile as uploadFileAction } from "@/app/actions"; // Import direct action
+import { 
+  uploadFile as uploadFileAction,
+  initiateMultipartUpload as initiateMultipartUploadAction,
+  uploadPart as uploadPartAction,
+  completeMultipartUpload as completeMultipartUploadAction
+} from "@/app/actions"; // Import direct action
 import {
   Message,
   MessageContent,
@@ -492,9 +497,33 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
            const isLargePDF = file.type === 'application/pdf' && file.size >= 500 * 1024;
            
            // Start Upload
-           const fd = new FormData();
-           fd.append('file', file);
-           const uploadPromise = uploadFileAction(fd).then((res: any) => res.url);
+           // Use Presigned URL to avoid Worker body limits
+           // Start Upload
+           // Use Multipart Upload (via Worker) to avoid body limits
+           const uploadPromise = (async () => {
+              const CHUNK_SIZE = 50 * 1024 * 1024;
+              if (file.size <= CHUNK_SIZE) {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await uploadFileAction(fd);
+                return res.url;
+              } else {
+                const { uploadId, key } = await initiateMultipartUploadAction(file.name, file.type);
+                const parts = [];
+                const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+                
+                for (let i = 0; i < totalChunks; i++) {
+                  const start = i * CHUNK_SIZE;
+                  const end = Math.min(start + CHUNK_SIZE, file.size);
+                  const chunk = file.slice(start, end);
+                  const fd = new FormData();
+                  fd.append('chunk', chunk);
+                  const part = await uploadPartAction(key, uploadId, i + 1, fd);
+                  parts.push(part);
+                }
+                return await completeMultipartUploadAction(key, uploadId, parts);
+              }
+           })();
            
            // Start Indexing (if large PDF)
            let indexingPromise: Promise<void> | undefined;
