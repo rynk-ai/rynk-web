@@ -295,8 +295,8 @@ export function useChat() {
         // Upload to R2 (fast, < 1s per file)
         // Use Presigned URL to avoid Worker body limits
         // Upload to R2 using Multipart Upload (via Worker)
-        // Chunk size: 50MB (safe for Worker 100MB limit)
-        const CHUNK_SIZE = 50 * 1024 * 1024; 
+        // Chunk size: 1MB (safe for Worker limits and network stability)
+        const CHUNK_SIZE = 1 * 1024 * 1024; 
         let publicUrl = '';
 
         if (file.size <= CHUNK_SIZE) {
