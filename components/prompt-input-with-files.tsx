@@ -285,11 +285,6 @@ export const PromptInputWithFiles = memo(function
       
       // Add file to attachments using existing handler
       handleFilesAdded([textFile]);
-      
-      // Show user feedback
-      toast.success('Long text converted to file attachment', {
-        description: `${textFile.name} (${Math.round(pastedText.length / 1024)}KB)`,
-      });
     }
     // If text is short, allow normal paste (don't prevent default)
   };
