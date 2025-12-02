@@ -75,8 +75,7 @@ export function useChat() {
   
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false) // Keep for manual loading states like sending messages
-  
-  const [page, setPage] = useState(0)
+
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
@@ -120,37 +119,37 @@ export function useChat() {
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: string) => deleteConversationAction(id),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['conversations'] })
-      const previousConversations = queryClient.getQueryData(['conversations'])
-      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => old.filter(c => c.id !== id))
+      await queryClient.cancelQueries({ queryKey: ['conversations', effectiveProjectId] })
+      const previousConversations = queryClient.getQueryData(['conversations', effectiveProjectId])
+      queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) => old.filter(c => c.id !== id))
       if (currentConversationId === id) setCurrentConversationId(null)
       return { previousConversations }
     },
     onError: (err, id, context) => {
-      queryClient.setQueryData(['conversations'], context?.previousConversations)
+      queryClient.setQueryData(['conversations', effectiveProjectId], context?.previousConversations)
       setError('Failed to delete conversation')
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
     },
   })
 
   const updateConversationMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Conversation> }) => 
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Conversation> }) =>
       updateConversationAction(id, updates),
     onMutate: async ({ id, updates }) => {
-      await queryClient.cancelQueries({ queryKey: ['conversations'] })
-      const previousConversations = queryClient.getQueryData(['conversations'])
-      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+      await queryClient.cancelQueries({ queryKey: ['conversations', effectiveProjectId] })
+      const previousConversations = queryClient.getQueryData(['conversations', effectiveProjectId])
+      queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) =>
         old.map(c => c.id === id ? { ...c, ...updates } : c)
       )
       return { previousConversations }
     },
     onError: (err, variables, context) => {
-      queryClient.setQueryData(['conversations'], context?.previousConversations)
+      queryClient.setQueryData(['conversations', effectiveProjectId], context?.previousConversations)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
     },
   })
 
@@ -178,7 +177,7 @@ export function useChat() {
       const nextBatch = await getConversations(limit, offset, effectiveProjectId || undefined)
       
       if (nextBatch.length > 0) {
-        queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => {
+        queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) => {
           // Create a Set of existing IDs for O(1) lookup
           const existingIds = new Set(old.map(c => c.id))
           // Only add conversations that aren't already in the list
@@ -195,11 +194,11 @@ export function useChat() {
     } finally {
       setIsLoadingMore(false)
     }
-  }, [page, hasMore, isLoadingMore, queryClient])
+  }, [conversations.length, hasMore, isLoadingMore, queryClient, effectiveProjectId])
   
   const loadConversations = useCallback(async (force = false) => {
-    if (force) await queryClient.invalidateQueries({ queryKey: ['conversations'] })
-  }, [queryClient])
+    if (force) await queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
+  }, [queryClient, effectiveProjectId])
 
   const loadFolders = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['folders'] })
@@ -231,13 +230,13 @@ export function useChat() {
   const selectConversation = useCallback((id: string | null, conversation?: Conversation) => {
     // If conversation object is provided, we can optimistically add it to cache if missing
     if (id && conversation) {
-      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => {
+      queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) => {
         if (old.find(c => c.id === id)) return old
         return [conversation, ...old]
       })
     }
     setCurrentConversationId(id)
-  }, [queryClient])
+  }, [queryClient, effectiveProjectId])
 
   const selectProject = useCallback((id: string | null) => {
     setActiveProjectId(id)
@@ -635,22 +634,22 @@ export function useChat() {
       // For messages we might need a separate query if we want to cache them too.
       // Currently messages are not fully cached in this hook (they are fetched in page.tsx or components).
       // But if we want to update the conversation list (e.g. preview text), we should invalidate.
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
     } catch (err) {
       console.error('Failed to delete message:', err)
       setError('Failed to delete message')
     }
-  }, [currentConversationId, queryClient])
+  }, [currentConversationId, queryClient, effectiveProjectId])
 
   const switchToMessageVersion = useCallback(async (messageId: string) => {
     if (!currentConversationId) return
     try {
       await switchToMessageVersionAction(currentConversationId, messageId)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
     } catch (error) {
       console.error('Failed to switch message version:', error)
     }
-  }, [currentConversationId, queryClient])
+  }, [currentConversationId, queryClient, effectiveProjectId])
 
   const getMessageVersions = useCallback(async (originalMessageId: string) => {
     try {
@@ -792,7 +791,7 @@ export function useChat() {
   const branchConversation = useCallback(async (messageId: string) => {
     try {
       const newConversation = await branchConversationAction(currentConversationId!, messageId)
-      await queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      await queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
       setCurrentConversationId(newConversation.id)
       return newConversation.id
     } catch (err) {
@@ -800,7 +799,7 @@ export function useChat() {
       setError('Failed to branch conversation')
       throw err
     }
-  }, [currentConversationId, queryClient])
+  }, [currentConversationId, queryClient, effectiveProjectId])
 
   const getMessages = useCallback(async (conversationId: string, limit: number = 50, cursor?: string) => {
     try {

@@ -134,9 +134,9 @@ export function ProjectList({
                 onClick={() => router.push(`/project/${project.id}`)}
               >
                 {activeProjectId === project.id ? (
-                  <FolderOpen className="h-4 w-4 shrink-0" />
+                  <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
                 ) : (
-                  <Folder className="h-4 w-4 shrink-0" />
+                  <Folder className="h-4 w-4 shrink-0 text-primary" />
                 )}
                 <span className="flex-1 truncate">{project.name}</span>
                 
