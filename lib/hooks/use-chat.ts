@@ -111,7 +111,8 @@ export function useChat() {
   const createConversationMutation = useMutation({
     mutationFn: async (projectId?: string) => createConversationAction(projectId),
     onSuccess: (newConv) => {
-      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => [newConv, ...old])
+      // Update cache with correct query key including projectId
+      queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) => [newConv, ...old])
       setCurrentConversationId(newConv.id)
     },
   })
@@ -246,23 +247,23 @@ export function useChat() {
 
   const generateTitle = useCallback(async (conversationId: string, messageContent: string) => {
     try {
-      // Optimistic update
-      queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+      // Optimistic update with correct query key
+      queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) => 
         old.map(c => c.id === conversationId ? { ...c, title: 'Generating title...' } : c)
       )
 
       const title = await generateTitleAction(conversationId, messageContent)
       
       if (title) {
-        queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+        queryClient.setQueryData(['conversations', effectiveProjectId], (old: Conversation[] = []) => 
           old.map(c => c.id === conversationId ? { ...c, title } : c)
         )
       }
     } catch (error) {
       console.error('Failed to generate title:', error)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
     }
-  }, [queryClient])
+  }, [queryClient, effectiveProjectId])
 
   const setConversationContext = useCallback(async (
     conversationId: string,

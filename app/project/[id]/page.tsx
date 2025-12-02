@@ -652,7 +652,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [activeContext, uploadAttachments, sendChatRequest, messageState, startStreaming, updateStreamContent, finishStreaming, currentConversationId, replaceMessage, removeMessage, enqueueFile, waitForIndexing, jobs]);
 
-  // Handle pending query from URL params (?q=...) or localStorage
+  // Handle pending query from URL params (?q=...) or localStorage  
   useEffect(() => {
     // Check if we've already processed a query in this session (survives Fast Refresh)
     const alreadyProcessed = sessionStorage.getItem('pendingQueryProcessed') === 'true';
@@ -678,45 +678,47 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       alreadyProcessed
     });
     
-    // 🔥 FIX: If there's a pending query, clear the current conversation to start fresh
-    if (pendingQuery && pendingQuery.trim()) {
-      // If user is on an old conversation, clear it to start a new one
-      if (currentConversationId) {
-        console.log('[ChatPage] Clearing current conversation to process pending query');
-        selectConversation(null);
+    // 🔥 FIX: Early return if no pending query to avoid clearing conversation on normal navigation
+    if (!pendingQuery || !pendingQuery.trim()) {
+      return;
+    }
+    
+    // If there's a pending query, clear the current conversation to start fresh
+    if (currentConversationId) {
+      console.log('[ChatPage] Clearing current conversation to process pending query');
+      selectConversation(null);
+    }
+    
+    // Mark as processed in sessionStorage (survives Fast Refresh)
+    sessionStorage.setItem('pendingQueryProcessed', 'true');
+    
+    console.log('[ChatPage] Scheduling auto-submit for:', pendingQuery);
+    
+    // Use a shorter delay and no cleanup function to avoid Fast Refresh cancellation
+    setTimeout(() => {
+      console.log('[ChatPage] Auto-submitting pending query:', pendingQuery);
+      
+      // Auto-submit the pending query
+      handleSubmit(pendingQuery, []);
+      
+      // Clear localStorage AFTER submit
+      if (localStorageQuery) {
+        console.log('[ChatPage] Clearing localStorage after submit');
+        localStorage.removeItem('pendingChatQuery');
+        localStorage.removeItem('pendingChatFilesCount');
       }
       
-      // Mark as processed in sessionStorage (survives Fast Refresh)
-      sessionStorage.setItem('pendingQueryProcessed', 'true');
+      // Clear URL param AFTER submit
+      if (urlQuery) {
+        console.log('[ChatPage] Clearing URL param after submit');
+        router.replace('/chat');
+      }
       
-      console.log('[ChatPage] Scheduling auto-submit for:', pendingQuery);
-      
-      // Use a shorter delay and no cleanup function to avoid Fast Refresh cancellation
-      setTimeout(() => {
-        console.log('[ChatPage] Auto-submitting pending query:', pendingQuery);
-        
-        // Auto-submit the pending query
-        handleSubmit(pendingQuery, []);
-        
-        // Clear localStorage AFTER submit
-        if (localStorageQuery) {
-          console.log('[ChatPage] Clearing localStorage after submit');
-          localStorage.removeItem('pendingChatQuery');
-          localStorage.removeItem('pendingChatFilesCount');
-        }
-        
-        // Clear URL param AFTER submit
-        if (urlQuery) {
-          console.log('[ChatPage] Clearing URL param after submit');
-          router.replace('/chat');
-        }
-        
-        // Clear the session flag after successful submission
-        sessionStorage.removeItem('pendingQueryProcessed');
-      }, 100);
-      
-      // No cleanup function - let the timer complete even during Fast Refresh
-    }
+      // Clear the session flag after successful submission
+      sessionStorage.removeItem('pendingQueryProcessed');
+    }, 100);
+    
+    // No cleanup function - let the timer complete even during Fast Refresh
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId, searchParams, router]);
 
@@ -1141,14 +1143,14 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         // This prevents "flash of duplicates" if server returns the message before we replace the temp one
         const uniqueOptimistic = optimistic.filter(opt => {
           const isDuplicate = mergedMessages.some(serverMsg => {
-            // Match by role and approximate timestamp
+            // Match by role
             if (serverMsg.role !== opt.role) return false;
             
-            // For user messages, content must match
-            if (opt.role === 'user' && serverMsg.content !== opt.content) return false;
+            // For user messages, content must match (trimmed)
+            if (opt.role === 'user' && serverMsg.content?.trim() !== opt.content?.trim()) return false;
             
-            // Timestamp check (within 10 seconds)
-            return Math.abs(serverMsg.createdAt - opt.createdAt) < 10000;
+            // Timestamp check (relaxed to 60 seconds to handle clock skew)
+            return Math.abs(serverMsg.createdAt - opt.createdAt) < 60000;
           });
           
           return !isDuplicate;
@@ -1210,10 +1212,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   useEffect(() => {
     // Skip if we're in the middle of an edit to prevent race conditions
     // Also skip if sending (streaming) to prevent overwriting stream with partial DB data
-    if (isEditing || isSending || isSavingEdit) return;
+    // Skip if streaming to prevent race condition where title generation triggers reload mid-stream
+    if (isEditing || isSending || isSavingEdit || streamingMessageId) return;
 
     reloadMessages();
-  }, [currentConversation?.id, currentConversation?.updatedAt, isEditing, isSending, isSavingEdit, reloadMessages]); // Reload when ID or timestamp changes
+  }, [currentConversation?.id, isEditing, isSending, isSavingEdit, streamingMessageId, reloadMessages]); // Reload when conversation changes, NOT on updatedAt to avoid race conditions
 
   return (
     <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
