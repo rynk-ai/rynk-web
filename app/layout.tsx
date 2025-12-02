@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     template: "%s | rynk.",
   },
   description:
-    "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
+    "AI chat that never forgets. Experience intelligent conversations with complete context awareness, instant file understanding (PDFs, docs), and cross-conversation learning. Branch chats, edit history, and access your entire project knowledge base. The AI that truly understands you.",
   keywords: [
     "AI chat",
     "artificial intelligence",
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     url: "https://rynk.io",
     title: "rynk. - Branch Conversations, Edit History, Chat with Files",
     description:
-      "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
+      "AI chat that never forgets. Experience intelligent conversations with complete context awareness, instant file understanding (PDFs, docs), and cross-conversation learning. Branch chats, edit history, and access your entire project knowledge base. The AI that truly understands you.",
     siteName: "rynk.",
     images: [
       {
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "rynk. - Branch Conversations, Edit History, Chat with Files",
     description:
-      "Chat with AI that remembers and adapts. Branch conversations to explore different paths, edit any message to refine AI responses, and upload files for context-aware answers. Your complete conversation history, searchable and reusable.",
+      "AI chat that never forgets. Experience intelligent conversations with complete context awareness, instant file understanding (PDFs, docs), and cross-conversation learning. Branch chats, edit history, and access your entire project knowledge base. The AI that truly understands you.",
     creator: "@rynk",
     images: ["/og-image.png"],
   },
@@ -131,7 +131,7 @@ export default function RootLayout({
               url: "https://rynk.io",
               logo: "https://rynk.io/favicon.ico",
               description:
-                "AI chat that lets you branch conversations, edit message history, and get intelligent responses from your uploaded files.",
+                "AI chat that never forgets. Branch conversations, edit history, and chat with your files for intelligent, context-aware responses.",
               sameAs: ["https://twitter.com/rynk", "https://github.com/rynk"],
             }),
           }}
@@ -148,21 +148,21 @@ export default function RootLayout({
               applicationCategory: "AI Application",
               operatingSystem: "Any",
               description:
-                "Explore multiple conversation paths, refine AI responses by editing messages, and chat with your PDFs and documents.",
+                "AI chat with perfect memory. Experience intelligent conversations with complete context, instant file understanding, and cross-conversation learning.",
               offers: {
                 "@type": "Offer",
                 price: "0",
                 priceCurrency: "USD",
               },
               featureList: [
-                "AI-powered chat with file uploads",
-                "Message versioning and editing",
-                "Conversation branching",
-                "Context picker for referencing past conversations",
-                "PDF and markdown support",
-                "Streamed AI responses",
-                "Dark mode interface",
-                "Google authentication",
+                "AI with perfect memory - never loses context",
+                "Instant file understanding (PDFs, docs, images)",
+                "Cross-conversation learning and referencing",
+                "Conversation branching for exploring ideas",
+                "Message editing and version history",
+                "Project-wide knowledge base access",
+                "Streamed, intelligent AI responses",
+                "Beautiful dark mode interface",
               ],
               screenshot: "https://rynk.io/og-image.png",
             }),
@@ -179,7 +179,7 @@ export default function RootLayout({
               name: "rynk.",
               url: "https://rynk.io",
               description:
-                "AI chat with conversation branching, message editing, and file-aware responses.",
+                "The AI that never forgets. Chat with context, memory, and intelligence.",
               potentialAction: {
                 "@type": "SearchAction",
                 target: "https://rynk.io/search?q={search_term_string}",
