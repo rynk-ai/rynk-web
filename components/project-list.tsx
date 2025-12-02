@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Folder, MoreVertical, Pencil, Trash2, FolderOpen, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -35,6 +36,7 @@ export function ProjectList({
   onDeleteProject,
   className
 }: ProjectListProps) {
+  const router = useRouter()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   
@@ -129,7 +131,7 @@ export function ProjectList({
                     ? "bg-secondary text-secondary-foreground"
                     : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                 )}
-                onClick={() => onSelectProject(project.id)}
+                onClick={() => router.push(`/project/${project.id}`)}
               >
                 {activeProjectId === project.id ? (
                   <FolderOpen className="h-4 w-4 shrink-0" />

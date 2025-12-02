@@ -56,11 +56,23 @@ import {
 } from "@/lib/utils/file-converter"
 import { toast } from "sonner"
 import { chunkText } from '@/lib/utils/chunking'
+import { usePathname } from "next/navigation"
 
 export function useChat() {
   const queryClient = useQueryClient()
+  const pathname = usePathname()
+  
+  // Extract projectId from URL if on /project/[id] route
+  const projectIdFromUrl = pathname?.startsWith('/project/') 
+    ? pathname.split('/')[2] 
+    : null
+  
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  
+  // Use URL-based projectId if available, otherwise fall back to state
+  const effectiveProjectId = projectIdFromUrl || activeProjectId
+  
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false) // Keep for manual loading states like sending messages
   
@@ -71,8 +83,8 @@ export function useChat() {
   // --- Queries ---
 
   const { data: conversations = [] } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: () => getConversations(50, 0), // Fetch more initially for better cache coverage
+    queryKey: ['conversations', effectiveProjectId], // Add projectId to query key to trigger refetch on change
+    queryFn: () => getConversations(50, 0, effectiveProjectId || undefined), // Fetch more initially for better cache coverage
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 
@@ -143,18 +155,36 @@ export function useChat() {
 
   // --- Legacy Loaders (Mapped to Refetch/No-op for compatibility) ---
   
+  // Update hasMore state based on conversations length
+  useEffect(() => {
+    if (conversations.length > 0 && conversations.length < 50) {
+      setHasMore(false)
+    }
+  }, [conversations.length])
+
   const loadMoreConversations = useCallback(async () => {
     if (isLoadingMore || !hasMore) return
 
     setIsLoadingMore(true)
     try {
       const limit = 20
-      const offset = page * limit
-      const nextBatch = await getConversations(limit, offset)
+      // Use current length as offset to fetch next batch
+      // IMPORTANT: If we are filtering by project, we need to pass the projectId
+      // But wait, if we are filtering by project, the `conversations` list in the cache MIGHT contain non-project conversations if we switched views?
+      // No, we should probably invalidate the cache when switching projects.
+      // For now, let's just pass the projectId.
+      const offset = conversations.length
+      const nextBatch = await getConversations(limit, offset, effectiveProjectId || undefined)
       
       if (nextBatch.length > 0) {
-        queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => [...old, ...nextBatch])
-        setPage(prev => prev + 1)
+        queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => {
+          // Create a Set of existing IDs for O(1) lookup
+          const existingIds = new Set(old.map(c => c.id))
+          // Only add conversations that aren't already in the list
+          const uniqueNewConversations = nextBatch.filter(c => !existingIds.has(c.id))
+          return [...old, ...uniqueNewConversations]
+        })
+        // If we received fewer items than requested, we've reached the end
         setHasMore(nextBatch.length === limit)
       } else {
         setHasMore(false)
@@ -378,7 +408,7 @@ export function useChat() {
     setIsLoading(true)
     setError(null)
 
-    console.log('[sendChatRequest] activeProjectId:', activeProjectId)
+    console.log('[sendChatRequest] effectiveProjectId:', effectiveProjectId)
 
     let conversationId = conversationIdParam || currentConversationId
 
@@ -388,7 +418,7 @@ export function useChat() {
     try {
       if (!conversationId) {
         // Create new conversation via mutation to ensure cache update
-        const conv = await createConversationMutation.mutateAsync(activeProjectId || undefined)
+        const conv = await createConversationMutation.mutateAsync(effectiveProjectId || undefined)
         conversationId = conv.id
         // setCurrentConversationId is handled in onSuccess of mutation
         

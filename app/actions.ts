@@ -7,10 +7,10 @@ import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
 import { revalidatePath } from "next/cache"
 
-export async function getConversations(limit: number = 20, offset: number = 0) {
+export async function getConversations(limit: number = 20, offset: number = 0, projectId?: string) {
   const session = await auth()
   if (!session?.user?.id) return []
-  const convs = await cloudDb.getConversations(session.user.id, limit, offset)
+  const convs = await cloudDb.getConversations(session.user.id, limit, offset, projectId)
   return convs
 }
 

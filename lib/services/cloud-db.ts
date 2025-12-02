@@ -93,9 +93,22 @@ export const cloudDb = {
     return id
   },
 
-  async getConversations(userId: string, limit: number = 20, offset: number = 0) {
+  async getConversations(userId: string, limit: number = 20, offset: number = 0, projectId?: string) {
     const db = getDB()
-    const results = await db.prepare('SELECT * FROM conversations WHERE userId = ? ORDER BY updatedAt DESC LIMIT ? OFFSET ?').bind(userId, limit, offset).all()
+    
+    let query = 'SELECT * FROM conversations WHERE userId = ?'
+    const params: any[] = [userId]
+    
+    if (projectId) {
+      query += ' AND projectId = ?'
+      params.push(projectId)
+    }
+    
+    query += ' ORDER BY updatedAt DESC LIMIT ? OFFSET ?'
+    params.push(limit, offset)
+    
+    const results = await db.prepare(query).bind(...params).all()
+    
     return results.results.map((c: any) => ({
       ...c,
       path: JSON.parse(c.path as string || '[]'),

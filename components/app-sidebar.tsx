@@ -2,6 +2,7 @@
 
 
 import {useState, useEffect, useCallback} from "react";
+import { usePathname } from "next/navigation";
 
 import {
   Sidebar,
@@ -62,6 +63,13 @@ import type {
 } from "@/lib/services/cloud-db";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname();
+  
+  // Extract projectId from URL if on /project/[id] route
+  const activeProjectId = pathname?.startsWith('/project/') 
+    ? pathname.split('/')[2] 
+    : null;
+
   const {
     conversations,
     currentConversation,
@@ -87,7 +95,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     loadMoreConversations,
     hasMoreConversations,
     isLoadingMoreConversations,
-    activeProjectId,
     selectProject,
   } = useChatContext();
 
@@ -293,7 +300,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <Button
               variant="outline"
               className="flex-1 justify-start gap-2 px-3 shadow-none border-border/50 bg-background/50 hover:bg-accent hover:text-accent-foreground transition-all"
-              onClick={() => handleSelectConversation(null)}
+              onClick={() => {
+                // Just clear the conversation selection
+                // The conversation will be created when user sends first message
+                handleSelectConversation(null);
+              }}
             >
               <Plus className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">New Chat</span>
@@ -357,7 +368,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <Button
                 variant="ghost"
                 className="w-full justify-start px-2 -ml-2 mb-2 text-muted-foreground hover:text-foreground"
-                onClick={() => selectProject(null)}
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/chat';
+                  }
+                }}
               >
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Back to all chats

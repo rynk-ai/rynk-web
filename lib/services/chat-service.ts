@@ -92,14 +92,23 @@ export class ChatService {
 
     // 4. Fetch conversation and project (if exists)
     const conversation = await cloudDb.getConversation(conversationId)
+    console.log('💬 [chatService] Conversation loaded:', {
+      conversationId,
+      hasProjectId: !!conversation?.projectId,
+      projectId: conversation?.projectId
+    })
+    
     let project = null
     if (conversation?.projectId) {
       project = await cloudDb.getProject(conversation.projectId)
       console.log('📁 [chatService] Project fetched:', {
         projectId: conversation.projectId,
+        projectName: project?.name,
         hasInstructions: !!project?.instructions,
         hasAttachments: !!project?.attachments?.length
       })
+    } else {
+      console.log('ℹ️ [chatService] No project associated with this conversation')
     }
 
     // 5. Generate Embedding for User Message (Background)
@@ -252,12 +261,16 @@ export class ChatService {
 
       // --- SCOPE 2: PROJECT MEMORY (Implicit) ---
       if (projectId) {
-        console.log('🧠 [buildContext] Project Mode: Searching Project Memory');
+        console.log('🧠 [buildContext] Project Mode: Searching Project Memory', {
+          projectId,
+          currentConversationId
+        });
         const projectMemories = await vectorDb.searchProjectMemory(projectId, queryVector, { 
           limit: 10, 
           minScore: 0.5,
           excludeConversationId: currentConversationId 
         });
+        console.log('📊 [buildContext] Project memories found:', projectMemories.length);
         
         // Fetch conversation titles for better context
         if (projectMemories.length > 0) {
