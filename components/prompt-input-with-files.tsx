@@ -20,6 +20,7 @@ import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
 import { validateFile } from "@/lib/utils/file-converter";
 import { ACCEPTED_FILE_TYPES } from "@/lib/constants/file-config";
+import { textToFile, LONG_TEXT_THRESHOLD } from "@/lib/utils/text-to-file-converter";
 import { toast } from "sonner";
 
 type PromptInputWithFilesProps = {
@@ -269,6 +270,30 @@ export const PromptInputWithFiles = memo(function
     }
   };
 
+  // Handle paste events to auto-convert long text to file
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    // Get pasted text from clipboard
+    const pastedText = e.clipboardData.getData('text/plain');
+    
+    // Check if text exceeds threshold
+    if (pastedText && pastedText.length > LONG_TEXT_THRESHOLD) {
+      // Prevent default paste behavior
+      e.preventDefault();
+      
+      // Convert text to .txt file
+      const textFile = textToFile(pastedText);
+      
+      // Add file to attachments using existing handler
+      handleFilesAdded([textFile]);
+      
+      // Show user feedback
+      toast.success('Long text converted to file attachment', {
+        description: `${textFile.name} (${Math.round(pastedText.length / 1024)}KB)`,
+      });
+    }
+    // If text is short, allow normal paste (don't prevent default)
+  };
+
   return (
     <div className={cn("flex flex-col gap-2 relative", className)}>
       {/* Edit mode indicator */}
@@ -353,6 +378,7 @@ export const PromptInputWithFiles = memo(function
               placeholder={editMode ? "Edit your message..." : placeholder}
               className="min-h-[40px] pt-2.5 pl-3 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background overscroll-contain"
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
             />
 
             <PromptInputActions className="mt-4 flex w-full items-center justify-between gap-1.5 px-2.5 pb-2.5">
