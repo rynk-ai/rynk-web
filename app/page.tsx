@@ -8,9 +8,18 @@ import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { LogIn, MessageSquare } from "lucide-react";
 
+const DEFAULT_SUGGESTIONS = [
+  "Explain quantum computing",
+  "Write a poem about AI",
+  "Help me debug my code",
+  "Plan a weekend trip",
+  "Summarize this article"
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS);
   const keyboardHeight = useKeyboardAwarePosition();
 
   useEffect(() => {
@@ -19,7 +28,23 @@ export default function HomePage() {
       try {
         const response = await fetch("/api/auth/session");
         const session = (await response.json()) as { user?: unknown };
-        setIsAuthenticated(!!session?.user);
+        const isAuth = !!session?.user;
+        setIsAuthenticated(isAuth);
+
+        // Fetch suggestions if authenticated
+        if (isAuth) {
+          try {
+            const res = await fetch("/api/suggestions");
+            if (res.ok) {
+              const data = await res.json() as { suggestions?: string[] };
+              if (data.suggestions && data.suggestions.length > 0) {
+                setSuggestions(data.suggestions);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to fetch suggestions", e);
+          }
+        }
       } catch {
         setIsAuthenticated(false);
       }
@@ -101,24 +126,16 @@ export default function HomePage() {
 
         {/* Input Field */}
         <div className="w-full max-w-2xl lg:max-w-3xl flex flex-col items-center gap-6 opacity-0 animate-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
-          <div className="w-full glass rounded-3xl p-1.5 shadow-xl shadow-black/5 ring-1 ring-black/5 dark:ring-white/10 transition-all duration-500 hover:shadow-2xl hover:shadow-black/10">
             <PromptInputWithFiles
               onSubmit={handleSubmit}
               placeholder="Ask anything..."
-              className="w-full bg-transparent border-none shadow-none focus-within:ring-0"
+              className="glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-xl hover:shadow-2xl"
               isLoading={false}
-              hideActions={true}
             />
-          </div>
           
           {/* Suggestion chips */}
           <div className="flex flex-wrap justify-center gap-2 px-4">
-            {[
-              "Explain quantum computing",
-              "Write a poem about AI",
-              "Help me debug my code",
-              "Plan a weekend trip"
-            ].map((suggestion, i) => (
+            {suggestions.map((suggestion, i) => (
               <button
                 key={suggestion}
                 onClick={() => handleSubmit(suggestion, [])}
