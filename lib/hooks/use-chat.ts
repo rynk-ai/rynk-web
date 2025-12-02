@@ -703,46 +703,31 @@ export function useChat() {
     attachments?: File[]
   ) => {
     try {
-      // Process ALL file types (PDFs, code, markdown, text files, etc.)
-      let processedAttachments: any[] = []
+      // Just upload files to R2 - indexing will happen via queue
+      let uploadedAttachments: any[] = []
       if (attachments && attachments.length > 0) {
-        console.log('[createProject] Processing attachments for vectorization:', attachments.length)
+        console.log('[createProject] Uploading attachments to R2:', attachments.length)
         
-        // Import the universal file processor
-        const { processFile } = await import('@/lib/utils/universal-file-processor')
-        
-        // Process each file
-        for (const file of attachments) {
-          try {
-            // 1. Upload to R2 first
-            const formData = new FormData()
-            formData.append('file', file)
-            const uploadResult = await uploadFileAction(formData)
-            
-            // 2. Extract text and chunk the file
-            const processed = await processFile(file)
-            
-            console.log(`[createProject] Processed ${file.name}: ${processed.chunks.length} chunks`)
-            
-            // 3. Combine upload info with chunks
-            processedAttachments.push({
-              ...uploadResult,
-              name: file.name,
-              type: file.type,
-              size: file.size,
-              chunks: processed.chunks, // ← Include chunks for backend ingestion
-              metadata: processed.metadata
-            })
-          } catch (error) {
-            console.error(`[createProject] Failed to process ${file.name}:`, error)
-            toast.error(`Failed to process ${file.name}`)
+        uploadedAttachments = await Promise.all(attachments.map(async (file) => {
+          const formData = new FormData()
+          formData.append('file', file)
+          const result = await uploadFileAction(formData)
+          
+          return {
+            ...result,
+            name: file.name,
+            type: file.type,
+            size: file.size
           }
-        }
+        }))
       }
 
-      const project = await createProjectAction(name, description, instructions, processedAttachments)
+      // Create project (fast, no blocking)
+      const project = await createProjectAction(name, description, instructions, uploadedAttachments)
       await loadProjects()
-      return project as Project
+      
+      // Return project immediately with uploaded files for queue processing
+      return { project: project as Project, uploadedFiles: attachments || [], uploadResults: uploadedAttachments }
     } catch (err) {
       console.error('Failed to create project:', err)
       setError('Failed to create project')

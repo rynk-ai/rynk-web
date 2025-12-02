@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProjectDialog } from "./project-dialog"
 import { Project } from "@/lib/services/indexeddb"
 import { cn } from "@/lib/utils"
+import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue"
 
 interface ProjectListProps {
   projects: Project[]
@@ -36,6 +37,9 @@ export function ProjectList({
 }: ProjectListProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
+  
+  // Use indexing queue for background file processing
+  const { enqueueProjectFile, jobs } = useIndexingQueue()
 
   const handleEdit = (project: Project, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -44,8 +48,39 @@ export function ProjectList({
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (confirm('Are you sure you want to delete this project? Chats will be preserved but unlinked.')) {
+    if (confirm('Are you sure you want to delete this project?')) {
       await onDeleteProject(id)
+    }
+  }
+
+  const handleCreateProject = async (name: string, description: string, instructions: string, attachments: File[]) => {
+    // Create project and get back the files to enqueue
+    const result = await onCreateProject(name, description, instructions, attachments)
+    
+    // If there are uploaded files, enqueue them for background indexing
+    if (result.uploadedFiles && result.uploadedFiles.length > 0 && result.uploadResults) {
+      console.log('[ProjectList] Enqueueing files for indexing:', result.uploadedFiles.length)
+      
+      for (let i = 0; i < result.uploadedFiles.length; i++) {
+        const file = result.uploadedFiles[i]
+        const uploadResult = result.uploadResults[i]
+        
+        if (uploadResult?.url) {
+          // Enqueue each file for background processing
+          await enqueueProjectFile(file, result.project.id, uploadResult.url)
+        }
+      }
+    }
+    
+    // Don't close immediately, let the dialog handle it based on processing status
+    // setIsCreateOpen(false) 
+    return result.project.id
+  }
+
+  const handleUpdateProject = async (name: string, description: string, instructions: string, attachments: File[]) => {
+    if (editingProject) {
+      await onUpdateProject(editingProject.id, { name, description, instructions, attachments })
+      setEditingProject(null)
     }
   }
 
@@ -137,19 +172,15 @@ export function ProjectList({
       <ProjectDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
-        onSubmit={onCreateProject}
+        onSubmit={handleCreateProject}
         mode="create"
+        indexingJobs={jobs}
       />
 
       <ProjectDialog
         open={!!editingProject}
         onOpenChange={(open) => !open && setEditingProject(null)}
-        onSubmit={async (name, description, instructions, attachments) => {
-          if (editingProject) {
-            await onUpdateProject(editingProject.id, { name, description, instructions, attachments })
-            setEditingProject(null)
-          }
-        }}
+        onSubmit={handleUpdateProject}
         initialData={editingProject || undefined}
         mode="edit"
       />

@@ -5,8 +5,9 @@ import { isPDFFile } from '@/lib/utils/file-converter';
 export interface IndexingJob {
   id: string;
   fileName: string;
-  conversationId: string;
-  messageId: string;
+  conversationId?: string; // Made optional for project-level indexing
+  messageId?: string; // Made optional for project-level indexing
+  projectId?: string; // NEW: For project-level attachments
   status: 'pending' | 'parsing' | 'processing' | 'completed' | 'failed';
   progress: number;
   totalChunks?: number;
@@ -179,6 +180,100 @@ export function useIndexingQueue() {
   }, [initWorker]);
 
   /**
+   * Enqueue a file for project-level background indexing
+   * Supports PDFs, code files, markdown, text files, etc.
+   */
+  const enqueueProjectFile = useCallback(async (
+    file: File,
+    projectId: string,
+    r2Url: string | Promise<string>
+  ): Promise<string> => {
+    const jobId = crypto.randomUUID();
+    
+    console.log('[Indexing Queue] Enqueueing project file:', file.name);
+
+    // Add job to queue
+    setJobs(prev => [...prev, {
+      id: jobId,
+      fileName: file.name,
+      projectId,
+      status: 'pending',
+      progress: 0
+    }]);
+
+    try {
+      // Update status to parsing
+      setJobs(prev => prev.map(j => 
+        j.id === jobId ? { ...j, status: 'parsing' } : j
+      ));
+
+      // Process file (PDFs, code, markdown, etc.)
+      const { processFile } = await import('@/lib/utils/universal-file-processor');
+      const processedFile = await processFile(file, (progress) => {
+        console.log(`[Indexing Queue] Parse progress: ${progress.stage} ${progress.current}/${progress.total}`);
+      });
+
+      console.log(`[Indexing Queue] File parsed: ${processedFile.chunks.length} chunks`);
+
+      if (processedFile.chunks.length === 0) {
+        console.warn(`[Indexing Queue] No chunks extracted from ${file.name}, skipping`);
+        setJobs(prev => prev.map(j =>
+          j.id === jobId ? { ...j, status: 'completed', progress: 100 } : j
+        ));
+        return jobId;
+      }
+
+      // Update status to processing
+      setJobs(prev => prev.map(j => 
+        j.id === jobId 
+          ? { ...j, status: 'processing', totalChunks: processedFile.chunks.length, processedChunks: 0 } 
+          : j
+      ));
+
+      // Initialize worker and send chunks
+      const worker = initWorker();
+      if (!worker) {
+        throw new Error('Worker not initialized');
+      }
+
+      // Wait for R2 URL if it's a promise
+      let resolvedR2Url = '';
+      if (r2Url instanceof Promise) {
+        console.log(`[Indexing Queue] Waiting for R2 upload to complete for ${file.name}...`);
+        resolvedR2Url = await r2Url;
+        console.log(`[Indexing Queue] R2 upload complete for ${file.name}`);
+      } else {
+        resolvedR2Url = r2Url;
+      }
+
+      worker.postMessage({
+        type: 'INGEST_CHUNKS',
+        data: {
+          projectId, // Pass projectId instead of conversationId/messageId
+          file: {
+            name: file.name,
+            type: file.type,
+            r2Url: resolvedR2Url,
+            metadata: processedFile.metadata
+          },
+          chunks: processedFile.chunks,
+          batchSize: 10
+        }
+      });
+
+    } catch (error: any) {
+      console.error('[Indexing Queue] Failed to process project file:', error);
+      setJobs(prev => prev.map(j =>
+        j.id === jobId
+          ? { ...j, status: 'failed', error: error.message }
+          : j
+      ));
+    }
+    
+    return jobId;
+  }, [initWorker]);
+
+  /**
    * Get currently processing jobs
    */
   const getActiveJobs = useCallback(() => {
@@ -200,6 +295,7 @@ export function useIndexingQueue() {
   return {
     jobs,
     enqueueFile,
+    enqueueProjectFile, // NEW
     getActiveJobs,
     isProcessing: jobs.some(j => j.status === 'processing' || j.status === 'parsing')
   };

@@ -64,7 +64,7 @@ interface ChatContextValue {
   loadFolders: () => Promise<void>
   // Projects
   projects: Project[]
-  createProject: (name: string, description: string, instructions?: string, attachments?: File[]) => Promise<Project>
+  createProject: (name: string, description: string, instructions?: string, attachments?: File[]) => Promise<{ project: Project; uploadedFiles: File[]; uploadResults: any[] }>
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>
   deleteProject: (projectId: string) => Promise<void>
   loadProjects: () => Promise<void>

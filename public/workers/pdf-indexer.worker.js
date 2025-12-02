@@ -5,7 +5,7 @@ self.addEventListener('message', async (event) => {
   const { type, data } = event.data;
   
   if (type === 'INGEST_CHUNKS') {
-    const { conversationId, messageId, file, chunks, batchSize = 10 } = data;
+    const { conversationId, messageId, projectId, file, chunks, batchSize = 10 } = data;
     
     console.log(`[PDF Worker] Starting ingestion: ${file.name} (${chunks.length} chunks)`);
     
@@ -30,8 +30,9 @@ self.addEventListener('message', async (event) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              conversationId,
-              messageId,
+              conversationId: conversationId || '', // Empty string for project files
+              messageId: messageId || undefined,
+              projectId: projectId || undefined, // NEW: Pass projectId
               file,
               chunks: batch,
               batchNumber: batchNum,

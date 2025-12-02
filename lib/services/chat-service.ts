@@ -103,8 +103,9 @@ export class ChatService {
     }
 
     // 5. Generate Embedding for User Message (Background)
-    // We don't maintain this legacy embedding table anymore for search, but keeping it if needed for other stats
-    // this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
+    // This is now critical for Global Knowledge Base (Project Memory & Long-Term Memory)
+    // We await this to ensure it completes in serverless environment
+    await this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
 
     // 5. Ingest Attachments into Knowledge Base (Legacy)
     // This is now handled by the frontend via /api/knowledge-base/ingest
@@ -219,167 +220,110 @@ export class ChatService {
     projectId?: string,
     onProgress?: (message: string) => void
   ) {
-    // Logic adapted from generateAIResponseAction
     let contextText = ''
-    const conversationIds = new Set<string>()
-
-    // Add referenced conversations
-    referencedConversations.forEach(c => conversationIds.add(c.id))
-
-    // Add referenced folders
-    if (referencedFolders.length > 0) {
-      const allFolders = await cloudDb.getFolders(userId)
-      for (const ref of referencedFolders) {
-        const folder = allFolders.find(f => f.id === ref.id)
-        if (folder) {
-          folder.conversationIds.forEach(cid => conversationIds.add(cid))
-        }
-      }
-    }
-
-    if (conversationIds.size === 0) return ''
-
-    const finalConversationIds = Array.from(conversationIds)
     
-    // STRATEGY: Full Context Injection with Batch Queries
-    // We inject the ENTIRE conversation history using optimized batch queries.
-    
+    // --- 1. RECENT CONTEXT (Standard) ---
+    // We still inject the recent conversation history directly via `prepareMessagesForAI` (last 1000 msgs).
+    // So `buildContext` is primarily for RETRIEVED context (RAG).
+
+    if (!query.trim()) return ''
+
     try {
-      console.log('🔍 [buildContext] Fetching full content for conversations:', finalConversationIds);
+      const aiProvider = getAIProvider();
+      const queryVector = await aiProvider.getEmbeddings(query);
       
-      // OPTIMIZATION: Batch fetch all conversations and messages
-      const [conversations, messagesMap] = await Promise.all([
-        cloudDb.getConversationsBatch(finalConversationIds),
-        cloudDb.getMessagesBatch(finalConversationIds)
-      ])
-      
-      // Build a conversation map for quick lookup
-      const convMap = new Map(conversations.map(c => [c.id, c]))
-      
-      // Process each conversation
-      for (const convId of  finalConversationIds) {
-        const conv = convMap.get(convId)
-        if (!conv) continue
+      const retrievedChunks: { content: string, source: string, score: number }[] = [];
 
-        const messages = messagesMap.get(convId) || []
-        if (messages.length === 0) continue
+      // --- SCOPE 1: CURRENT CONVERSATION (Long-Term Memory) ---
+      // Always search current chat for forgotten details
+      const longTermMemories = await vectorDb.searchConversationMemory(currentConversationId, queryVector, { limit: 5, minScore: 0.5 });
+      longTermMemories.forEach(m => {
+        retrievedChunks.push({
+          content: m.content,
+          source: 'Current Conversation (Past)',
+          score: m.score
+        });
+      });
 
-        // Send progress update
-        if (onProgress) {
-          onProgress(JSON.stringify({
-            type: 'loading',
-            conversation: conv.title,
-            messageCount: messages.length
-          }))
-        }
-
-        // CONTEXT WINDOW MANAGEMENT
-        // STRATEGY: Full Context Injection
-        // We inject the ENTIRE conversation history.
-        // Modern models handle 128k+ tokens easily. 
-        // A typical 100-msg chat is ~5k-10k tokens.
-        // We only truncate if it's absolutely massive (safety cap).
-        
-        // Safety cap: ~100k tokens approx (400k chars) to prevent request failures
-        const MAX_CHARS = 400000;
-        let currentChars = 0;
-        
-        contextText += `\n=== START OF CONTEXT FROM CONVERSATION: "${conv.title}" ===\n`
-        
-        // Process all messages
-        for (const msg of messages) {
-          const role = msg.role === 'user' ? 'User' : 'Assistant'
-          const content = msg.content
-          
-          // Check if adding this message would exceed safety cap
-          if (currentChars + content.length > MAX_CHARS) {
-            contextText += `\n[...Remaining ${messages.length - messages.indexOf(msg)} messages truncated due to size limit...]\n`
-            break;
-          }
-          
-          contextText += `\n${role}: ${content}\n`
-          currentChars += content.length
-        }
-        
-        contextText += `\n=== END OF CONTEXT FROM CONVERSATION: "${conv.title}" ===\n`
-        
-        // Send completion progress
-        if (onProgress) {
-          onProgress(JSON.stringify({
-            type: 'loaded',
-            conversation: conv.title
-          }))
-        }
-      }
-      
-      // Send final completion
-      if (onProgress) {
-        onProgress(JSON.stringify({
-          type: 'complete'
-        }))
-      }
-      
-      console.log('✅ [buildContext] Context built, length:', contextText.length);
-
-    } catch (err) {
-      console.error('Error building context:', err)
-    }
-
-    // --- PROJECT MEMORY INJECTION (VECTORIZE) ---
-    if (projectId && query.trim()) {
-      try {
-        console.log('🧠 [buildContext] Searching Project Memory (Vectorize) for:', projectId);
-        
-        // Generate embedding for the query
-        const aiProvider = getAIProvider();
-        const queryVector = await aiProvider.getEmbeddings(query);
-        
-        // Search Vectorize
-        const relevantMessages = await vectorDb.searchProjectMemory(projectId, queryVector, {
+      // --- SCOPE 2: PROJECT MEMORY (Implicit) ---
+      if (projectId) {
+        console.log('🧠 [buildContext] Project Mode: Searching Project Memory');
+        const projectMemories = await vectorDb.searchProjectMemory(projectId, queryVector, { 
           limit: 10, 
-          minScore: 0.4,
-          excludeConversationId: currentConversationId
+          minScore: 0.5,
+          excludeConversationId: currentConversationId 
         });
         
-        if (relevantMessages.length > 0) {
-          console.log(`🧠 [buildContext] Found ${relevantMessages.length} relevant memories from project`);
+        // Fetch conversation titles for better context
+        if (projectMemories.length > 0) {
+          const convIds = Array.from(new Set(projectMemories.map(m => m.conversationId)));
+          const conversations = await cloudDb.getConversationsBatch(convIds);
+          const convMap = new Map(conversations.map(c => [c.id, c.title]));
           
-          contextText += `\n\n=== RELEVANT MEMORIES FROM OTHER PROJECT CONVERSATIONS ===\n`;
-          contextText += `The following are relevant excerpts from other conversations in this project. Use them to maintain continuity.\n\n`;
+          projectMemories.forEach(m => {
+            const title = convMap.get(m.conversationId) || 'Unknown Chat';
+            retrievedChunks.push({
+              content: m.content,
+              source: `Project Chat: "${title}"`,
+              score: m.score
+            });
+          });
+        }
+      }
+
+      // --- SCOPE 3: REFERENCED CONTEXT (Explicit) ---
+      // Only if NOT in project mode (or if user explicitly references something outside project)
+      if (referencedConversations.length > 0) {
+        console.log('🧠 [buildContext] Normal Mode: Searching Referenced Context');
+        
+        for (const ref of referencedConversations) {
+          // A. Search Messages in Referenced Chat
+          const refMemories = await vectorDb.searchConversationMemory(ref.id, queryVector, { limit: 5 });
+          refMemories.forEach(m => {
+            retrievedChunks.push({
+              content: m.content,
+              source: `Referenced Chat: "${ref.title}"`,
+              score: m.score
+            });
+          });
+
+          // B. Search Files in Referenced Chat (Transitive Knowledge)
+          const sources = await vectorDb.getSourcesForConversation(ref.id);
+          const sourceIds = sources.map(s => s.sourceId);
           
-          // Group by conversation for better readability
-          const memoriesByConv = new Map<string, string[]>();
-          
-          for (const mem of relevantMessages) {
-            if (!memoriesByConv.has(mem.conversationId)) {
-              memoriesByConv.set(mem.conversationId, []);
-            }
-            memoriesByConv.get(mem.conversationId)!.push(mem.content);
-          }
-          
-          // Fetch conversation titles for better context
-          // We need to fetch titles for the conversation IDs returned by Vectorize
-          const uniqueConvIds = Array.from(memoriesByConv.keys());
-          const conversations = await cloudDb.getConversationsBatch(uniqueConvIds);
-          const convMap = new Map(conversations.map(c => [c.id, c]));
-          
-          for (const [convId, snippets] of memoriesByConv) {
-            const convTitle = convMap.get(convId)?.title || 'Unknown Conversation';
-            contextText += `--- From "${convTitle}" ---\n`;
-            snippets.forEach(snippet => {
-              contextText += `> ${snippet}\n\n`;
+          if (sourceIds.length > 0) {
+            const fileChunks = await vectorDb.searchKnowledgeBase(sourceIds, queryVector, { limit: 5 });
+            fileChunks.forEach(c => {
+              retrievedChunks.push({
+                content: c.content,
+                source: `File in "${ref.title}"`,
+                score: c.score
+              });
             });
           }
-          
-          contextText += `=== END OF PROJECT MEMORIES ===\n`;
-        } else {
-          console.log('🧠 [buildContext] No relevant memories found (score too low)');
         }
-
-      } catch (err) {
-        console.error('❌ [buildContext] Error retrieving project memory:', err);
-        // Continue without project memory
       }
+
+      // --- DEDUPLICATE & RANK ---
+      // Sort by score
+      retrievedChunks.sort((a, b) => b.score - a.score);
+      
+      // Take top 15 chunks
+      const topChunks = retrievedChunks.slice(0, 15);
+      
+      if (topChunks.length > 0) {
+        contextText += `\n=== RELEVANT RETRIEVED CONTEXT ===\n`;
+        contextText += `The following information was retrieved from your knowledge base (past chats, project memory, or files) to help answer the request:\n\n`;
+        
+        topChunks.forEach(chunk => {
+          contextText += `--- [Source: ${chunk.source}] ---\n${chunk.content}\n\n`;
+        });
+        
+        contextText += `=== END OF RETRIEVED CONTEXT ===\n`;
+      }
+
+    } catch (err) {
+      console.error('❌ [buildContext] Error in Unified RAG:', err);
     }
 
     return contextText
@@ -799,24 +743,29 @@ export class ChatService {
       if (!content || !content.trim()) return
       
       // Check if embedding already exists for this message
-      const existingEmbedding = await cloudDb.getEmbeddingByMessageId(messageId)
-      if (existingEmbedding) {
-        console.log('⏭️ Skipping embedding generation - already exists for message:', messageId)
-        return
-      }
+      // Note: We might want to re-generate if content changed, but for now skip if exists
+      // const existingEmbedding = await cloudDb.getEmbeddingByMessageId(messageId)
+      // if (existingEmbedding) {
+      //   console.log('⏭️ Skipping embedding generation - already exists for message:', messageId)
+      //   return
+      // }
       
       const aiProvider = getAIProvider()
       const vector = await aiProvider.getEmbeddings(content)
       
-      // Store in D1 (Legacy/Backup)
-      await cloudDb.addEmbedding(messageId, conversationId, userId, content, vector)
-      
-      // Store in Vectorize (New)
-      // We need to fetch the conversation to get the projectId
+      // Store in Vectorize (Global Knowledge Base)
+      // We need to fetch the conversation to get the projectId (if any)
       const conversation = await cloudDb.getConversation(conversationId)
-      if (conversation?.projectId) {
-        await vectorDb.upsertProjectMemory(messageId, conversationId, conversation.projectId, content, vector)
-      }
+      
+      await vectorDb.upsertMessageMemory(
+        messageId, 
+        conversationId, 
+        content, 
+        vector,
+        conversation?.projectId // Optional
+      )
+      
+      console.log('✅ [chatService] Vectorized message:', messageId)
     } catch (error) {
       console.error('Failed to generate embedding in background:', error)
     }

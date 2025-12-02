@@ -516,14 +516,14 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
     console.log('✅ [searchKnowledgeBase] Returning', sorted.length, 'chunks with content');
     return sorted;
   },
-  // --- CLOUDFLARE VECTORIZE (Project Memory) ---
+  // --- CLOUDFLARE VECTORIZE (Message Memory) ---
 
-  async upsertProjectMemory(
+  async upsertMessageMemory(
     messageId: string, 
     conversationId: string, 
-    projectId: string, 
     content: string, 
-    vector: number[]
+    vector: number[],
+    projectId?: string
   ) {
     try {
       const index = getCloudflareContext().env.VECTORIZE_INDEX;
@@ -532,16 +532,22 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         return;
       }
 
-      console.log('🧠 [vectorDb] Upserting to Vectorize:', { messageId, projectId });
+      console.log('🧠 [vectorDb] Upserting to Vectorize:', { messageId, conversationId, projectId });
+
+      const metadata: any = {
+        conversationId,
+        content: content.substring(0, 1000), // Store snippet in metadata for retrieval
+        type: 'message'
+      }
+
+      if (projectId) {
+        metadata.projectId = projectId
+      }
 
       await index.upsert([{
         id: messageId,
         values: vector,
-        metadata: {
-          conversationId,
-          projectId,
-          content: content.substring(0, 1000) // Store snippet in metadata for retrieval
-        }
+        metadata
       }]);
     } catch (error) {
       console.error('❌ [vectorDb] Failed to upsert to Vectorize:', error);
@@ -562,16 +568,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
       const { limit = 10, minScore = 0.4, excludeConversationId } = options;
 
-      console.log('🧠 [vectorDb] Searching Vectorize:', { projectId, excludeConversationId });
+      console.log('🧠 [vectorDb] Searching Project Memory:', { projectId, excludeConversationId });
 
-      // Build filter query
-      // Note: Vectorize filtering syntax depends on the API version, but generally supports simple equality
-      // We want: projectId == ? AND conversationId != ?
-      // Currently Vectorize supports simple filters.
-      // If excludeConversationId is provided, we might need to filter post-query if negative filters aren't supported yet,
-      // OR use a negative filter if supported.
-      // Let's assume we filter by projectId and then filter results in memory for exclusion if needed.
-      
       const results = await index.query(queryVector, {
         topK: limit,
         filter: { projectId: projectId },
@@ -598,7 +596,44 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         }));
 
     } catch (error) {
-      console.error('❌ [vectorDb] Failed to search Vectorize:', error);
+      console.error('❌ [vectorDb] Failed to search Project Memory:', error);
+      return [];
+    }
+  },
+
+  async searchConversationMemory(
+    conversationId: string, 
+    queryVector: number[], 
+    options: { limit?: number, minScore?: number } = {}
+  ) {
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (!index) {
+        console.warn('⚠️ [vectorDb] Vectorize index not bound, skipping search');
+        return [];
+      }
+
+      const { limit = 10, minScore = 0.4 } = options;
+
+      console.log('🧠 [vectorDb] Searching Conversation Memory:', { conversationId });
+
+      const results = await index.query(queryVector, {
+        topK: limit,
+        filter: { conversationId: conversationId },
+        returnMetadata: true
+      });
+
+      return results.matches
+        .filter(match => match.score >= minScore)
+        .map(match => ({
+          messageId: match.id,
+          conversationId: match.metadata?.conversationId as string,
+          content: match.metadata?.content as string,
+          score: match.score
+        }));
+
+    } catch (error) {
+      console.error('❌ [vectorDb] Failed to search Conversation Memory:', error);
       return [];
     }
   }
