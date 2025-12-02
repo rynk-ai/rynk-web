@@ -182,8 +182,8 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
-      // Prevent closing during upload
-      if (!isSubmitting) {
+      // Prevent closing during upload, processing, or any submitting state
+      if (!isSubmitting && currentStep === 'form') {
         onOpenChange(newOpen)
       }
     }}>
