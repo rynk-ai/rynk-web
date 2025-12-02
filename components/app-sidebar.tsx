@@ -1,7 +1,7 @@
 "use client";
 
 
-import {useState, useEffect, useCallback} from "react";
+import {useState, useEffect, useCallback, useRef} from "react";
 import { usePathname } from "next/navigation";
 
 import {
@@ -57,6 +57,7 @@ import { SearchDialog } from "@/components/search-dialog";
 import { AddToFolderDialog } from "@/components/add-to-folder-dialog";
 import { RenameDialog } from "@/components/rename-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader } from "@/components/ui/loader";
 import type {
   CloudConversation as Conversation,
   Folder,
@@ -125,6 +126,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     string | null
   >(null);
 
+  const scrollableRef = useRef<HTMLDivElement>(null);
+
   const loadTags = useCallback(async () => {
     try {
       const tags = await getAllTags();
@@ -158,6 +161,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     };
     fetchData();
   }, [getAllTags]);
+
+  // Infinite scroll for conversations
+  useEffect(() => {
+    const scrollableElement = scrollableRef.current;
+    if (!scrollableElement) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollableElement;
+      const threshold = 100; // Load more when within 100px of bottom
+
+      if (
+        scrollTop + clientHeight >= scrollHeight - threshold &&
+        hasMoreConversations &&
+        !isLoadingMoreConversations
+      ) {
+        loadMoreConversations();
+      }
+    };
+
+    scrollableElement.addEventListener("scroll", handleScroll);
+    return () => {
+      scrollableElement.removeEventListener("scroll", handleScroll);
+    };
+  }, [loadMoreConversations, hasMoreConversations, isLoadingMoreConversations]);
 
   const handleTagClick = (conversationId: string) => {
     setSelectedConversationId(conversationId);
@@ -337,7 +364,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </Tooltip>
           </div>
         </div>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto" ref={scrollableRef}>
           {!activeProjectId ? (
             <div className="mb-2">
               {isLoadingProjects ? (
@@ -507,17 +534,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             isLoading={isLoadingConversations}
           />
 
-          {hasMoreConversations && (
-            <div className="px-4 py-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-muted-foreground hover:text-foreground"
-                onClick={() => loadMoreConversations()}
-                disabled={isLoadingMoreConversations}
-              >
-                {isLoadingMoreConversations ? "Loading..." : "Load More"}
-              </Button>
+          {isLoadingMoreConversations && (
+            <div className="px-4 py-2 flex justify-center">
+              <Loader variant="classic" size="sm" />
             </div>
           )}
         </div>
