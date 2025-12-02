@@ -103,9 +103,14 @@ export class ChatService {
     }
 
     // 5. Generate Embedding for User Message (Background)
-    // This is now critical for Global Knowledge Base (Project Memory & Long-Term Memory)
-    // We await this to ensure it completes in serverless environment
-    await this.generateEmbeddingInBackground(userMessage.id, conversationId, userId, messageContent)
+    // Fire-and-forget to avoid blocking the response
+    this.generateEmbeddingInBackground(
+      userMessage.id, 
+      conversationId, 
+      userId, 
+      messageContent,
+      project?.id  // Pass projectId directly (from line 96-103)
+    ).catch(err => console.error('❌ [chatService] User message vectorization failed:', err))
 
     // 5. Ingest Attachments into Knowledge Base (Legacy)
     // This is now handled by the frontend via /api/knowledge-base/ingest
@@ -718,9 +723,16 @@ export class ChatService {
           await cloudDb.updateMessage(assistantMessageId, { content: fullResponse })
           
           // Generate embedding for assistant response
-          // We await this to ensure it completes before the stream closes in serverless environments
-          const service = new ChatService()
-          await service.generateEmbeddingInBackground(assistantMessageId, conversationId, userId, fullResponse)
+      // Fire-and-forget to avoid blocking
+      const conversation = await cloudDb.getConversation(conversationId)
+      const service = new ChatService()
+      service.generateEmbeddingInBackground(
+        assistantMessageId, 
+        conversationId, 
+        userId, 
+        fullResponse,
+        conversation?.projectId
+      ).catch(err => console.error('❌ [chatService] Assistant message vectorization failed:', err))
 
           controller.close()
         } catch (err) {
@@ -738,36 +750,33 @@ export class ChatService {
       }
     })
   }
-  private async generateEmbeddingInBackground(messageId: string, conversationId: string, userId: string, content: string) {
+  private async generateEmbeddingInBackground(
+    messageId: string, 
+    conversationId: string, 
+    userId: string, 
+    content: string,
+    projectId?: string  // Accept projectId directly to avoid DB race condition
+  ) {
     try {
       if (!content || !content.trim()) return
-      
-      // Check if embedding already exists for this message
-      // Note: We might want to re-generate if content changed, but for now skip if exists
-      // const existingEmbedding = await cloudDb.getEmbeddingByMessageId(messageId)
-      // if (existingEmbedding) {
-      //   console.log('⏭️ Skipping embedding generation - already exists for message:', messageId)
-      //   return
-      // }
       
       const aiProvider = getAIProvider()
       const vector = await aiProvider.getEmbeddings(content)
       
       // Store in Vectorize (Global Knowledge Base)
-      // We need to fetch the conversation to get the projectId (if any)
-      const conversation = await cloudDb.getConversation(conversationId)
-      
+      // projectId is passed directly from the caller
       await vectorDb.upsertMessageMemory(
         messageId, 
         conversationId, 
         content, 
         vector,
-        conversation?.projectId // Optional
+        projectId
       )
       
-      console.log('✅ [chatService] Vectorized message:', messageId)
+      console.log('✅ [chatService] Vectorized message:', { messageId, projectId: projectId || 'none' })
     } catch (error) {
-      console.error('Failed to generate embedding in background:', error)
+      console.error('❌ [chatService] Failed to generate embedding:', error)
+      throw error  // Re-throw so caller can log it
     }
   }
 
