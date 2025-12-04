@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -415,20 +415,22 @@ export const PromptInputWithFiles = memo(function
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <PromptInputAction tooltip={editMode ? "Save changes" : "Send message"}>
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={
-                      (!prompt.trim() && files.length === 0) || isLoading || isSubmittingEdit
-                    }
-                    size="icon"
-                    className="size-8 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                  >
-                    <Send size={16} />
-                  </Button>
-                </PromptInputAction>
-              </div>
+              {/* Send Button */}
+              <Button
+                type="submit"
+                size="icon"
+                className="size-8 shrink-0 rounded-full"
+                disabled={
+                  (isLoading || isSubmittingEdit || disabled) ||
+                  (!editMode && prompt.trim().length === 0 && files.length === 0)
+                }
+              >
+                {(isLoading || isSubmittingEdit) ? (
+                  <div className="size-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                ) : (
+                  <Send size={16} />
+                )}
+              </Button>
             </PromptInputActions>
           </div>
         </PromptInput>
@@ -446,6 +448,7 @@ export const PromptInputWithFiles = memo(function
     prevProps.currentConversationId === nextProps.currentConversationId &&
     prevProps.context === nextProps.context &&
     prevProps.hideActions === nextProps.hideActions &&
-    prevProps.quotedMessage?.messageId === nextProps.quotedMessage?.messageId // Include quote check
-  );
+    prevProps.quotedMessage?.messageId === nextProps.quotedMessage?.messageId &&
+    prevProps.quotedMessage?.quotedText === nextProps.quotedMessage?.quotedText
+  ); // Include reasoning mode check
 });

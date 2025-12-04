@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ReasoningDisplay } from "@/components/chat/reasoning-display";
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import { useRef, useState, useEffect, useMemo, useCallback, Suspense, memo } from "react";
@@ -247,6 +248,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     clearConversationContext,
     updateConversationTags,
     getAllTags,
+    // Reasoning mode
+    reasoningMode,
+    toggleReasoningMode,
+    statusPills,
+    searchResults,
   } = useChatContext();
   
   // Use custom hooks for separated state management
@@ -1356,33 +1362,46 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               }}
             />
 
-            <PromptInputWithFiles
-              onSubmit={handleSubmit}
-              isLoading={isLoading}
-              placeholder={
-                isEditing ? "Edit your message..." : (!currentConversationId ? "Message..." : "Type a message...")
+            <div className="mx-auto max-w-3xl w-full px-4 mb-4">
+            <ReasoningDisplay statuses={statusPills} searchResults={searchResults} />
+          </div>
+
+          <PromptInputWithFiles
+            onSubmit={handleSubmit}
+            isLoading={isLoading}
+            placeholder="Ask anything..."
+            disabled={isLoading}
+            context={activeContext}
+            onContextChange={handleContextChange}
+            currentConversationId={currentConversationId}
+            conversations={conversations}
+            folders={folders}
+            // Edit mode props
+            editMode={isEditing}
+            initialValue={editContent}
+            initialAttachments={editAttachments}
+            onCancelEdit={cancelEdit}
+            onSaveEdit={async (text, files) => {
+              if (editingMessageId) {
+                // Convert Attachment[] to File[] where possible, or keep as is if the hook handles it
+                // The hook expects File[], but we might have existing attachments.
+                // For now, let's just pass the new files if any.
+                // TODO: Handle mixed existing/new attachments better
+                const newFiles = files.filter(f => f instanceof File) as File[];
+                await editMessage(editingMessageId, text, newFiles, editContext.filter(c => c.type === 'conversation').map(c => ({ id: c.id, title: c.title })), editContext.filter(c => c.type === 'folder').map(c => ({ id: c.id, name: c.title })));
+                cancelEdit();
               }
-              disabled={isLoading && !isEditing}
-              context={isEditing ? editContext : activeContext}
-              onContextChange={isEditing ? setEditContext : handleContextChange}
-              currentConversationId={currentConversationId}
-              conversations={conversations}
-              folders={folders}
-              // Edit mode props
-              editMode={!!editingMessageId}
-              initialValue={isEditing ? editContent : ''}
-              initialAttachments={isEditing ? editAttachments : []}
-              onCancelEdit={isEditing ? handleCancelEdit : undefined}
-              onSaveEdit={isEditing ? handleSaveEdit : undefined}
-              isSubmittingEdit={isSavingEdit}
-              // State sync for edit mode
-              onValueChange={isEditing ? setEditContent : undefined}
-              onFilesChange={isEditing ? setEditAttachments : undefined}
-              onKeyDown={handleKeyDown}
-              // Quote props
-              quotedMessage={quotedMessage}
-              onClearQuote={handleClearQuote}
-              className={cn(
+            }}
+            isSubmittingEdit={isSavingEdit}
+            // State sync
+            onValueChange={isEditing ? setEditContent : undefined}
+            onFilesChange={isEditing ? setEditAttachments : undefined}
+            
+            // Quote props
+            quotedMessage={quotedMessage}
+            onClearQuote={handleClearQuote}
+            
+            className={cn(
                 "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-lg hover:shadow-xl",
                 !currentConversationId ? "shadow-xl" : "shadow-sm hover:shadow-md"
               )}

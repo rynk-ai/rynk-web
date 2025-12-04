@@ -1,15 +1,17 @@
 'use client';
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
-import { Message, MessageContent, MessageActions, MessageAction } from '@/components/ui/message';
+import { Message, MessageContent, MessageActions, MessageAction } from '@/components/prompt-kit/message';
 import { Button } from '@/components/ui/button';
 import { Copy, GitBranch, Pencil, Trash, FolderIcon, MessageSquareDashedIcon, Paperclip, Loader2, Quote } from 'lucide-react';
-import { Markdown } from '@/components/ui/markdown';
+import { Markdown } from '@/components/prompt-kit/markdown';
 import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
 import { DeleteMessageDialog } from '@/components/delete-message-dialog';
+import { ReasoningDisplay } from '@/components/chat/reasoning-display';
+import { Source } from '@/components/prompt-kit/source';
 
 import { VersionIndicator } from '@/components/ui/version-indicator';
 
@@ -27,6 +29,8 @@ interface ChatMessageItemProps {
   onQuote?: (text: string, messageId: string, role: 'user' | 'assistant') => void;
   versions?: ChatMessage[];
   onSwitchVersion?: (messageId: string) => Promise<void>;
+  streamingStatusPills?: any[];
+  streamingSearchResults?: any;
 }
 
 /**
@@ -48,9 +52,24 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onCopy,
   onQuote,
   versions = [],
-  onSwitchVersion
+  onSwitchVersion,
+  streamingStatusPills,
+  streamingSearchResults
 }: ChatMessageItemProps) {
   const isAssistant = message.role === 'assistant';
+  
+  // Persist streaming metadata until message has its own
+  // This fixes the race condition between finishStreaming() and message refetch
+  const lastStreamingStatusPills = useRef<any[]>([]);
+  const lastStreamingSearchResults = useRef<any>(null);
+  
+  // Update refs when streaming props are available
+  if (streamingStatusPills && streamingStatusPills.length > 0) {
+    lastStreamingStatusPills.current = streamingStatusPills;
+  }
+  if (streamingSearchResults) {
+    lastStreamingSearchResults.current = streamingSearchResults;
+  }
   
   // Quote button state
   const [showQuoteButton, setShowQuoteButton] = useState(false);
@@ -125,30 +144,72 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   }, [selectedText, onQuote, message.id, message.role]);
   
   if (isAssistant) {
-    // Show skeleton only if it's the last message, we're sending, and content is empty (even if streaming started but has no tokens yet)
-    const showSkeleton = isLastMessage && isSending && 
+    const displayContent = isStreaming ? streamingContent : message.content;
+    
+    // Determine effective reasoning metadata
+    // Priority: 1. streaming props (if streaming) 2. message metadata 3. cached refs (bridge the gap)
+    const effectiveStatusPills = isStreaming 
+      ? streamingStatusPills 
+      : (message.reasoning_metadata?.statusPills || lastStreamingStatusPills.current);
+    const effectiveSearchResults = isStreaming 
+      ? streamingSearchResults 
+      : (message.reasoning_metadata?.searchResults || lastStreamingSearchResults.current);
+    const hasReasoning = (effectiveStatusPills && effectiveStatusPills.length > 0) || !!effectiveSearchResults;
+
+    // Debug logging
+    console.log('[ChatMessageItem] Reasoning metadata:', {
+      isStreaming,
+      messageId: message.id,
+      streamingStatusPillsCount: streamingStatusPills?.length || 0,
+      cachedStatusPillsCount: lastStreamingStatusPills.current?.length || 0,
+      messageReasoningMetadata: !!message.reasoning_metadata,
+      effectiveStatusPillsCount: effectiveStatusPills?.length || 0,
+      effectiveSearchResultsSources: effectiveSearchResults?.sources?.length || 0,
+      hasReasoning
+    })
+
+    // Show skeleton only if: last message, sending, AND no content at all
+    const showSkeleton = isLastMessage && isSending &&
                          ((!isStreaming && (!message.content || message.content.trim().length < 3)) ||
-                          (isStreaming && (!streamingContent || streamingContent.trim().length === 0)));
+                          (isStreaming && (!displayContent || displayContent.trim().length === 0)));
     
     if (showSkeleton) {
       return <AssistantSkeleton />;
     }
-    
-    const displayContent = isStreaming ? streamingContent : message.content;
-    
+
     return (
       <div
         className="w-full px-3 animate-in-up"
       >
         <Message className={cn("py-2 mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-start")}>
-          <div className="group flex w-fit flex-col gap-0 relative">
+          <div className="group flex w-full flex-col gap-0 relative">
             <div 
-              className="px-5 py-2 rounded-2xl bg-muted/35 hover:bg-muted/45 transition-colors duration-200 border border-border/30 shadow-sm"
+              className="w-full"
               onMouseUp={handleTextSelection}
             >
-              <Markdown className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-foreground/90">
+              {/* Reasoning Display - Shows current status during streaming */}
+              <ReasoningDisplay 
+                statuses={effectiveStatusPills || []}
+                searchResults={null}
+                isComplete={!isStreaming}
+                defaultCollapsed={false}
+              />
+              
+              <MessageContent markdown className="!bg-transparent !p-0 !text-foreground">
                 {displayContent}
-              </Markdown>
+              </MessageContent>
+              
+              {/* Search Sources - Show after content if available */}
+              {effectiveSearchResults && effectiveSearchResults.sources && effectiveSearchResults.sources.length > 0 && (
+                <Source 
+                  sources={effectiveSearchResults.sources.map((s: any) => ({
+                    url: s.url,
+                    title: s.title,
+                    description: s.snippet
+                  }))}
+                  showAsCards={true}
+                />
+              )}
             </div>
             
             {/* Floating Quote Button - Rendered via Portal to avoid positioning issues */}

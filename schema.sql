@@ -105,6 +105,10 @@ CREATE TABLE IF NOT EXISTS messages (
   branchId TEXT,
   referencedConversations TEXT, -- JSON
   referencedFolders TEXT, -- JSON
+  reasoning_content TEXT,
+  reasoning_metadata TEXT, -- JSON
+  web_annotations TEXT, -- JSON
+  model_used TEXT,
   timestamp INTEGER, -- Store original timestamp if needed, or use createdAt
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE

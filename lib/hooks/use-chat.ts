@@ -79,6 +79,32 @@ export function useChat() {
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
+  // Agentic and Reasoning Mode State
+  const [agenticMode, setAgenticMode] = useState<boolean>(false)
+  const [reasoningMode, setReasoningMode] = useState<'auto' | 'on' | 'online' | 'off'>('auto')
+  const [statusPills, setStatusPills] = useState<Array<{
+    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    message: string
+    timestamp: number
+  }>>([])
+
+  // Search results from web search
+  const [searchResults, setSearchResults] = useState<any>(null)
+
+  // Toggle reasoning mode: auto -> on -> online -> off -> auto
+  const toggleReasoningMode = useCallback(() => {
+    setReasoningMode(prev => {
+      switch (prev) {
+        case 'auto': return 'on'
+        case 'on': return 'online'
+        case 'online': return 'off'
+        case 'off': return 'auto'
+        default: return 'auto'
+      }
+    })
+  }, [])
+
+
   // --- Queries ---
 
   const { data: conversations = [] } = useQuery({
@@ -404,9 +430,16 @@ export function useChat() {
     assistantMessageId: string | null;
   } | null> => {
     if (!content.trim() && (!attachments || attachments.length === 0)) return null
-
+    const headers: Record<string, string> = {}
+    
     setIsLoading(true)
     setError(null)
+    setStatusPills([]) // Clear previous status pills
+    setSearchResults(null) // Clear previous search results
+    
+    // Track reasoning metadata to be saved with message
+    const collectedStatusPills: typeof statusPills = []
+    const collectedSearchResults: typeof searchResults = null
 
     console.log('[sendChatRequest] effectiveProjectId:', effectiveProjectId)
 
@@ -450,7 +483,8 @@ export function useChat() {
           message: content,
           attachments: attachments, // Pass processed attachments
           referencedConversations,
-          referencedFolders
+          referencedFolders,
+          useReasoning: reasoningMode // Pass current reasoning mode
         })
       })
 
@@ -468,7 +502,83 @@ export function useChat() {
 
       // Handle Streaming
       const reader = response.body.getReader()
+      const decoder = new TextDecoder()
       
+      // Create a wrapped reader that intercepts status messages
+      const wrappedReader = new ReadableStreamDefaultReader(new ReadableStream({
+        async start(controller) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) {
+                // Mark reasoning as complete when stream ends
+                setStatusPills(prev => [...prev, {
+                  status: 'complete',
+                  message: 'Reasoning complete',
+                  timestamp: Date.now()
+                }])
+                controller.close()
+                break
+              }
+              
+              const text = decoder.decode(value, { stream: true })
+              
+              // Check for status messages (JSON format)
+              // We split by newline in case multiple chunks came together
+              const lines = text.split('\n')
+              let contentChunk = ''
+              
+              for (const line of lines) {
+                if (!line.trim()) continue
+                
+                try {
+                  // Try to parse as JSON status or search results message
+                  if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"')) {
+                    const parsed = JSON.parse(line)
+                    
+                    if (parsed.type === 'status') {
+                      console.log('[useChat] Parsed status pill:', parsed)
+                      setStatusPills(prev => {
+                        const updated = [...prev, {
+                          status: parsed.status,
+                          message: parsed.message,
+                          timestamp: parsed.timestamp
+                        }]
+                        console.log('[useChat] Updated status pills:', updated)
+                        return updated
+                      })
+                      continue // Don't pass this to the content stream
+                    }
+                    
+                    if (parsed.type === 'search_results') {
+                      setSearchResults({
+                        query: parsed.query,
+                        sources: parsed.sources,
+                        strategy: parsed.strategy,
+                        totalResults: parsed.totalResults
+                      })
+                      continue // Don't pass this to the content stream
+                    }
+                  }
+                } catch (e) {
+                  // Not a JSON object, treat as content
+                }
+                
+                // If not a status message, it's content
+                // Re-add newline if it was stripped by split, unless it's the last line and didn't have one
+                contentChunk += line + (text.endsWith('\n') || line !== lines[lines.length-1] ? '\n' : '')
+              }
+              
+              if (contentChunk) {
+                controller.enqueue(new TextEncoder().encode(contentChunk))
+              }
+            }
+          } catch (err) {
+            controller.error(err)
+          }
+        }
+      }))
+
       // Generate title if needed (fire and forget for performance)
       if (shouldGenerateTitle) {
         generateTitle(conversationId, content)
@@ -476,7 +586,7 @@ export function useChat() {
       
       // Return stream reader, conversationId, REAL message IDs
       return {
-        streamReader: reader,
+        streamReader: wrappedReader,
         conversationId,
         userMessageId: realUserMessageId,
         assistantMessageId: realAssistantMessageId
@@ -489,7 +599,7 @@ export function useChat() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId])
+  }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId, reasoningMode])
 
   // Legacy wrapper for backward compatibility (if needed)
   const sendMessage = useCallback(async (
@@ -866,6 +976,11 @@ export function useChat() {
     hasMoreConversations: hasMore,
     isLoadingMoreConversations: isLoadingMore,
     activeProjectId,
-    selectProject
+    selectProject,
+    // Agentic & Reasoning
+    reasoningMode,
+    toggleReasoningMode,
+    statusPills,
+    searchResults
   }
 }

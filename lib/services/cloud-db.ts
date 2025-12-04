@@ -45,6 +45,33 @@ export interface CloudMessage {
   versionOf?: string
   branchId?: string
   parentMessageId?: string
+  // Reasoning & Web Search
+  reasoning_content?: string
+  reasoning_metadata?: {
+    statusPills: Array<{
+      status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+      message: string
+      timestamp: number
+    }>
+    searchResults?: {
+      query: string
+      sources: Array<{
+        type: 'exa' | 'perplexity' | 'wikipedia'
+        url: string
+        title: string
+        snippet: string
+        score?: number
+        publishedDate?: string
+        author?: string
+        highlights?: string[]
+        thumbnail?: string
+      }>
+      strategy: string[]
+      totalResults: number
+    }
+  }
+  web_annotations?: any
+  model_used?: string
 }
 
 export interface Folder {
@@ -345,6 +372,8 @@ export const cloudDb = {
       attachments: JSON.parse(message.attachments as string || '[]'),
       referencedConversations: JSON.parse(message.referencedConversations as string || '[]'),
       referencedFolders: JSON.parse(message.referencedFolders as string || '[]'),
+      reasoning_metadata: message.reasoning_metadata ? JSON.parse(message.reasoning_metadata as string) : undefined,
+      web_annotations: message.web_annotations ? JSON.parse(message.web_annotations as string) : undefined,
       timestamp: message.createdAt,
       versionNumber: message.versionNumber || 1
     } as CloudMessage
@@ -380,7 +409,7 @@ export const cloudDb = {
     // Batch the insert and update
     await db.batch([
       db.prepare(
-        'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, branchId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, branchId, reasoning_content, reasoning_metadata, web_annotations, model_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         id, 
         conversationId, 
@@ -392,7 +421,11 @@ export const cloudDb = {
         now,
         now,
         1, // Default version 1
-        activeBranchId || null
+        activeBranchId || null,
+        message.reasoning_content || null,
+        message.reasoning_metadata ? JSON.stringify(message.reasoning_metadata) : null,
+        message.web_annotations ? JSON.stringify(message.web_annotations) : null,
+        message.model_used || null
       ),
       db.prepare('UPDATE conversations SET path = ?, branches = ?, updatedAt = ? WHERE id = ?').bind(JSON.stringify(path), JSON.stringify(branches), now, conversationId)
     ])
@@ -402,13 +435,26 @@ export const cloudDb = {
 
   async updateMessage(messageId: string, updates: any) {
     const db = getDB()
-    const keys = Object.keys(updates)
+    
+    // Filter out undefined values - D1 doesn't support them
+    const filteredUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = value
+      }
+      return acc
+    }, {} as any)
+    
+    const keys = Object.keys(filteredUpdates)
     if (keys.length === 0) return
     
     const setClause = keys.map(k => `${k} = ?`).join(', ')
     const values = keys.map(k => {
-      const val = updates[k]
-      return (typeof val === 'object') ? JSON.stringify(val) : val
+      const val = filteredUpdates[k]
+      // Handle JSON fields
+      if (['attachments', 'referencedConversations', 'referencedFolders', 'reasoning_metadata', 'web_annotations'].includes(k)) {
+        return val === null ? null : JSON.stringify(val)
+      }
+      return (typeof val === 'object' && val !== null) ? JSON.stringify(val) : val
     })
     
     await db.prepare(`UPDATE messages SET ${setClause} WHERE id = ?`).bind(...values, messageId).run()
@@ -745,7 +791,9 @@ export const cloudDb = {
       ...m,
       attachments: JSON.parse(m.attachments as string || '[]'),
       referencedConversations: JSON.parse(m.referencedConversations as string || '[]'),
-      referencedFolders: JSON.parse(m.referencedFolders as string || '[]')
+      referencedFolders: JSON.parse(m.referencedFolders as string || '[]'),
+      reasoning_metadata: m.reasoning_metadata ? JSON.parse(m.reasoning_metadata as string) : undefined,
+      web_annotations: m.web_annotations ? JSON.parse(m.web_annotations as string) : undefined
     })) as CloudMessage[]
   },
 

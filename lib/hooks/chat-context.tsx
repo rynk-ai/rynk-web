@@ -81,6 +81,15 @@ interface ChatContextValue {
   isLoadingMoreConversations: boolean
   activeProjectId: string | null
   selectProject: (id: string | null) => void
+  // Agentic & Reasoning
+  reasoningMode: 'auto' | 'on' | 'online' | 'off'
+  toggleReasoningMode: () => void
+  statusPills: Array<{
+    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    message: string
+    timestamp: number
+  }>
+  searchResults: any
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)

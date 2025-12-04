@@ -20,6 +20,8 @@ interface VirtualizedMessageListProps {
   onSwitchVersion: (messageId: string) => Promise<void>
   onLoadMore?: () => void
   isLoadingMore?: boolean
+  statusPills?: any[]
+  searchResults?: any
 }
 
 export const VirtualizedMessageList = React.memo(function VirtualizedMessageList({
@@ -35,7 +37,9 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
   messageVersions,
   onSwitchVersion,
   onLoadMore,
-  isLoadingMore = false
+  isLoadingMore = false,
+  statusPills,
+  searchResults
 }: VirtualizedMessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
 
@@ -86,6 +90,8 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
         onQuote={onQuote}
         versions={versions}
         onSwitchVersion={onSwitchVersion}
+        streamingStatusPills={streamingMessageId === message.id ? statusPills : undefined}
+        streamingSearchResults={streamingMessageId === message.id ? searchResults : undefined}
       />
     )
   }, [
@@ -99,7 +105,9 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
     onDeleteMessage,
     onBranchFromMessage,
     onQuote,
-    onSwitchVersion
+    onSwitchVersion,
+    statusPills,
+    searchResults
   ])
   
   const Header = () => {

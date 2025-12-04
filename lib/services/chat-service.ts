@@ -25,7 +25,8 @@ export class ChatService {
     referencedConversations: any[] = [],
     referencedFolders: any[] = [],
     providedUserMessageId?: string | null,
-    providedAssistantMessageId?: string | null
+    providedAssistantMessageId?: string | null,
+    useReasoning: 'auto' | 'on' | 'online' | 'off' = 'auto'
   ) {
     console.log('🚀 [chatService.handleChatRequest] Starting:', {
       userId,
@@ -193,13 +194,70 @@ export class ChatService {
     console.log('📤 [chatService] Preparing messages for AI...');
     const messages = await this.prepareMessagesForAI(conversationId, finalContext, project)
 
-    // 9. Determine if we have files (for AI provider selection)
+    // 9. Reasoning Detection & Web Search Orchestration
+    let reasoningDetection = null
+    let shouldUseReasoning = false
+    let shouldUseWebSearch = false
+    let selectedModel = ''
+    let searchResults: any = null
+    
+    if (userMessageContent && useReasoning !== 'off') {
+      const { detectReasoning, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
+      
+      // Detect reasoning needs
+      console.log('🧠 [chatService] Detecting reasoning needs...')
+      reasoningDetection = await detectReasoning(messageContent)
+      console.log('🧠 [chatService] Reasoning detection:', {
+        needsReasoning: reasoningDetection.needsReasoning,
+        needsWebSearch: reasoningDetection.needsWebSearch,
+        confidence: reasoningDetection.confidence,
+        types: reasoningDetection.detectedTypes
+      })
+      
+      // Resolve mode based on user preference and detection
+      const resolved = resolveReasoningMode(useReasoning, reasoningDetection)
+      shouldUseReasoning = resolved.useReasoning
+      shouldUseWebSearch = resolved.useWebSearch
+      
+      // Get the appropriate model (no longer using :online suffix)
+      selectedModel = getReasoningModel(shouldUseReasoning, false) // Always false for online
+      
+      // If web search is needed, use search orchestrator
+      if (shouldUseWebSearch) {
+        console.log('🌐 [chatService] Performing web search...')
+        const { orchestrateSearch } = await import('./search-orchestrator')
+        searchResults = await orchestrateSearch(messageContent)
+        console.log('🌐 [chatService] Search complete:', {
+          strategy: searchResults.searchStrategy,
+          totalResults: searchResults.totalResults,
+          hasSynthesis: !!searchResults.synthesizedResponse
+        })
+      }
+      
+      console.log('🤖 [chatService] Reasoning mode:', {
+        userMode: useReasoning,
+        shouldUseReasoning,
+        shouldUseWebSearch,
+        selectedModel,
+        hasSearchResults: !!searchResults
+      })
+    }
+
+    // 10. Determine if we have files (for AI provider selection)
     const hasFiles = this.hasFilesInConversation(messages, project, attachments)
     console.log('📎 [chatService] Has files:', hasFiles);
 
-    // 10. Get AI provider based on content type
-    const aiProvider = getAIProvider(hasFiles)
-    console.log('🤖 [chatService] Using AI provider:', hasFiles ? 'OpenRouter (multimodal)' : 'Groq (text-only)');
+    // 11. Get AI provider based on content type and reasoning needs
+    // If reasoning is needed, we'll use OpenRouter with the selected model
+    // Otherwise, use the standard provider selection
+    const aiProvider = (shouldUseReasoning || hasFiles) 
+      ? getAIProvider(true)  // Use OpenRouter for reasoning or files
+      : getAIProvider(false) // Use Groq for simple text
+    
+    console.log('🤖 [chatService] Using AI provider:', 
+      shouldUseReasoning 
+        ? `OpenRouter (${selectedModel})` 
+        : (hasFiles ? 'OpenRouter (multimodal)' : 'Groq (text-only)'));
 
     // 11. Create assistant message placeholder
     const assistantMessage = await cloudDb.addMessage(conversationId, {
@@ -210,18 +268,110 @@ export class ChatService {
     })
     console.log('✅ [chatService] Assistant message created:', assistantMessage.id);
 
-    // 12. Stream AI response
-    console.log('🚀 [chatService] Starting AI stream...');
-    const stream = aiProvider.sendMessage({ messages })
+    // 12. Stream AI response with search context
+    console.log('🚀 [chatService] Starting AI stream...')
+    
+    // Create status update stream
+    const statusUpdates: string[] = []
+    if (shouldUseReasoning || shouldUseWebSearch) {
+      statusUpdates.push(JSON.stringify({ type: 'status', status: 'analyzing', message: 'Analyzing request...', timestamp: Date.now() }) + '\n')
+      
+      if (shouldUseWebSearch) {
+        // First: status update that search started
+        statusUpdates.push(JSON.stringify({ type: 'status', status: 'searching', message: `Searching ${searchResults?.searchStrategy.join(', ')}...`, timestamp: Date.now() }) + '\n')
+        
+        // Second: send search results as structured data
+        if (searchResults && searchResults.sources.length > 0) {
+          statusUpdates.push(JSON.stringify({ 
+            type: 'search_results', 
+            query: searchResults.query,
+            sources: searchResults.sources,
+            strategy: searchResults.searchStrategy,
+            totalResults: searchResults.totalResults,
+            timestamp: Date.now()
+          }) + '\n')
+        }
+      }
+      
+      statusUpdates.push(JSON.stringify({ type: 'status', status: 'synthesizing', message: 'Synthesizing response...', timestamp: Date.now() }) + '\n')
+    }
 
-    // 13. Return streaming response
+    // If we have search results, augment the messages with search context
+    let finalMessages = messages
+    if (searchResults && searchResults.sources.length > 0) {
+      // Add search context to the system message or as a separate message
+      let searchContext = `\n\n=== WEB SEARCH RESULTS ===\n`
+      
+      // Add synthesized answer if available (high quality)
+      if (searchResults.synthesizedResponse) {
+        searchContext += `Summary: ${searchResults.synthesizedResponse}\n\n`
+      }
+      
+      // Add sources
+      searchContext += `Sources:\n${searchResults.sources.slice(0, 5).map((s: any, i: number) => 
+        `[${i + 1}] ${s.title}\n${s.snippet}\nSource: ${s.url}`
+      ).join('\n\n')}`
+      
+      searchContext += `\n=== END SEARCH RESULTS ===\n\nInstructions: Use the above search results to answer the user's question. Cite sources using [1], [2] format.`
+      
+      // Find the last message and append search context
+      finalMessages = [...messages]
+      const lastUserMessage = finalMessages[finalMessages.length - 1]
+      if (lastUserMessage.role === 'user') {
+        finalMessages[finalMessages.length - 1] = {
+          ...lastUserMessage,
+          content: typeof lastUserMessage.content === 'string' 
+            ? lastUserMessage.content + searchContext
+            : lastUserMessage.content // Keep array format for multimodal
+        }
+      }
+    }
+
+    // Pass selected model if reasoning is enabled
+    const stream =  aiProvider.sendMessage({ messages: finalMessages })
+
+    // 13. Return streaming response with reasoning metadata
+    // Convert status updates to statusPills format
+    const statusPills = statusUpdates.map(update => {
+      try {
+        const parsed = JSON.parse(update.trim())
+        if (parsed.type === 'status') {
+          return {
+            status: parsed.status,
+            message: parsed.message,
+            timestamp: parsed.timestamp
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+      return null
+    }).filter(Boolean)
+    
+    const reasoningMetadata = shouldUseReasoning || shouldUseWebSearch ? {
+      statusPills: statusPills as any,
+      searchResults: searchResults || undefined
+    } : undefined
+    
+    console.log('📊 [chatService] Metadata being passed to stream:', {
+      shouldUseReasoning,
+      shouldUseWebSearch,
+      statusPillsCount: statusPills.length,
+      hasSearchResults: !!searchResults,
+      reasoningMetadata
+    })
+    
     return this.createStreamResponse(
       stream,
       assistantMessage.id,
       conversationId,
       userId,
       userMessage.id,
-      [] // No progress updates for now
+      statusUpdates,
+      {
+        reasoning_metadata: reasoningMetadata,
+        model_used: selectedModel || undefined
+      }
     )
   }
 
@@ -713,7 +863,11 @@ export class ChatService {
     conversationId: string,
     userId: string,
     userMessageId: string,
-    progressUpdates: string[] = []
+    progressUpdates: string[] = [],
+    metadata: {
+      reasoning_metadata?: any
+      model_used?: string
+    } = {}
   ) {
     const encoder = new TextEncoder()
     let fullResponse = ''
@@ -732,8 +886,19 @@ export class ChatService {
             controller.enqueue(encoder.encode(chunk))
           }
           
-          // Stream finished, save full response
-          await cloudDb.updateMessage(assistantMessageId, { content: fullResponse })
+          // Stream finished, save full response and metadata
+          console.log('💾 [chatService] Saving assistant message:', {
+            assistantMessageId,
+            contentLength: fullResponse.length,
+            hasReasoningMetadata: !!metadata.reasoning_metadata,
+            metadata: metadata.reasoning_metadata
+          })
+          
+          await cloudDb.updateMessage(assistantMessageId, { 
+            content: fullResponse,
+            reasoning_metadata: metadata.reasoning_metadata,
+            model_used: metadata.model_used
+          })
           
           // Generate embedding for assistant response
       // Fire-and-forget to avoid blocking
@@ -791,6 +956,136 @@ export class ChatService {
       console.error('❌ [chatService] Failed to generate embedding:', error)
       throw error  // Re-throw so caller can log it
     }
+  }
+
+  /**
+   * AGENTIC REQUEST HANDLER
+   * Orchestrates multi-source research with real-time status updates
+   * Uses Groq for fast intent analysis, then fetches from multiple sources in parallel
+   */
+  async handleAgenticRequest(
+    userId: string,
+    conversationId: string,
+    userMessage: string,
+    providedUserMessageId?: string,
+    providedAssistantMessageId?: string
+  ): Promise<Response> {
+    const { StatusEmitter } = await import('./agentic/status-emitter')
+    const { analyzeIntent } = await import('./agentic/intent-analyzer')
+    const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
+    const { ResponseSynthesizer } = await import('./agentic/response-synthesizer')
+    
+    const statusEmitter = new StatusEmitter()
+    const orchestrator = new SourceOrchestrator()
+    const synthesizer = new ResponseSynthesizer()
+    
+    // Create user message
+    const userMsg = await cloudDb.addMessage(conversationId, {
+      id: providedUserMessageId || undefined,
+      role: 'user',
+      content: userMessage,
+      attachments: [],
+    })
+    
+    // Create assistant message placeholder
+    const assistantMsg = await cloudDb.addMessage(conversationId, {
+      id: providedAssistantMessageId || undefined,
+      role: 'assistant',
+      content: '',
+      attachments: [],
+    })
+    
+    // Fetch recent conversation history for context
+    const { messages: recentMessages } = await cloudDb.getMessages(conversationId, 10)
+    const history = recentMessages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content }))
+      .reverse() // getMessages returns newest first, we want chronological order for context
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Step 1: Quick pattern detection
+          statusEmitter.emitStatus(controller, 'analyzing', 'Understanding question...')
+          const { quickAnalysis, sourcePlan } = await analyzeIntent(userMessage, history)
+          
+          console.log('[AgenticRequest] Intent analysis:', {
+            category: quickAnalysis.category,
+            sources: sourcePlan.sources,
+            reasoning: sourcePlan.reasoning
+          })
+          
+          // Step 2: Planning complete
+          statusEmitter.emitStatus(controller, 'analyzing', 'Planning research...')
+          
+          // Step 3: Fetch from sources
+          statusEmitter.emitStatus(controller, 'searching', 'Finding sources...')
+          const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
+          
+          // Step 4: Reading articles
+          statusEmitter.emitStatus(controller, 'searching', 'Reading articles...')
+          
+          // Small delay to show status
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Step 5: Analyzing information
+          statusEmitter.emitStatus(controller, 'synthesizing', 'Analyzing information...')
+          
+          // Step 6: Writing response
+          statusEmitter.emitStatus(controller, 'synthesizing', 'Writing response...')
+          
+          // Synthesize response
+          const { content, citations } = await synthesizer.synthesize(
+            userMessage,
+            sourceResults,
+            history
+          )
+          
+          // Emit the content
+          statusEmitter.emitContent(controller, content)
+          
+          // Add citations
+          if (citations.length > 0) {
+            statusEmitter.emitContent(
+              controller,
+              '\n\n## Sources\n' + 
+              citations.map((c, i) => `${i+1}. [${c.title}](${c.url})`).join('\n')
+            )
+          }
+          
+          // Save the full response to database
+          const fullContent = content + (citations.length > 0 
+            ? '\n\n## Sources\n' + citations.map((c, i) => `${i+1}. [${c.title}](${c.url})`).join('\n')
+            : '')
+          
+          await cloudDb.updateMessage(assistantMsg.id, { 
+            content: fullContent
+          })
+          
+          // Complete
+          statusEmitter.emitStatus(controller, 'complete', 'Complete')
+          controller.close()
+          
+        } catch (error) {
+          console.error('[AgenticRequest] Error:', error)
+          statusEmitter.emitContent(
+            controller,
+            `\n\n⚠️ An error occurred while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+          controller.close()
+        }
+      }
+    })
+    
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-User-Message-Id': userMsg.id,
+        'X-Assistant-Message-Id': assistantMsg.id
+      }
+    })
   }
 
   /**

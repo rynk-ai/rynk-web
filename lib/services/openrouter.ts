@@ -7,11 +7,16 @@ export class OpenRouterService implements AIProvider {
     this.baseUrl = ''
   }
 
-  async *sendMessage(params: ChatCompletionParams): AsyncGenerator<string, void, unknown> {
+  async *sendMessage(
+    params: ChatCompletionParams & { model?: string }
+  ): AsyncGenerator<string, void, unknown> {
     const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured')
 
-    console.log('📤 Sending message to OpenRouter API (Direct)...')
+    // Use provided model or default to Grok
+    const model = params.model || 'google/gemini-2.5-flash-lite'
+    
+    console.log('📤 Sending message to OpenRouter API (Direct)...', { model })
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -21,7 +26,7 @@ export class OpenRouterService implements AIProvider {
         'X-Title': 'Rynk',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-4.1-fast:free',
+        model,
         messages: params.messages,
         stream: true,
       }),
@@ -103,7 +108,7 @@ export class OpenRouterService implements AIProvider {
         'X-Title': 'Rynk',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-4.1-fast:free',
+        model: 'google/gemini-2.5-flash-lite',
         messages: params.messages,
         stream: false,
       }),

@@ -53,17 +53,17 @@ export const vectorDb = {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = Date.now()
-    
+
     await db.prepare(`
       INSERT INTO attachments_metadata (
-        id, messageId, userId, fileName, fileType, fileSize, r2Key, 
+        id, messageId, userId, fileName, fileType, fileSize, r2Key,
         chunkCount, processingStatus, createdAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, data.messageId, data.userId, data.fileName, data.fileType, data.fileSize, data.r2Key,
       data.chunkCount, data.processingStatus, now
     ).run()
-    
+
     return id
   },
 
@@ -92,14 +92,14 @@ export const vectorDb = {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = Date.now()
-    
+
     // 1. Store in D1 (Source of Truth)
     await db.prepare(`
       INSERT INTO file_chunks (
         id, attachmentId, userId, chunkIndex, content, vector, metadata, timestamp
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      id, data.attachmentId, data.userId, data.chunkIndex, data.content, 
+      id, data.attachmentId, data.userId, data.chunkIndex, data.content,
       JSON.stringify(data.vector), JSON.stringify(data.metadata), now
     ).run()
 
@@ -115,7 +115,7 @@ export const vectorDb = {
             attachmentId: data.attachmentId,
             chunkIndex: data.chunkIndex.toString(),
             content: data.content.substring(0, 1000), // Limit metadata size
-            ...data.metadata
+            ...Object.fromEntries(Object.entries(data.metadata || {}).map(([k, v]) => [k, String(v)]))
           }
         }]);
       }
@@ -127,7 +127,7 @@ export const vectorDb = {
   async getFileChunks(attachmentId: string): Promise<FileChunk[]> {
     const db = getDB()
     const results = await db.prepare('SELECT * FROM file_chunks WHERE attachmentId = ? ORDER BY chunkIndex ASC').bind(attachmentId).all()
-    
+
     return results.results.map((row: any) => ({
       ...row,
       vector: JSON.parse(row.vector as string),
@@ -137,7 +137,7 @@ export const vectorDb = {
 
   async searchFileChunks(attachmentId: string, queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
     const { limit = 5, minScore = 0.5 } = options
-    
+
     try {
       const index = getCloudflareContext().env.VECTORIZE_INDEX;
       if (index) {
@@ -156,7 +156,7 @@ export const vectorDb = {
             chunkIndex: parseInt(match.metadata?.chunkIndex as string || '0'),
             content: match.metadata?.content as string,
             vector: match.values || [], // Vectorize might not return values by default unless requested? Actually query returns matches.
-            // Note: We might not get the full content if we truncated it. 
+            // Note: We might not get the full content if we truncated it.
             // For full fidelity, we could fetch from D1 using ID, but for now let's use metadata.
             metadata: match.metadata,
             score: match.score
@@ -168,12 +168,12 @@ export const vectorDb = {
 
     // Fallback to D1 (Legacy)
     const chunks = await this.getFileChunks(attachmentId)
-    
+
     const results = chunks.map(chunk => ({
       ...chunk,
       score: cosineSimilarity(queryVector, chunk.vector)
     }))
-    
+
     return results
       .filter(r => r.score >= minScore)
       .sort((a, b) => b.score - a.score)
@@ -187,14 +187,14 @@ export const vectorDb = {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = Date.now()
-    
+
     await db.prepare(`
       INSERT INTO sources (id, hash, type, name, metadata, createdAt)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       id, data.hash, data.type, data.name, JSON.stringify(data.metadata), now
     ).run()
-    
+
     return id
   },
 
@@ -222,7 +222,7 @@ export const vectorDb = {
 async addKnowledgeChunk(data: { sourceId: string; content: string; vector: number[]; chunkIndex: number; metadata?: any }, options?: { waitForIndexing?: boolean }) {
   const db = getDB()
   const id = crypto.randomUUID()
-  
+
   // 1. Store content in D1 (no vector column)
   await db.prepare(`
     INSERT INTO knowledge_chunks (id, sourceId, content, chunkIndex, metadata)
@@ -230,7 +230,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   `).bind(
     id, data.sourceId, data.content, data.chunkIndex, JSON.stringify(data.metadata || {})
   ).run()
-  
+
   console.log(`✅ [vectorDb] Stored chunk ${id} in D1 (sourceId: ${data.sourceId})`);
 
   // 2. Store vector in Vectorize (required, not optional)
@@ -238,7 +238,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   if (!index) {
     throw new Error('Vectorize index not available - cannot store embeddings');
   }
-  
+
   const vectorMetadata = {
     type: 'knowledge_chunk',
     sourceId: data.sourceId,
@@ -247,13 +247,13 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   };
 
   // console.log(`🧠 [vectorDb] Upserting to Vectorize: ID=${id}, SourceID=${data.sourceId}, VectorDim=${data.vector.length}`);
-  
+
   await index.upsert([{
     id: id,
     values: data.vector,
     metadata: vectorMetadata
   }]);
-  
+
   // console.log(`✅ [vectorDb] Upserted vector to Vectorize for chunk ${id}`);
 
   // 3. Wait for Indexing (Optional - for last batch verification)
@@ -274,14 +274,14 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         if (verifyById.length > 0) {
           const chunk = verifyById[0];
           console.log(`🔍 [vectorDb] Chunk ${id} found in index. Metadata:`, JSON.stringify(chunk.metadata));
-          
+
           // Step 2: Verify sourceId filter works
           const verifyBySource = await index.query(data.vector, {
             topK: 1,
             filter: { sourceId: data.sourceId },
             returnMetadata: true
           });
-          
+
           if (verifyBySource.matches.length > 0) {
             console.log(`✅ [vectorDb] Chunk ${id} is SEARCHABLE via sourceId filter after ${Date.now() - startTime}ms`);
             indexed = true;
@@ -305,7 +305,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   async getKnowledgeChunks(sourceId: string) {
     const db = getDB()
     const results = await db.prepare('SELECT * FROM knowledge_chunks WHERE sourceId = ? ORDER BY chunkIndex ASC').bind(sourceId).all()
-    
+
     return results.results.map((row: any) => ({
       ...row,
       metadata: JSON.parse(row.metadata as string || '{}')
@@ -315,10 +315,10 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   // 3. Conversation Links
   async linkSourceToConversation(conversationId: string, sourceId: string, messageId?: string) {
     const db = getDB()
-    
+
     // Check if link already exists
     const existing = await db.prepare(`
-      SELECT id FROM conversation_sources 
+      SELECT id FROM conversation_sources
       WHERE conversationId = ? AND sourceId = ? AND (messageId = ? OR (messageId IS NULL AND ? IS NULL))
     `).bind(conversationId, sourceId, messageId || null, messageId || null).first()
 
@@ -329,7 +329,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
     const id = crypto.randomUUID()
     const now = Date.now()
-    
+
     await db.prepare(`
       INSERT INTO conversation_sources (id, conversationId, sourceId, messageId, createdAt)
       VALUES (?, ?, ?, ?, ?)
@@ -341,12 +341,12 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   async getSourcesForConversation(conversationId: string) {
     const db = getDB()
     console.log('🔍 [vectorDb] Getting sources for conversation:', conversationId)
-    
+
     const results = await db.prepare(`
-      SELECT 
-        cs.id as linkId, 
-        cs.sourceId, 
-        cs.messageId, 
+      SELECT
+        cs.id as linkId,
+        cs.sourceId,
+        cs.messageId,
         s.id as sourceTableId,
         s.hash,
         s.type,
@@ -357,7 +357,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
       JOIN sources s ON cs.sourceId = s.id
       WHERE cs.conversationId = ?
     `).bind(conversationId).all()
-    
+
     return results.results.map((row: any) => ({
       ...row,
       metadata: JSON.parse(row.metadata as string || '{}')
@@ -367,10 +367,10 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   // 4. Project Links
   async linkSourceToProject(projectId: string, sourceId: string) {
     const db = getDB()
-    
+
     // Check if link already exists
     const existing = await db.prepare(`
-      SELECT id FROM conversation_sources 
+      SELECT id FROM conversation_sources
       WHERE projectId = ? AND sourceId = ? AND conversationId IS NULL
     `).bind(projectId, sourceId).first()
 
@@ -381,25 +381,25 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
     const id = crypto.randomUUID()
     const now = Date.now()
-    
+
     await db.prepare(`
       INSERT INTO conversation_sources (id, conversationId, sourceId, messageId, projectId, createdAt)
       VALUES (?, NULL, ?, NULL, ?, ?)
     `).bind(
       id, sourceId, projectId, now
     ).run()
-    
+
     console.log(`✅ [vectorDb] Linked source ${sourceId} to project ${projectId}`)
   },
 
   async getSourcesForProject(projectId: string) {
     const db = getDB()
     console.log('🔍 [vectorDb] Getting sources for project:', projectId)
-    
+
     const results = await db.prepare(`
-      SELECT 
-        cs.id as linkId, 
-        cs.sourceId, 
+      SELECT
+        cs.id as linkId,
+        cs.sourceId,
         s.id as sourceTableId,
         s.hash,
         s.type,
@@ -410,7 +410,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
       JOIN sources s ON cs.sourceId = s.id
       WHERE cs.projectId = ?
     `).bind(projectId).all()
-    
+
     return results.results.map((row: any) => ({
       ...row,
       metadata: JSON.parse(row.metadata as string || '{}')
@@ -431,7 +431,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
     }
 
     console.log('🔍 [searchKnowledgeBase] Querying Vectorize...');
-    
+
     // DEBUG: Try one query WITHOUT filter to see if anything exists
     if (sourceIds.length > 0) {
       try {
@@ -444,9 +444,9 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         console.error('❌ [DEBUG] Unfiltered search failed:', e);
       }
     }
-    
+
     // Parallel query for each sourceId
-    const searchPromises = sourceIds.map(sourceId => 
+    const searchPromises = sourceIds.map(sourceId =>
       index.query(queryVector, {
         topK: limit,
         filter: { sourceId: sourceId }, // Simple equality filter
@@ -464,38 +464,38 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
     const results = await Promise.all(searchPromises);
     console.log('✅ [searchKnowledgeBase] Vectorize returned', results.length, 'result sets');
-    
+
     // Flatten and sort
     const allMatches = results.flatMap(r => r.matches);
     console.log('🔍 [searchKnowledgeBase] Total matches from Vectorize:', allMatches.length);
-    
+
     if (allMatches.length === 0) {
       console.log('⚠️ [searchKnowledgeBase] No matches found in Vectorize');
       return [];
     }
-    
+
     // Filter by score and deduplicate
     const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
     const filtered = uniqueMatches
       .filter(match => match.score >= minScore)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
-    
+
     console.log('✅ [searchKnowledgeBase] Filtered to', filtered.length, 'chunks above threshold');
-    
+
     // Fetch full content from D1
     const db = getDB();
     const chunkIds = filtered.map(m => m.id);
-    
+
     if (chunkIds.length === 0) return [];
-    
+
     const placeholders = chunkIds.map(() => '?').join(',');
     const d1Results = await db.prepare(
       `SELECT * FROM knowledge_chunks WHERE id IN (${placeholders})`
     ).bind(...chunkIds).all();
-    
+
     console.log('🔍 [searchKnowledgeBase] Fetched', d1Results.results.length, 'chunks from D1');
-    
+
     // Merge D1 content with Vectorize scores
     const chunks = d1Results.results.map((row: any) => {
       const match = filtered.find(m => m.id === row.id);
@@ -509,19 +509,19 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         vector: [] // No longer stored in D1
       };
     });
-    
+
     // Sort by score (Vectorize order)
     const sorted = chunks.sort((a, b) => b.score - a.score);
-    
+
     console.log('✅ [searchKnowledgeBase] Returning', sorted.length, 'chunks with content');
     return sorted;
   },
   // --- CLOUDFLARE VECTORIZE (Message Memory) ---
 
   async upsertMessageMemory(
-    messageId: string, 
-    conversationId: string, 
-    content: string, 
+    messageId: string,
+    conversationId: string,
+    content: string,
     vector: number[],
     projectId?: string
   ) {
@@ -534,20 +534,16 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
       console.log('🧠 [vectorDb] Upserting to Vectorize:', { messageId, conversationId, projectId });
 
-      const metadata: any = {
-        conversationId,
-        content: content.substring(0, 1000), // Store snippet in metadata for retrieval
-        type: 'message'
-      }
-
-      if (projectId) {
-        metadata.projectId = projectId
-      }
-
       await index.upsert([{
         id: messageId,
         values: vector,
-        metadata
+        metadata: {
+          conversationId: String(conversationId),
+          content: String(content || '').substring(0, 1000),
+          type: 'message',
+          projectId: String(projectId || 'none'),
+          timestamp: Date.now().toString()
+        }
       }]);
     } catch (error) {
       console.error('❌ [vectorDb] Failed to upsert to Vectorize:', error);
@@ -555,8 +551,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   },
 
   async searchProjectMemory(
-    projectId: string, 
-    queryVector: number[], 
+    projectId: string,
+    queryVector: number[],
     options: { limit?: number, minScore?: number, excludeConversationId?: string } = {}
   ) {
     try {
@@ -582,10 +578,10 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         .filter(match => {
           // Filter by score
           if (match.score < minScore) return false;
-          
+
           // Filter excluded conversation
           if (excludeConversationId && match.metadata?.conversationId === excludeConversationId) return false;
-          
+
           return true;
         })
         .map(match => ({
@@ -602,8 +598,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   },
 
   async searchConversationMemory(
-    conversationId: string, 
-    queryVector: number[], 
+    conversationId: string,
+    queryVector: number[],
     options: { limit?: number, minScore?: number } = {}
   ) {
     try {
