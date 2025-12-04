@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
 import { Message, MessageContent, MessageActions, MessageAction } from '@/components/prompt-kit/message';
@@ -11,7 +11,8 @@ import { AssistantSkeleton } from '@/components/ui/assistant-skeleton';
 import { cn } from '@/lib/utils';
 import { DeleteMessageDialog } from '@/components/delete-message-dialog';
 import { ReasoningDisplay } from '@/components/chat/reasoning-display';
-import { Source } from '@/components/prompt-kit/source';
+import { SourcesFooter } from '@/components/chat/sources-footer';
+import { formatCitationsFromSearchResults, type Citation } from '@/lib/types/citation';
 
 import { VersionIndicator } from '@/components/ui/version-indicator';
 
@@ -155,6 +156,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       ? streamingSearchResults 
       : (message.reasoning_metadata?.searchResults || lastStreamingSearchResults.current);
     const hasReasoning = (effectiveStatusPills && effectiveStatusPills.length > 0) || !!effectiveSearchResults;
+    
+    // Convert search results to citations for the citation system
+    const citations = useMemo(
+      () => formatCitationsFromSearchResults(effectiveSearchResults),
+      [effectiveSearchResults]
+    );
 
     // Debug logging
     console.log('[ChatMessageItem] Reasoning metadata:', {
@@ -165,7 +172,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       messageReasoningMetadata: !!message.reasoning_metadata,
       effectiveStatusPillsCount: effectiveStatusPills?.length || 0,
       effectiveSearchResultsSources: effectiveSearchResults?.sources?.length || 0,
-      hasReasoning
+      hasReasoning,
+      citationsCount: citations?.length || 0
     })
 
     // Show skeleton only if: last message, sending, AND no content at all
@@ -176,6 +184,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     if (showSkeleton) {
       return <AssistantSkeleton />;
     }
+
 
     return (
       <div
@@ -195,19 +204,19 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 defaultCollapsed={false}
               />
               
-              <MessageContent markdown className="!bg-transparent !p-0 !text-foreground">
+              {/* Message content with inline citations */}
+              <Markdown 
+                className="!bg-transparent !p-0 !text-foreground"
+                citations={citations}
+              >
                 {displayContent}
-              </MessageContent>
+              </Markdown>
               
               {/* Search Sources - Show after content if available */}
-              {effectiveSearchResults && effectiveSearchResults.sources && effectiveSearchResults.sources.length > 0 && (
-                <Source 
-                  sources={effectiveSearchResults.sources.map((s: any) => ({
-                    url: s.url,
-                    title: s.title,
-                    description: s.snippet
-                  }))}
-                  showAsCards={true}
+              {citations && citations.length > 0 && !isStreaming && (
+                <SourcesFooter 
+                  citations={citations}
+                  variant="compact"
                 />
               )}
             </div>

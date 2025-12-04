@@ -46,7 +46,7 @@ export async function searchWikipedia(options: WikipediaSearchOptions): Promise<
       throw new Error(`Wikipedia search error: ${searchResponse.status}`)
     }
 
-    const searchData = await searchResponse.json()
+    const searchData = await searchResponse.json() as any
     const searchResults = searchData.query?.search || []
 
     if (searchResults.length === 0) {
@@ -75,7 +75,7 @@ export async function searchWikipedia(options: WikipediaSearchOptions): Promise<
       throw new Error(`Wikipedia content error: ${contentResponse.status}`)
     }
 
-    const contentData = await contentResponse.json()
+    const contentData = await contentResponse.json() as any
     const pages = contentData.query?.pages || {}
 
     // Transform into standardized format
@@ -120,7 +120,7 @@ export async function getWikipediaPage(title: string, language: string = 'en'): 
       throw new Error(`Wikipedia page error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = await response.json() as any
     const pages = data.query?.pages || {}
     const page = Object.values(pages)[0] as any
 

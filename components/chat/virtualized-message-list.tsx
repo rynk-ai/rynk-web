@@ -42,6 +42,7 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
   searchResults
 }: VirtualizedMessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const isAtBottom = useRef(true)
 
   
   // Auto-scroll to bottom when new messages arrive (instant, no animation)
@@ -59,9 +60,9 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
     }
   }, [messages.length, isSending])
 
-  // Also scroll when streaming updates
+  // Also scroll when streaming updates - ONLY if user is already at bottom
   useEffect(() => {
-    if (streamingMessageId) {
+    if (streamingMessageId && isAtBottom.current) {
       virtuosoRef.current?.scrollToIndex({
         index: messages.length - 1,
         align: 'end',
@@ -124,6 +125,9 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
       data={messages}
       itemContent={itemContent}
       followOutput="auto"
+      atBottomStateChange={(isBottom) => {
+        isAtBottom.current = isBottom
+      }}
       initialTopMostItemIndex={messages.length - 1}
       className="h-full scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40"
       atBottomThreshold={50}

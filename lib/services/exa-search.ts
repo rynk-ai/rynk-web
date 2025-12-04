@@ -78,7 +78,7 @@ export async function searchWithExa(options: ExaSearchOptions): Promise<ExaSearc
       throw new Error(`Exa API error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = await response.json() as any
     
     return {
       results: data.results || [],
@@ -122,7 +122,7 @@ export async function findSimilarWithExa(url: string, numResults: number = 5): P
       throw new Error(`Exa findSimilar error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = await response.json() as any
     return data.results || []
   } catch (error) {
     console.error('[exa-search] findSimilar failed:', error)

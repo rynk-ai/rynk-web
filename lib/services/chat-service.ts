@@ -312,7 +312,12 @@ export class ChatService {
         `[${i + 1}] ${s.title}\n${s.snippet}\nSource: ${s.url}`
       ).join('\n\n')}`
       
-      searchContext += `\n=== END SEARCH RESULTS ===\n\nInstructions: Use the above search results to answer the user's question. Cite sources using [1], [2] format.`
+      searchContext += `\n=== END SEARCH RESULTS ===\n\nInstructions:
+1. Use the above search results to answer the user's question.
+2. CITATION RULE: You MUST cite your sources using [1], [2] format immediately after the information is used.
+3. The numbers [n] must correspond EXACTLY to the source numbers in the list above.
+4. Do not create fake citations or use numbers that are not in the source list.
+5. If multiple sources support a statement, use [1][2].`
       
       // Find the last message and append search context
       finalMessages = [...messages]
