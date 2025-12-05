@@ -430,6 +430,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     JSON.stringify(prevProps.message.referencedFolders) === JSON.stringify(nextProps.message.referencedFolders) &&
     // Version check
     prevProps.versions?.length === nextProps.versions?.length &&
-    prevProps.versions?.[0]?.id === nextProps.versions?.[0]?.id
+    prevProps.versions?.[0]?.id === nextProps.versions?.[0]?.id &&
+    // Reasoning metadata check
+    JSON.stringify(prevProps.message.reasoning_metadata) === JSON.stringify(nextProps.message.reasoning_metadata)
   );
 });

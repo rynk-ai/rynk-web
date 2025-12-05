@@ -269,7 +269,9 @@ export const cloudDb = {
         referencedConversations: JSON.parse(m.referencedConversations as string || '[]'),
         referencedFolders: JSON.parse(m.referencedFolders as string || '[]'),
         timestamp: m.createdAt,
-        versionNumber: m.versionNumber || 1
+        versionNumber: m.versionNumber || 1,
+        reasoning_metadata: m.reasoning_metadata ? JSON.parse(m.reasoning_metadata as string) : undefined,
+        web_annotations: m.web_annotations ? JSON.parse(m.web_annotations as string) : undefined
       } as CloudMessage
     ]))
     
@@ -345,7 +347,9 @@ export const cloudDb = {
         referencedConversations: JSON.parse(m.referencedConversations as string || '[]'),
         referencedFolders: JSON.parse(m.referencedFolders as string || '[]'),
         timestamp: m.createdAt, // Populate timestamp alias
-        versionNumber: m.versionNumber || 1 // Default to 1
+        versionNumber: m.versionNumber || 1, // Default to 1
+        reasoning_metadata: m.reasoning_metadata ? JSON.parse(m.reasoning_metadata as string) : undefined,
+        web_annotations: m.web_annotations ? JSON.parse(m.web_annotations as string) : undefined
       }
     }).filter(Boolean) as CloudMessage[]
 
