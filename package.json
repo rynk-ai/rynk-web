@@ -56,7 +56,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "geist": "^1.5.1",
-    "groq-sdk": "^0.37.0",
+
     "idb": "^8.0.3",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^0.553.0",

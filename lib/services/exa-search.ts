@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk'
+
 
 /**
  * Exa API - Neural semantic search optimized for AI applications

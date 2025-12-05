@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk'
+
 import { QuickAnalysis, SourcePlan } from './types'
 
 /**
@@ -9,20 +9,33 @@ export async function quickPatternDetection(
   query: string,
   history: { role: string; content: string }[] = []
 ): Promise<QuickAnalysis> {
-  const groq = new Groq({ 
-    apiKey: process.env.GROQ_API_KEY!
-  })
+  const apiKey = process.env.GROQ_API_KEY
+  
+  if (!apiKey) {
+    console.error('[quickPatternDetection] Missing GROQ_API_KEY')
+    return {
+      category: 'complex',
+      needsWebSearch: true,
+      confidence: 0
+    }
+  }
   
   // Format recent history (last 3 messages) for context
   const recentHistory = history.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')
   const context = recentHistory ? `\nRecent conversation:\n${recentHistory}\n` : ''
   
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: [{
-        role: 'system',
-        content: `You are a query categorizer. Analyze the user's query and determine:
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [{
+          role: 'system',
+          content: `You are a query categorizer. Analyze the user's query and determine:
 1. What category it falls into
 2. Whether it needs web search for current information
 3. Your confidence level (0-1)
@@ -40,16 +53,22 @@ Examples:
 - "How do I implement binary search?" → technical, needsWebSearch: false
 - "Hello, how are you?" → conversational, needsWebSearch: false
 - "Compare React vs Vue for 2024" → complex, needsWebSearch: true`
-      }, {
-        role: 'user',
-        content: `${context}User query: "${query}"`
-      }],
-      response_format: { type: 'json_object' },
-      temperature: 0,
-      max_tokens: 150
+        }, {
+          role: 'user',
+          content: `${context}User query: "${query}"`
+        }],
+        response_format: { type: 'json_object' },
+        temperature: 0,
+        max_tokens: 150
+      })
     })
-    
-    const result = JSON.parse(completion.choices[0].message.content || '{}')
+
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json() as any
+    const result = JSON.parse(data.choices[0].message.content || '{}')
     return result as QuickAnalysis
   } catch (error) {
     console.error('[quickPatternDetection] Error:', error)

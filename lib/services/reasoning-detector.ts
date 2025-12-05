@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk'
+
 
 /**
  * Reasoning Detector - Analyzes queries to determine if they need extended reasoning
@@ -27,16 +27,37 @@ export type ReasoningMode = 'auto' | 'on' | 'online' | 'off'
 export async function detectReasoning(
   query: string
 ): Promise<ReasoningDetectionResult> {
-  const groq = new Groq({ 
-    apiKey: process.env.GROQ_API_KEY!
-  })
+  const apiKey = process.env.GROQ_API_KEY
   
+  if (!apiKey) {
+    console.error('[detectReasoning] Missing GROQ_API_KEY')
+    return {
+      needsReasoning: false,
+      needsWebSearch: false,
+      confidence: 0,
+      reasoning: 'Missing API Key',
+      detectedTypes: {
+        math: false,
+        code: false,
+        logic: false,
+        analysis: false,
+        currentEvents: false
+      }
+    }
+  }
+
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: [{
-        role: 'system',
-        content: `You are a query classifier. Analyze if the query needs extended reasoning (deep thinking, step-by-step analysis).
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [{
+          role: 'system',
+          content: `You are a query classifier. Analyze if the query needs extended reasoning (deep thinking, step-by-step analysis).
 
 Queries that NEED reasoning:
 - Mathematical calculations or word problems
@@ -72,16 +93,22 @@ Examples:
 - "Debug this React code" → needsReasoning: true, needsWebSearch: false, code: true
 - "Compare React vs Vue in 2024" → needsReasoning: true, needsWebSearch: true, analysis: true, currentEvents: true
 - "Hello, how are you?" → needsReasoning: false, needsWebSearch: false`
-      }, {
-        role: 'user',
-        content: query
-      }],
-      response_format: { type: 'json_object' },
-      temperature: 0,
-      max_tokens: 200
+        }, {
+          role: 'user',
+          content: query
+        }],
+        response_format: { type: 'json_object' },
+        temperature: 0,
+        max_tokens: 200
+      })
     })
-    
-    const result = JSON.parse(completion.choices[0].message.content || '{}')
+
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data :any= await response.json()
+    const result = JSON.parse(data.choices[0].message.content || '{}')
     return result as ReasoningDetectionResult
   } catch (error) {
     console.error('[detectReasoning] Error:', error)
