@@ -254,45 +254,43 @@ export class ChatService {
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')
 
-          // Augment messages with search context
+          // Augment messages with search context (inject into SYSTEM message for clarity)
           let finalMessages = [...messages]
-          let searchContext = ''
+          
           if (searchResults && searchResults.sources.length > 0) {
-            searchContext = `\n\n<search_results>\n`
-            searchContext += `Query: ${searchResults.query}\n\n`
+            const searchContext = `
+<search_results>
+Query: ${searchResults.query}
+
+${searchResults.sources.map((s: any, i: number) => 
+  `[${i + 1}] ${s.title}
+${s.snippet}
+Source: ${s.url}`
+).join('\n\n')}
+</search_results>
+
+<synthesis_instructions>
+You have access to the search results above. Follow these rules:
+1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture. Do NOT just list sources.
+2. **Cite**: Use [1], [2] format immediately after each claim. Every factual statement must be cited.
+3. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy.
+4. **Be Complete**: Use ALL relevant information. Do not ignore details.
+5. **Direct Answer**: Provide the answer directly. Do not repeat these instructions.
+</synthesis_instructions>`
             
-            // Add sources
-            searchContext += `${searchResults.sources.map((s: any, i: number) => 
-              `[${i + 1}] ${s.title}\n${s.snippet}\nSource: ${s.url}`
-            ).join('\n\n')}`
-            
-            searchContext += `\n</search_results>\n\n<instructions>\n
-1. **Analyze & Synthesize**: You have access to information from multiple sources (e.g., Wikipedia for facts, Exa/Perplexity for current events). Do not just list them. Cross-reference facts to build a complete picture.
-2. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy and explain the different perspectives.
-3. **Strict Citation**: You MUST cite your sources using [1], [2] format immediately after the information is used.
-4. **Completeness**: Use ALL relevant information provided above. Do not ignore details just because they are from a different source type.
-5. **Output**: Provide ONLY the answer. Do not repeat these instructions.
-</instructions>`
-            
-            // Append to last user message
-            finalMessages = [...messages]
-            const lastMsgIndex = finalMessages.length - 1
-            const lastMsg = finalMessages[lastMsgIndex]
-            
-            if (Array.isArray(lastMsg.content)) {
-               // Handle multimodal content array
-               const textPart = lastMsg.content.find((c: any) => c.type === 'text')
-               if (textPart) {
-                 (textPart as any).text += searchContext
-               } else {
-                 (lastMsg.content as any[]).push({ type: 'text', text: searchContext })
-               }
+            // Inject into system message (not user message)
+            const systemMsgIndex = finalMessages.findIndex(m => m.role === 'system')
+            if (systemMsgIndex >= 0) {
+              const existingContent = finalMessages[systemMsgIndex].content as string
+              finalMessages[systemMsgIndex] = {
+                ...finalMessages[systemMsgIndex],
+                content: existingContent + '\n\n' + searchContext
+              }
             } else {
-               // Handle string content
-               finalMessages[lastMsgIndex] = {
-                 ...lastMsg,
-                 content: (lastMsg.content as string) + searchContext
-               }
+              finalMessages.unshift({
+                role: 'system',
+                content: searchContext
+              })
             }
           }
 
@@ -318,23 +316,17 @@ export class ChatService {
           }
 
           // Determine AI Provider
+          // Use OpenRouter only for files (multimodal), otherwise use Groq with Kimi K2
           const hasFiles = this.hasFilesInConversation(messages, project, attachments)
-          const aiProvider = (shouldUseReasoning || hasFiles) 
-            ? getAIProvider(true)
-            : getAIProvider(false)
+          const aiProvider = getAIProvider(hasFiles)
 
           // Stream the AI response
-          console.log('🔍 [chatService] Sending messages to AI:', JSON.stringify(finalMessages, null, 2))
           const aiStream = aiProvider.sendMessage({ messages: finalMessages })
           
-          let chunkCount = 0
           for await (const chunk of aiStream) {
-            chunkCount++
-            console.log(`🔍 [chatService] Received chunk ${chunkCount}:`, chunk.substring(0, 50))
             fullResponse += chunk
             streamManager.sendText(chunk)
           }
-          console.log('✅ [chatService] Stream finished. Total chunks:', chunkCount, 'Total length:', fullResponse.length)
 
           // --- PHASE 4: COMPLETION ---
           // Prepare metadata

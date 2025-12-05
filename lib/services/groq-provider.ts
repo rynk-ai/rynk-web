@@ -15,7 +15,7 @@ export class GroqProvider implements AIProvider {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: params.messages,
         stream: true,
       }),
@@ -95,7 +95,7 @@ export class GroqProvider implements AIProvider {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: params.messages,
         stream: false,
       }),
