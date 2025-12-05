@@ -131,7 +131,7 @@ export function ConversationList({
   return (
     <>
       {groupedByTime.map((group) => (
-        <div key={group.period} className="my-2 px-2">
+        <div key={group.period} className="mb-2  mt-3 px-2">
           <div className="mb-2 px-2 text-xs font-medium text-muted-foreground">
             {group.period}
           </div>

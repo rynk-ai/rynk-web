@@ -83,7 +83,6 @@ export function UserProfileDropdown() {
           <div className="flex-1 text-left overflow-hidden">
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-medium truncate">{user.name}</span>
-              <TierIcon className={`h-3.5 w-3.5 ${tierColors[tier]}`} />
             </div>
             <div className="text-xs text-muted-foreground truncate">
               {user.email}
@@ -101,7 +100,6 @@ export function UserProfileDropdown() {
                 tier === 'standard' ? 'bg-blue-500/10 text-blue-500' :
                 'bg-muted text-muted-foreground'
               }`}>
-                <TierIcon className="h-3 w-3" />
                 {tierNames[tier]}
               </span>
             </div>
@@ -121,7 +119,7 @@ export function UserProfileDropdown() {
         )}
         <DropdownMenuItem onClick={handleManageSubscription}>
           <CreditCard className="mr-2 h-4 w-4" />
-          <span className="flex-1">Manage Subscription</span>
+          <span className="flex-1">Subscription</span>
           {tier === 'free' && (
             <span className="text-xs text-primary font-medium">Upgrade</span>
           )}

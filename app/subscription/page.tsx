@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { toast } from 'sonner'
-import { Check, Sparkles, Zap, Crown, Loader2 } from 'lucide-react'
+import { Check, Sparkles, Zap, Crown, Loader2, MoveLeftIcon, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
 type Tier = 'free' | 'standard' | 'standard_plus'
 
@@ -31,7 +32,7 @@ const tierConfig = {
     ]
   },
   standard: {
-    name: 'Standard',
+    name: 'Rynk+',
     price: 5.99,
     queries: 2500,
     icon: Zap,
@@ -45,7 +46,7 @@ const tierConfig = {
     ]
   },
   standard_plus: {
-    name: 'Standard+',
+    name: 'Rynk++',
     price: 7.99,
     queries: 2500,
     icon: Crown,
@@ -135,6 +136,9 @@ export default function SubscriptionPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-5xl px-4 py-12">
+        <Link href='/chat' className='flex items-center gap-1 border w-min px-3 py-1 rounded-lg hover:bg-muted-foreground/50'>
+          <ArrowLeft className='font-thin h-4 w-4'/>Chat
+        </Link >
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-3xl font-bold">Subscription</h1>
@@ -144,57 +148,47 @@ export default function SubscriptionPage() {
         </div>
 
         {/* Current Plan Card */}
-        <div className="mb-12 rounded-2xl border bg-card p-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className={`rounded-xl p-3 ${currentConfig.bgColor}`}>
-              <currentConfig.icon className={`h-6 w-6 ${currentConfig.color}`} />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold">{currentConfig.name} Plan</h2>
-              <p className="text-sm text-muted-foreground">
-                {subscription?.status === 'active' ? 'Active' : 
-                 subscription?.status === 'canceled' ? 'Canceled (access until period ends)' : 
-                 'Current Plan'}
-              </p>
-            </div>
-          </div>
+        <div className="mb-12 rounded-2xl  p-8">
+
 
           {/* Usage Stats */}
-          <div className="grid gap-6 sm:grid-cols-3">
-            <div className="rounded-lg bg-muted/50 p-4">
+          <div className="grid gap-6 sm:grid-cols-3 max-w-lg mx-auto">
+            <div className="flex flex-col items-center p-4">
               <p className="text-sm text-muted-foreground">Credits Remaining</p>
-              <p className="text-2xl font-bold">{subscription?.credits.toLocaleString() || 0}</p>
+              <p className="text-xl font-semibold">{subscription?.credits.toLocaleString() || 0}</p>
             </div>
-            <div className="rounded-lg bg-muted/50 p-4">
+            <div className="flex flex-col items-center p-4">
               <p className="text-sm text-muted-foreground">Monthly Allowance</p>
-              <p className="text-2xl font-bold">{currentConfig.queries.toLocaleString()}</p>
+              <p className="text-xl font-semibold">{currentConfig.queries.toLocaleString()}</p>
             </div>
-            <div className="rounded-lg bg-muted/50 p-4">
+            <div className="flex flex-col items-center p-4">
               <p className="text-sm text-muted-foreground">Next Reset</p>
-              <p className="text-2xl font-bold">{formatResetDate(subscription?.creditsResetAt || null)}</p>
+              <p className="text-xl font-semibold">{formatResetDate(subscription?.creditsResetAt || null)}</p>
             </div>
           </div>
 
           {/* Extra Credits Button */}
-          <div className="mt-6 pt-6 border-t">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Need more credits?</p>
-                <p className="text-sm text-muted-foreground">Get 500 extra credits for $2</p>
+          {currentTier !== 'free' && (
+            <div className="mt-6 pt-6 border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Need more credits?</p>
+                  <p className="text-sm text-muted-foreground">Get 500 extra credits for $2</p>
+                </div>
+                <button
+                  onClick={() => handleUpgrade('extra')}
+                  disabled={checkoutLoading === 'extra'}
+                  className="inline-flex items-center gap-2  bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {checkoutLoading === 'extra' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>Buy Credits</>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => handleUpgrade('extra')}
-                disabled={checkoutLoading === 'extra'}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {checkoutLoading === 'extra' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>Buy Credits</>
-                )}
-              </button>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Plan Comparison */}
@@ -207,7 +201,7 @@ export default function SubscriptionPage() {
             return (
               <div 
                 key={tier}
-                className={`relative rounded-2xl border p-6 ${
+                className={`relative rounded-2xl p-6 ${
                   isCurrentPlan ? 'border-primary ring-2 ring-primary/20' : 'border-border'
                 }`}
               >
@@ -218,10 +212,6 @@ export default function SubscriptionPage() {
                     </span>
                   </div>
                 )}
-
-                <div className={`inline-flex rounded-xl p-3 ${config.bgColor} mb-4`}>
-                  <TierIcon className={`h-6 w-6 ${config.color}`} />
-                </div>
 
                 <h4 className="text-lg font-semibold">{config.name}</h4>
                 <p className="mt-1 text-3xl font-bold">
@@ -241,7 +231,7 @@ export default function SubscriptionPage() {
                 <button
                   onClick={() => handleUpgrade(tier)}
                   disabled={isCurrentPlan || checkoutLoading === tier}
-                  className={`mt-6 w-full rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                  className={`mt-6 w-full  px-4 py-2.5 text-sm font-medium transition-colors ${
                     isCurrentPlan 
                       ? 'bg-muted text-muted-foreground cursor-not-allowed'
                       : 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50'

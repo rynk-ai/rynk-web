@@ -59,7 +59,7 @@ export const FolderListItem = memo(function FolderListItem({
   );
 
   return (
-    <Collapsible className="mb-5 group/collapsible">
+    <Collapsible className="group/collapsible">
       <div className="mb-0.5 flex items-center justify-between px-2 py-1 group/folder hover:bg-muted/50 rounded-md transition-colors">
         <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
           <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
