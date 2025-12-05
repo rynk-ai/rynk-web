@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
       conversationId, 
       attachments, 
       referencedConversations, 
-      referencedFolders 
+      referencedFolders,
+      useReasoning       // Reasoning mode: 'auto' | 'on' | 'online' | 'off'
     } = await request.json() as any
 
     console.log('📨 [/api/chat] Raw Request Body:', {
@@ -48,7 +49,8 @@ export async function POST(request: NextRequest) {
       referencedConversations,
       referencedFolders,
       userMessageIdHeader,
-      assistantMessageIdHeader
+      assistantMessageIdHeader,
+      useReasoning || 'auto'
     )
 
   } catch (error: any) {

@@ -1122,6 +1122,30 @@ export const cloudDb = {
     }))
   },
 
+  async getFolder(folderId: string): Promise<Folder | null> {
+    const db = getDB()
+    
+    const folder = await db.prepare('SELECT * FROM folders WHERE id = ?').bind(folderId).first()
+    if (!folder) return null
+    
+    // Get conversation IDs for this folder
+    const folderConvs = await db.prepare(
+      'SELECT conversationId FROM folder_conversations WHERE folderId = ?'
+    ).bind(folderId).all()
+    
+    const conversationIds = folderConvs.results.map((row: any) => row.conversationId as string)
+    
+    return {
+      id: folder.id as string,
+      userId: folder.userId as string,
+      name: folder.name as string,
+      description: folder.description as string | undefined,
+      createdAt: new Date(folder.createdAt as string).getTime(),
+      updatedAt: new Date(folder.updatedAt as string).getTime(),
+      conversationIds
+    }
+  },
+
   async createFolder(userId: string, name: string, description?: string, conversationIds?: string[]): Promise<Folder> {
     const db = getDB()
     const id = crypto.randomUUID()

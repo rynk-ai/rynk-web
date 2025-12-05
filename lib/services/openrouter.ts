@@ -29,6 +29,7 @@ export class OpenRouterService implements AIProvider {
         model,
         messages: params.messages,
         stream: true,
+        max_tokens: 8192, // Prevent credit exhaustion with large contexts
       }),
     })
 

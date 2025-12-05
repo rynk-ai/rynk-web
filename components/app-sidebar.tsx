@@ -336,19 +336,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <Plus className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">New Chat</span>
             </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={handleCreateFolder}
-                >
-                  <FolderPlus className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New Folder</TooltipContent>
-            </Tooltip>
+            {!activeProjectId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={handleCreateFolder}
+                  >
+                    <FolderPlus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New Folder</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -417,74 +419,77 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
 
 
-          {/* Folders Section - Show grouped conversations */}
-          <div className="px-3 mb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Folders</h2>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-4 w-4">
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      <span className="sr-only">What are folders?</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-sm">
-                    <p>
-                      Folders help you organize your chats by grouping related conversations together.
-                      You can reference these organized chats in your conversation input to maintain context across your chats.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={handleCreateFolder}
-              >
-                <Plus className="h-4 w-4" />
-                <span className="sr-only">New Folder</span>
-              </Button>
-            </div>
-          </div>
-
-          {isLoadingFolders ? (
-            <div className="px-5 space-y-3 mb-5">
-              {[...Array(2)].map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-6 w-32" />
-                  <div className="pl-6 space-y-1.5">
-                    <Skeleton className="h-6 w-full" />
-                    <Skeleton className="h-6 w-4/5" />
+          {/* Folders Section - Show grouped conversations (hidden on project pages) */}
+          {!activeProjectId && (
+            <>
+              <div className="px-3 mb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Folders</h2>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-4 w-4">
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          <span className="sr-only">What are folders?</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-sm">
+                        <p>
+                          Folders help you organize your chats by grouping related conversations together.
+                          You can reference these organized chats in your conversation input to maintain context across your chats.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={handleCreateFolder}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="sr-only">New Folder</span>
+                  </Button>
                 </div>
-              ))}
-            </div>
-          ) : folders.length === 0 ? (
-            <div className="text-xs text-center text-muted-foreground py-4 px-4">
-              No folders yet.
-              <br />
-              Create one to organize your chats!
-            </div>
-          ) : (
+              </div>
 
-            folders.map((folder) => (
-              <FolderListItem
-                key={folder.id}
-                folder={folder}
-                conversations={conversations}
-                currentConversationId={currentConversationId}
-                activeProjectId={activeProjectId || null}
-                onSelectConversation={handleSelectConversation}
-                onEditFolder={handleEditFolder}
-                onDeleteFolder={handleDeleteFolder}
-                onAddToFolder={handleAddToFolder}
-                onRenameConversation={handleRename}
-                onEditTags={handleTagClick}
-                onDeleteConversation={handleDeleteSimple}
-              />
-            ))
+              {isLoadingFolders ? (
+                <div className="px-5 space-y-3 mb-5">
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-6 w-32" />
+                      <div className="pl-6 space-y-1.5">
+                        <Skeleton className="h-6 w-full" />
+                        <Skeleton className="h-6 w-4/5" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : folders.length === 0 ? (
+                <div className="text-xs text-center text-muted-foreground py-4 px-4">
+                  No folders yet.
+                  <br />
+                  Create one to organize your chats!
+                </div>
+              ) : (
+                folders.map((folder) => (
+                  <FolderListItem
+                    key={folder.id}
+                    folder={folder}
+                    conversations={conversations}
+                    currentConversationId={currentConversationId}
+                    activeProjectId={activeProjectId || null}
+                    onSelectConversation={handleSelectConversation}
+                    onEditFolder={handleEditFolder}
+                    onDeleteFolder={handleDeleteFolder}
+                    onAddToFolder={handleAddToFolder}
+                    onRenameConversation={handleRename}
+                    onEditTags={handleTagClick}
+                    onDeleteConversation={handleDeleteSimple}
+                  />
+                ))
+              )}
+            </>
           )}
           
           {/* Pinned Conversations */}

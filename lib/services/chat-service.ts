@@ -491,21 +491,37 @@ export class ChatService {
         }
       }
 
-      // --- SCOPE 3: REFERENCED CONTEXT (Explicit) ---
-      // Only if NOT in project mode (or if user explicitly references something outside project)
+      // --- SCOPE 3: REFERENCED CONVERSATIONS (Explicit) ---
       if (referencedConversations.length > 0) {
-        console.log('🧠 [buildContext] Normal Mode: Searching Referenced Context');
+        console.log('🧠 [buildContext] Searching Referenced Conversations:', referencedConversations.length);
         
         for (const ref of referencedConversations) {
-          // A. Search Messages in Referenced Chat
+          // A. Search Messages in Referenced Chat via Vectorize
           const refMemories = await vectorDb.searchConversationMemory(ref.id, queryVector, { limit: 5 });
-          refMemories.forEach(m => {
-            retrievedChunks.push({
-              content: m.content,
-              source: `Referenced Chat: "${ref.title}"`,
-              score: m.score
+          
+          if (refMemories.length > 0) {
+            refMemories.forEach(m => {
+              retrievedChunks.push({
+                content: m.content,
+                source: `Referenced Chat: "${ref.title}"`,
+                score: m.score
+              });
             });
-          });
+          } else {
+            // D1 FALLBACK: If Vectorize returns no results, fetch recent messages directly
+            console.log(`⚠️ [buildContext] Vectorize returned 0 for ref ${ref.id}, using D1 fallback...`);
+            const { messages: recentMsgs } = await cloudDb.getMessages(ref.id, 10);
+            recentMsgs.forEach(m => {
+              if (m.role === 'user' || m.role === 'assistant') {
+                const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+                retrievedChunks.push({
+                  content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`,
+                  source: `Referenced Chat: "${ref.title}"`,
+                  score: 0.75 // Default score for D1 fallback
+                });
+              }
+            });
+          }
 
           // B. Search Files in Referenced Chat (Transitive Knowledge)
           const sources = await vectorDb.getSourcesForConversation(ref.id);
@@ -520,6 +536,50 @@ export class ChatService {
                 score: c.score
               });
             });
+          }
+        }
+      }
+
+      // --- SCOPE 4: REFERENCED FOLDERS (Explicit) ---
+      if (referencedFolders && referencedFolders.length > 0) {
+        console.log('📁 [buildContext] Searching Referenced Folders:', referencedFolders.length);
+        
+        for (const folderRef of referencedFolders) {
+          const folder = await cloudDb.getFolder(folderRef.id);
+          if (!folder || !folder.conversationIds.length) {
+            console.log(`⚠️ [buildContext] Folder ${folderRef.id} not found or empty`);
+            continue;
+          }
+          
+          console.log(`📁 [buildContext] Folder "${folder.name}" has ${folder.conversationIds.length} conversations`);
+          
+          // Search up to 5 conversations in this folder
+          for (const convId of folder.conversationIds.slice(0, 5)) {
+            // Try Vectorize first
+            const folderMemories = await vectorDb.searchConversationMemory(convId, queryVector, { limit: 3 });
+            
+            if (folderMemories.length > 0) {
+              folderMemories.forEach(m => {
+                retrievedChunks.push({
+                  content: m.content,
+                  source: `Folder "${folder.name}"`,
+                  score: m.score
+                });
+              });
+            } else {
+              // D1 fallback for folder conversations
+              const { messages: recentMsgs } = await cloudDb.getMessages(convId, 5);
+              recentMsgs.forEach(m => {
+                if (m.role === 'user' || m.role === 'assistant') {
+                  const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+                  retrievedChunks.push({
+                    content: `[${roleLabel}]: ${m.content.substring(0, 500)}`,
+                    source: `Folder "${folder.name}"`,
+                    score: 0.7
+                  });
+                }
+              });
+            }
           }
         }
       }
@@ -683,12 +743,12 @@ export class ChatService {
                   console.log(`   📸 Added page ${index + 1}`);
                 })
               }
-              // Priority 3: Metadata only (legacy or processing failed)
+              // Priority 3: PDF was likely indexed - content available via knowledge base context
               else {
-                console.log('⚠️ [prepareMessagesForAI] No processed data, using metadata only');
+                console.log('📚 [prepareMessagesForAI] PDF indexed to knowledge base, referencing metadata only');
                 content.push({
                   type: 'text',
-                  text: `📄 **PDF Document**: ${att.name}\n*(${att.size ? formatFileSize(att.size) : 'size unknown'})*\n\n*Note: PDF content could not be extracted. This may be an encrypted or corrupted file.*`
+                  text: `📄 **PDF Document**: ${att.name}\n*(${att.size ? formatFileSize(att.size) : 'size unknown'})*\n\n*This PDF has been indexed. Its content is available in the knowledge base context above. Please use that context to answer questions about this document.*`
                 })
               }
             }
