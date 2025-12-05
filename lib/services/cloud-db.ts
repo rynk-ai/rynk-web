@@ -193,6 +193,60 @@ export const cloudDb = {
     })) as CloudConversation[]
   },
 
+  /**
+   * Get recent messages from all conversations in a project (except current).
+   * Used as D1 fallback when Vectorize hasn't indexed new messages yet.
+   */
+  async getRecentProjectMessages(
+    projectId: string, 
+    excludeConversationId?: string, 
+    limit: number = 10
+  ): Promise<{ messageId: string; conversationId: string; conversationTitle: string; role: string; content: string; createdAt: number }[]> {
+    const db = getDB()
+    
+    // Get all conversations in this project
+    const conversations = await db.prepare(
+      'SELECT id, title FROM conversations WHERE projectId = ?'
+    ).bind(projectId).all()
+    
+    if (conversations.results.length === 0) return []
+    
+    // Build conversation title map
+    const titleMap = new Map(conversations.results.map((c: any) => [c.id, c.title]))
+    
+    // Get conversation IDs (excluding current if provided)
+    const conversationIds = conversations.results
+      .map((c: any) => c.id as string)
+      .filter(id => id !== excludeConversationId)
+    
+    if (conversationIds.length === 0) return []
+    
+    // Fetch recent messages from these conversations (last 24 hours for efficiency)
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000)
+    const placeholders = conversationIds.map(() => '?').join(',')
+    
+    const messages = await db.prepare(`
+      SELECT id, conversationId, role, content, createdAt 
+      FROM messages 
+      WHERE conversationId IN (${placeholders}) 
+        AND createdAt > ?
+        AND role IN ('user', 'assistant')
+      ORDER BY createdAt DESC 
+      LIMIT ?
+    `).bind(...conversationIds, oneDayAgo, limit).all()
+    
+    console.log(`📊 [cloudDb] getRecentProjectMessages: Found ${messages.results.length} recent messages from ${conversationIds.length} conversations`)
+    
+    return messages.results.map((m: any) => ({
+      messageId: m.id,
+      conversationId: m.conversationId,
+      conversationTitle: titleMap.get(m.conversationId) || 'Unknown Chat',
+      role: m.role,
+      content: m.content,
+      createdAt: m.createdAt
+    }))
+  },
+
   async createConversation(userId: string, title: string = 'New Conversation', projectId?: string) {
     const db = getDB()
     

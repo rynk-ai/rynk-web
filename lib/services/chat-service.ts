@@ -458,6 +458,36 @@ export class ChatService {
               score: m.score
             });
           });
+        } else {
+          // --- D1 FALLBACK: Vectorize hasn't indexed yet, query D1 directly ---
+          console.log('⚠️ [buildContext] Vectorize returned 0 results, using D1 fallback...');
+          const recentMessages = await cloudDb.getRecentProjectMessages(
+            projectId,
+            currentConversationId,
+            10
+          );
+          
+          if (recentMessages.length > 0) {
+            console.log(`✅ [buildContext] D1 fallback found ${recentMessages.length} recent messages`);
+            
+            recentMessages.forEach(m => {
+              const roleLabel = m.role === 'assistant' ? 'AI' : m.role === 'user' ? 'User' : 'Unknown';
+              
+              // Format relative time
+              const ageMs = Date.now() - m.createdAt;
+              const ageMinutes = Math.floor(ageMs / 60000);
+              const ageHours = Math.floor(ageMs / 3600000);
+              const timeAgo = ageHours > 0 
+                ? `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
+                : `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
+              
+              retrievedChunks.push({
+                content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`, // Limit content length
+                source: `In "${m.conversationTitle}" (${timeAgo})`,
+                score: 0.8 // Default score for D1 results
+              });
+            });
+          }
         }
       }
 
