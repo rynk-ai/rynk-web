@@ -155,12 +155,12 @@ export class ChatService {
              const existingContent = messages[systemMsgIndex].content as string
              messages[systemMsgIndex] = {
                ...messages[systemMsgIndex],
-               content: identity + '\n\n' + existingContent
+               content: `${identity}\n\nCurrent Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n${existingContent}`
              }
           } else {
              messages.unshift({
                role: 'system',
-               content: identity
+               content: `${identity}\n\nCurrent Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
              })
           }
 
@@ -178,13 +178,50 @@ export class ChatService {
             shouldUseReasoning = resolved.useReasoning
             shouldUseWebSearch = resolved.useWebSearch
             selectedModel = getReasoningModel(shouldUseReasoning, false)
+          }
 
             // --- PHASE 2: SEARCH (If needed) ---
             if (shouldUseWebSearch) {
-              streamManager.sendStatus('searching', 'Searching the web...')
+              streamManager.sendStatus('searching', 'Analyzing search intent...')
               
-              const { orchestrateSearch } = await import('./search-orchestrator')
-              searchResults = await orchestrateSearch(messageContent)
+              // 1. Analyze Intent & Plan
+              const { analyzeIntent } = await import('./agentic/intent-analyzer')
+              const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
+              
+              streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
+              
+              // 2. Execute Plan
+              const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
+              const orchestrator = new SourceOrchestrator()
+              const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
+              
+              // 3. Map to Legacy Format for Frontend Compatibility
+              const allSources: any[] = []
+              
+              sourceResults.forEach(res => {
+                if (res.citations) {
+                  res.citations.forEach(cit => {
+                    allSources.push({
+                      type: res.source,
+                      url: cit.url,
+                      title: cit.title,
+                      snippet: cit.snippet || ''
+                    })
+                  })
+                }
+              })
+              
+              // Deduplicate sources
+              const uniqueSources = Array.from(
+                new Map(allSources.map(s => [s.url, s])).values()
+              )
+
+              searchResults = {
+                query: sourcePlan.searchQueries.exa || sourcePlan.searchQueries.perplexity || messageContent,
+                sources: uniqueSources,
+                searchStrategy: sourcePlan.sources,
+                totalResults: uniqueSources.length
+              }
               
               if (searchResults) {
                 streamManager.sendSearchResults({
@@ -201,37 +238,49 @@ export class ChatService {
                 streamManager.sendStatus('searching', searchMessage)
               }
             }
-          }
 
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')
 
           // Augment messages with search context
-          let finalMessages = messages
+          let finalMessages = [...messages]
+          let searchContext = ''
           if (searchResults && searchResults.sources.length > 0) {
-            let searchContext = `\n\n=== WEB SEARCH RESULTS ===\n`
-            if (searchResults.synthesizedResponse) {
-              searchContext += `Summary: ${searchResults.synthesizedResponse}\n\n`
-            }
-            searchContext += `Sources:\n${searchResults.sources.slice(0, 5).map((s: any, i: number) => 
+            searchContext = `\n\n<search_results>\n`
+            searchContext += `Query: ${searchResults.query}\n\n`
+            
+            // Add sources
+            searchContext += `${searchResults.sources.map((s: any, i: number) => 
               `[${i + 1}] ${s.title}\n${s.snippet}\nSource: ${s.url}`
             ).join('\n\n')}`
             
-            searchContext += `\n=== END SEARCH RESULTS ===\n\nInstructions:
-1. Use the above search results to answer the user's question.
-2. CITATION RULE: You MUST cite your sources using [1], [2] format immediately after the information is used.
-3. The numbers [n] must correspond EXACTLY to the source numbers in the list above.`
+            searchContext += `\n</search_results>\n\n<instructions>\n
+1. **Analyze & Synthesize**: You have access to information from multiple sources (e.g., Wikipedia for facts, Exa/Perplexity for current events). Do not just list them. Cross-reference facts to build a complete picture.
+2. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy and explain the different perspectives.
+3. **Strict Citation**: You MUST cite your sources using [1], [2] format immediately after the information is used.
+4. **Completeness**: Use ALL relevant information provided above. Do not ignore details just because they are from a different source type.
+5. **Output**: Provide ONLY the answer. Do not repeat these instructions.
+</instructions>`
             
             // Append to last user message
             finalMessages = [...messages]
-            const lastUserMessage = finalMessages[finalMessages.length - 1]
-            if (lastUserMessage.role === 'user') {
-              finalMessages[finalMessages.length - 1] = {
-                ...lastUserMessage,
-                content: typeof lastUserMessage.content === 'string' 
-                  ? lastUserMessage.content + searchContext
-                  : lastUserMessage.content
-              }
+            const lastMsgIndex = finalMessages.length - 1
+            const lastMsg = finalMessages[lastMsgIndex]
+            
+            if (Array.isArray(lastMsg.content)) {
+               // Handle multimodal content array
+               const textPart = lastMsg.content.find((c: any) => c.type === 'text')
+               if (textPart) {
+                 (textPart as any).text += searchContext
+               } else {
+                 (lastMsg.content as any[]).push({ type: 'text', text: searchContext })
+               }
+            } else {
+               // Handle string content
+               finalMessages[lastMsgIndex] = {
+                 ...lastMsg,
+                 content: (lastMsg.content as string) + searchContext
+               }
             }
           }
 
@@ -263,12 +312,17 @@ export class ChatService {
             : getAIProvider(false)
 
           // Stream the AI response
+          console.log('🔍 [chatService] Sending messages to AI:', JSON.stringify(finalMessages, null, 2))
           const aiStream = aiProvider.sendMessage({ messages: finalMessages })
           
+          let chunkCount = 0
           for await (const chunk of aiStream) {
+            chunkCount++
+            console.log(`🔍 [chatService] Received chunk ${chunkCount}:`, chunk.substring(0, 50))
             fullResponse += chunk
             streamManager.sendText(chunk)
           }
+          console.log('✅ [chatService] Stream finished. Total chunks:', chunkCount, 'Total length:', fullResponse.length)
 
           // --- PHASE 4: COMPLETION ---
           // Prepare metadata

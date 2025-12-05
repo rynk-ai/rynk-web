@@ -60,8 +60,9 @@ SPECIFIC INSTRUCTIONS FOR CODING TASKS:
       case 'research':
         return `${baseInstructions}
 SPECIFIC INSTRUCTIONS FOR RESEARCH/SEARCH TASKS:
-- **Synthesis**: Synthesize information from multiple sources. Do not just list them.
-- **Citations**: STRICTLY cite your sources using [1], [2] format matching the provided search results.
+- **Extensive Source Utilization**: You MUST use information from ALL provided sources (Wikipedia, Exa, Perplexity). Do not rely on a single source.
+- **Synthesis**: Synthesize information from multiple sources. Do not just list them. Cross-reference facts to build a complete picture.
+- **Citations**: STRICTLY cite your sources using [1], [2] format matching the provided search results. Place citations immediately after the claim.
 - **Conflict Resolution**: If sources disagree, explicitly mention the discrepancy and analyze the credibility.
 - **Depth**: Go beyond the surface. Connect facts to provide insight.
 `
