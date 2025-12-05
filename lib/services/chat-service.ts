@@ -1,6 +1,7 @@
 import { cloudDb } from "@/lib/services/cloud-db"
 import { cloudStorage } from "@/lib/services/cloud-storage"
 import { vectorDb } from "@/lib/services/vector-db" // Import vectorDb
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getAIProvider } from "@/lib/services/ai-factory"
 import { type Message as ApiMessage } from "@/lib/services/ai-provider"
 import { searchEmbeddings } from "@/lib/utils/vector"
@@ -106,14 +107,25 @@ export class ChatService {
           // --- PHASE 1: ANALYSIS ---
           streamManager.sendStatus('analyzing', 'Analyzing request...')
 
-          // Generate Embedding for User Message (Background)
-          this.generateEmbeddingInBackground(
-            userMessage.id, 
-            conversationId, 
-            userId, 
-            messageContent,
-            project?.id
-          ).catch(err => console.error('❌ [chatService] User message vectorization failed:', err))
+          // Generate Embedding for User Message (Background with waitUntil)
+          // Use waitUntil to ensure vectorization completes even after response is sent
+          try {
+            const cfContext = getCloudflareContext()
+            cfContext.ctx.waitUntil(
+              this.generateEmbeddingInBackground(
+                userMessage.id, 
+                conversationId, 
+                userId, 
+                messageContent,
+                project?.id
+              ).catch(err => console.error('❌ [chatService] User message vectorization failed:', err))
+            )
+          } catch (e) {
+            // Fallback: if waitUntil not available, still try fire-and-forget
+            this.generateEmbeddingInBackground(
+              userMessage.id, conversationId, userId, messageContent, project?.id
+            ).catch(err => console.error('❌ [chatService] User message vectorization failed:', err))
+          }
 
           // Ingest legacy attachments (if any)
           if (attachments.length > 0) {
@@ -351,14 +363,24 @@ export class ChatService {
             model_used: selectedModel
           })
 
-          // Vectorize Assistant Response (Background)
-          this.generateEmbeddingInBackground(
-            assistantMessage.id, 
-            conversationId, 
-            userId, 
-            fullResponse,
-            project?.id
-          ).catch(err => console.error('❌ [chatService] Assistant message vectorization failed:', err))
+          // Vectorize Assistant Response (Background with waitUntil)
+          try {
+            const cfContext = getCloudflareContext()
+            cfContext.ctx.waitUntil(
+              this.generateEmbeddingInBackground(
+                assistantMessage.id, 
+                conversationId, 
+                userId, 
+                fullResponse,
+                project?.id
+              ).catch(err => console.error('❌ [chatService] Assistant message vectorization failed:', err))
+            )
+          } catch (e) {
+            // Fallback: if waitUntil not available, still try fire-and-forget
+            this.generateEmbeddingInBackground(
+              assistantMessage.id, conversationId, userId, fullResponse, project?.id
+            ).catch(err => console.error('❌ [chatService] Assistant message vectorization failed:', err))
+          }
 
           streamManager.close()
 
