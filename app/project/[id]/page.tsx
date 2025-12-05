@@ -1379,17 +1379,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
             initialValue={editContent}
             initialAttachments={editAttachments}
             onCancelEdit={cancelEdit}
-            onSaveEdit={async (text, files) => {
-              if (editingMessageId) {
-                // Convert Attachment[] to File[] where possible, or keep as is if the hook handles it
-                // The hook expects File[], but we might have existing attachments.
-                // For now, let's just pass the new files if any.
-                // TODO: Handle mixed existing/new attachments better
-                const newFiles = files.filter(f => f instanceof File) as File[];
-                await editMessage(editingMessageId, text, newFiles, editContext.filter(c => c.type === 'conversation').map(c => ({ id: c.id, title: c.title })), editContext.filter(c => c.type === 'folder').map(c => ({ id: c.id, name: c.title })));
-                cancelEdit();
-              }
-            }}
+            onSaveEdit={handleSaveEdit}
             isSubmittingEdit={isSavingEdit}
             // State sync
             onValueChange={isEditing ? setEditContent : undefined}
