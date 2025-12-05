@@ -13,14 +13,34 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, Coins, Moon, Sun } from "lucide-react"
+import { LogOut, Settings, Coins, Moon, Sun, CreditCard, Sparkles, Zap, Crown } from "lucide-react"
 import { useEffect, useState } from "react"
 import { getUserCredits } from "@/app/actions"
 import { useTheme } from "next-themes"
+import { useRouter } from "next/navigation"
+
+const tierIcons = {
+  free: Sparkles,
+  standard: Zap,
+  standard_plus: Crown,
+}
+
+const tierColors = {
+  free: 'text-muted-foreground',
+  standard: 'text-blue-500',
+  standard_plus: 'text-amber-500',
+}
+
+const tierNames = {
+  free: 'Free',
+  standard: 'Standard',
+  standard_plus: 'Standard+',
+}
 
 export function UserProfileDropdown() {
   const { data: session } = useSession()
   const { setTheme } = useTheme()
+  const router = useRouter()
   const [credits, setCredits] = useState<number | null>(null)
 
   useEffect(() => {
@@ -38,8 +58,16 @@ export function UserProfileDropdown() {
     .join("")
     .toUpperCase() || "U"
 
+  // @ts-ignore - custom session fields
+  const tier = (user.subscriptionTier as 'free' | 'standard' | 'standard_plus') || 'free'
+  const TierIcon = tierIcons[tier]
+
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/login" })
+  }
+
+  const handleManageSubscription = () => {
+    router.push('/subscription')
   }
 
   return (
@@ -53,7 +81,10 @@ export function UserProfileDropdown() {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 text-left overflow-hidden">
-            <div className="text-sm font-medium truncate">{user.name}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium truncate">{user.name}</span>
+              <TierIcon className={`h-3.5 w-3.5 ${tierColors[tier]}`} />
+            </div>
             <div className="text-xs text-muted-foreground truncate">
               {user.email}
             </div>
@@ -63,7 +94,17 @@ export function UserProfileDropdown() {
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{user.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium">{user.name}</p>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                tier === 'standard_plus' ? 'bg-amber-500/10 text-amber-500' :
+                tier === 'standard' ? 'bg-blue-500/10 text-blue-500' :
+                'bg-muted text-muted-foreground'
+              }`}>
+                <TierIcon className="h-3 w-3" />
+                {tierNames[tier]}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground">{user.email}</p>
           </div>
         </DropdownMenuLabel>
@@ -73,11 +114,18 @@ export function UserProfileDropdown() {
             <DropdownMenuItem disabled>
               <Coins className="mr-2 h-4 w-4" />
               <span className="flex-1">Credits</span>
-              <span className="text-sm font-medium">{credits}</span>
+              <span className="text-sm font-medium">{credits.toLocaleString()}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
         )}
+        <DropdownMenuItem onClick={handleManageSubscription}>
+          <CreditCard className="mr-2 h-4 w-4" />
+          <span className="flex-1">Manage Subscription</span>
+          {tier === 'free' && (
+            <span className="text-xs text-primary font-medium">Upgrade</span>
+          )}
+        </DropdownMenuItem>
         <DropdownMenuItem disabled>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>

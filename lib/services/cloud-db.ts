@@ -1320,5 +1320,164 @@ export const cloudDb = {
     const db = getDB()
     // Set projectId to NULL for conversations (handled by ON DELETE SET NULL foreign key)
     await db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId).run()
+  },
+
+  // --- Subscription Management ---
+
+  async getSubscription(userId: string) {
+    const db = getDB()
+    const user = await db.prepare(`
+      SELECT 
+        subscriptionTier,
+        subscriptionStatus,
+        credits,
+        carryoverCredits,
+        creditsResetAt,
+        polarCustomerId,
+        polarSubscriptionId
+      FROM users 
+      WHERE id = ?
+    `).bind(userId).first()
+    
+    if (!user) return null
+    
+    return {
+      tier: (user.subscriptionTier as string) || 'free',
+      status: (user.subscriptionStatus as string) || 'none',
+      credits: (user.credits as number) || 0,
+      carryoverCredits: (user.carryoverCredits as number) || 0,
+      creditsResetAt: user.creditsResetAt as string | null,
+      polarCustomerId: user.polarCustomerId as string | null,
+      polarSubscriptionId: user.polarSubscriptionId as string | null
+    }
+  },
+
+  async updateSubscription(userId: string, updates: {
+    tier?: string
+    polarCustomerId?: string
+    polarSubscriptionId?: string | null
+    subscriptionStatus?: string
+    credits?: number
+    creditsResetAt?: string
+    carryoverCredits?: number
+  }) {
+    const db = getDB()
+    
+    const fields: string[] = []
+    const values: any[] = []
+    
+    if (updates.tier !== undefined) {
+      fields.push('subscriptionTier = ?')
+      values.push(updates.tier)
+    }
+    if (updates.polarCustomerId !== undefined) {
+      fields.push('polarCustomerId = ?')
+      values.push(updates.polarCustomerId)
+    }
+    if (updates.polarSubscriptionId !== undefined) {
+      fields.push('polarSubscriptionId = ?')
+      values.push(updates.polarSubscriptionId)
+    }
+    if (updates.subscriptionStatus !== undefined) {
+      fields.push('subscriptionStatus = ?')
+      values.push(updates.subscriptionStatus)
+    }
+    if (updates.credits !== undefined) {
+      fields.push('credits = ?')
+      values.push(updates.credits)
+    }
+    if (updates.creditsResetAt !== undefined) {
+      fields.push('creditsResetAt = ?')
+      values.push(updates.creditsResetAt)
+    }
+    if (updates.carryoverCredits !== undefined) {
+      fields.push('carryoverCredits = ?')
+      values.push(updates.carryoverCredits)
+    }
+    
+    if (fields.length === 0) return
+    
+    fields.push('updatedAt = CURRENT_TIMESTAMP')
+    values.push(userId)
+    
+    await db.prepare(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = ?`
+    ).bind(...values).run()
+  },
+
+  /**
+   * Get users whose credits are due for monthly reset.
+   * Used by the credit reset cron worker.
+   */
+  async getUsersDueForReset(): Promise<Array<{
+    id: string
+    subscriptionTier: string
+    credits: number
+    carryoverCredits: number
+  }>> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    
+    const results = await db.prepare(`
+      SELECT id, subscriptionTier, credits, carryoverCredits
+      FROM users
+      WHERE creditsResetAt IS NOT NULL
+        AND creditsResetAt <= ?
+        AND subscriptionStatus = 'active'
+    `).bind(now).all()
+    
+    return results.results.map((u: any) => ({
+      id: u.id,
+      subscriptionTier: u.subscriptionTier || 'free',
+      credits: u.credits || 0,
+      carryoverCredits: u.carryoverCredits || 0
+    }))
+  },
+
+  /**
+   * Reset credits for a user based on their tier.
+   * - free: 100 credits
+   * - standard: 2500 credits (no carryover)
+   * - standard_plus: add 2500 credits (carryover allowed)
+   */
+  async resetUserCredits(userId: string, tier: string, maxCredits: number = 10000) {
+    const db = getDB()
+    
+    // Calculate next reset date (1 month from now)
+    const nextReset = new Date()
+    nextReset.setMonth(nextReset.getMonth() + 1)
+    
+    if (tier === 'free') {
+      // Free tier: reset to 100
+      await db.prepare(`
+        UPDATE users SET 
+          credits = 100,
+          carryoverCredits = 0,
+          creditsResetAt = ?,
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(nextReset.toISOString(), userId).run()
+    } else if (tier === 'standard') {
+      // Standard tier: reset to 2500 (no carryover)
+      await db.prepare(`
+        UPDATE users SET 
+          credits = 2500,
+          carryoverCredits = 0,
+          creditsResetAt = ?,
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(nextReset.toISOString(), userId).run()
+    } else if (tier === 'standard_plus') {
+      // Standard+ tier: add 2500, carryover allowed (with cap)
+      await db.prepare(`
+        UPDATE users SET 
+          credits = MIN(credits + 2500, ?),
+          creditsResetAt = ?,
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(maxCredits, nextReset.toISOString(), userId).run()
+    }
+    
+    console.log(`✅ [cloudDb] Reset credits for user ${userId} (tier: ${tier})`)
   }
 }

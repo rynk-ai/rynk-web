@@ -49,3 +49,6 @@ custom_domain = true
 AUTH_TRUST_HOST = "true"
 AUTH_URL = "https://rynk.io"
 NEXTAUTH_URL = "https://rynk.io"
+
+[triggers]
+crons = ["0 0 * * *"]

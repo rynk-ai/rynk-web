@@ -5,7 +5,13 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   emailVerified DATETIME,
   image TEXT,
-  credits INTEGER DEFAULT 10,
+  credits INTEGER DEFAULT 100,
+  subscriptionTier TEXT DEFAULT 'free',
+  polarCustomerId TEXT,
+  polarSubscriptionId TEXT,
+  subscriptionStatus TEXT DEFAULT 'none',
+  creditsResetAt DATETIME,
+  carryoverCredits INTEGER DEFAULT 0,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );

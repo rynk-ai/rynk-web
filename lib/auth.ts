@@ -32,12 +32,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
             session.user.id = user.id
             // @ts-ignore - credits is a custom field
             session.user.credits = user.credits || 100
+            // @ts-ignore - subscriptionTier is a custom field
+            session.user.subscriptionTier = user.subscriptionTier || 'free'
+            // @ts-ignore - subscriptionStatus is a custom field
+            session.user.subscriptionStatus = user.subscriptionStatus || 'none'
           } else if (token?.sub) {
             // JWT session (without adapter)
             // @ts-ignore
             session.user.id = token.sub
             // @ts-ignore
             session.user.credits = 100
+            // @ts-ignore - default to free tier for JWT sessions
+            session.user.subscriptionTier = 'free'
+            // @ts-ignore
+            session.user.subscriptionStatus = 'none'
             
             // DEFENSIVE: Ensure user exists in D1 for JWT sessions
             // This handles cases where NextAuth uses JWT but we need D1 records
@@ -48,15 +56,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
                   .first()
                 
                 if (!existingUser && token.sub) {
-                  // Create user record
+                  // Create user record with free tier defaults
                   await db.prepare(
-                    'INSERT INTO users (id, email, name, image, credits) VALUES (?, ?, ?, ?, ?)'
+                    'INSERT INTO users (id, email, name, image, credits, subscriptionTier, subscriptionStatus) VALUES (?, ?, ?, ?, ?, ?, ?)'
                   ).bind(
                     token.sub,
                     session.user.email,
                     session.user.name || null,
                     session.user.image || null,
-                    100
+                    100,
+                    'free',
+                    'none'
                   ).run()
                   
                   console.log('✅ Created user record in D1 for JWT session:', token.sub)
