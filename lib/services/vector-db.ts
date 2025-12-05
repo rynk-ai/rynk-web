@@ -553,7 +553,12 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   async searchProjectMemory(
     projectId: string,
     queryVector: number[],
-    options: { limit?: number, minScore?: number, excludeConversationId?: string } = {}
+    options: { 
+      limit?: number, 
+      minScore?: number, 
+      excludeConversationId?: string,
+      recencyWeight?: number // 0-1: weight for recency vs similarity (default 0.3)
+    } = {}
   ) {
     try {
       const index = getCloudflareContext().env.VECTORIZE_INDEX;
@@ -562,34 +567,65 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         return [];
       }
 
-      const { limit = 10, minScore = 0.4, excludeConversationId } = options;
+      const { 
+        limit = parseInt(process.env.PROJECT_MEMORY_LIMIT || '10'), 
+        minScore = parseFloat(process.env.PROJECT_MEMORY_MIN_SCORE || '0.4'), 
+        excludeConversationId,
+        recencyWeight = parseFloat(process.env.RECENCY_WEIGHT || '0.3')
+      } = options;
 
-      console.log('🧠 [vectorDb] Searching Project Memory:', { projectId, excludeConversationId });
+      console.log('🧠 [vectorDb] Searching Project Memory:', { projectId, excludeConversationId, recencyWeight });
 
+      // Fetch more results than needed to allow for recency re-ranking
       const results = await index.query(queryVector, {
-        topK: limit,
+        topK: Math.min(limit * 2, 50), // Fetch extra for re-ranking
         filter: { projectId: projectId },
         returnMetadata: true
       });
 
       console.log(`🧠 [vectorDb] Vectorize returned ${results.matches.length} matches`);
 
-      return results.matches
-        .filter(match => {
-          // Filter by score
-          if (match.score < minScore) return false;
+      // Calculate recency scores
+      const now = Date.now();
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      const MAX_AGE_DAYS = 30; // Normalize recency over 30 days
 
+      const scoredMatches = results.matches
+        .filter(match => {
+          // Filter by base similarity score
+          if (match.score < minScore) return false;
           // Filter excluded conversation
           if (excludeConversationId && match.metadata?.conversationId === excludeConversationId) return false;
-
           return true;
         })
-        .map(match => ({
-          messageId: match.id,
-          conversationId: match.metadata?.conversationId as string,
-          content: match.metadata?.content as string,
-          score: match.score
-        }));
+        .map(match => {
+          const timestamp = parseInt(match.metadata?.timestamp as string || '0');
+          const ageMs = now - timestamp;
+          const ageDays = ageMs / ONE_DAY_MS;
+          
+          // Recency score: 1.0 for now, decays to 0.0 at MAX_AGE_DAYS
+          const recencyScore = Math.max(0, 1 - (ageDays / MAX_AGE_DAYS));
+          
+          // Combined score: weighted average of similarity and recency
+          const finalScore = (1 - recencyWeight) * match.score + recencyWeight * recencyScore;
+
+          return {
+            messageId: match.id,
+            conversationId: match.metadata?.conversationId as string,
+            content: match.metadata?.content as string,
+            timestamp,
+            similarityScore: match.score,
+            recencyScore,
+            score: finalScore
+          };
+        })
+        // Re-sort by combined score
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+
+      console.log(`🧠 [vectorDb] Returning ${scoredMatches.length} memories after recency re-ranking`);
+
+      return scoredMatches;
 
     } catch (error) {
       console.error('❌ [vectorDb] Failed to search Project Memory:', error);

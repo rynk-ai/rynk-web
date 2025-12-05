@@ -420,23 +420,41 @@ export class ChatService {
           currentConversationId
         });
         const projectMemories = await vectorDb.searchProjectMemory(projectId, queryVector, { 
-          limit: 10, 
           minScore: 0.5,
           excludeConversationId: currentConversationId 
         });
         console.log('📊 [buildContext] Project memories found:', projectMemories.length);
         
-        // Fetch conversation titles for better context
+        // Fetch conversation titles and message roles for better attribution
         if (projectMemories.length > 0) {
           const convIds = Array.from(new Set(projectMemories.map(m => m.conversationId)));
           const conversations = await cloudDb.getConversationsBatch(convIds);
           const convMap = new Map(conversations.map(c => [c.id, c.title]));
           
+          // Fetch message roles from DB
+          const messageIds = projectMemories.map(m => m.messageId);
+          const messages = await cloudDb.getMessagesByIdBatch(messageIds);
+          const roleMap = new Map(messages.map(m => [m.id, m.role]));
+          
           projectMemories.forEach(m => {
             const title = convMap.get(m.conversationId) || 'Unknown Chat';
+            const role = roleMap.get(m.messageId) || 'unknown';
+            const roleLabel = role === 'assistant' ? 'AI' : role === 'user' ? 'User' : 'Unknown';
+            
+            // Format relative time
+            const ageMs = Date.now() - (m.timestamp || 0);
+            const ageMinutes = Math.floor(ageMs / 60000);
+            const ageHours = Math.floor(ageMs / 3600000);
+            const ageDays = Math.floor(ageMs / 86400000);
+            const timeAgo = ageDays > 0 
+              ? `${ageDays} day${ageDays > 1 ? 's' : ''} ago`
+              : ageHours > 0 
+                ? `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
+                : `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
+            
             retrievedChunks.push({
-              content: m.content,
-              source: `Project Chat: "${title}"`,
+              content: `[${roleLabel}]: ${m.content}`,
+              source: `In "${title}" (${timeAgo})`,
               score: m.score
             });
           });

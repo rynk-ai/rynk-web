@@ -289,6 +289,31 @@ export const cloudDb = {
     return result
   },
 
+  /**
+   * Fetch multiple messages by their IDs in a single batch query.
+   * Useful for enriching vector search results with full message data.
+   */
+  async getMessagesByIdBatch(messageIds: string[]): Promise<CloudMessage[]> {
+    if (messageIds.length === 0) return []
+    
+    const db = getDB()
+    const placeholders = messageIds.map(() => '?').join(',')
+    const results = await db.prepare(
+      `SELECT * FROM messages WHERE id IN (${placeholders})`
+    ).bind(...messageIds).all()
+    
+    return results.results.map((m: any) => ({
+      ...m,
+      attachments: JSON.parse(m.attachments as string || '[]'),
+      referencedConversations: JSON.parse(m.referencedConversations as string || '[]'),
+      referencedFolders: JSON.parse(m.referencedFolders as string || '[]'),
+      timestamp: m.createdAt,
+      versionNumber: m.versionNumber || 1,
+      reasoning_metadata: m.reasoning_metadata ? JSON.parse(m.reasoning_metadata as string) : undefined,
+      web_annotations: m.web_annotations ? JSON.parse(m.web_annotations as string) : undefined
+    } as CloudMessage))
+  },
+
   async getMessages(conversationId: string, limit: number = 50, cursor?: string) {
     const db = getDB()
     // First get conversation to know the path
