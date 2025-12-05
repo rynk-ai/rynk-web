@@ -83,6 +83,20 @@ export const PromptInputWithFiles = memo(function
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
   const [files, setFiles] = useState<(File | Attachment)[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+      setIsMobile(mobileRegex.test(userAgent.toLowerCase()) || window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Update prompt and files when initial values change (for edit mode)
   useEffect(() => {
@@ -263,10 +277,23 @@ export const PromptInputWithFiles = memo(function
     }, 0);
   };
 
-  // Handle keyboard navigation for suggestions
+  // Handle keyboard navigation for suggestions and platform-specific Enter behavior
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Call parent's onKeyDown if provided
     if (onKeyDown) {
       onKeyDown(e);
+    }
+
+    // Don't interfere if parent prevented default
+    if (e.defaultPrevented) {
+      return;
+    }
+
+    // Mobile: Prevent Enter from submitting (only send button should work)
+    // Desktop: Default behavior in PromptInputTextarea will handle it (Enter = submit, Shift+Enter = newline)
+    if (e.key === 'Enter' && isMobile && !e.shiftKey) {
+      e.preventDefault();
+      // Don't submit, just allow newline (default behavior)
     }
   };
 
@@ -370,7 +397,13 @@ export const PromptInputWithFiles = memo(function
           <div className="flex flex-col">
             <PromptInputTextarea
               id="main-chat-input"
-              placeholder={editMode ? "Edit your message..." : placeholder}
+              placeholder={
+                editMode 
+                  ? "Edit your message..." 
+                  : isMobile 
+                    ? placeholder 
+                    : `${placeholder} (Shift+Enter for new line)`
+              }
               className="min-h-[40px] pt-2.5 pl-3 text-base leading-[1.3] sm:text-base md:text-base dark:bg-background overscroll-contain"
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
@@ -417,9 +450,10 @@ export const PromptInputWithFiles = memo(function
 
               {/* Send Button */}
               <Button
-                type="submit"
+                type="button"
                 size="icon"
                 className="size-8 shrink-0 rounded-full"
+                onClick={handleSubmit}
                 disabled={
                   (isLoading || isSubmittingEdit || disabled) ||
                   (!editMode && prompt.trim().length === 0 && files.length === 0)
