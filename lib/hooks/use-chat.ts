@@ -262,6 +262,9 @@ export function useChat() {
       })
     }
     setCurrentConversationId(id)
+    // Clear transient state
+    setStatusPills([])
+    setSearchResults(null)
   }, [queryClient, effectiveProjectId])
 
   const selectProject = useCallback((id: string | null) => {

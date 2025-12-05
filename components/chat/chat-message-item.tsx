@@ -176,10 +176,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       citationsCount: citations?.length || 0
     })
 
-    // Show skeleton only if: last message, sending, AND no content at all
+    // Show skeleton only if: last message, sending, AND no content at all AND no reasoning status
     const showSkeleton = isLastMessage && isSending &&
                          ((!isStreaming && (!message.content || message.content.trim().length < 3)) ||
-                          (isStreaming && (!displayContent || displayContent.trim().length === 0)));
+                          (isStreaming && (!displayContent || displayContent.trim().length === 0))) &&
+                         !hasReasoning; // Don't show skeleton if we have reasoning updates to show
     
     if (showSkeleton) {
       return <AssistantSkeleton />;

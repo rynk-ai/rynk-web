@@ -75,7 +75,7 @@ import {
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { ReasoningDisplay } from "@/components/chat/reasoning-display";
+
 
 
 // Helper function to filter messages to show only active versions

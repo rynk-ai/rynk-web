@@ -91,7 +91,7 @@ export function ReasoningDisplay({
               <Brain className="h-4 w-4 text-primary" />
             )}
             <span className="font-medium text-foreground">
-              {isThinking ? currentStatus.message : "Reasoning complete"}
+              {isThinking ? currentStatus.message : "Process complete"}
             </span>
           </div>
         </StepsTrigger>

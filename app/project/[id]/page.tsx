@@ -50,7 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { ReasoningDisplay } from "@/components/chat/reasoning-display";
+
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import { useRef, useState, useEffect, useMemo, useCallback, Suspense, memo } from "react";
@@ -1362,9 +1362,7 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
               }}
             />
 
-            <div className="mx-auto max-w-3xl w-full px-4 mb-4">
-            <ReasoningDisplay statuses={statusPills} searchResults={searchResults} />
-          </div>
+
 
           <PromptInputWithFiles
             onSubmit={handleSubmit}
