@@ -56,14 +56,19 @@ export function useStreaming() {
   
   /**
    * Finish streaming and clear state.
+   * IMPORTANT: Flush content first to ensure final content is displayed.
    */
-  const finishStreaming = useCallback(() => {
+  const finishStreaming = useCallback((finalContent?: string) => {
+    // If final content is provided, use it; otherwise use buffered content
+    const contentToFlush = finalContent ?? contentBufferRef.current;
+    setStreamingContent(contentToFlush);
+
+    // Then clear everything
     if (flushTimeoutRef.current) {
       clearTimeout(flushTimeoutRef.current);
       flushTimeoutRef.current = null;
     }
     setStreamingMessageId(null);
-    setStreamingContent('');
     contentBufferRef.current = '';
   }, []);
   

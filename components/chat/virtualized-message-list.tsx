@@ -101,13 +101,19 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
           versions={versions}
           onSwitchVersion={onSwitchVersion}
           streamingStatusPills={
-            // Show status pills for the streaming message OR the last message (pending response)
-            streamingMessageId === message.id || (isSending && index === messages.length - 1)
+            // Show status pills for the streaming message OR any assistant message when sending
+            streamingMessageId === message.id || (isSending && message.role === 'assistant')
               ? statusPills
               : undefined
           }
           streamingSearchResults={
-            streamingMessageId === message.id || (isSending && index === messages.length - 1)
+            // Show search results for:
+            // 1. The currently streaming message
+            // 2. Any assistant message while sending (for status updates)
+            // 3. The last assistant message when streaming just completed (to show sources)
+            (streamingMessageId && streamingMessageId === message.id) ||
+            (!streamingMessageId && isSending && message.role === 'assistant') ||
+            (!streamingMessageId && !isSending && message.role === 'assistant' && message.id === (messages[messages.length - 1]?.id))
               ? searchResults
               : undefined
           }

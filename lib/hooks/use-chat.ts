@@ -87,6 +87,7 @@ export function useChat() {
     message: string
     timestamp: number
   }>>([])
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
 
   // Search results from web search
   const [searchResults, setSearchResults] = useState<any>(null)
@@ -437,7 +438,11 @@ export function useChat() {
     
     setIsLoading(true)
     setError(null)
-    setStatusPills([]) // Clear previous status pills
+    setStatusPills([{
+      status: 'analyzing',
+      message: 'Analyzing request...',
+      timestamp: Date.now()
+    }]) // Show initial status immediately
     setSearchResults(null) // Clear previous search results
     
     // Track reasoning metadata to be saved with message
@@ -503,6 +508,9 @@ export function useChat() {
 
       console.log('[sendChatRequest] Message IDs from backend:', { realUserMessageId, realAssistantMessageId })
 
+      // Set streaming message ID immediately so status pills can be displayed
+      setStreamingMessageId(realAssistantMessageId)
+
       // Handle Streaming
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
@@ -523,22 +531,22 @@ export function useChat() {
                 controller.close()
                 break
               }
-              
+
               const text = decoder.decode(value, { stream: true })
-              
+
               // Check for status messages (JSON format)
               // We split by newline in case multiple chunks came together
               const lines = text.split('\n')
               let contentChunk = ''
-              
-              for (const line of lines) {
-                if (!line.trim()) continue
-                
+
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i]
+
                 try {
                   // Try to parse as JSON status or search results message
                   if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"')) {
                     const parsed = JSON.parse(line)
-                    
+
                     if (parsed.type === 'status') {
                       console.log('[useChat] Parsed status pill:', parsed)
                       setStatusPills(prev => {
@@ -552,7 +560,7 @@ export function useChat() {
                       })
                       continue // Don't pass this to the content stream
                     }
-                    
+
                     if (parsed.type === 'search_results') {
                       setSearchResults({
                         query: parsed.query,
@@ -566,12 +574,18 @@ export function useChat() {
                 } catch (e) {
                   // Not a JSON object, treat as content
                 }
-                
+
                 // If not a status message, it's content
-                // Re-add newline if it was stripped by split, unless it's the last line and didn't have one
-                contentChunk += line + (text.endsWith('\n') || line !== lines[lines.length-1] ? '\n' : '')
+                if (line.trim()) {
+                  contentChunk += line
+                }
+                // Add newline after each line (including empty ones) to preserve structure
+                // This is critical because split('\n') removes the newlines
+                if (i < lines.length - 1) {
+                  contentChunk += '\n'
+                }
               }
-              
+
               if (contentChunk) {
                 controller.enqueue(new TextEncoder().encode(contentChunk))
               }
@@ -984,6 +998,7 @@ export function useChat() {
     reasoningMode,
     toggleReasoningMode,
     statusPills,
-    searchResults
+    searchResults,
+    streamingMessageId
   }
 }

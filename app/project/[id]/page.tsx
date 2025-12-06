@@ -251,11 +251,10 @@ const ChatContent = memo(function ChatContent({ onMenuClick }: ChatContentProps 
     // Reasoning mode
     reasoningMode,
     toggleReasoningMode,
+    statusPills,
+    searchResults,
+    streamingMessageId: globalStreamingMessageId,
   } = useChatContext();
-
-  // Separate streaming context for frequently-changing values
-  // This prevents statusPills/searchResults from causing unnecessary re-renders
-  const { statusPills, searchResults } = useStreamingContext();
   
   // Use custom hooks for separated state management
   const messageState = useMessageState();
@@ -687,7 +686,8 @@ const ChatContent = memo(function ChatContent({ onMenuClick }: ChatContentProps 
         if (assistantMessageId) {
           messageState.updateMessage(assistantMessageId, { content: fullContent });
         }
-        finishStreaming();
+        // Pass final content to ensure it's flushed before clearing state
+        finishStreaming(fullContent);
       }
 
     } catch (err: any) {
@@ -1024,7 +1024,8 @@ const ChatContent = memo(function ChatContent({ onMenuClick }: ChatContentProps 
                 console.log('✅ [handleSaveEdit] AI response complete, length:', fullContent.length);
               } finally {
                 // Clear streaming state
-                finishStreaming();
+                // Pass final content to ensure it's flushed before clearing state
+                finishStreaming(fullContent);
 
                 // Optimistic update instead of DB fetch!
                 messageState.updateMessage(assistantMessageId, { content: fullContent });
@@ -1353,7 +1354,7 @@ const ChatContent = memo(function ChatContent({ onMenuClick }: ChatContentProps 
                 <VirtualizedMessageList
                   messages={messages}
                   isSending={isSending}
-                  streamingMessageId={streamingMessageId}
+                  streamingMessageId={globalStreamingMessageId}
                   streamingContent={streamingContent}
                   editingMessageId={editingMessageId}
                   onStartEdit={handleStartEdit}

@@ -257,11 +257,10 @@ const ChatContent = memo(
       clearConversationContext,
       updateConversationTags,
       getAllTags,
+      statusPills,
+      searchResults,
+      streamingMessageId: globalStreamingMessageId,
     } = useChatContext();
-
-    // Separate streaming context for frequently-changing values
-    // This prevents statusPills/searchResults from causing unnecessary re-renders
-    const { statusPills, searchResults } = useStreamingContext();
 
     // Use custom hooks for separated state management
     const messageState = useMessageState();
@@ -840,7 +839,8 @@ const ChatContent = memo(
                 content: fullContent,
               });
             }
-            finishStreamingRef.current();
+            // Pass final content to ensure it's flushed before clearing state
+            finishStreamingRef.current(fullContent);
           }
         } catch (err: any) {
           console.error("Failed to send message:", err);
@@ -1228,7 +1228,8 @@ const ChatContent = memo(
                   );
                 } finally {
                   // Clear streaming state
-                  finishStreaming();
+                  // Pass final content to ensure it's flushed before clearing state
+                  finishStreaming(fullContent);
 
                   // Optimistic update instead of DB fetch!
                   messageState.updateMessage(assistantMessageId, {
@@ -1652,7 +1653,7 @@ const ChatContent = memo(
                   <VirtualizedMessageList
                     messages={messages}
                     isSending={isSending}
-                    streamingMessageId={streamingMessageId}
+                    streamingMessageId={globalStreamingMessageId}
                     streamingContent={streamingContent}
                     editingMessageId={editingMessageId}
                     onStartEdit={handleStartEdit}

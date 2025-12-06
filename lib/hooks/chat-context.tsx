@@ -84,6 +84,13 @@ interface ChatContextValue {
   // Agentic & Reasoning
   reasoningMode: 'auto' | 'on' | 'online' | 'off'
   toggleReasoningMode: () => void
+  statusPills: Array<{
+    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    message: string
+    timestamp: number
+  }>
+  searchResults: any
+  streamingMessageId: string | null
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -117,6 +124,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     chatHook.isLoadingMoreConversations,
     chatHook.activeProjectId,
     chatHook.reasoningMode,
+    chatHook.statusPills, // Include statusPills to ensure context updates
+    chatHook.searchResults, // Include searchResults to ensure context updates
+    chatHook.streamingMessageId, // Include streamingMessageId for status pills display
     // Note: We don't include functions as dependencies as they should be stable
   ])
 
