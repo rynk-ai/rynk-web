@@ -288,7 +288,7 @@ export const ChatMessageItem = memo(
               <MessageActions
                 className={cn(
                   "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-1 pl-1",
-                  isLastMessage && "opacity-100",
+                  isLastMessage && !isStreaming && "opacity-100",
                 )}
               >
                 <MessageAction tooltip="Copy" delayDuration={100}>

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo, useCallback } from 'react'
+import React, { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { ChatMessageItem } from './chat-message-item'
 import { type CloudMessage as ChatMessage } from '@/lib/services/cloud-db'
@@ -22,9 +22,14 @@ interface VirtualizedMessageListProps {
   isLoadingMore?: boolean
   statusPills?: any[]
   searchResults?: any
+  onIsAtBottomChange?: (isAtBottom: boolean) => void
 }
 
-export const VirtualizedMessageList = React.memo(function VirtualizedMessageList({
+export interface VirtualizedMessageListRef {
+  scrollToBottom: () => void
+}
+
+const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, VirtualizedMessageListProps>(function VirtualizedMessageList({
   messages,
   isSending,
   streamingMessageId,
@@ -39,11 +44,23 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
   onLoadMore,
   isLoadingMore = false,
   statusPills,
-  searchResults
-}: VirtualizedMessageListProps) {
+  searchResults,
+  onIsAtBottomChange
+}, ref) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
   const prevLengthRef = useRef(messages.length)
+
+  // Expose scrollToBottom method to parent
+  useImperativeHandle(ref, () => ({
+    scrollToBottom: () => {
+      virtuosoRef.current?.scrollToIndex({
+        index: messages.length - 1,
+        align: 'end',
+        behavior: 'smooth'
+      })
+    }
+  }), [messages.length])
 
   // Auto-scroll to bottom when new messages arrive (instant, no animation)
   useEffect(() => {
@@ -152,6 +169,7 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
       followOutput="auto"
       atBottomStateChange={(isBottom) => {
         isAtBottom.current = isBottom
+        onIsAtBottomChange?.(isBottom)
       }}
       initialTopMostItemIndex={messages.length - 1}
       className="h-full scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40"
@@ -160,9 +178,12 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
       components={{Header , Footer }}
     />
   )
-}, (prevProps, nextProps) => {
-  // Custom comparison for memoization
-  // Only re-render if these specific props change
+})
+
+VirtualizedMessageList.displayName = 'VirtualizedMessageList'
+
+// Custom comparison function for memoization
+const compareProps = (prevProps: VirtualizedMessageListProps, nextProps: VirtualizedMessageListProps) => {
   return (
     prevProps.messages === nextProps.messages &&
     prevProps.isSending === nextProps.isSending &&
@@ -178,6 +199,10 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
     prevProps.onBranchFromMessage === nextProps.onBranchFromMessage &&
     prevProps.onQuote === nextProps.onQuote &&
     prevProps.onSwitchVersion === nextProps.onSwitchVersion &&
-    prevProps.onLoadMore === nextProps.onLoadMore
+    prevProps.onLoadMore === nextProps.onLoadMore &&
+    prevProps.onIsAtBottomChange === nextProps.onIsAtBottomChange
   )
-})
+}
+
+export const MemoizedVirtualizedMessageList = React.memo(VirtualizedMessageList, compareProps)
+export { MemoizedVirtualizedMessageList as VirtualizedMessageList }

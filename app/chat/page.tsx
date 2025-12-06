@@ -2,7 +2,10 @@
 
 // ChatContainer imports removed as we use VirtualizedMessageList directly
 import { MessageList } from "@/components/chat/message-list";
-import { VirtualizedMessageList } from "@/components/chat/virtualized-message-list";
+import {
+  VirtualizedMessageList,
+  type VirtualizedMessageListRef,
+} from "@/components/chat/virtualized-message-list";
 import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue";
 import {
   uploadFile as uploadFileAction,
@@ -80,6 +83,7 @@ import {
   Tags,
   BookmarkPlus,
   Bookmark,
+  ChevronDown,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
@@ -304,6 +308,7 @@ const ChatContent = memo(
     const [isSending, setIsSending] = useState(false);
     const [isSavingEdit, setIsSavingEdit] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [isScrolledUp, setIsScrolledUp] = useState(false);
 
     // Pagination state
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -387,7 +392,7 @@ const ChatContent = memo(
     // This clears messages when currentConversationId becomes null
     useEffect(() => {
       if (!currentConversationId) {
-        console.log('[ChatPage] New chat - clearing state');
+        console.log("[ChatPage] New chat - clearing state");
         // Clear all state to show fresh empty state
         messageState.setMessages([]);
         messageState.setMessageVersions(new Map());
@@ -973,6 +978,7 @@ const ChatContent = memo(
 
     // Ref for the input container to handle scroll locking
     const inputContainerRef = useRef<HTMLDivElement>(null);
+    const virtuosoRef = useRef<VirtualizedMessageListRef>(null);
 
     // Prevent body scroll when touching the input container (except for textarea)
     useEffect(() => {
@@ -1651,6 +1657,7 @@ const ChatContent = memo(
                 {/* Messages List - Virtuoso handles its own scrolling */}
                 <div className="flex-1 relative">
                   <VirtualizedMessageList
+                    ref={virtuosoRef}
                     messages={messages}
                     isSending={isSending}
                     streamingMessageId={globalStreamingMessageId}
@@ -1666,6 +1673,7 @@ const ChatContent = memo(
                     isLoadingMore={isLoadingMore}
                     statusPills={statusPills}
                     searchResults={searchResults}
+                    onIsAtBottomChange={setIsScrolledUp}
                   />
                 </div>
 
@@ -1680,6 +1688,34 @@ const ChatContent = memo(
                       setTagDialogOpen(false);
                     }}
                   />
+                )}
+
+                {/* Scroll to Bottom Button */}
+                {!isScrolledUp && messages.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border-border/50 hover:border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
+                    onClick={() => virtuosoRef.current?.scrollToBottom()}
+                    title="Scroll to bottom"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Scroll to Bottom
+                    </span>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm border-border/50 transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-out slide-out-to-bottom-8 fade-out pointer-events-none"
+                    style={{ opacity: 0 }}
+                    onClick={() => {}}
+                    title=""
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Scroll to Bottom
+                    </span>
+                  </Button>
                 )}
               </div>
               <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100]"></div>
