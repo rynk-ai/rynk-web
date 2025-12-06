@@ -19,7 +19,7 @@ import {
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { Button } from "@/components/ui/button";
 import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
-import { useChatContext } from "@/lib/hooks/chat-context";
+import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
 import { ChatProvider } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
@@ -53,7 +53,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 import { ChatContainerContent, ChatContainerRoot } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
-import { useRef, useState, useEffect, useMemo, useCallback, Suspense, memo } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback, Suspense, memo, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
@@ -224,7 +224,7 @@ interface ChatContentProps {
   onMenuClick?: () => void;
 }
 
-function ChatContent({ onMenuClick }: ChatContentProps = {}) {
+const ChatContent = memo(function ChatContent({ onMenuClick }: ChatContentProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
@@ -251,9 +251,11 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     // Reasoning mode
     reasoningMode,
     toggleReasoningMode,
-    statusPills,
-    searchResults,
   } = useChatContext();
+
+  // Separate streaming context for frequently-changing values
+  // This prevents statusPills/searchResults from causing unnecessary re-renders
+  const { statusPills, searchResults } = useStreamingContext();
   
   // Use custom hooks for separated state management
   const messageState = useMessageState();
@@ -340,7 +342,38 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [currentConversationId]);
 
+  // Track conversation ID to detect browser navigation
+  const lastChatIdRef = useRef(currentConversationId);
+
+  // Handle chatId from URL - auto-select conversation when URL changes
+  useEffect(() => {
+    const prevChatId = lastChatIdRef.current;
+    lastChatIdRef.current = currentConversationId;
+
+    // Auto-select if URL changed (browser navigation or direct URL access)
+    // But NOT if URL is changing to match already-selected conversation
+    if (currentConversationId !== prevChatId) {
+      console.log("[ProjectPage] Conversation changed:", {
+        prev: prevChatId,
+        current: currentConversationId
+      });
+    }
+  }, [currentConversationId]);
+
   const isLoading = isSending || isSavingEdit || !!isDeleting || contextIsLoading;
+
+  // Simple state reset when starting a new chat
+  // This clears messages when currentConversationId becomes null
+  useEffect(() => {
+    if (!currentConversationId) {
+      console.log('[ProjectPage] New chat - clearing state');
+      // Clear all state to show fresh empty state
+      messageState.setMessages([]);
+      messageState.setMessageVersions(new Map());
+      setQuotedMessage(null);
+      setLocalContext([]);
+    }
+  }, [currentConversationId]);
 
   // Local context state (used for all conversations now, transient)
   // Added 'status' field to track loading state for minimal progress feedback
@@ -356,6 +389,21 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     if (currentConversationId) {
       setLocalContext([]);
       setQuotedMessage(null); // Clear any pending quote when switching conversations
+    }
+  }, [currentConversationId]);
+
+  // Handle chatId from URL - auto-select conversation when URL changes
+  useEffect(() => {
+    const prevChatId = lastChatIdRef.current;
+    lastChatIdRef.current = currentConversationId;
+
+    // Auto-select if URL changed (browser navigation or direct URL access)
+    // But NOT if URL is changing to match already-selected conversation
+    if (currentConversationId !== prevChatId) {
+      console.log("[ProjectPage] Conversation changed:", {
+        prev: prevChatId,
+        current: currentConversationId
+      });
     }
   }, [currentConversationId]);
 
@@ -485,15 +533,17 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
         
         // If we have large PDFs and no conversation ID, create one NOW
         if (hasLargePDFs && !effectiveConversationId) {
-          console.log('🆕 [ChatPage] Creating new conversation for PDF indexing...');
+          console.log('🆕 [ProjectPage] Creating new conversation for PDF indexing...');
           try {
             const newConversationId = await createConversation();
             effectiveConversationId = newConversationId;
             // Update optimistic messages with real ID
             messageState.updateMessage(tempUserMessageId, { conversationId: effectiveConversationId });
             messageState.updateMessage(tempAssistantMessageId, { conversationId: effectiveConversationId });
+            // Navigate to stay in project context
+            router.push(`/project/[id]?id=${encodeURIComponent(newConversationId)}`.replace('[id]', window.location.pathname.split('/')[2]));
           } catch (err) {
-            console.error('❌ [ChatPage] Failed to create conversation:', err);
+            console.error('❌ [ProjectPage] Failed to create conversation:', err);
             throw err;
           }
         }
@@ -596,6 +646,13 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
 
       const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
+      // Navigate to new conversation if it was just created
+      // (i.e., if we didn't have a conversation before)
+      if (!currentConversationId && conversationId) {
+        console.log("🆕 [ProjectPage] New conversation created, navigating:", conversationId);
+        router.push(`/project/[id]?id=${encodeURIComponent(conversationId)}`.replace('[id]', window.location.pathname.split('/')[2]));
+      }
+
       // Replace optimistic messages with real ones
       if (userMessageId && userMessageId !== tempUserMessageId) {
         const realUserMessage = { ...optimisticUserMessage, id: userMessageId, conversationId };
@@ -658,12 +715,15 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     }
   }, [activeContext, uploadAttachments, sendChatRequest, messageState, startStreaming, updateStreamContent, finishStreaming, currentConversationId, replaceMessage, removeMessage, enqueueFile, waitForIndexing, jobs]);
 
-  // Handle pending query from URL params (?q=...) or localStorage  
+  // Handle pending query from URL params (?q=...) or localStorage
+  // Get projectId from pathname (since we're in /project/[id])
+  const projectIdFromPathname = typeof window !== 'undefined' ? window.location.pathname.split('/')[2] : null;
+
   useEffect(() => {
     // Check if we've already processed a query in this session (survives Fast Refresh)
     const alreadyProcessed = sessionStorage.getItem('pendingQueryProcessed') === 'true';
     if (alreadyProcessed) {
-      console.log('[ChatPage] Query already processed in this session, skipping');
+      console.log('[ProjectPage] Query already processed in this session, skipping');
       return;
     }
     
@@ -715,9 +775,9 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       }
       
       // Clear URL param AFTER submit
-      if (urlQuery) {
-        console.log('[ChatPage] Clearing URL param after submit');
-        router.replace('/chat');
+      if (urlQuery && projectIdFromPathname) {
+        console.log('[ProjectPage] Clearing URL param after submit');
+        router.replace(`/project/${projectIdFromPathname}`);
       }
       
       // Clear the session flag after successful submission
@@ -1304,6 +1364,8 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
                   onSwitchVersion={handleSwitchVersion}
                   onLoadMore={loadMoreMessages}
                   isLoadingMore={isLoadingMore}
+                  statusPills={statusPills}
+                  searchResults={searchResults}
                 />
               </div>
 
@@ -1399,14 +1461,21 @@ function ChatContent({ onMenuClick }: ChatContentProps = {}) {
       </div>
     </main>
   );
-}
+},
+  (prevProps, nextProps) => {
+    // Custom comparison function for ChatContent memoization
+    // Only re-render if onMenuClick prop changes
+    // All other state is internal to the component
+    return prevProps.onMenuClick === nextProps.onMenuClick;
+  }
+);
 
-function FullChatApp() {
+function FullChatApp({ projectId }: { projectId: string }) {
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <ChatHeader />
+        <ChatHeader projectId={projectId} />
         <Suspense fallback={
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto w-full relative">
@@ -1414,7 +1483,7 @@ function FullChatApp() {
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <TextShimmer
                   spread={5}
-                  duration={4} 
+                  duration={4}
                   className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
                 >
                   rynk.
@@ -1434,12 +1503,15 @@ function FullChatApp() {
 const ChatHeader = memo(function ChatHeader({ projectId }: { projectId?: string }) {
   const { selectConversation } = useChatContext();
   const { state } = useSidebar();
+  const router = useRouter();
 
   const handleNewChat = useCallback(() => {
-    // Just clear the selection - conversation will be created when user sends first message
-    // The projectId will be picked up from the URL at that point
+    // Navigate to stay in project context (no conversation selected)
+    if (projectId) {
+      router.push(`/project/${projectId}`);
+    }
     selectConversation(null);
-  }, [selectConversation]);
+  }, [router, projectId, selectConversation]);
 
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
@@ -1460,6 +1532,7 @@ const ChatHeader = memo(function ChatHeader({ projectId }: { projectId?: string 
   );
 });
 
-export default function ChatPage() {
-  return <FullChatApp />;
+export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  return <FullChatApp projectId={resolvedParams.id} />;
 }

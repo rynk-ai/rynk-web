@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext } from "react"
+import React, { createContext, useContext, useMemo } from "react"
 import { useChat } from "./use-chat"
 import type { CloudConversation as Conversation, CloudMessage as Message, Folder, Project } from "@/lib/services/cloud-db"
 
@@ -15,9 +15,9 @@ interface ChatContextValue {
   selectConversation: (id: string | null, conversation?: Conversation) => void
   searchConversations: (query: string, limit?: number, offset?: number) => Promise<Conversation[]>
   sendMessage: (
-    content: string, 
-    files?: File[], 
-    referencedConversations?: { id: string; title: string }[], 
+    content: string,
+    files?: File[],
+    referencedConversations?: { id: string; title: string }[],
     referencedFolders?: { id: string; name: string }[],
     onProgress?: (message: string) => void
   ) => Promise<{
@@ -84,22 +84,56 @@ interface ChatContextValue {
   // Agentic & Reasoning
   reasoningMode: 'auto' | 'on' | 'online' | 'off'
   toggleReasoningMode: () => void
+}
+
+const ChatContext = createContext<ChatContextValue | null>(null)
+
+// Separate context for frequently-changing streaming state
+// This prevents statusPills/searchResults from causing re-renders in unrelated components
+const StreamingContext = createContext<{
   statusPills: Array<{
     status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
     message: string
     timestamp: number
   }>
   searchResults: any
-}
-
-const ChatContext = createContext<ChatContextValue | null>(null)
+} | null>(null)
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const chatHook = useChat()
 
+  // Memoize context value to prevent unnecessary re-renders
+  // Only recreate the context value when actual data changes, not on every render
+  const contextValue = useMemo(() => chatHook, [
+    // Dependencies: only include stable values that shouldn't change frequently
+    chatHook.conversations,
+    chatHook.currentConversation,
+    chatHook.currentConversationId,
+    chatHook.isLoading,
+    chatHook.error,
+    chatHook.folders,
+    chatHook.projects,
+    chatHook.hasMoreConversations,
+    chatHook.isLoadingMoreConversations,
+    chatHook.activeProjectId,
+    chatHook.reasoningMode,
+    // Note: We don't include functions as dependencies as they should be stable
+  ])
+
+  // Separate streaming context for frequently-changing values
+  const streamingContextValue = useMemo(() => ({
+    statusPills: chatHook.statusPills,
+    searchResults: chatHook.searchResults,
+  }), [
+    chatHook.statusPills,
+    chatHook.searchResults,
+  ])
+
   return (
-    <ChatContext.Provider value={chatHook}>
-      {children}
+    <ChatContext.Provider value={contextValue}>
+      <StreamingContext.Provider value={streamingContextValue}>
+        {children}
+      </StreamingContext.Provider>
     </ChatContext.Provider>
   )
 }
@@ -108,6 +142,14 @@ export function useChatContext() {
   const context = useContext(ChatContext)
   if (!context) {
     throw new Error("useChatContext must be used within a ChatProvider")
+  }
+  return context
+}
+
+export function useStreamingContext() {
+  const context = useContext(StreamingContext)
+  if (!context) {
+    throw new Error("useStreamingContext must be used within a ChatProvider")
   }
   return context
 }

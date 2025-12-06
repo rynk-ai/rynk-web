@@ -1,8 +1,8 @@
 "use client";
 
 
-import {useState, useEffect, useCallback, useRef} from "react";
-import { usePathname } from "next/navigation";
+import {useState, useEffect, useCallback, useRef, memo} from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   Sidebar,
@@ -63,12 +63,13 @@ import type {
   Folder,
 } from "@/lib/services/cloud-db";
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
   const pathname = usePathname();
-  
+  const router = useRouter();
+
   // Extract projectId from URL if on /project/[id] route
-  const activeProjectId = pathname?.startsWith('/project/') 
-    ? pathname.split('/')[2] 
+  const activeProjectId = pathname?.startsWith('/project/')
+    ? pathname.split('/')[2]
     : null;
 
   const {
@@ -309,9 +310,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setSelectedFolder(null);
   };
 
-  // Helper to wrap selectConversation with mobile callback
+  // Helper to wrap selectConversation with Next.js router navigation
   const handleSelectConversation = (id: string | null, conversation?: Conversation) => {
+    // ✅ STATE FIRST: Update conversation immediately (no URL change)
+    // This prevents jank by avoiding the gap between URL change and content load
     selectConversation(id, conversation);
+
+    // ✅ URL SECOND (optional): Update URL only if different from current
+    // This preserves browser history/back button while keeping navigation smooth
+    if (id) {
+      const newUrl = activeProjectId
+        ? `/project/${activeProjectId}?id=${encodeURIComponent(id)}`
+        : `/chat?id=${encodeURIComponent(id)}`;
+
+      // Only push to history if URL is actually changing
+      if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== newUrl) {
+        router.push(newUrl);
+      }
+    } else {
+      // New chat - clear URL
+      const newUrl = activeProjectId ? `/project/${activeProjectId}` : '/chat';
+      if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== newUrl) {
+        router.push(newUrl);
+      }
+    }
   };
 
   return (
@@ -328,7 +350,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               variant="outline"
               className="flex-1 justify-start gap-2 px-3 shadow-none border-border/50 bg-background/50 hover:bg-accent hover:text-accent-foreground transition-all"
               onClick={() => {
-                // Just clear the conversation selection
+                // Navigate to /chat (new chat) and clear the conversation selection
                 // The conversation will be created when user sends first message
                 handleSelectConversation(null);
               }}
@@ -631,4 +653,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       )}
     </Sidebar>
   );
-}
+};
+
+// Memoize AppSidebar to prevent unnecessary re-renders
+// Only re-render if the sidebar props change (not when internal state changes)
+export const AppSidebar = memo(AppSidebarBase, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if sidebar-specific props change
+  // All internal state changes should not cause re-renders of parent components
+  return prevProps === nextProps;
+});

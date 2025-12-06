@@ -43,11 +43,16 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
 }: VirtualizedMessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
+  const prevLengthRef = useRef(messages.length)
 
-  
   // Auto-scroll to bottom when new messages arrive (instant, no animation)
   useEffect(() => {
-    if (messages.length > 0) {
+    // Skip auto-scroll if this is a conversation switch (messages went from >0 to 0 to >0)
+    // This prevents jank during conversation switching
+    const prevLength = prevLengthRef.current
+    const isConversationSwitch = prevLength > 0 && messages.length === 0
+
+    if (messages.length > 0 && !isConversationSwitch) {
       // Small timeout to ensure content is rendered
       const timeout = setTimeout(() => {
         virtuosoRef.current?.scrollToIndex({
@@ -58,6 +63,8 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
       }, 100)
       return () => clearTimeout(timeout)
     }
+
+    prevLengthRef.current = messages.length
   }, [messages.length, isSending])
 
   // Also scroll when streaming updates - ONLY if user is already at bottom
@@ -73,30 +80,41 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
 
   // Memoize itemContent to prevent recreation on every render
   // This is critical for performance as it affects all message items
-  const itemContent = useCallback((index: number, message: ChatMessage) => {
-    const rootId = message.versionOf || message.id
-    const versions = messageVersions.get(rootId) || [message]
-    
-    return (
-      <ChatMessageItem
-        message={message}
-        isLastMessage={index === messages.length - 1}
-        isSending={isSending}
-        isStreaming={streamingMessageId === message.id}
-        streamingContent={streamingContent}
-        isEditing={editingMessageId === message.id}
-        onStartEdit={onStartEdit}
-        onDelete={onDeleteMessage}
-        onBranch={onBranchFromMessage}
-        onQuote={onQuote}
-        versions={versions}
-        onSwitchVersion={onSwitchVersion}
-        streamingStatusPills={streamingMessageId === message.id ? statusPills : undefined}
-        streamingSearchResults={streamingMessageId === message.id ? searchResults : undefined}
-      />
-    )
+  // Using useMemo to avoid dependency issues with useCallback
+  const itemContent = useMemo(() => {
+    return (index: number, message: ChatMessage) => {
+      const rootId = message.versionOf || message.id
+      const versions = messageVersions.get(rootId) || [message]
+
+      return (
+        <ChatMessageItem
+          message={message}
+          isLastMessage={index === messages.length - 1}
+          isSending={isSending}
+          isStreaming={streamingMessageId === message.id}
+          streamingContent={streamingContent}
+          isEditing={editingMessageId === message.id}
+          onStartEdit={onStartEdit}
+          onDelete={onDeleteMessage}
+          onBranch={onBranchFromMessage}
+          onQuote={onQuote}
+          versions={versions}
+          onSwitchVersion={onSwitchVersion}
+          streamingStatusPills={
+            // Show status pills for the streaming message OR the last message (pending response)
+            streamingMessageId === message.id || (isSending && index === messages.length - 1)
+              ? statusPills
+              : undefined
+          }
+          streamingSearchResults={
+            streamingMessageId === message.id || (isSending && index === messages.length - 1)
+              ? searchResults
+              : undefined
+          }
+        />
+      )
+    }
   }, [
-    messages.length,
     messageVersions,
     isSending,
     streamingMessageId,
@@ -108,7 +126,8 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
     onQuote,
     onSwitchVersion,
     statusPills,
-    searchResults
+    searchResults,
+    messages.length
   ])
   
   const Header = () => {
@@ -134,5 +153,25 @@ export const VirtualizedMessageList = React.memo(function VirtualizedMessageList
       startReached={onLoadMore}
       components={{Header , Footer }}
     />
+  )
+}, (prevProps, nextProps) => {
+  // Custom comparison for memoization
+  // Only re-render if these specific props change
+  return (
+    prevProps.messages === nextProps.messages &&
+    prevProps.isSending === nextProps.isSending &&
+    prevProps.streamingMessageId === nextProps.streamingMessageId &&
+    prevProps.streamingContent === nextProps.streamingContent &&
+    prevProps.editingMessageId === nextProps.editingMessageId &&
+    prevProps.messageVersions === nextProps.messageVersions &&
+    prevProps.isLoadingMore === nextProps.isLoadingMore &&
+    prevProps.statusPills === nextProps.statusPills &&
+    prevProps.searchResults === nextProps.searchResults &&
+    prevProps.onStartEdit === nextProps.onStartEdit &&
+    prevProps.onDeleteMessage === nextProps.onDeleteMessage &&
+    prevProps.onBranchFromMessage === nextProps.onBranchFromMessage &&
+    prevProps.onQuote === nextProps.onQuote &&
+    prevProps.onSwitchVersion === nextProps.onSwitchVersion &&
+    prevProps.onLoadMore === nextProps.onLoadMore
   )
 })

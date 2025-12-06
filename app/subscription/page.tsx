@@ -218,7 +218,7 @@ export default function SubscriptionPage() {
 
         {/* Plan Comparison */}
         <h3 className="text-xl font-semibold mb-6">Available Plans</h3>
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2">
           {(Object.entries(tierConfig) as [Tier, typeof tierConfig.free][]).map(
             ([tier, config]) => {
               const isCurrentPlan = currentTier === tier;

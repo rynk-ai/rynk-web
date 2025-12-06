@@ -13,6 +13,7 @@ import { DeleteMessageDialog } from '@/components/delete-message-dialog';
 import { ReasoningDisplay } from '@/components/chat/reasoning-display';
 import { SourcesFooter } from '@/components/chat/sources-footer';
 import { formatCitationsFromSearchResults, type Citation } from '@/lib/types/citation';
+import { useStreamingContext } from '@/lib/hooks/chat-context';
 
 import { VersionIndicator } from '@/components/ui/version-indicator';
 
@@ -58,18 +59,28 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   streamingSearchResults
 }: ChatMessageItemProps) {
   const isAssistant = message.role === 'assistant';
-  
+
+  // Get streaming context for status pills and search results
+  const streamingContext = useStreamingContext();
+
   // Persist streaming metadata until message has its own
   // This fixes the race condition between finishStreaming() and message refetch
   const lastStreamingStatusPills = useRef<any[]>([]);
   const lastStreamingSearchResults = useRef<any>(null);
-  
+
   // Update refs when streaming props are available
+  // Also update from context for pending assistant messages (last message, isSending)
   if (streamingStatusPills && streamingStatusPills.length > 0) {
     lastStreamingStatusPills.current = streamingStatusPills;
+  } else if (isLastMessage && isSending && streamingContext.statusPills) {
+    // For pending assistant messages, get status pills from context even if prop is undefined
+    lastStreamingStatusPills.current = streamingContext.statusPills;
   }
   if (streamingSearchResults) {
     lastStreamingSearchResults.current = streamingSearchResults;
+  } else if (isLastMessage && isSending && streamingContext.searchResults) {
+    // For pending assistant messages, get search results from context even if prop is undefined
+    lastStreamingSearchResults.current = streamingContext.searchResults;
   }
   
   // Quote button state
