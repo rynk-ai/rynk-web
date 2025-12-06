@@ -2,13 +2,21 @@ import type { Metadata } from "next";
 
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Inter } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { FontProviderWrapper } from "@/components/providers/font-provider-wrapper";
 import { Toaster } from "sonner";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rynk.io"),
@@ -87,36 +95,35 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased tracking-tight`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} antialiased tracking-tight`}
       >
-
-
-
         <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <QueryProvider>
-              <ChatProvider>{children}</ChatProvider>
-              <Toaster
-                position="top-center"
-                richColors
-                closeButton
-                toastOptions={{
-                  duration: 5000,
-                }}
-              />
-            </QueryProvider>
-          </ThemeProvider>
+          <FontProviderWrapper defaultFont="geist">
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <QueryProvider>
+                <ChatProvider>{children}</ChatProvider>
+                <Toaster
+                  position="top-center"
+                  richColors
+                  closeButton
+                  toastOptions={{
+                    duration: 5000,
+                  }}
+                />
+              </QueryProvider>
+            </ThemeProvider>
+          </FontProviderWrapper>
         </AuthProvider>
 
         {/* Structured Data (JSON-LD) for SEO */}

@@ -52,6 +52,12 @@
 
         /* Radius */
         --radius: 0.75rem;
+
+        /* Font Families */
+        --font-geist: "Geist Sans", sans-serif;
+        --font-inter: "Inter", sans-serif;
+        --font-system: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
     }
 
     .dark {
