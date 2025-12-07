@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { ChatMessageItem } from './chat-message-item'
-import { type CloudMessage as ChatMessage } from '@/lib/services/cloud-db'
+import { type CloudMessage as ChatMessage, type SubChat } from '@/lib/services/cloud-db'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useKeyboardAwarePosition } from '@/lib/hooks/use-keyboard-aware-position'
@@ -16,6 +16,12 @@ interface VirtualizedMessageListProps {
   onDeleteMessage: (messageId: string) => void
   onBranchFromMessage: (messageId: string) => void
   onQuote?: (text: string, messageId: string, role: 'user' | 'assistant') => void
+  onOpenSubChat?: (text: string, messageId: string, role: 'user' | 'assistant') => void
+  onViewSubChats?: (messageId: string) => void
+  onOpenExistingSubChat?: (subChat: SubChat) => void
+  onDeleteSubChat?: (subChatId: string) => void
+  messageIdsWithSubChats?: Set<string>
+  subChats?: SubChat[]
   messageVersions: Map<string, ChatMessage[]>
   onSwitchVersion: (messageId: string) => Promise<void>
   onLoadMore?: () => void
@@ -39,6 +45,12 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   onDeleteMessage,
   onBranchFromMessage,
   onQuote,
+  onOpenSubChat,
+  onViewSubChats,
+  onOpenExistingSubChat,
+  onDeleteSubChat,
+  messageIdsWithSubChats,
+  subChats = [],
   messageVersions,
   onSwitchVersion,
   onLoadMore,
@@ -102,6 +114,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     return (index: number, message: ChatMessage) => {
       const rootId = message.versionOf || message.id
       const versions = messageVersions.get(rootId) || [message]
+      const messageSubChats = subChats.filter(sc => sc.sourceMessageId === message.id)
 
       return (
         <ChatMessageItem
@@ -115,6 +128,12 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
           onDelete={onDeleteMessage}
           onBranch={onBranchFromMessage}
           onQuote={onQuote}
+          onOpenSubChat={onOpenSubChat}
+          hasSubChats={messageSubChats.length > 0}
+          messageSubChats={messageSubChats}
+          onViewSubChats={onViewSubChats}
+          onOpenExistingSubChat={onOpenExistingSubChat}
+          onDeleteSubChat={onDeleteSubChat}
           versions={versions}
           onSwitchVersion={onSwitchVersion}
           streamingStatusPills={
@@ -147,6 +166,12 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     onDeleteMessage,
     onBranchFromMessage,
     onQuote,
+    onOpenSubChat,
+    onViewSubChats,
+    onOpenExistingSubChat,
+    onDeleteSubChat,
+    messageIdsWithSubChats,
+    subChats,
     onSwitchVersion,
     statusPills,
     searchResults,
@@ -191,6 +216,8 @@ const compareProps = (prevProps: VirtualizedMessageListProps, nextProps: Virtual
     prevProps.streamingContent === nextProps.streamingContent &&
     prevProps.editingMessageId === nextProps.editingMessageId &&
     prevProps.messageVersions === nextProps.messageVersions &&
+    prevProps.messageIdsWithSubChats === nextProps.messageIdsWithSubChats &&
+    prevProps.subChats === nextProps.subChats &&
     prevProps.isLoadingMore === nextProps.isLoadingMore &&
     prevProps.statusPills === nextProps.statusPills &&
     prevProps.searchResults === nextProps.searchResults &&
@@ -198,6 +225,10 @@ const compareProps = (prevProps: VirtualizedMessageListProps, nextProps: Virtual
     prevProps.onDeleteMessage === nextProps.onDeleteMessage &&
     prevProps.onBranchFromMessage === nextProps.onBranchFromMessage &&
     prevProps.onQuote === nextProps.onQuote &&
+    prevProps.onOpenSubChat === nextProps.onOpenSubChat &&
+    prevProps.onViewSubChats === nextProps.onViewSubChats &&
+    prevProps.onOpenExistingSubChat === nextProps.onOpenExistingSubChat &&
+    prevProps.onDeleteSubChat === nextProps.onDeleteSubChat &&
     prevProps.onSwitchVersion === nextProps.onSwitchVersion &&
     prevProps.onLoadMore === nextProps.onLoadMore &&
     prevProps.onIsAtBottomChange === nextProps.onIsAtBottomChange

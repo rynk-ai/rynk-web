@@ -1,8 +1,11 @@
 "use client";
 
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
+import type {
+  CloudMessage as ChatMessage,
+  SubChat,
+} from "@/lib/services/cloud-db";
 import {
   Message,
   MessageContent,
@@ -20,7 +23,18 @@ import {
   Paperclip,
   Loader2,
   Quote,
+  MessageSquarePlus,
+  MoreHorizontal,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
 import { cn } from "@/lib/utils";
@@ -50,6 +64,16 @@ interface ChatMessageItemProps {
     messageId: string,
     role: "user" | "assistant",
   ) => void;
+  onOpenSubChat?: (
+    text: string,
+    messageId: string,
+    role: "user" | "assistant",
+  ) => void;
+  hasSubChats?: boolean;
+  messageSubChats?: SubChat[];
+  onViewSubChats?: (messageId: string) => void;
+  onOpenExistingSubChat?: (subChat: SubChat) => void;
+  onDeleteSubChat?: (subChatId: string) => void;
   versions?: ChatMessage[];
   onSwitchVersion?: (messageId: string) => Promise<void>;
   streamingStatusPills?: any[];
@@ -75,6 +99,12 @@ export const ChatMessageItem = memo(
     onBranch,
     onCopy,
     onQuote,
+    onOpenSubChat,
+    hasSubChats = false,
+    messageSubChats = [],
+    onViewSubChats,
+    onOpenExistingSubChat,
+    onDeleteSubChat,
     versions = [],
     onSwitchVersion,
     streamingStatusPills,
@@ -175,6 +205,235 @@ export const ChatMessageItem = memo(
       [selectedText, onQuote, message.id, message.role],
     );
 
+    const handleSubChatClick = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (
+          selectedText &&
+          onOpenSubChat &&
+          (message.role === "user" || message.role === "assistant")
+        ) {
+          onOpenSubChat(selectedText, message.id, message.role);
+          setShowQuoteButton(false);
+          setSelectedText("");
+          // Clear selection
+          window.getSelection()?.removeAllRanges();
+        }
+      },
+      [selectedText, onOpenSubChat, message.id, message.role],
+    );
+
+    const handleViewSubChats = useCallback(() => {
+      if (onViewSubChats) {
+        onViewSubChats(message.id);
+      }
+    }, [message.id, onViewSubChats]);
+
+    // Helper to highlight quoted text from sub-chats
+    const highlightSubChatText = useCallback(
+      (content: string) => {
+        if (!messageSubChats.length || !onOpenExistingSubChat) {
+          return content;
+        }
+
+        // Create segments with highlights
+        const segments: { text: string; subChat?: SubChat }[] = [];
+        let remainingText = content;
+        let lastIndex = 0;
+
+        // Sort sub-chats by position in text (find each quoted text)
+        const matches: {
+          start: number;
+          end: number;
+          subChat: SubChat;
+          matchedText: string;
+        }[] = [];
+        for (const sc of messageSubChats) {
+          const quotedTrimmed = sc.quotedText.trim();
+
+          // Try exact match first
+          let idx = content.indexOf(sc.quotedText);
+          let matchedText = sc.quotedText;
+
+          // If not found, try trimmed version
+          if (idx === -1) {
+            idx = content.indexOf(quotedTrimmed);
+            matchedText = quotedTrimmed;
+          }
+
+          if (idx !== -1) {
+            matches.push({
+              start: idx,
+              end: idx + matchedText.length,
+              subChat: sc,
+              matchedText,
+            });
+          }
+        }
+
+        // Sort by start position
+        matches.sort((a, b) => a.start - b.start);
+
+        // Remove overlapping matches (keep first occurrence)
+        const nonOverlapping: typeof matches = [];
+        for (const match of matches) {
+          const overlaps = nonOverlapping.some(
+            (m) =>
+              (match.start >= m.start && match.start < m.end) ||
+              (match.end > m.start && match.end <= m.end),
+          );
+          if (!overlaps) {
+            nonOverlapping.push(match);
+          }
+        }
+
+        // Build segments
+        let currentIndex = 0;
+        for (const match of nonOverlapping) {
+          if (match.start > currentIndex) {
+            segments.push({ text: content.slice(currentIndex, match.start) });
+          }
+          segments.push({
+            text: match.matchedText,
+            subChat: match.subChat,
+          });
+          currentIndex = match.end;
+        }
+        if (currentIndex < content.length) {
+          segments.push({ text: content.slice(currentIndex) });
+        }
+
+        return segments;
+      },
+      [messageSubChats, onOpenExistingSubChat],
+    );
+
+    // Render content with highlighted sub-chat text for user messages
+    const renderUserContentWithHighlights = useCallback(() => {
+      const segments = highlightSubChatText(message.content);
+
+      if (typeof segments === "string") {
+        return segments;
+      }
+
+      return (
+        <>
+          {segments.map((seg, idx) => {
+            if (seg.subChat) {
+              return (
+                <span
+                  key={idx}
+                  className="bg-amber-200/60 dark:bg-amber-800/40 hover:bg-amber-300/70 dark:hover:bg-amber-700/50 cursor-pointer rounded px-0.5 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenExistingSubChat?.(seg.subChat!);
+                  }}
+                  title="Click to open sub-chat"
+                >
+                  {seg.text}
+                </span>
+              );
+            }
+            return <span key={idx}>{seg.text}</span>;
+          })}
+        </>
+      );
+    }, [message.content, highlightSubChatText, onOpenExistingSubChat]);
+
+    // Ref for assistant message content to apply highlights via DOM
+    const assistantContentRef = useRef<HTMLDivElement>(null);
+
+    // Apply highlights to assistant content after render
+    useEffect(() => {
+      if (!assistantContentRef.current) {
+        return;
+      }
+
+      const container = assistantContentRef.current;
+
+      // Remove any existing highlights first (always do this for cleanup)
+      container.querySelectorAll(".subchat-highlight").forEach((el) => {
+        const text = el.textContent || "";
+        el.replaceWith(document.createTextNode(text));
+      });
+
+      // Early return if no sub-chats to highlight
+      if (!messageSubChats.length || !onOpenExistingSubChat || isStreaming) {
+        return;
+      }
+
+      // Apply highlights for each sub-chat
+      for (const sc of messageSubChats) {
+        const quotedText = sc.quotedText.trim();
+        if (!quotedText) continue;
+
+        // Walk through text nodes and find matches
+        const walker = document.createTreeWalker(
+          container,
+          NodeFilter.SHOW_TEXT,
+          null,
+        );
+
+        const nodesToProcess: { node: Text; start: number; end: number }[] = [];
+        let node: Text | null;
+
+        while ((node = walker.nextNode() as Text | null)) {
+          const text = node.textContent || "";
+          const idx = text.indexOf(quotedText);
+          if (idx !== -1) {
+            nodesToProcess.push({
+              node,
+              start: idx,
+              end: idx + quotedText.length,
+            });
+            break; // Only highlight first occurrence per sub-chat
+          }
+        }
+
+        // Process nodes (in reverse to avoid index issues)
+        for (const { node, start, end } of nodesToProcess.reverse()) {
+          const text = node.textContent || "";
+          const before = text.slice(0, start);
+          const match = text.slice(start, end);
+          const after = text.slice(end);
+
+          const span = document.createElement("span");
+          span.className = "subchat-highlight";
+          span.textContent = match;
+          span.style.cursor = "pointer";
+          span.setAttribute("data-subchat-id", sc.id);
+          span.title = "Click to open sub-chat";
+
+          const fragment = document.createDocumentFragment();
+          if (before) fragment.appendChild(document.createTextNode(before));
+          fragment.appendChild(span);
+          if (after) fragment.appendChild(document.createTextNode(after));
+
+          node.replaceWith(fragment);
+        }
+      }
+
+      // Add click handler for highlights
+      const handleClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains("subchat-highlight")) {
+          const subChatId = target.getAttribute("data-subchat-id");
+          if (subChatId) {
+            const subChat = messageSubChats.find((sc) => sc.id === subChatId);
+            if (subChat) {
+              e.stopPropagation();
+              onOpenExistingSubChat(subChat);
+            }
+          }
+        }
+      };
+
+      container.addEventListener("click", handleClick);
+      return () => container.removeEventListener("click", handleClick);
+    }, [messageSubChats, onOpenExistingSubChat, isStreaming, message.content]);
+
     if (isAssistant) {
       const displayContent = isStreaming ? streamingContent : message.content;
 
@@ -197,7 +456,9 @@ export const ChatMessageItem = memo(
           hasStreamingProp: !!streamingSearchResults,
           hasRefValue: !!lastStreamingSearchResults.current,
           hasEffective: !!effectiveSearchResults,
-          isEffectiveFromRef: effectiveSearchResults === lastStreamingSearchResults.current && !isStreaming,
+          isEffectiveFromRef:
+            effectiveSearchResults === lastStreamingSearchResults.current &&
+            !isStreaming,
         });
       }
 
@@ -208,8 +469,16 @@ export const ChatMessageItem = memo(
       // Convert search results to citations for the citation system
       const citations = useMemo(() => {
         const result = formatCitationsFromSearchResults(effectiveSearchResults);
-        if (typeof window !== "undefined" && message.role === "assistant" && !isStreaming && result.length > 0) {
-          console.log(`[ChatMessageItem ${message.id.slice(0, 8)}] Citations computed:`, result.length);
+        if (
+          typeof window !== "undefined" &&
+          message.role === "assistant" &&
+          !isStreaming &&
+          result.length > 0
+        ) {
+          console.log(
+            `[ChatMessageItem ${message.id.slice(0, 8)}] Citations computed:`,
+            result.length,
+          );
         }
         return result;
       }, [effectiveSearchResults, isStreaming]);
@@ -245,45 +514,114 @@ export const ChatMessageItem = memo(
                   defaultCollapsed={false}
                 />
 
-                {/* Message content with inline citations */}
-                <Markdown
-                  className="!bg-transparent !p-0 !text-foreground"
-                  citations={citations}
-                >
-                  {displayContent}
-                </Markdown>
+                {/* Message content with inline citations and sub-chat highlights */}
+                <div ref={assistantContentRef}>
+                  <Markdown
+                    className="!bg-transparent !p-0 !text-foreground"
+                    citations={citations}
+                  >
+                    {displayContent}
+                  </Markdown>
+                </div>
 
                 {/* Search Sources - Show after content if available */}
                 {citations && citations.length > 0 && !isStreaming && (
                   <>
-                    {typeof window !== "undefined" && console.log(`[ChatMessageItem ${message.id.slice(0, 8)}] Rendering SourcesFooter with ${citations.length} citations`)}
+                    {typeof window !== "undefined" &&
+                      console.log(
+                        `[ChatMessageItem ${message.id.slice(0, 8)}] Rendering SourcesFooter with ${citations.length} citations`,
+                      )}
                     <SourcesFooter citations={citations} variant="compact" />
                   </>
                 )}
               </div>
 
-              {/* Floating Quote Button - Rendered via Portal to avoid positioning issues */}
+              {/* Floating Quote & SubChat Buttons - Rendered via Portal to avoid positioning issues */}
               {showQuoteButton &&
-                onQuote &&
                 selectedText &&
                 typeof window !== "undefined" &&
                 createPortal(
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="absolute z-[9999] h-7 gap-1.5 px-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+                  <div
+                    className="absolute z-[9999] flex items-center gap-1 animate-in fade-in slide-in-from-bottom-2 duration-200"
                     style={{
                       top: `${buttonPosition.top + 4}px`,
                       left: `${buttonPosition.left + 8}px`,
                     }}
-                    onClick={handleQuoteClick}
-                    onMouseDown={(e) => e.preventDefault()}
                   >
-                    <Quote className="h-3.5 w-3.5" />
-                    Quote
-                  </Button>,
+                    {onQuote && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 gap-1.5 px-2.5 shadow-lg"
+                        onClick={handleQuoteClick}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <Quote className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {onOpenSubChat && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 p-0 shadow-lg"
+                        onClick={handleSubChatClick}
+                        onMouseDown={(e) => e.preventDefault()}
+                        title="Ask about this"
+                      >
+                        <MessageSquarePlus className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>,
                   document.body,
                 )}
+
+              {/* Sub-chat dropdown */}
+              {hasSubChats && messageSubChats.length > 0 && (
+                <div className="absolute -right-2 top-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 rounded-full bg-primary/10 hover:bg-primary/20"
+                        title="View sub-chats"
+                      >
+                        <MessageSquarePlus className="h-3 w-3 text-primary" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        Sub-chats ({messageSubChats.length})
+                      </div>
+                      <DropdownMenuSeparator />
+                      {messageSubChats.map((sc) => (
+                        <DropdownMenuItem
+                          key={sc.id}
+                          className="flex items-center justify-between gap-2 cursor-pointer"
+                          onClick={() => onOpenExistingSubChat?.(sc)}
+                        >
+                          <span className="truncate text-sm flex-1">
+                            "{sc.quotedText.slice(0, 40)}{sc.quotedText.length > 40 ? '...' : ''}"
+                          </span>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteSubChat?.(sc.id);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
 
               <MessageActions
                 className={cn(
@@ -338,32 +676,99 @@ export const ChatMessageItem = memo(
                 )}
                 onMouseUp={handleTextSelection}
               >
-                {message.content}
+                {messageSubChats.length > 0
+                  ? renderUserContentWithHighlights()
+                  : message.content}
               </MessageContent>
             </div>
 
-            {/* Floating Quote Button - Rendered via Portal to avoid positioning issues */}
+            {/* Floating Quote & SubChat Buttons - Rendered via Portal to avoid positioning issues */}
             {showQuoteButton &&
-              onQuote &&
               selectedText &&
               typeof window !== "undefined" &&
               createPortal(
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="absolute z-[9999] h-7 gap-1.5 px-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+                <div
+                  className="absolute z-[9999] flex items-center gap-1 animate-in fade-in slide-in-from-bottom-2 duration-200"
                   style={{
                     top: `${buttonPosition.top + 4}px`,
                     left: `${buttonPosition.left + 8}px`,
                   }}
-                  onClick={handleQuoteClick}
-                  onMouseDown={(e) => e.preventDefault()}
                 >
-                  <Quote className="h-3.5 w-3.5" />
-                  Quote
-                </Button>,
+                  {onQuote && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 gap-1.5 px-2.5 shadow-lg"
+                      onClick={handleQuoteClick}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      <Quote className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {onOpenSubChat && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 w-7 p-0 shadow-lg"
+                      onClick={handleSubChatClick}
+                      onMouseDown={(e) => e.preventDefault()}
+                      title="Ask about this"
+                    >
+                      <MessageSquarePlus className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>,
                 document.body,
               )}
+
+            {/* Sub-chat dropdown for user messages */}
+            {hasSubChats && messageSubChats.length > 0 && (
+              <div className="absolute -left-2 top-0">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 rounded-full bg-primary/10 hover:bg-primary/20"
+                      title="View sub-chats"
+                    >
+                      <MessageSquarePlus className="h-3 w-3 text-primary" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                      Sub-chats ({messageSubChats.length})
+                    </div>
+                    <DropdownMenuSeparator />
+                    {messageSubChats.map((sc) => (
+                      <DropdownMenuItem
+                        key={sc.id}
+                        className="flex items-center justify-between gap-2 cursor-pointer"
+                        onClick={() => onOpenExistingSubChat?.(sc)}
+                      >
+                        <span className="truncate text-sm flex-1">
+                          "{sc.quotedText.slice(0, 40)}{sc.quotedText.length > 40 ? '...' : ''}"
+                        </span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteSubChat?.(sc.id);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
             {/* Context Badges */}
             {((message.referencedConversations?.length ?? 0) > 0 ||
               (message.referencedFolders?.length ?? 0) > 0) && (
@@ -478,6 +883,8 @@ export const ChatMessageItem = memo(
       prevProps.isStreaming === nextProps.isStreaming &&
       prevProps.streamingContent === nextProps.streamingContent &&
       prevProps.isEditing === nextProps.isEditing &&
+      prevProps.hasSubChats === nextProps.hasSubChats &&
+      prevProps.messageSubChats === nextProps.messageSubChats &&
       // Deep check for attachments and references
       JSON.stringify(prevProps.message.attachments) ===
         JSON.stringify(nextProps.message.attachments) &&

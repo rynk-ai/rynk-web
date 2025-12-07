@@ -265,3 +265,24 @@
         scrollbar-gutter: stable;
     }
 }
+
+/* Sub-chat highlight styling */
+.subchat-highlight {
+    background-color: rgba(251, 191, 36, 0.4); /* amber-400 with opacity */
+    padding: 0 2px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.subchat-highlight:hover {
+    background-color: rgba(251, 191, 36, 0.6);
+}
+
+.dark .subchat-highlight {
+    background-color: rgba(180, 83, 9, 0.4); /* amber-700 with opacity */
+}
+
+.dark .subchat-highlight:hover {
+    background-color: rgba(180, 83, 9, 0.6);
+}

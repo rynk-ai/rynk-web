@@ -135,6 +135,20 @@ CREATE TABLE IF NOT EXISTS embeddings (
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Sub-chats for contextual side conversations
+CREATE TABLE IF NOT EXISTS sub_chats (
+  id TEXT PRIMARY KEY,
+  conversationId TEXT NOT NULL,
+  sourceMessageId TEXT NOT NULL,
+  quotedText TEXT NOT NULL,
+  sourceMessageContent TEXT, -- Full content of the source message for context
+  messages TEXT DEFAULT '[]', -- JSON array of {id, role, content, createdAt}
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
+  FOREIGN KEY (sourceMessageId) REFERENCES messages(id) ON DELETE CASCADE
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_message_conversation ON messages(conversationId);
 CREATE INDEX IF NOT EXISTS idx_conversation_user ON conversations(userId);
@@ -144,3 +158,5 @@ CREATE INDEX IF NOT EXISTS idx_project_user ON projects(userId);
 CREATE INDEX IF NOT EXISTS idx_embedding_message ON embeddings(messageId);
 CREATE INDEX IF NOT EXISTS idx_embedding_conversation ON embeddings(conversationId);
 CREATE INDEX IF NOT EXISTS idx_embedding_user ON embeddings(userId);
+CREATE INDEX IF NOT EXISTS idx_subchat_conversation ON sub_chats(conversationId);
+CREATE INDEX IF NOT EXISTS idx_subchat_source_message ON sub_chats(sourceMessageId);

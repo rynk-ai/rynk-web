@@ -106,6 +106,24 @@ export interface CloudEmbedding {
   createdAt: string
 }
 
+export interface SubChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: number
+}
+
+export interface SubChat {
+  id: string
+  conversationId: string
+  sourceMessageId: string
+  quotedText: string
+  sourceMessageContent?: string
+  messages: SubChatMessage[]
+  createdAt: number
+  updatedAt: number
+}
+
 
 export const cloudDb = {
   async getUser(email: string) {
@@ -1479,5 +1497,129 @@ export const cloudDb = {
     }
     
     console.log(`✅ [cloudDb] Reset credits for user ${userId} (tier: ${tier})`)
+  },
+
+  // --- Sub-Chats ---
+
+  async getSubChats(conversationId: string): Promise<SubChat[]> {
+    const db = getDB()
+    const results = await db.prepare(
+      'SELECT * FROM sub_chats WHERE conversationId = ? ORDER BY createdAt DESC'
+    ).bind(conversationId).all()
+
+    return results.results.map((s: any) => ({
+      id: s.id as string,
+      conversationId: s.conversationId as string,
+      sourceMessageId: s.sourceMessageId as string,
+      quotedText: s.quotedText as string,
+      sourceMessageContent: s.sourceMessageContent as string | undefined,
+      messages: JSON.parse(s.messages as string || '[]'),
+      createdAt: new Date(s.createdAt as string).getTime(),
+      updatedAt: new Date(s.updatedAt as string).getTime()
+    }))
+  },
+
+  async getSubChat(subChatId: string): Promise<SubChat | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM sub_chats WHERE id = ?').bind(subChatId).first()
+    if (!result) return null
+
+    return {
+      id: result.id as string,
+      conversationId: result.conversationId as string,
+      sourceMessageId: result.sourceMessageId as string,
+      quotedText: result.quotedText as string,
+      sourceMessageContent: result.sourceMessageContent as string | undefined,
+      messages: JSON.parse(result.messages as string || '[]'),
+      createdAt: new Date(result.createdAt as string).getTime(),
+      updatedAt: new Date(result.updatedAt as string).getTime()
+    }
+  },
+
+  async getSubChatsByMessageId(messageId: string): Promise<SubChat[]> {
+    const db = getDB()
+    const results = await db.prepare(
+      'SELECT * FROM sub_chats WHERE sourceMessageId = ? ORDER BY createdAt DESC'
+    ).bind(messageId).all()
+
+    return results.results.map((s: any) => ({
+      id: s.id as string,
+      conversationId: s.conversationId as string,
+      sourceMessageId: s.sourceMessageId as string,
+      quotedText: s.quotedText as string,
+      sourceMessageContent: s.sourceMessageContent as string | undefined,
+      messages: JSON.parse(s.messages as string || '[]'),
+      createdAt: new Date(s.createdAt as string).getTime(),
+      updatedAt: new Date(s.updatedAt as string).getTime()
+    }))
+  },
+
+  async createSubChat(conversationId: string, sourceMessageId: string, quotedText: string, sourceMessageContent?: string): Promise<SubChat> {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    await db.prepare(
+      'INSERT INTO sub_chats (id, conversationId, sourceMessageId, quotedText, sourceMessageContent, messages, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, conversationId, sourceMessageId, quotedText, sourceMessageContent || null, '[]', now, now).run()
+
+    return {
+      id,
+      conversationId,
+      sourceMessageId,
+      quotedText,
+      sourceMessageContent,
+      messages: [],
+      createdAt: new Date(now).getTime(),
+      updatedAt: new Date(now).getTime()
+    }
+  },
+
+  async addSubChatMessage(subChatId: string, role: 'user' | 'assistant', content: string): Promise<SubChatMessage> {
+    const db = getDB()
+
+    // Get current messages
+    const subChat = await db.prepare('SELECT messages FROM sub_chats WHERE id = ?').bind(subChatId).first()
+    if (!subChat) throw new Error(`SubChat ${subChatId} not found`)
+
+    const messages = JSON.parse(subChat.messages as string || '[]') as SubChatMessage[]
+
+    const newMessage: SubChatMessage = {
+      id: crypto.randomUUID(),
+      role,
+      content,
+      createdAt: Date.now()
+    }
+
+    messages.push(newMessage)
+
+    await db.prepare(
+      'UPDATE sub_chats SET messages = ?, updatedAt = ? WHERE id = ?'
+    ).bind(JSON.stringify(messages), new Date().toISOString(), subChatId).run()
+
+    return newMessage
+  },
+
+  async updateSubChatMessage(subChatId: string, messageId: string, content: string): Promise<void> {
+    const db = getDB()
+
+    const subChat = await db.prepare('SELECT messages FROM sub_chats WHERE id = ?').bind(subChatId).first()
+    if (!subChat) throw new Error(`SubChat ${subChatId} not found`)
+
+    const messages = JSON.parse(subChat.messages as string || '[]') as SubChatMessage[]
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+
+    if (messageIndex !== -1) {
+      messages[messageIndex].content = content
+
+      await db.prepare(
+        'UPDATE sub_chats SET messages = ?, updatedAt = ? WHERE id = ?'
+      ).bind(JSON.stringify(messages), new Date().toISOString(), subChatId).run()
+    }
+  },
+
+  async deleteSubChat(subChatId: string): Promise<void> {
+    const db = getDB()
+    await db.prepare('DELETE FROM sub_chats WHERE id = ?').bind(subChatId).run()
   }
 }
