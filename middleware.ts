@@ -4,12 +4,24 @@ import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
   const session = await auth()
-  
-  // Protect /chat and /api/files routes
-  if ((request.nextUrl.pathname.startsWith("/chat") || 
-       request.nextUrl.pathname.startsWith("/api/files")) && 
-      !session?.user) {
+
+  // Check for guest ID in cookies
+  const cookieHeader = request.headers.get('cookie')
+  const hasGuestId = cookieHeader?.includes('guest_id=guest_')
+
+  // Protect /api/files routes (always require authentication)
+  if (request.nextUrl.pathname.startsWith("/api/files") && !session?.user) {
     return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // Route authenticated users away from guest-chat
+  if (request.nextUrl.pathname.startsWith("/guest-chat") && session?.user) {
+    return NextResponse.redirect(new URL("/chat", request.url))
+  }
+
+  // Route unauthenticated users from /chat to /guest-chat (except for /chat/login or /chat/api)
+  if (request.nextUrl.pathname === "/chat" && !session?.user && !hasGuestId) {
+    return NextResponse.redirect(new URL("/guest-chat", request.url))
   }
 
   // Redirect /login to /chat if already authenticated
