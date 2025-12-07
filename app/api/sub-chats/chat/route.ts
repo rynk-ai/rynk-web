@@ -4,6 +4,11 @@ import { cloudDb } from "@/lib/services/cloud-db";
 import { getAIProvider } from "@/lib/services/ai-factory";
 import type { Message as ApiMessage } from "@/lib/services/ai-provider";
 
+interface SubChatChatRequest {
+  subChatId: string;
+  quotedText: string;
+}
+
 // POST /api/sub-chats/chat - Stream AI response for sub-chat
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +17,7 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
-    const { subChatId, quotedText } = await request.json();
+    const { subChatId, quotedText } = await request.json() as SubChatChatRequest;
 
     if (!subChatId) {
       return new Response(

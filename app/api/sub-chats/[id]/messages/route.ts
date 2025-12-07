@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cloudDb } from "@/lib/services/cloud-db";
 
+interface SubChatMessageRequest {
+  role: "user" | "assistant";
+  content: string;
+}
+
 // POST /api/sub-chats/[id]/messages - Add a message to a sub-chat
 export async function POST(
   request: NextRequest,
@@ -14,7 +19,7 @@ export async function POST(
     }
 
     const { id: subChatId } = await params;
-    const { role, content } = await request.json();
+    const { role, content } = await request.json() as SubChatMessageRequest;
 
     if (!role || !content) {
       return NextResponse.json(
