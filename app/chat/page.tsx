@@ -2058,12 +2058,11 @@ const ChatContent = memo(
 
 function FullChatApp() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <ChatHeader />
-        <Suspense
-          fallback={
+    <Suspense
+      fallback={
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
             <div className="flex h-full flex-col overflow-hidden relative">
               <div className="flex-1 overflow-y-auto w-full relative">
                 {/* Empty State - rynk branding */}
@@ -2078,24 +2077,31 @@ function FullChatApp() {
                 </div>
               </div>
             </div>
-          }
-        >
-          <ChatContentWithProvider />
-        </Suspense>
-      </SidebarInset>
-    </SidebarProvider>
+          </SidebarInset>
+        </SidebarProvider>
+      }
+    >
+      <ChatContentWithProvider />
+    </Suspense>
   );
 }
 
 // Separate component that uses useSearchParams and ChatProvider
 // This ensures useSearchParams is wrapped in Suspense
+// AppSidebar and ChatHeader are inside to share the same ChatProvider context
 function ChatContentWithProvider() {
   const searchParams = useSearchParams();
   const chatId = searchParams.get("id") || null;
 
   return (
     <ChatProvider initialConversationId={chatId}>
-      <ChatContent />
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <ChatHeader />
+          <ChatContent />
+        </SidebarInset>
+      </SidebarProvider>
     </ChatProvider>
   );
 }
