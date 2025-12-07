@@ -27,7 +27,7 @@ import { ChatProvider } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useStreaming } from "@/lib/hooks/use-streaming";
-import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
+import type { CloudMessage as ChatMessage, SubChat } from "@/lib/services/cloud-db";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   SidebarInset,
@@ -90,6 +90,7 @@ import {
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
+import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -327,6 +328,19 @@ const ChatContent = memo(
       authorRole: "user" | "assistant";
     } | null>(null);
 
+    // Sub-chat state
+    const [subChats, setSubChats] = useState<SubChat[]>([]);
+    const [activeSubChat, setActiveSubChat] = useState<SubChat | null>(null);
+    const [subChatSheetOpen, setSubChatSheetOpen] = useState(false);
+    const [subChatLoading, setSubChatLoading] = useState(false);
+    const [subChatStreamingContent, setSubChatStreamingContent] = useState("");
+    const [subChatSearchResults, setSubChatSearchResults] = useState<any>(null);
+
+    // Set of message IDs that have sub-chats
+    const messageIdsWithSubChats = useMemo(() => {
+      return new Set(subChats.map(sc => sc.sourceMessageId));
+    }, [subChats]);
+
     const loadTags = useCallback(async () => {
       try {
         const tags = await getAllTags();
@@ -508,6 +522,218 @@ const ChatContent = memo(
     const handleClearQuote = useCallback(() => {
       setQuotedMessage(null);
     }, []);
+
+    // --- Sub-Chat Handlers ---
+
+    const loadSubChats = useCallback(async (conversationId: string) => {
+      try {
+        const response = await fetch(`/api/sub-chats?conversationId=${conversationId}`);
+        if (response.ok) {
+          const data = await response.json() as { subChats?: any[] };
+          setSubChats(data.subChats || []);
+        }
+      } catch (err) {
+        console.error("Failed to load sub-chats:", err);
+      }
+    }, []);
+
+    // Load sub-chats when conversation changes
+    useEffect(() => {
+      if (currentConversationId) {
+        loadSubChats(currentConversationId);
+      } else {
+        setSubChats([]);
+        setActiveSubChat(null);
+        setSubChatSheetOpen(false);
+      }
+    }, [currentConversationId, loadSubChats]);
+
+    const handleOpenSubChat = useCallback(
+      async (text: string, messageId: string, _role: "user" | "assistant", fullMessageContent: string) => {
+        if (!currentConversationId) return;
+
+        try {
+          // Check if there's an existing sub-chat for this exact text and message
+          const existing = subChats.find(
+            sc => sc.sourceMessageId === messageId && sc.quotedText === text
+          );
+
+          if (existing) {
+            setActiveSubChat(existing);
+            setSubChatSheetOpen(true);
+            return;
+          }
+
+          // Create new sub-chat
+          const response = await fetch("/api/sub-chats", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              conversationId: currentConversationId,
+              sourceMessageId: messageId,
+              quotedText: text,
+              fullMessageContent: fullMessageContent,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json() as { subChat?: any };
+            const newSubChat = data.subChat;
+            setSubChats(prev => [newSubChat, ...prev]);
+            setActiveSubChat(newSubChat);
+            setSubChatSheetOpen(true);
+          }
+        } catch (err) {
+          console.error("Failed to create sub-chat:", err);
+          toast.error("Failed to create sub-chat");
+        }
+      },
+      [currentConversationId, subChats]
+    );
+
+    const handleViewSubChats = useCallback(
+      (messageId: string) => {
+        // Find sub-chats for this message
+        const messageSubChats = subChats.filter(sc => sc.sourceMessageId === messageId);
+        if (messageSubChats.length > 0) {
+          // Open the most recent one
+          setActiveSubChat(messageSubChats[0]);
+          setSubChatSheetOpen(true);
+        }
+      },
+      [subChats]
+    );
+
+    const handleOpenExistingSubChat = useCallback(
+      (subChat: SubChat) => {
+        setActiveSubChat(subChat);
+        setSubChatSheetOpen(true);
+      },
+      []
+    );
+
+    const handleDeleteSubChat = useCallback(
+      async (subChatId: string) => {
+        try {
+          const response = await fetch(`/api/sub-chats/${subChatId}`, {
+            method: "DELETE",
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to delete sub-chat");
+          }
+
+          // Remove from local state
+          setSubChats(prev => prev.filter(sc => sc.id !== subChatId));
+
+          // Close sheet if this sub-chat was active
+          if (activeSubChat?.id === subChatId) {
+            setSubChatSheetOpen(false);
+            setActiveSubChat(null);
+          }
+
+          toast.success("Sub-chat deleted");
+        } catch (err) {
+          console.error("Failed to delete sub-chat:", err);
+          toast.error("Failed to delete sub-chat");
+        }
+      },
+      [activeSubChat]
+    );
+
+    const handleSubChatSendMessage = useCallback(
+      async (content: string) => {
+        if (!activeSubChat) return;
+
+        setSubChatLoading(true);
+        setSubChatStreamingContent("");
+        setSubChatSearchResults(null);
+
+        try {
+          // Add user message to sub-chat
+          const userMsgResponse = await fetch(`/api/sub-chats/${activeSubChat.id}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: "user", content }),
+          });
+
+          if (!userMsgResponse.ok) {
+            throw new Error("Failed to add user message");
+          }
+
+          const { message: userMessage, subChat: updatedSubChat } = await userMsgResponse.json() as {
+            message?: any;
+            subChat?: any;
+          };
+
+          // Update local state with user message
+          setActiveSubChat(updatedSubChat);
+          setSubChats(prev => prev.map(sc => sc.id === updatedSubChat.id ? updatedSubChat : sc));
+
+          // Stream AI response
+          const aiResponse = await fetch("/api/sub-chats/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subChatId: activeSubChat.id,
+              quotedText: activeSubChat.quotedText,
+            }),
+          });
+
+          if (!aiResponse.ok || !aiResponse.body) {
+            throw new Error("Failed to get AI response");
+          }
+
+          const reader = aiResponse.body.getReader();
+          const decoder = new TextDecoder();
+          let fullContent = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+
+            // Check if chunk contains search results
+            if (chunk.startsWith('[SEARCH_RESULTS]')) {
+              try {
+                const searchResultsJson = chunk.replace('[SEARCH_RESULTS]', '');
+                const parsedResults = JSON.parse(searchResultsJson);
+                setSubChatSearchResults(parsedResults);
+              } catch (err) {
+                console.error('Failed to parse search results:', err);
+              }
+              continue;
+            }
+
+            fullContent += chunk;
+            setSubChatStreamingContent(fullContent);
+          }
+
+          // After streaming completes, add assistant message
+          const assistantMsgResponse = await fetch(`/api/sub-chats/${activeSubChat.id}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: "assistant", content: fullContent }),
+          });
+
+          if (assistantMsgResponse.ok) {
+            const { subChat: finalSubChat } = await assistantMsgResponse.json() as {
+              subChat?: any;
+            };
+            setActiveSubChat(finalSubChat);
+            setSubChats(prev => prev.map(sc => sc.id === finalSubChat.id ? finalSubChat : sc));
+          }
+        } catch (err) {
+          console.error("Failed to send sub-chat message:", err);
+          toast.error("Failed to send message");
+        } finally {
+          setSubChatLoading(false);
+          setSubChatStreamingContent("");
+        }
+      },
+      [activeSubChat]
+    );
 
     const handleSubmit = useCallback(
       async (text: string, files: File[]) => {
@@ -1597,6 +1823,12 @@ const ChatContent = memo(
                     onDeleteMessage={handleDeleteMessage}
                     onBranchFromMessage={handleBranchFromMessage}
                     onQuote={handleQuote}
+                    onOpenSubChat={handleOpenSubChat}
+                    onViewSubChats={handleViewSubChats}
+                    onOpenExistingSubChat={handleOpenExistingSubChat}
+                    onDeleteSubChat={handleDeleteSubChat}
+                    messageIdsWithSubChats={messageIdsWithSubChats}
+                    subChats={subChats}
                     messageVersions={messageVersions}
                     onSwitchVersion={handleSwitchVersion}
                     onLoadMore={loadMoreMessages}
@@ -1731,6 +1963,17 @@ const ChatContent = memo(
             </div>
           </div>
         </div>
+
+        {/* Sub-Chat Sheet */}
+        <SubChatSheet
+          open={subChatSheetOpen}
+          onOpenChange={setSubChatSheetOpen}
+          subChat={activeSubChat}
+          onSendMessage={handleSubChatSendMessage}
+          isLoading={subChatLoading}
+          streamingContent={subChatStreamingContent}
+          searchResults={subChatSearchResults}
+        />
       </main>
     );
   },

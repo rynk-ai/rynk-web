@@ -93,7 +93,7 @@ export function SubChatSheet({
         <SheetHeader className="px-4 py-3 border-b bg-muted/30 flex-shrink-0">
           <SheetTitle className="text-sm font-medium flex items-center gap-2">
             <Quote className="h-4 w-4 text-muted-foreground" />
-            Sub-Chat Context
+            {""}
           </SheetTitle>
           {/* Full message content */}
           <div className="mt-2 p-2.5 bg-muted/50 rounded-lg border border-border/30">
@@ -104,7 +104,9 @@ export function SubChatSheet({
           </div>
           {/* Highlighted text */}
           <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200/30 dark:border-amber-800/30">
-            <p className="text-xs text-amber-700 dark:text-amber-400 mb-1">Highlighted Text:</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mb-1">
+              Highlighted Text:
+            </p>
             <p className="text-sm text-amber-900 dark:text-amber-200 italic">
               "{subChat.quotedText}"
             </p>
