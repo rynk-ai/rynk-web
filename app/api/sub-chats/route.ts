@@ -2,13 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cloudDb } from "@/lib/services/cloud-db";
 
-interface CreateSubChatRequest {
-  conversationId: string;
-  sourceMessageId: string;
-  quotedText: string;
-  sourceMessageContent?: string;
-}
-
 // GET /api/sub-chats?conversationId=xxx
 export async function GET(request: NextRequest) {
   try {
@@ -38,16 +31,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { conversationId, sourceMessageId, quotedText, sourceMessageContent } = await request.json() as CreateSubChatRequest;
+    const body = await request.json() as {
+      conversationId?: string;
+      sourceMessageId?: string;
+      quotedText?: string;
+      fullMessageContent?: string;
+    };
 
-    if (!conversationId || !sourceMessageId || !quotedText) {
+    if (!body.conversationId || !body.sourceMessageId || !body.quotedText || !body.fullMessageContent) {
       return NextResponse.json(
-        { error: "conversationId, sourceMessageId, and quotedText are required" },
+        { error: "conversationId, sourceMessageId, quotedText, and fullMessageContent are required" },
         { status: 400 }
       );
     }
 
-    const subChat = await cloudDb.createSubChat(conversationId, sourceMessageId, quotedText, sourceMessageContent);
+    const { conversationId, sourceMessageId, quotedText, fullMessageContent } = body;
+
+    const subChat = await cloudDb.createSubChat(conversationId, sourceMessageId, quotedText, fullMessageContent);
     return NextResponse.json({ subChat });
   } catch (error: any) {
     console.error("Error creating sub-chat:", error);

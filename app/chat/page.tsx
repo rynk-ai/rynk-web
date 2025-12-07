@@ -332,6 +332,7 @@ const ChatContent = memo(
     const [subChatSheetOpen, setSubChatSheetOpen] = useState(false);
     const [subChatLoading, setSubChatLoading] = useState(false);
     const [subChatStreamingContent, setSubChatStreamingContent] = useState("");
+    const [subChatSearchResults, setSubChatSearchResults] = useState<any>(null);
 
     // Set of message IDs that have sub-chats
     const messageIdsWithSubChats = useMemo(() => {
@@ -519,7 +520,7 @@ const ChatContent = memo(
       try {
         const response = await fetch(`/api/sub-chats?conversationId=${conversationId}`);
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as { subChats?: any[] };
           setSubChats(data.subChats || []);
         }
       } catch (err) {
@@ -528,7 +529,7 @@ const ChatContent = memo(
     }, []);
 
     const handleOpenSubChat = useCallback(
-      async (text: string, messageId: string, _role: "user" | "assistant") => {
+      async (text: string, messageId: string, _role: "user" | "assistant", fullMessageContent: string) => {
         if (!currentConversationId) return;
 
         try {
@@ -543,11 +544,7 @@ const ChatContent = memo(
             return;
           }
 
-          // Find the full message content for context
-          const message = messages.find(m => m.id === messageId);
-          const sourceMessageContent = message?.content || "";
-
-          // Create new sub-chat with full context
+          // Create new sub-chat
           const response = await fetch("/api/sub-chats", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -555,12 +552,12 @@ const ChatContent = memo(
               conversationId: currentConversationId,
               sourceMessageId: messageId,
               quotedText: text,
-              sourceMessageContent,
+              fullMessageContent: fullMessageContent,
             }),
           });
 
           if (response.ok) {
-            const data = await response.json();
+            const data = await response.json() as { subChat?: any };
             const newSubChat = data.subChat;
             setSubChats(prev => [newSubChat, ...prev]);
             setActiveSubChat(newSubChat);
@@ -571,7 +568,7 @@ const ChatContent = memo(
           toast.error("Failed to create sub-chat");
         }
       },
-      [currentConversationId, subChats, messages]
+      [currentConversationId, subChats]
     );
 
     const handleViewSubChats = useCallback(
@@ -630,6 +627,7 @@ const ChatContent = memo(
 
         setSubChatLoading(true);
         setSubChatStreamingContent("");
+        setSubChatSearchResults(null);
 
         try {
           // Add user message to sub-chat
@@ -643,7 +641,10 @@ const ChatContent = memo(
             throw new Error("Failed to add user message");
           }
 
-          const { message: userMessage, subChat: updatedSubChat } = await userMsgResponse.json();
+          const { message: userMessage, subChat: updatedSubChat } = await userMsgResponse.json() as {
+            message?: any;
+            subChat?: any;
+          };
 
           // Update local state with user message
           setActiveSubChat(updatedSubChat);
@@ -672,6 +673,19 @@ const ChatContent = memo(
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
+
+            // Check if chunk contains search results
+            if (chunk.startsWith('[SEARCH_RESULTS]')) {
+              try {
+                const searchResultsJson = chunk.replace('[SEARCH_RESULTS]', '');
+                const parsedResults = JSON.parse(searchResultsJson);
+                setSubChatSearchResults(parsedResults);
+              } catch (err) {
+                console.error('Failed to parse search results:', err);
+              }
+              continue;
+            }
+
             fullContent += chunk;
             setSubChatStreamingContent(fullContent);
           }
@@ -684,7 +698,9 @@ const ChatContent = memo(
           });
 
           if (assistantMsgResponse.ok) {
-            const { subChat: finalSubChat } = await assistantMsgResponse.json();
+            const { subChat: finalSubChat } = await assistantMsgResponse.json() as {
+              subChat?: any;
+            };
             setActiveSubChat(finalSubChat);
             setSubChats(prev => prev.map(sc => sc.id === finalSubChat.id ? finalSubChat : sc));
           }
@@ -2027,6 +2043,7 @@ const ChatContent = memo(
           onSendMessage={handleSubChatSendMessage}
           isLoading={subChatLoading}
           streamingContent={subChatStreamingContent}
+          searchResults={subChatSearchResults}
         />
       </main>
     );

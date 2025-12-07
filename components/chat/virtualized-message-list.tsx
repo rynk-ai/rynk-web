@@ -16,7 +16,7 @@ interface VirtualizedMessageListProps {
   onDeleteMessage: (messageId: string) => void
   onBranchFromMessage: (messageId: string) => void
   onQuote?: (text: string, messageId: string, role: 'user' | 'assistant') => void
-  onOpenSubChat?: (text: string, messageId: string, role: 'user' | 'assistant') => void
+  onOpenSubChat?: (text: string, messageId: string, role: 'user' | 'assistant', fullMessageContent: string) => void
   onViewSubChats?: (messageId: string) => void
   onOpenExistingSubChat?: (subChat: SubChat) => void
   onDeleteSubChat?: (subChatId: string) => void

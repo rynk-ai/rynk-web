@@ -118,7 +118,7 @@ export interface SubChat {
   conversationId: string
   sourceMessageId: string
   quotedText: string
-  sourceMessageContent?: string
+  fullMessageContent: string
   messages: SubChatMessage[]
   createdAt: number
   updatedAt: number
@@ -1512,7 +1512,7 @@ export const cloudDb = {
       conversationId: s.conversationId as string,
       sourceMessageId: s.sourceMessageId as string,
       quotedText: s.quotedText as string,
-      sourceMessageContent: s.sourceMessageContent as string | undefined,
+      fullMessageContent: s.fullMessageContent as string,
       messages: JSON.parse(s.messages as string || '[]'),
       createdAt: new Date(s.createdAt as string).getTime(),
       updatedAt: new Date(s.updatedAt as string).getTime()
@@ -1529,7 +1529,7 @@ export const cloudDb = {
       conversationId: result.conversationId as string,
       sourceMessageId: result.sourceMessageId as string,
       quotedText: result.quotedText as string,
-      sourceMessageContent: result.sourceMessageContent as string | undefined,
+      fullMessageContent: result.fullMessageContent as string,
       messages: JSON.parse(result.messages as string || '[]'),
       createdAt: new Date(result.createdAt as string).getTime(),
       updatedAt: new Date(result.updatedAt as string).getTime()
@@ -1547,28 +1547,28 @@ export const cloudDb = {
       conversationId: s.conversationId as string,
       sourceMessageId: s.sourceMessageId as string,
       quotedText: s.quotedText as string,
-      sourceMessageContent: s.sourceMessageContent as string | undefined,
+      fullMessageContent: s.fullMessageContent as string,
       messages: JSON.parse(s.messages as string || '[]'),
       createdAt: new Date(s.createdAt as string).getTime(),
       updatedAt: new Date(s.updatedAt as string).getTime()
     }))
   },
 
-  async createSubChat(conversationId: string, sourceMessageId: string, quotedText: string, sourceMessageContent?: string): Promise<SubChat> {
+  async createSubChat(conversationId: string, sourceMessageId: string, quotedText: string, fullMessageContent: string): Promise<SubChat> {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
     await db.prepare(
-      'INSERT INTO sub_chats (id, conversationId, sourceMessageId, quotedText, sourceMessageContent, messages, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, conversationId, sourceMessageId, quotedText, sourceMessageContent || null, '[]', now, now).run()
+      'INSERT INTO sub_chats (id, conversationId, sourceMessageId, quotedText, fullMessageContent, messages, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, conversationId, sourceMessageId, quotedText, fullMessageContent, '[]', now, now).run()
 
     return {
       id,
       conversationId,
       sourceMessageId,
       quotedText,
-      sourceMessageContent,
+      fullMessageContent,
       messages: [],
       createdAt: new Date(now).getTime(),
       updatedAt: new Date(now).getTime()

@@ -68,6 +68,7 @@ interface ChatMessageItemProps {
     text: string,
     messageId: string,
     role: "user" | "assistant",
+    fullMessageContent: string,
   ) => void;
   hasSubChats?: boolean;
   messageSubChats?: SubChat[];
@@ -215,7 +216,7 @@ export const ChatMessageItem = memo(
           onOpenSubChat &&
           (message.role === "user" || message.role === "assistant")
         ) {
-          onOpenSubChat(selectedText, message.id, message.role);
+          onOpenSubChat(selectedText, message.id, message.role, message.content);
           setShowQuoteButton(false);
           setSelectedText("");
           // Clear selection

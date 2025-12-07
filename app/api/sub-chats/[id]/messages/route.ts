@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cloudDb } from "@/lib/services/cloud-db";
 
-interface SubChatMessageRequest {
-  role: "user" | "assistant";
-  content: string;
-}
-
 // POST /api/sub-chats/[id]/messages - Add a message to a sub-chat
 export async function POST(
   request: NextRequest,
@@ -19,14 +14,16 @@ export async function POST(
     }
 
     const { id: subChatId } = await params;
-    const { role, content } = await request.json() as SubChatMessageRequest;
+    const body = await request.json() as { role?: string; content?: string };
 
-    if (!role || !content) {
+    if (!body.role || !body.content) {
       return NextResponse.json(
         { error: "role and content are required" },
         { status: 400 }
       );
     }
+
+    const { role, content } = body;
 
     if (role !== "user" && role !== "assistant") {
       return NextResponse.json(

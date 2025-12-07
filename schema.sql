@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS sub_chats (
   conversationId TEXT NOT NULL,
   sourceMessageId TEXT NOT NULL,
   quotedText TEXT NOT NULL,
-  sourceMessageContent TEXT, -- Full content of the source message for context
+  fullMessageContent TEXT NOT NULL,
   messages TEXT DEFAULT '[]', -- JSON array of {id, role, content, createdAt}
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,

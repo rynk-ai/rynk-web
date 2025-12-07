@@ -51,22 +51,21 @@ export type MessageContentProps = {
   children: React.ReactNode
   markdown?: boolean
   className?: string
-} & React.ComponentProps<typeof Markdown> &
-  React.HTMLProps<HTMLDivElement>
+}
 
 const MessageContent = memo(({
   children,
   markdown = false,
   className,
   ...props
-}: MessageContentProps) => {
+}: MessageContentProps & React.HTMLProps<HTMLDivElement>) => {
   const classNames = cn(
     "rounded-lg p-2 text-foreground bg-secondary prose break-words whitespace-normal",
     className
   )
 
   return markdown ? (
-    <Markdown className={classNames} {...props}>
+    <Markdown className={classNames}>
       {children as string}
     </Markdown>
   ) : (

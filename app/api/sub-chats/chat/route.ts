@@ -4,11 +4,6 @@ import { cloudDb } from "@/lib/services/cloud-db";
 import { getAIProvider } from "@/lib/services/ai-factory";
 import type { Message as ApiMessage } from "@/lib/services/ai-provider";
 
-interface SubChatChatRequest {
-  subChatId: string;
-  quotedText: string;
-}
-
 // POST /api/sub-chats/chat - Stream AI response for sub-chat
 export async function POST(request: NextRequest) {
   try {
@@ -17,14 +12,16 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
-    const { subChatId, quotedText } = await request.json() as SubChatChatRequest;
+    const body = await request.json() as { subChatId?: string; quotedText?: string };
 
-    if (!subChatId) {
+    if (!body.subChatId) {
       return new Response(
         JSON.stringify({ error: "subChatId is required" }),
         { status: 400 }
       );
     }
+
+    const { subChatId, quotedText } = body;
 
     // Get the sub-chat with all messages
     const subChat = await cloudDb.getSubChat(subChatId);
@@ -45,68 +42,83 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the latest user message for reasoning detection
-    const latestUserMessage = subChat.messages
-      .filter(m => m.role === "user")
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      .pop();
+    const latestMessage = subChat.messages[subChat.messages.length - 1];
+    const userMessageContent = latestMessage?.role === 'user' ? latestMessage.content : '';
 
-    const userQuery = latestUserMessage?.content || "";
+    let searchResults: any = null;
 
-    // Detect if we need web search
-    const { detectReasoning, resolveReasoningMode, getReasoningModel } = await import('@/lib/services/reasoning-detector');
-    const detectionResult = await detectReasoning(userQuery);
-    const resolved = resolveReasoningMode('auto', detectionResult);
-    const shouldUseWebSearch = resolved.useWebSearch;
+    // --- PHASE 1: Reasoning Detection ---
+    if (userMessageContent) {
+      const { detectReasoning, resolveReasoningMode } = await import('@/lib/services/reasoning-detector');
 
-    // Execute web search if needed
-    let searchContext = "";
-    if (shouldUseWebSearch) {
-      try {
+      const detectionResult = await detectReasoning(userMessageContent);
+      const resolved = resolveReasoningMode('auto', detectionResult);
+
+      // --- PHASE 2: Web Search (if needed) ---
+      if (resolved.useWebSearch && userMessageContent) {
         const { analyzeIntent } = await import('@/lib/services/agentic/intent-analyzer');
         const { SourceOrchestrator } = await import('@/lib/services/agentic/source-orchestrator');
 
-        const { sourcePlan } = await analyzeIntent(userQuery);
+        const { quickAnalysis, sourcePlan } = await analyzeIntent(userMessageContent);
         const orchestrator = new SourceOrchestrator();
         const sourceResults = await orchestrator.executeSourcePlan(sourcePlan);
 
-        // Build search context for the AI
-        const searchSources: string[] = [];
-        sourceResults.forEach(result => {
-          if (result.citations && result.citations.length > 0) {
-            searchSources.push(
-              `\n### ${result.source.toUpperCase()} Results:\n` +
-              result.citations.slice(0, 3).map((cit, i) =>
-                `${i + 1}. ${cit.title}: ${cit.snippet || ''}\nURL: ${cit.url}`
-              ).join('\n\n')
-            );
+        // Map to legacy format for frontend compatibility
+        const allSources: any[] = [];
+
+        sourceResults.forEach(res => {
+          if (res.citations) {
+            res.citations.forEach(cit => {
+              allSources.push({
+                type: res.source,
+                url: cit.url,
+                title: cit.title,
+                snippet: cit.snippet || ''
+              });
+            });
           }
         });
 
-        if (searchSources.length > 0) {
-          searchContext = `\n\n## Web Search Results:\n${searchSources.join('\n')}\n\nUse these sources to provide accurate, up-to-date information. Cite relevant sources in your response.`;
-        }
-      } catch (error) {
-        console.error('Web search error in sub-chat:', error);
-        // Continue without search results if search fails
+        // Deduplicate sources
+        const uniqueSources = Array.from(
+          new Map(allSources.map(s => [s.url, s])).values()
+        );
+
+        searchResults = {
+          query: userMessageContent,
+          sources: uniqueSources,
+          strategy: sourcePlan.sources,
+          totalResults: uniqueSources.length
+        };
       }
     }
 
-    // Prepare system message with full context
-    const sourceMessageContent = subChat.sourceMessageContent || "";
+    // Build messages for AI
+    let systemContent = `You are a helpful assistant having a focused discussion. Here's the context:
+
+FULL MESSAGE CONTENT:
+${subChat.fullMessageContent}
+
+The user highlighted this specific portion and is asking about it:
+"${quotedText}"
+
+Provide contextually relevant answers about the highlighted text, considering the full message. Be concise and helpful.`;
+
+    // Add search results to system message if available
+    if (searchResults && searchResults.sources.length > 0) {
+      systemContent += `
+
+You have access to up-to-date web search results. Use this information to provide accurate and current answers:
+
+${searchResults.sources.map((s: any, i: number) => `[${i + 1}] ${s.title}: ${s.snippet}`).join('\n')}
+
+When citing information from web results, use inline citations like [1], [2], etc.`;
+
+    }
+
     const systemMessage: ApiMessage = {
       role: "system",
-      content: `You are a helpful assistant having a focused discussion about a specific text excerpt from a larger conversation.
-
-## Full Message Context:
-${sourceMessageContent}
-
-## Highlighted/Selected Text:
-"${quotedText}"${searchContext}
-
-## Your Task:
-Keep your responses concise and directly relevant to the selected text. Use the full message context to better understand the user's question and provide more informed answers.
-
-When relevant, provide citations from web sources to support your answer.`
+      content: systemContent
     };
 
     const chatMessages: ApiMessage[] = subChat.messages.map(msg => ({
@@ -129,7 +141,14 @@ When relevant, provide citations from web sources to support your answer.`
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+
         try {
+          // First, send search results if available
+          if (searchResults) {
+            controller.enqueue(encoder.encode(`[SEARCH_RESULTS]${JSON.stringify(searchResults)}\n`));
+          }
+
+          // Then stream AI response
           for await (const chunk of aiStream) {
             controller.enqueue(encoder.encode(chunk));
           }
