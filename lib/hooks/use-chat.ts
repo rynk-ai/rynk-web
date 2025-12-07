@@ -58,16 +58,16 @@ import { toast } from "sonner"
 import { chunkText } from '@/lib/utils/chunking'
 import { usePathname } from "next/navigation"
 
-export function useChat() {
+export function useChat(initialConversationId?: string | null) {
   const queryClient = useQueryClient()
   const pathname = usePathname()
-  
+
   // Extract projectId from URL if on /project/[id] route
-  const projectIdFromUrl = pathname?.startsWith('/project/') 
-    ? pathname.split('/')[2] 
+  const projectIdFromUrl = pathname?.startsWith('/project/')
+    ? pathname.split('/')[2]
     : null
-  
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
+
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(initialConversationId || null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   
   // Use URL-based projectId if available, otherwise fall back to state

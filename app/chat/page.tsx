@@ -390,16 +390,22 @@ const ChatContent = memo(
 
     // Simple state reset when starting a new chat
     // This clears messages when currentConversationId becomes null
+    // BUT: Don't clear if there's a chatId in the URL (refresh case)
     useEffect(() => {
       if (!currentConversationId) {
-        console.log("[ChatPage] New chat - clearing state");
-        // Clear all state to show fresh empty state
-        messageState.setMessages([]);
-        messageState.setMessageVersions(new Map());
-        setQuotedMessage(null);
-        setLocalContext([]);
+        // Only clear if there's NO chatId in URL (i.e., intentional new chat)
+        if (!chatId) {
+          console.log("[ChatPage] New chat - clearing state");
+          // Clear all state to show fresh empty state
+          messageState.setMessages([]);
+          messageState.setMessageVersions(new Map());
+          setQuotedMessage(null);
+          setLocalContext([]);
+        } else {
+          console.log("[ChatPage] Waiting for conversation to load from URL:", chatId);
+        }
       }
-    }, [currentConversationId]);
+    }, [currentConversationId, chatId]);
 
     // Local context state (used for all conversations now, transient)
     // Added 'status' field to track loading state for minimal progress feedback
@@ -1831,10 +1837,23 @@ function FullChatApp() {
             </div>
           }
         >
-          <ChatContent />
+          <ChatContentWithProvider />
         </Suspense>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+// Separate component that uses useSearchParams and ChatProvider
+// This ensures useSearchParams is wrapped in Suspense
+function ChatContentWithProvider() {
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get("id") || null;
+
+  return (
+    <ChatProvider initialConversationId={chatId}>
+      <ChatContent />
+    </ChatProvider>
   );
 }
 

@@ -106,8 +106,8 @@ const StreamingContext = createContext<{
   searchResults: any
 } | null>(null)
 
-export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const chatHook = useChat()
+export function ChatProvider({ children, initialConversationId }: { children: React.ReactNode, initialConversationId?: string | null }) {
+  const chatHook = useChat(initialConversationId)
 
   // Memoize context value to prevent unnecessary re-renders
   // Only recreate the context value when actual data changes, not on every render

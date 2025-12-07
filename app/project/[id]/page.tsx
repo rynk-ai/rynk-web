@@ -1766,10 +1766,23 @@ function FullChatApp({ projectId }: { projectId: string }) {
             </div>
           }
         >
-          <ChatContent />
+          <ChatContentWithProvider />
         </Suspense>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+// Separate component that uses useSearchParams and ChatProvider
+// This ensures useSearchParams is wrapped in Suspense
+function ChatContentWithProvider() {
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get("id") || null;
+
+  return (
+    <ChatProvider initialConversationId={chatId}>
+      <ChatContent />
+    </ChatProvider>
   );
 }
 
