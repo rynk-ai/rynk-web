@@ -9,6 +9,7 @@ interface ChatContextValue {
   currentConversation: Conversation | null
   currentConversationId: string | null
   isLoading: boolean
+  loadingConversations: Set<string>
   error: string | null
   createConversation: (projectId?: string) => Promise<string>
   deleteConversation: (id: string) => Promise<void>
@@ -127,7 +128,7 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
     chatHook.statusPills, // Include statusPills to ensure context updates
     chatHook.searchResults, // Include searchResults to ensure context updates
     chatHook.streamingMessageId, // Include streamingMessageId for status pills display
-    // Note: We don't include functions as dependencies as they should be stable
+    // Note: We don't include functions or reference types (like Set) as dependencies
   ])
 
   // Separate streaming context for frequently-changing values

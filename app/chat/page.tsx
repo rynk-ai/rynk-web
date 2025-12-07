@@ -264,6 +264,7 @@ const ChatContent = memo(
       statusPills,
       searchResults,
       streamingMessageId: globalStreamingMessageId,
+      loadingConversations,
     } = useChatContext();
 
     // Use custom hooks for separated state management
@@ -1776,9 +1777,9 @@ const ChatContent = memo(
 
               <PromptInputWithFiles
                 onSubmit={handleSubmit}
-                isLoading={isLoading}
+                isLoading={currentConversationId ? loadingConversations.has(currentConversationId) : false}
                 placeholder="Ask anything..."
-                disabled={isLoading}
+                disabled={currentConversationId ? loadingConversations.has(currentConversationId) : false}
                 context={activeContext}
                 onContextChange={handleContextChange}
                 currentConversationId={currentConversationId}

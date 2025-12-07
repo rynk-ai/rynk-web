@@ -35,6 +35,7 @@ interface ConversationListProps {
   onRename: (id: string) => void
   onDelete: (id: string) => void
   isLoading?: boolean;
+  loadingConversations?: Set<string>;
 }
 
 interface GroupedByTime {
@@ -90,6 +91,7 @@ export function ConversationList({
   onRename,
   onDelete,
   isLoading = false,
+  loadingConversations,
 }: ConversationListProps) {
   // Show skeleton while loading
   if (isLoading) {
@@ -147,6 +149,7 @@ export function ConversationList({
                 onRename={onRename}
                 onEditTags={onEditTags}
                 onDelete={onDelete}
+                isLoading={loadingConversations?.has(conversation.id)}
               />
             ))}
           </div>

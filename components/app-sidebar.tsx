@@ -98,6 +98,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
     hasMoreConversations,
     isLoadingMoreConversations,
     selectProject,
+    loadingConversations,
   } = useChatContext();
 
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -535,6 +536,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                       onSelect={handleSelectConversation}
                       onTogglePin={togglePinConversation}
                       showMenu={false}
+                      isLoading={loadingConversations.has(conversation.id)}
                     />
                   ))}
               </div>
@@ -559,6 +561,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
             onRename={handleRename}
             onDelete={handleDeleteSimple}
             isLoading={isLoadingConversations}
+            loadingConversations={loadingConversations}
           />
 
           {isLoadingMoreConversations && (

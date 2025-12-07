@@ -24,6 +24,7 @@ interface ConversationListItemProps {
   onDelete?: (id: string) => void;
   showPinAction?: boolean;
   showMenu?: boolean;
+  isLoading?: boolean;
 }
 
 export const ConversationListItem = memo(
@@ -38,6 +39,7 @@ export const ConversationListItem = memo(
     onDelete,
     showPinAction = true,
     showMenu = true,
+    isLoading = false,
   }: ConversationListItemProps) {
     return (
       <div className="group/conversation relative">
@@ -53,6 +55,11 @@ export const ConversationListItem = memo(
               <span className="truncate pl-1 flex-1">{conversation.title}</span>
             </div>
           </div>
+          {isLoading && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            </div>
+          )}
         </button>
 
         {showPinAction && onTogglePin && (

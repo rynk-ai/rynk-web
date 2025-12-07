@@ -184,7 +184,7 @@ export const PromptInputWithFiles = memo(function
   };
 
   const handleSubmit = async () => {
-    if ((!prompt.trim() && files.length === 0) || isLoading) return;
+    if ((!prompt.trim() && files.length === 0) || (isLoading && currentConversationId)) return;
 
     const currentPrompt = prompt.trim();
 

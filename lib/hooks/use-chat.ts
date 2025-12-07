@@ -69,15 +69,18 @@ export function useChat(initialConversationId?: string | null) {
 
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(initialConversationId || null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  
+
   // Use URL-based projectId if available, otherwise fall back to state
   const effectiveProjectId = projectIdFromUrl || activeProjectId
-  
+
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false) // Keep for manual loading states like sending messages
 
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  // Track which conversations are currently loading/processing
+  const [loadingConversations, setLoadingConversations] = useState<Set<string>>(new Set())
 
   // Agentic and Reasoning Mode State
   const [agenticMode, setAgenticMode] = useState<boolean>(false)
@@ -435,7 +438,7 @@ export function useChat(initialConversationId?: string | null) {
   } | null> => {
     if (!content.trim() && (!attachments || attachments.length === 0)) return null
     const headers: Record<string, string> = {}
-    
+
     setIsLoading(true)
     setError(null)
     setStatusPills([{
@@ -444,7 +447,7 @@ export function useChat(initialConversationId?: string | null) {
       timestamp: Date.now()
     }]) // Show initial status immediately
     setSearchResults(null) // Clear previous search results
-    
+
     // Track reasoning metadata to be saved with message
     const collectedStatusPills: typeof statusPills = []
     const collectedSearchResults: typeof searchResults = null
@@ -462,14 +465,23 @@ export function useChat(initialConversationId?: string | null) {
         const conv = await createConversationMutation.mutateAsync(effectiveProjectId || undefined)
         conversationId = conv.id
         // setCurrentConversationId is handled in onSuccess of mutation
-        
+
         // If context is provided for the first message, set it as persistent context
-        if ((referencedConversations && referencedConversations.length > 0) || 
+        if ((referencedConversations && referencedConversations.length > 0) ||
             (referencedFolders && referencedFolders.length > 0)) {
-          // We can't use the mutation here easily because we need to wait for it? 
+          // We can't use the mutation here easily because we need to wait for it?
           // Actually we can just fire it.
           setConversationContext(conversationId, referencedConversations, referencedFolders)
         }
+      }
+
+      // Track this conversation as loading
+      if (conversationId) {
+        setLoadingConversations(prev => {
+          const newSet = new Set(prev)
+          newSet.add(conversationId!)
+          return newSet
+        })
       }
 
       // Generate IDs early so we can link attachments
@@ -612,9 +624,25 @@ export function useChat(initialConversationId?: string | null) {
     } catch (err) {
       console.error('Failed to send message:', err)
       setError(err instanceof Error ? err.message : 'Failed to send message')
+      // Remove from loading on error
+      if (conversationId) {
+        setLoadingConversations(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(conversationId!)
+          return newSet
+        })
+      }
       throw err
     } finally {
       setIsLoading(false)
+      // Remove from loading on success
+      if (conversationId) {
+        setLoadingConversations(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(conversationId!)
+          return newSet
+        })
+      }
     }
   }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId, reasoningMode])
 
@@ -953,6 +981,7 @@ export function useChat(initialConversationId?: string | null) {
     currentConversation,
     currentConversationId,
     isLoading,
+    loadingConversations,
     error,
     createConversation,
     deleteConversation,
