@@ -95,22 +95,11 @@ export function SubChatSheet({
             <Quote className="h-4 w-4 text-muted-foreground" />
             {""}
           </SheetTitle>
-          {/* Full message content */}
-          <div className="mt-2 p-2.5 bg-muted/50 rounded-lg border border-border/30">
-            <p className="text-xs text-muted-foreground mb-1">Full Message:</p>
-            <p className="text-sm text-foreground/90 line-clamp-4">
-              {subChat.fullMessageContent}
-            </p>
-          </div>
+
           {/* Highlighted text */}
-          <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200/30 dark:border-amber-800/30">
-            <p className="text-xs text-amber-700 dark:text-amber-400 mb-1">
-              Highlighted Text:
-            </p>
-            <p className="text-sm text-amber-900 dark:text-amber-200 italic">
-              "{subChat.quotedText}"
-            </p>
-          </div>
+          <p className="text-sm text-amber-900 dark:text-amber-200 italic">
+            "{subChat.quotedText}"
+          </p>
         </SheetHeader>
 
         {/* Messages area */}
