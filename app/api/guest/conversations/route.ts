@@ -1,16 +1,36 @@
 import { NextRequest } from "next/server";
-import { getGuestIdFromRequest } from "@/lib/guest";
+import { getGuestIdFromRequest, getOrCreateGuestSession } from "@/lib/guest";
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("📋 [/api/guest/conversations] GET request received");
     const guestId = getGuestIdFromRequest(request);
-    const { env } = getCloudflareContext();
 
     if (!guestId) {
+      // Return empty list for guests without ID
       return new Response(
-        JSON.stringify({ error: "Guest ID required" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ conversations: [] }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    let env;
+    try {
+      env = getCloudflareContext().env;
+    } catch (ctxError: any) {
+      console.error("❌ [/api/guest/conversations] GET - Context error:", ctxError.message);
+      return new Response(
+        JSON.stringify({ conversations: [], _debug: "context_error" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!env?.DB) {
+      console.error("❌ [/api/guest/conversations] GET - No DB binding");
+      return new Response(
+        JSON.stringify({ conversations: [], _debug: "no_db" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -51,10 +71,111 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error: any) {
-    console.error("❌ [/api/guest/conversations] Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), {
+    console.error("❌ [/api/guest/conversations] GET Error:", error.message, error.stack);
+    return new Response(JSON.stringify({ 
+      error: error.message || "Internal server error",
+      _stack: error.stack?.substring(0, 500)
+    }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log("📋 [/api/guest/conversations] POST request received");
+    const guestId = getGuestIdFromRequest(request);
+    console.log("📋 [/api/guest/conversations] POST - Guest ID:", guestId?.substring(0, 20) || "null");
+
+    if (!guestId) {
+      return new Response(
+        JSON.stringify({ error: "Guest ID required" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    let env;
+    try {
+      env = getCloudflareContext().env;
+      console.log("📋 [/api/guest/conversations] POST - Got context, DB exists:", !!env?.DB);
+    } catch (ctxError: any) {
+      console.error("❌ [/api/guest/conversations] POST - Context error:", ctxError.message);
+      return new Response(
+        JSON.stringify({ error: "Context unavailable", _debug: "context_error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!env?.DB) {
+      console.error("❌ [/api/guest/conversations] POST - No DB binding");
+      return new Response(
+        JSON.stringify({ error: "Database unavailable", _debug: "no_db" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Ensure guest session exists in the database
+    console.log("📋 [/api/guest/conversations] POST - Creating/getting session...");
+    const session = await getOrCreateGuestSession(env.DB, request);
+    console.log("📋 [/api/guest/conversations] POST - Session:", session ? "created" : "null");
+    
+    if (!session) {
+      return new Response(
+        JSON.stringify({ error: "Failed to create guest session" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const now = new Date().toISOString();
+
+    console.log("📋 [/api/guest/conversations] POST - Inserting conversation:", conversationId);
+    await env.DB.prepare(
+      `INSERT INTO guest_conversations (id, guest_id, title, path, tags, is_pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        conversationId,
+        guestId,
+        'New Conversation',
+        JSON.stringify([]),
+        JSON.stringify([]),
+        0,
+        now,
+        now
+      )
+      .run();
+
+    console.log("📋 [/api/guest/conversations] POST - Conversation created successfully");
+    const conversation = {
+      id: conversationId,
+      title: 'New Conversation',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messageCount: 0,
+      isPinned: false,
+      tags: [],
+      path: [],
+    };
+
+    return new Response(
+      JSON.stringify({ conversation }),
+      {
+        status: 201,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+  } catch (error: any) {
+    console.error("❌ [/api/guest/conversations] POST Error:", error.message, error.stack);
+    return new Response(JSON.stringify({ 
+      error: error.message || "Internal server error",
+      _stack: error.stack?.substring(0, 500)
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+

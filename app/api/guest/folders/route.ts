@@ -4,14 +4,34 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("📁 [/api/guest/folders] GET request received");
     const guestId = getGuestIdFromRequest(request);
-    const { env } = getCloudflareContext();
 
     if (!guestId) {
-      return new Response(JSON.stringify({ error: "Guest ID required" }), {
-        status: 401,
+      // Return empty list for guests without ID (more graceful)
+      return new Response(JSON.stringify({ folders: [] }), {
+        status: 200,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    let env;
+    try {
+      env = getCloudflareContext().env;
+    } catch (ctxError: any) {
+      console.error("❌ [/api/guest/folders] GET - Context error:", ctxError.message);
+      return new Response(
+        JSON.stringify({ folders: [], _debug: "context_error" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!env?.DB) {
+      console.error("❌ [/api/guest/folders] GET - No DB binding");
+      return new Response(
+        JSON.stringify({ folders: [], _debug: "no_db" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     // Get guest folders with conversation counts
@@ -44,9 +64,12 @@ export async function GET(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("❌ [/api/guest/folders] Error:", error);
+    console.error("❌ [/api/guest/folders] GET Error:", error.message, error.stack);
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ 
+        error: error.message || "Internal server error",
+        _stack: error.stack?.substring(0, 500)
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

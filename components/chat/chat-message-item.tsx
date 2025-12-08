@@ -435,19 +435,37 @@ export const ChatMessageItem = memo(
       return () => container.removeEventListener("click", handleClick);
     }, [messageSubChats, onOpenExistingSubChat, isStreaming, message.content]);
 
+    // Determine effective reasoning metadata - computed before any conditionals to maintain hook order
+    // Priority: 1. streaming props (if streaming) 2. message metadata 3. cached refs (bridge the gap)
+    const effectiveStatusPills = isStreaming
+      ? streamingStatusPills
+      : message.reasoning_metadata?.statusPills ||
+        lastStreamingStatusPills.current;
+    const effectiveSearchResults = isStreaming
+      ? streamingSearchResults
+      : message.reasoning_metadata?.searchResults ||
+        lastStreamingSearchResults.current;
+
+    // Move useMemo before any conditional returns to fix React hooks order
+    const citations = useMemo(() => {
+      if (!isAssistant) return [];
+      const result = formatCitationsFromSearchResults(effectiveSearchResults);
+      if (
+        typeof window !== "undefined" &&
+        message.role === "assistant" &&
+        !isStreaming &&
+        result.length > 0
+      ) {
+        console.log(
+          `[ChatMessageItem ${message.id.slice(0, 8)}] Citations computed:`,
+          result.length,
+        );
+      }
+      return result;
+    }, [effectiveSearchResults, isStreaming, isAssistant, message.role, message.id]);
+
     if (isAssistant) {
       const displayContent = isStreaming ? streamingContent : message.content;
-
-      // Determine effective reasoning metadata
-      // Priority: 1. streaming props (if streaming) 2. message metadata 3. cached refs (bridge the gap)
-      const effectiveStatusPills = isStreaming
-        ? streamingStatusPills
-        : message.reasoning_metadata?.statusPills ||
-          lastStreamingStatusPills.current;
-      const effectiveSearchResults = isStreaming
-        ? streamingSearchResults
-        : message.reasoning_metadata?.searchResults ||
-          lastStreamingSearchResults.current;
 
       // Debug logging
       if (typeof window !== "undefined" && message.role === "assistant") {
@@ -466,23 +484,6 @@ export const ChatMessageItem = memo(
       const hasReasoning =
         (effectiveStatusPills && effectiveStatusPills.length > 0) ||
         !!effectiveSearchResults;
-
-      // Convert search results to citations for the citation system
-      const citations = useMemo(() => {
-        const result = formatCitationsFromSearchResults(effectiveSearchResults);
-        if (
-          typeof window !== "undefined" &&
-          message.role === "assistant" &&
-          !isStreaming &&
-          result.length > 0
-        ) {
-          console.log(
-            `[ChatMessageItem ${message.id.slice(0, 8)}] Citations computed:`,
-            result.length,
-          );
-        }
-        return result;
-      }, [effectiveSearchResults, isStreaming]);
 
       // Show skeleton only if: last message, sending, AND no content at all AND no reasoning status
       const showSkeleton =

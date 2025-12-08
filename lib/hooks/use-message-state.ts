@@ -21,12 +21,17 @@ export function useMessageState() {
    * Add new messages to the list, avoiding duplicates.
    * This is crucial for optimistic updates where we may receive messages
    * from multiple sources (UI optimistic update + server confirmation).
+   * Messages are sorted by timestamp after adding to maintain order.
    */
   const addMessages = useCallback((newMessages: ChatMessage[]) => {
     setMessages(prev => {
       const existingIds = new Set(prev.map(m => m.id));
       const toAdd = newMessages.filter(m => !existingIds.has(m.id));
-      return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+      if (toAdd.length === 0) return prev;
+      
+      // Combine and sort by timestamp to maintain correct order
+      const combined = [...prev, ...toAdd];
+      return combined.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     });
   }, []);
   
