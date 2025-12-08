@@ -18,6 +18,8 @@ import { GuestChatProvider, useGuestChatContext, useGuestStreamingContext, type 
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useStreaming } from "@/lib/hooks/use-streaming";
+import { useLatest } from "@/lib/hooks/use-latest";
+import { useGuestSubChats } from "@/lib/hooks/use-guest-sub-chats";
 import { GuestSidebar } from "@/components/guest/guest-sidebar";
 import { GuestBanner } from "@/components/guest-banner";
 import { GuestUpgradeModal } from "@/components/guest-upgrade-modal";
@@ -279,17 +281,9 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
   } = streamingState;
 
   // Refs for statusPills and searchResults to avoid stale closures in handleSubmit
-  // These values change during streaming, so we need refs to get current values
-  const statusPillsRef = useRef(statusPills);
-  const searchResultsRef = useRef(searchResults);
-
-  useEffect(() => {
-    statusPillsRef.current = statusPills;
-  }, [statusPills]);
-
-  useEffect(() => {
-    searchResultsRef.current = searchResults;
-  }, [searchResults]);
+  // Using useLatest instead of useRef + useEffect pattern
+  const statusPillsRef = useLatest(statusPills);
+  const searchResultsRef = useLatest(searchResults);
 
   // Local state
   const [isSending, setIsSending] = useState(false);
@@ -300,18 +294,22 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     authorRole: "user" | "assistant";
   } | null>(null);
 
-  // Sub-chat state
-  const [subChats, setSubChats] = useState<SubChat[]>([]);
-  const [activeSubChat, setActiveSubChat] = useState<SubChat | null>(null);
-  const [subChatSheetOpen, setSubChatSheetOpen] = useState(false);
-  const [subChatLoading, setSubChatLoading] = useState(false);
-  const [subChatStreamingContent, setSubChatStreamingContent] = useState("");
-  const [subChatSearchResults, setSubChatSearchResults] = useState<any>(null);
-
-  // Set of message IDs that have sub-chats
-  const messageIdsWithSubChats = useMemo(() => {
-    return new Set(subChats.map(sc => sc.sourceMessageId));
-  }, [subChats]);
+  // Sub-chat hook - extracted for better separation of concerns
+  const {
+    subChats,
+    activeSubChat,
+    subChatSheetOpen,
+    setSubChatSheetOpen,
+    subChatLoading,
+    subChatStreamingContent,
+    subChatSearchResults,
+    messageIdsWithSubChats,
+    handleOpenSubChat,
+    handleViewSubChats,
+    handleOpenExistingSubChat,
+    handleDeleteSubChat,
+    handleSubChatSendMessage: handleSubChatMessage,
+  } = useGuestSubChats(currentConversationId);
 
   // Context state
   const [localContext, setLocalContext] = useState<ContextItem[]>([]);
@@ -458,158 +456,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
 
 
 
-  // Sub-chat handlers
-  const loadSubChats = useCallback(async (conversationId: string) => {
-    try {
-      const response = await fetch(`/api/guest/sub-chats?conversationId=${conversationId}`);
-      if (response.ok) {
-        const data = await response.json() as { subChats?: any[] };
-        setSubChats(data.subChats || []);
-      }
-    } catch (err) {
-      console.error("Failed to load sub-chats:", err);
-    }
-  }, []);
-
-  const handleOpenSubChat = useCallback(
-    async (text: string, messageId: string, _role: "user" | "assistant", fullMessageContent: string) => {
-      if (!currentConversationId) return;
-
-      try {
-        // Check if there's an existing sub-chat for this exact text and message
-        const existing = subChats.find(
-          sc => sc.sourceMessageId === messageId && sc.quotedText === text
-        );
-
-        if (existing) {
-          setActiveSubChat(existing);
-          setSubChatSheetOpen(true);
-          return;
-        }
-
-        // Create new sub-chat
-        const response = await fetch("/api/guest/sub-chats", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversationId: currentConversationId,
-            sourceMessageId: messageId,
-            quotedText: text,
-            fullMessageContent: fullMessageContent,
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json() as { subChat?: any };
-          const newSubChat = data.subChat;
-          setSubChats(prev => [newSubChat, ...prev]);
-          setActiveSubChat(newSubChat);
-          setSubChatSheetOpen(true);
-        }
-      } catch (err) {
-        console.error("Failed to create sub-chat:", err);
-        toast.error("Failed to create sub-chat");
-      }
-    },
-    [currentConversationId, subChats]
-  );
-
-  const handleViewSubChats = useCallback(
-    (messageId: string) => {
-      const messageSubChats = subChats.filter(sc => sc.sourceMessageId === messageId);
-      if (messageSubChats.length > 0) {
-        setActiveSubChat(messageSubChats[0]);
-        setSubChatSheetOpen(true);
-      }
-    },
-    [subChats]
-  );
-
-  const handleOpenExistingSubChat = useCallback(
-    (subChat: SubChat) => {
-      setActiveSubChat(subChat);
-      setSubChatSheetOpen(true);
-    },
-    []
-  );
-
-  const handleDeleteSubChat = useCallback(
-    async (subChatId: string) => {
-      try {
-        const response = await fetch(`/api/guest/sub-chats/${subChatId}`, {
-          method: "DELETE",
-        });
-
-        if (response.ok) {
-          setSubChats(prev => prev.filter(sc => sc.id !== subChatId));
-          if (activeSubChat?.id === subChatId) {
-            setSubChatSheetOpen(false);
-            setActiveSubChat(null);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to delete sub-chat:", err);
-        toast.error("Failed to delete sub-chat");
-      }
-    },
-    [activeSubChat]
-  );
-
-  const handleSubChatMessage = useCallback(
-    async (content: string) => {
-      if (!activeSubChat) return;
-
-      setSubChatLoading(true);
-      setSubChatStreamingContent("");
-      setSubChatSearchResults(null);
-
-      try {
-        // Add user message optimistically
-        const userMessage = {
-          id: `msg_${Date.now()}`,
-          role: "user" as const,
-          content,
-          createdAt: Date.now(),
-        };
-
-        setActiveSubChat(prev => prev ? {
-          ...prev,
-          messages: [...prev.messages, userMessage],
-        } : null);
-
-        // Send to API (simplified for guests - no streaming for sub-chats)
-        const response = await fetch(`/api/guest/sub-chats/${activeSubChat.id}/message`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        });
-
-        if (response.ok) {
-          const data = await response.json() as { subChat?: any };
-          if (data.subChat) {
-            setActiveSubChat(data.subChat);
-            setSubChats(prev => prev.map(sc => sc.id === data.subChat.id ? data.subChat : sc));
-          }
-        }
-      } catch (err) {
-        console.error("Failed to send sub-chat message:", err);
-        toast.error("Failed to send message");
-      } finally {
-        setSubChatLoading(false);
-        setSubChatStreamingContent("");
-      }
-    },
-    [activeSubChat]
-  );
-
-  // Load sub-chats when conversation changes
-  useEffect(() => {
-    if (currentConversationId) {
-      loadSubChats(currentConversationId);
-    } else {
-      setSubChats([]);
-    }
-  }, [currentConversationId, loadSubChats]);
+  // NOTE: Sub-chat handlers are now provided by useGuestSubChats hook above
 
   // Message submission
   const handleSubmit = useCallback(
