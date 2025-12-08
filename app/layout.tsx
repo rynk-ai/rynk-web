@@ -104,8 +104,6 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} antialiased tracking-tight`}
       >
-
-
         <AuthProvider>
           <FontProviderWrapper defaultFont="geist">
             <ThemeProvider

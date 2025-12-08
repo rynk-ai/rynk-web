@@ -125,10 +125,10 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
     chatHook.isLoadingMoreConversations,
     chatHook.activeProjectId,
     chatHook.reasoningMode,
-    chatHook.statusPills, // Include statusPills to ensure context updates
-    chatHook.searchResults, // Include searchResults to ensure context updates
-    chatHook.streamingMessageId, // Include streamingMessageId for status pills display
-    // Note: We don't include functions or reference types (like Set) as dependencies
+    chatHook.streamingMessageId,
+    // NOTE: statusPills and searchResults are intentionally NOT included here
+    // They change frequently during streaming and should be accessed via useStreamingContext()
+    // This prevents sidebar and other consumers from re-rendering during streaming
   ])
 
   // Separate streaming context for frequently-changing values
