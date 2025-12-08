@@ -220,20 +220,28 @@ export class GuestChatService {
             })
           }
 
-          // Reasoning Detection (full detection like main ChatService)
+          // Reasoning Detection (enhanced domain-aware detection)
           let shouldUseReasoning = false
           let shouldUseWebSearch = false
           let searchResults: any = null
           let detectionResult: any = null
 
           if (userMessageContent && useReasoning !== 'off') {
-            const { detectReasoning, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
+            // Use enhanced domain-aware detection
+            const { detectEnhanced, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
             
-            detectionResult = await detectReasoning(messageContent)
+            detectionResult = await detectEnhanced(messageContent)
             const resolved = resolveReasoningMode(useReasoning, detectionResult)
             shouldUseReasoning = resolved.useReasoning
             shouldUseWebSearch = resolved.useWebSearch
             selectedModel = getReasoningModel(shouldUseReasoning, false)
+            
+            console.log('🎯 [GuestChatService] Enhanced detection result:', {
+              domain: detectionResult.domain,
+              subDomain: detectionResult.subDomain,
+              informationType: detectionResult.informationType,
+              needsDisclaimer: detectionResult.responseRequirements?.needsDisclaimer
+            })
           }
 
           // --- PHASE 2: SEARCH (If needed) ---
@@ -345,10 +353,10 @@ You have access to the search results above. Follow these rules STRICTLY:
             }
           }
 
-          // Apply Structured Response Formatting
+          // Apply Domain-Specific Response Formatting (Enhanced)
           if (detectionResult) {
-            const responseType = ResponseFormatter.getResponseType(detectionResult)
-            const formatInstructions = ResponseFormatter.getFormatInstructions(responseType)
+            // Use the new enhanced format instructions based on domain and information type
+            const formatInstructions = ResponseFormatter.getEnhancedFormatInstructions(detectionResult)
 
             const systemMsgIndex = finalMessages.findIndex(m => m.role === 'system')
             if (systemMsgIndex >= 0) {

@@ -40,12 +40,37 @@ function CodeBlockCode({
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // List of languages we have loaded
+  const SUPPORTED_LANGUAGES = [
+    'typescript', 'javascript', 'tsx', 'jsx', 'json', 'css', 'html', 
+    'markdown', 'python', 'bash', 'sql', 'sh', 'shell', 'ts', 'js',
+    'plaintext', 'text', 'txt'
+  ]
+
   useEffect(() => {
     async function highlight() {
       if (!code) {
         setHighlightedHtml("<pre><code></code></pre>")
         return
       }
+
+      // Normalize language aliases
+      let normalizedLang = language.toLowerCase()
+      const langAliases: Record<string, string> = {
+        'sh': 'bash',
+        'shell': 'bash',
+        'ts': 'typescript',
+        'js': 'javascript',
+        'text': 'plaintext',
+        'txt': 'plaintext',
+      }
+      if (langAliases[normalizedLang]) {
+        normalizedLang = langAliases[normalizedLang]
+      }
+
+      // Check if language is supported, fallback to plaintext if not
+      const isSupported = SUPPORTED_LANGUAGES.includes(normalizedLang)
+      const langToUse = isSupported ? normalizedLang : 'plaintext'
 
       try {
         setError(null)
@@ -75,7 +100,7 @@ function CodeBlockCode({
         })
 
         const html = highlighter.codeToHtml(code, {
-          lang: language,
+          lang: langToUse,
           theme: theme || 'tokyo-night',
           transformers: [
             {

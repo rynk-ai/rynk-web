@@ -1,5 +1,13 @@
+/**
+ * Response Formatter
+ * 
+ * Provides system identity, response formatting instructions, and integrates
+ * with domain-specific formatters for high-quality, structured responses.
+ */
 
 import { ReasoningDetectionResult } from './reasoning-detector'
+import { EnhancedDetectionResult } from './domain-types'
+import { DomainFormatter } from './domain-formatter'
 
 export type ResponseType = 'general' | 'code' | 'research' | 'analysis' | 'creative'
 
@@ -21,7 +29,8 @@ DO NOT RESPOND WITH "Hello! I'm rynk., your AI assistant. I can X " unless user 
   }
 
   /**
-   * Determine the response type based on reasoning detection
+   * Determine the response type based on legacy reasoning detection
+   * @deprecated Use getEnhancedFormatInstructions with EnhancedDetectionResult instead
    */
   static getResponseType(detection: ReasoningDetectionResult): ResponseType {
     if (detection.detectedTypes.code) return 'code'
@@ -31,7 +40,8 @@ DO NOT RESPOND WITH "Hello! I'm rynk., your AI assistant. I can X " unless user 
   }
 
   /**
-   * Get the system prompt instructions for the specific response type
+   * Get format instructions based on legacy response type
+   * @deprecated Use getEnhancedFormatInstructions with EnhancedDetectionResult instead
    */
   static getFormatInstructions(type: ResponseType): string {
     const baseInstructions = `
@@ -80,5 +90,52 @@ SPECIFIC INSTRUCTIONS FOR ANALYSIS/REASONING TASKS:
       default:
         return baseInstructions
     }
+  }
+
+  // ==========================================================================
+  // ENHANCED FORMATTING (NEW)
+  // ==========================================================================
+
+  /**
+   * Get comprehensive format instructions based on enhanced detection
+   * This is the preferred method for generating high-quality responses
+   */
+  static getEnhancedFormatInstructions(detection: EnhancedDetectionResult): string {
+    // Use the new DomainFormatter for comprehensive instructions
+    return DomainFormatter.getInstructions(detection)
+  }
+
+  /**
+   * Get combined instructions: identity + enhanced formatting
+   * This provides everything needed for a high-quality response
+   */
+  static getCompleteSystemPrompt(detection: EnhancedDetectionResult): string {
+    const identity = this.getSystemIdentity()
+    const formatting = this.getEnhancedFormatInstructions(detection)
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+    
+    return `${identity}
+
+Current Date: ${currentDate}
+
+${formatting}`
+  }
+
+  /**
+   * Helper to determine if enhanced detection should use disclaimers
+   */
+  static needsDisclaimer(detection: EnhancedDetectionResult): boolean {
+    return detection.responseRequirements.needsDisclaimer ||
+           detection.domain === 'medicine' ||
+           detection.domain === 'law' ||
+           (detection.domain === 'business' && 
+            (detection.informationType === 'market_data' || 
+             (detection.subDomain !== null && detection.subDomain.includes('finance')) ||
+             (detection.subDomain !== null && detection.subDomain.includes('invest'))))
   }
 }

@@ -74,38 +74,27 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     }
   }), [messages.length])
 
-  // Auto-scroll to bottom when new messages arrive (instant, no animation)
+  // Auto-scroll only on initial load of a conversation or when user sends a message
+  // (NOT during streaming - let users control their scroll position)
   useEffect(() => {
-    // Skip auto-scroll if this is a conversation switch (messages went from >0 to 0 to >0)
-    // This prevents jank during conversation switching
     const prevLength = prevLengthRef.current
-    const isConversationSwitch = prevLength > 0 && messages.length === 0
-
-    if (messages.length > 0 && !isConversationSwitch) {
-      // Small timeout to ensure content is rendered
+    // Only auto-scroll when a NEW message is added (likely user just sent)
+    // Not when streaming updates are happening
+    if (messages.length > prevLength && !streamingMessageId) {
       const timeout = setTimeout(() => {
         virtuosoRef.current?.scrollToIndex({
           index: messages.length - 1,
           align: 'end',
-          behavior: 'auto' // Changed from 'smooth' to 'auto' for instant scroll
+          behavior: 'auto'
         })
       }, 100)
       return () => clearTimeout(timeout)
     }
-
     prevLengthRef.current = messages.length
-  }, [messages.length, isSending])
+  }, [messages.length, streamingMessageId])
 
-  // Also scroll when streaming updates - ONLY if user is already at bottom
-  useEffect(() => {
-    if (streamingMessageId && isAtBottom.current) {
-      virtuosoRef.current?.scrollToIndex({
-        index: messages.length - 1,
-        align: 'end',
-        behavior: 'auto'
-      })
-    }
-  }, [streamingContent, streamingMessageId, messages.length])
+  // Removed: Auto-scroll during streaming
+  // Users now control their own scroll position
 
   // Memoize itemContent to prevent recreation on every render
   // This is critical for performance as it affects all message items
@@ -195,7 +184,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
       ref={virtuosoRef}
       data={messages}
       itemContent={itemContent}
-      followOutput="auto"
+      followOutput={false}
       atBottomStateChange={(isBottom) => {
         isAtBottom.current = isBottom
         onIsAtBottomChange?.(isBottom)

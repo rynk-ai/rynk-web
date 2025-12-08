@@ -7,6 +7,7 @@ import ReactMarkdown, { Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { CodeBlock, CodeBlockCode } from "./code-block"
+import { MermaidDiagram } from "./mermaid-diagram"
 import { Copy, Check } from "lucide-react"
 import type { Citation } from "@/lib/types/citation"
 import { InlineCitation } from "@/components/chat/inline-citation"
@@ -337,6 +338,11 @@ function createCitationAwareComponents(citations: Citation[]): Partial<Component
 
       const language = extractLanguage(className)
       const codeString = String(children || "")
+
+      // Special handling for mermaid diagrams - render as actual diagrams
+      if (language === 'mermaid') {
+        return <MermaidDiagram code={codeString} />
+      }
 
       return (
         <div className="my-4">
