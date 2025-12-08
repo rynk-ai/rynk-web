@@ -289,7 +289,52 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
         try {
           const result = await getMessages(currentConversationId);
           if (result.messages) {
-            setMessages(result.messages as any[]);
+            const loadedMessages = result.messages as any[];
+            const filteredMessages = filterActiveVersions(loadedMessages);
+            
+            // ✅ PRESERVE OPTIMISTIC MESSAGES & FIX RACE CONDITION
+            setMessages((prev) => {
+              // 1. Merge DB messages with local state to prevent overwriting fresh content with stale DB data
+              const mergedMessages = filteredMessages.map((serverMsg) => {
+                const localMsg = prev.find((m) => m.id === serverMsg.id);
+                // If local message has content and server message is empty (and is assistant), keep local content
+                // This handles the race condition where server hasn't finished writing to DB yet
+                if (
+                  localMsg &&
+                  localMsg.role === "assistant" &&
+                  localMsg.content &&
+                  !serverMsg.content
+                ) {
+                  return { ...serverMsg, content: localMsg.content };
+                }
+                return serverMsg;
+              });
+
+              // 2. Find optimistic messages (not in server response)
+              const serverIds = new Set(filteredMessages.map(m => m.id));
+              const optimistic = prev.filter((m) => !serverIds.has(m.id));
+
+              // 3. Deduplicate: Don't add optimistic messages if they likely exist in the loaded messages
+              const uniqueOptimistic = optimistic.filter((opt) => {
+                const isDuplicate = mergedMessages.some((serverMsg) => {
+                  // Match by role
+                  if (serverMsg.role !== opt.role) return false;
+                  // For user messages, content must match (trimmed)
+                  if (
+                    opt.role === "user" &&
+                    serverMsg.content?.trim() !== opt.content?.trim()
+                  )
+                    return false;
+                  // Timestamp check (relaxed to 60 seconds to handle clock skew)
+                  return Math.abs((serverMsg.timestamp || 0) - (opt.timestamp || 0)) < 60000;
+                });
+                return !isDuplicate;
+              });
+
+              // 4. Combine and sort by timestamp
+              const combined = [...mergedMessages, ...uniqueOptimistic];
+              return combined.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            });
           }
         } catch (err) {
           console.error("Failed to load messages:", err);

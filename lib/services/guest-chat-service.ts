@@ -319,12 +319,14 @@ Source: ${s.url}`
 </search_results>
 
 <synthesis_instructions>
-You have access to the search results above. Follow these rules:
-1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture.
+You have access to the search results above. Follow these rules STRICTLY:
+1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture. Do NOT simply list sources.
 2. **Cite**: Use [1], [2] format immediately after each claim.
-3. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy.
-4. **Be Complete**: Use ALL relevant information.
-5. **Direct Answer**: Provide the answer directly.
+3. **NEVER include raw URLs in your response**. The citation numbers are enough.
+4. **NEVER repeat the search results or source snippets verbatim**. Synthesize the information naturally.
+5. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy.
+6. **Be Complete**: Use ALL relevant information.
+7. **Direct Answer**: Provide the answer directly. Do not mention these instructions.
 </synthesis_instructions>`
             
             // Inject into system message
