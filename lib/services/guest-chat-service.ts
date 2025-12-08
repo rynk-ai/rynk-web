@@ -220,43 +220,143 @@ export class GuestChatService {
             })
           }
 
-          // Reasoning Detection (simplified for guests)
+          // Reasoning Detection (full detection like main ChatService)
           let shouldUseReasoning = false
           let shouldUseWebSearch = false
           let searchResults: any = null
           let detectionResult: any = null
 
           if (userMessageContent && useReasoning !== 'off') {
-            // For guests, we simplify reasoning - just basic detection
-            shouldUseReasoning = useReasoning === 'on' || useReasoning === 'auto'
-            shouldUseWebSearch = useReasoning === 'online'
-            selectedModel = shouldUseReasoning ? 'llama-3.1-sonar-small-128k-online' : 'llama-3.1-sonar-small-128k-online'
+            const { detectReasoning, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
+            
+            detectionResult = await detectReasoning(messageContent)
+            const resolved = resolveReasoningMode(useReasoning, detectionResult)
+            shouldUseReasoning = resolved.useReasoning
+            shouldUseWebSearch = resolved.useWebSearch
+            selectedModel = getReasoningModel(shouldUseReasoning, false)
           }
 
           // --- PHASE 2: SEARCH (If needed) ---
           if (shouldUseWebSearch) {
             streamManager.sendStatus('searching', 'Analyzing search intent...')
-            // Web search would go here - simplified for guests
-            // In a full implementation, you'd integrate with search APIs
+            
+            try {
+              // 1. Analyze Intent & Plan
+              const { analyzeIntent } = await import('./agentic/intent-analyzer')
+              const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
+              
+              streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
+              
+              // 2. Execute Plan
+              const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
+              const orchestrator = new SourceOrchestrator()
+              const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
+              
+              // 3. Map to Frontend Format
+              const allSources: any[] = []
+              
+              sourceResults.forEach(res => {
+                if (res.citations) {
+                  res.citations.forEach(cit => {
+                    allSources.push({
+                      type: res.source,
+                      url: cit.url,
+                      title: cit.title,
+                      snippet: cit.snippet || ''
+                    })
+                  })
+                }
+              })
+              
+              // Deduplicate sources
+              const uniqueSources = Array.from(
+                new Map(allSources.map(s => [s.url, s])).values()
+              )
+
+              searchResults = {
+                query: sourcePlan.searchQueries.exa || sourcePlan.searchQueries.perplexity || messageContent,
+                sources: uniqueSources,
+                searchStrategy: sourcePlan.sources,
+                totalResults: uniqueSources.length
+              }
+              
+              if (searchResults) {
+                streamManager.sendSearchResults({
+                  query: searchResults.query,
+                  sources: searchResults.sources,
+                  strategy: searchResults.searchStrategy,
+                  totalResults: searchResults.totalResults
+                })
+
+                // Update status with domains
+                const { getDomainName } = await import('@/lib/types/citation')
+                const domains = searchResults.sources.slice(0, 3).map((s: any) => getDomainName(s.url))
+                const uniqueDomains = [...new Set(domains)]
+                const searchMessage = `Reading ${uniqueDomains.join(', ')}${searchResults.sources.length > 3 ? ' and more...' : '...'}`
+                streamManager.sendStatus('searching', searchMessage)
+              }
+            } catch (searchError) {
+              console.error('⚠️ [GuestChatService] Search failed, continuing without:', searchError)
+            }
           }
 
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')
+
+          // Augment messages with search context (inject into SYSTEM message)
+          let finalMessages = [...messages]
+          
+          if (searchResults && searchResults.sources.length > 0) {
+            const searchContext = `
+<search_results>
+Query: ${searchResults.query}
+
+${searchResults.sources.map((s: any, i: number) => 
+  `[${i + 1}] ${s.title}
+${s.snippet}
+Source: ${s.url}`
+).join('\n\n')}
+</search_results>
+
+<synthesis_instructions>
+You have access to the search results above. Follow these rules:
+1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture.
+2. **Cite**: Use [1], [2] format immediately after each claim.
+3. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy.
+4. **Be Complete**: Use ALL relevant information.
+5. **Direct Answer**: Provide the answer directly.
+</synthesis_instructions>`
+            
+            // Inject into system message
+            const systemMsgIndex = finalMessages.findIndex(m => m.role === 'system')
+            if (systemMsgIndex >= 0) {
+              const existingContent = finalMessages[systemMsgIndex].content as string
+              finalMessages[systemMsgIndex] = {
+                ...finalMessages[systemMsgIndex],
+                content: existingContent + '\n\n' + searchContext
+              }
+            } else {
+              finalMessages.unshift({
+                role: 'system',
+                content: searchContext
+              })
+            }
+          }
 
           // Apply Structured Response Formatting
           if (detectionResult) {
             const responseType = ResponseFormatter.getResponseType(detectionResult)
             const formatInstructions = ResponseFormatter.getFormatInstructions(responseType)
 
-            const systemMsgIndex = messages.findIndex(m => m.role === 'system')
+            const systemMsgIndex = finalMessages.findIndex(m => m.role === 'system')
             if (systemMsgIndex >= 0) {
-              const existingContent = messages[systemMsgIndex].content as string
-              messages[systemMsgIndex] = {
-                ...messages[systemMsgIndex],
+              const existingContent = finalMessages[systemMsgIndex].content as string
+              finalMessages[systemMsgIndex] = {
+                ...finalMessages[systemMsgIndex],
                 content: existingContent + '\n\n' + formatInstructions
               }
             } else {
-              messages.unshift({
+              finalMessages.unshift({
                 role: 'system',
                 content: formatInstructions
               })
@@ -269,7 +369,7 @@ export class GuestChatService {
           const aiProvider = getAIProvider(hasFiles)
 
           // Stream the AI response
-          const aiStream = aiProvider.sendMessage({ messages })
+          const aiStream = aiProvider.sendMessage({ messages: finalMessages })
 
           for await (const chunk of aiStream) {
             fullResponse += chunk

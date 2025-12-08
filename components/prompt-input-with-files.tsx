@@ -47,6 +47,8 @@ type PromptInputWithFilesProps = {
   onKeyDown?: (e: React.KeyboardEvent) => void;
   // Hide attachment and context buttons
   hideActions?: boolean;
+  // Hide only file upload button (keep context picker)
+  hideFileUpload?: boolean;
   // Quote props
   quotedMessage?: {
     messageId: string;
@@ -78,6 +80,7 @@ export const PromptInputWithFiles = memo(function
   onFilesChange,
   onKeyDown,
   hideActions = false,
+  hideFileUpload = false,
   quotedMessage,
   onClearQuote,
 }: PromptInputWithFilesProps) {
@@ -411,40 +414,40 @@ export const PromptInputWithFiles = memo(function
 
             <PromptInputActions className="mt-4 flex w-full items-center justify-between gap-1.5 px-2.5 pb-2.5">
               <div className="flex items-center gap-1.5">
+                {!hideActions && !hideFileUpload && (
+                  <PromptInputAction tooltip="Attach files">
+                    <FileUploadTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full text-muted-foreground hover:text-foreground"
+                        disabled={isLoading || isSubmittingEdit || disabled}
+                      >
+                        <Paperclip size={16} />
+                      </Button>
+                    </FileUploadTrigger>
+                  </PromptInputAction>
+                )}
+                
                 {!hideActions && (
-                  <>
-                    <PromptInputAction tooltip="Attach files">
-                      <FileUploadTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 rounded-full text-muted-foreground hover:text-foreground"
-                          disabled={isLoading || isSubmittingEdit || disabled}
-                        >
-                          <Paperclip size={16} />
-                        </Button>
-                      </FileUploadTrigger>
-                    </PromptInputAction>
-                    
-                    <ContextPicker
-                      selectedItems={context}
-                      onSelectionChange={onContextChange || (() => {})}
-                      conversations={conversations}
-                      folders={folders}
-                      currentConversationId={currentConversationId}
-                      tooltip="Add chats"
-                      trigger={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 rounded-full text-muted-foreground hover:text-foreground"
-                          disabled={isLoading || isSubmittingEdit || disabled}
-                        >
-                          <Plus size={16} />
-                        </Button>
-                      }
-                    />
-                  </>
+                  <ContextPicker
+                    selectedItems={context}
+                    onSelectionChange={onContextChange || (() => {})}
+                    conversations={conversations}
+                    folders={folders}
+                    currentConversationId={currentConversationId}
+                    tooltip="Add chats"
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full text-muted-foreground hover:text-foreground"
+                        disabled={isLoading || isSubmittingEdit || disabled}
+                      >
+                        <Plus size={16} />
+                      </Button>
+                    }
+                  />
                 )}
               </div>
 

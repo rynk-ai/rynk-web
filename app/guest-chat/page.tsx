@@ -5,6 +5,8 @@ import {
   VirtualizedMessageList,
   type VirtualizedMessageListRef,
 } from "@/components/chat/virtualized-message-list";
+import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
+import type { SubChat } from "@/lib/services/cloud-db";
 import {
   Message,
   MessageContent,
@@ -216,6 +218,19 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     authorRole: "user" | "assistant";
   } | null>(null);
 
+  // Sub-chat state
+  const [subChats, setSubChats] = useState<SubChat[]>([]);
+  const [activeSubChat, setActiveSubChat] = useState<SubChat | null>(null);
+  const [subChatSheetOpen, setSubChatSheetOpen] = useState(false);
+  const [subChatLoading, setSubChatLoading] = useState(false);
+  const [subChatStreamingContent, setSubChatStreamingContent] = useState("");
+  const [subChatSearchResults, setSubChatSearchResults] = useState<any>(null);
+
+  // Set of message IDs that have sub-chats
+  const messageIdsWithSubChats = useMemo(() => {
+    return new Set(subChats.map(sc => sc.sourceMessageId));
+  }, [subChats]);
+
   // Context state
   const [localContext, setLocalContext] = useState<ContextItem[]>([]);
   const activeContext = localContext;
@@ -309,6 +324,159 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     await updateConversationTags(currentConversationId, tags);
     await loadTags();
   };
+
+  // Sub-chat handlers
+  const loadSubChats = useCallback(async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/guest/sub-chats?conversationId=${conversationId}`);
+      if (response.ok) {
+        const data = await response.json() as { subChats?: any[] };
+        setSubChats(data.subChats || []);
+      }
+    } catch (err) {
+      console.error("Failed to load sub-chats:", err);
+    }
+  }, []);
+
+  const handleOpenSubChat = useCallback(
+    async (text: string, messageId: string, _role: "user" | "assistant", fullMessageContent: string) => {
+      if (!currentConversationId) return;
+
+      try {
+        // Check if there's an existing sub-chat for this exact text and message
+        const existing = subChats.find(
+          sc => sc.sourceMessageId === messageId && sc.quotedText === text
+        );
+
+        if (existing) {
+          setActiveSubChat(existing);
+          setSubChatSheetOpen(true);
+          return;
+        }
+
+        // Create new sub-chat
+        const response = await fetch("/api/guest/sub-chats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversationId: currentConversationId,
+            sourceMessageId: messageId,
+            quotedText: text,
+            fullMessageContent: fullMessageContent,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json() as { subChat?: any };
+          const newSubChat = data.subChat;
+          setSubChats(prev => [newSubChat, ...prev]);
+          setActiveSubChat(newSubChat);
+          setSubChatSheetOpen(true);
+        }
+      } catch (err) {
+        console.error("Failed to create sub-chat:", err);
+        toast.error("Failed to create sub-chat");
+      }
+    },
+    [currentConversationId, subChats]
+  );
+
+  const handleViewSubChats = useCallback(
+    (messageId: string) => {
+      const messageSubChats = subChats.filter(sc => sc.sourceMessageId === messageId);
+      if (messageSubChats.length > 0) {
+        setActiveSubChat(messageSubChats[0]);
+        setSubChatSheetOpen(true);
+      }
+    },
+    [subChats]
+  );
+
+  const handleOpenExistingSubChat = useCallback(
+    (subChat: SubChat) => {
+      setActiveSubChat(subChat);
+      setSubChatSheetOpen(true);
+    },
+    []
+  );
+
+  const handleDeleteSubChat = useCallback(
+    async (subChatId: string) => {
+      try {
+        const response = await fetch(`/api/guest/sub-chats/${subChatId}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          setSubChats(prev => prev.filter(sc => sc.id !== subChatId));
+          if (activeSubChat?.id === subChatId) {
+            setSubChatSheetOpen(false);
+            setActiveSubChat(null);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to delete sub-chat:", err);
+        toast.error("Failed to delete sub-chat");
+      }
+    },
+    [activeSubChat]
+  );
+
+  const handleSubChatMessage = useCallback(
+    async (content: string) => {
+      if (!activeSubChat) return;
+
+      setSubChatLoading(true);
+      setSubChatStreamingContent("");
+      setSubChatSearchResults(null);
+
+      try {
+        // Add user message optimistically
+        const userMessage = {
+          id: `msg_${Date.now()}`,
+          role: "user" as const,
+          content,
+          createdAt: Date.now(),
+        };
+
+        setActiveSubChat(prev => prev ? {
+          ...prev,
+          messages: [...prev.messages, userMessage],
+        } : null);
+
+        // Send to API (simplified for guests - no streaming for sub-chats)
+        const response = await fetch(`/api/guest/sub-chats/${activeSubChat.id}/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+
+        if (response.ok) {
+          const data = await response.json() as { subChat?: any };
+          if (data.subChat) {
+            setActiveSubChat(data.subChat);
+            setSubChats(prev => prev.map(sc => sc.id === data.subChat.id ? data.subChat : sc));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to send sub-chat message:", err);
+        toast.error("Failed to send message");
+      } finally {
+        setSubChatLoading(false);
+        setSubChatStreamingContent("");
+      }
+    },
+    [activeSubChat]
+  );
+
+  // Load sub-chats when conversation changes
+  useEffect(() => {
+    if (currentConversationId) {
+      loadSubChats(currentConversationId);
+    } else {
+      setSubChats([]);
+    }
+  }, [currentConversationId, loadSubChats]);
 
   // Message submission
   const handleSubmit = useCallback(
@@ -511,6 +679,12 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                   onDeleteMessage={() => toast.info("Message deletion requires signing in")}
                   onBranchFromMessage={() => toast.info("Branching requires signing in")}
                   onQuote={handleQuote}
+                  onOpenSubChat={handleOpenSubChat}
+                  messageIdsWithSubChats={messageIdsWithSubChats}
+                  subChats={subChats}
+                  onViewSubChats={handleViewSubChats}
+                  onOpenExistingSubChat={handleOpenExistingSubChat}
+                  onDeleteSubChat={handleDeleteSubChat}
                   messageVersions={messageVersions}
                   onSwitchVersion={async () => { toast.info("Message versions require signing in") }}
                   statusPills={statusPills}
@@ -600,12 +774,23 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
               quotedMessage={quotedMessage}
               onClearQuote={handleClearQuote}
               className="pb-4"
-              // Hide attachment button for guests (file uploads not supported)
-              hideActions={true}
+              // Hide only file upload button for guests (context picker still available)
+              hideFileUpload={true}
             />
           </div>
         </div>
       </div>
+
+      {/* Sub-Chat Sheet */}
+      <SubChatSheet
+        open={subChatSheetOpen}
+        onOpenChange={setSubChatSheetOpen}
+        subChat={activeSubChat}
+        onSendMessage={handleSubChatMessage}
+        isLoading={subChatLoading}
+        streamingContent={subChatStreamingContent}
+        searchResults={subChatSearchResults}
+      />
     </main>
   );
 });
