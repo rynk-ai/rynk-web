@@ -117,6 +117,7 @@ export const ChatMessageItem = memo(
     // This fixes the race condition between finishStreaming() and message refetch
     const lastStreamingStatusPills = useRef<any[]>([]);
     const lastStreamingSearchResults = useRef<any>(null);
+    const lastStreamingContentRef = useRef<string>('');
 
     // Update refs based on streaming state and message metadata
     // Only cache values during streaming; clear when message has its own metadata
@@ -128,11 +129,18 @@ export const ChatMessageItem = memo(
       if (streamingSearchResults) {
         lastStreamingSearchResults.current = streamingSearchResults;
       }
+      // Cache streaming content to prevent flicker during transition
+      if (streamingContent) {
+        lastStreamingContentRef.current = streamingContent;
+      }
     } else if (message.reasoning_metadata?.searchResults) {
       // Once message has its own metadata, clear the cached streaming values
       // This prevents stale data from showing on subsequent messages
       lastStreamingStatusPills.current = [];
       lastStreamingSearchResults.current = null;
+    } else if (message.content) {
+      // Clear cached streaming content once message has real content
+      lastStreamingContentRef.current = '';
     }
 
     // Quote button state
@@ -473,7 +481,9 @@ export const ChatMessageItem = memo(
     }, [effectiveSearchResults, isStreaming, isAssistant, message.role, message.id]);
 
     if (isAssistant) {
-      const displayContent = isStreaming ? streamingContent : message.content;
+      // Use message.content if available, otherwise streaming content, otherwise cached content
+      // This prevents flicker when transitioning from streaming to final state
+      const displayContent = message.content || streamingContent || lastStreamingContentRef.current;
 
       // Debug logging
       if (typeof window !== "undefined" && message.role === "assistant") {

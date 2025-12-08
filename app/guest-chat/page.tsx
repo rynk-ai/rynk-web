@@ -278,6 +278,19 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     finishStreaming,
   } = streamingState;
 
+  // Refs for statusPills and searchResults to avoid stale closures in handleSubmit
+  // These values change during streaming, so we need refs to get current values
+  const statusPillsRef = useRef(statusPills);
+  const searchResultsRef = useRef(searchResults);
+
+  useEffect(() => {
+    statusPillsRef.current = statusPills;
+  }, [statusPills]);
+
+  useEffect(() => {
+    searchResultsRef.current = searchResults;
+  }, [searchResults]);
+
   // Local state
   const [isSending, setIsSending] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -711,14 +724,19 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
           timestamp: timestamp + 1,
           versionNumber: 1,
           // Persist reasoning metadata so sources display immediately after stream completes
+          // CRITICAL: Use refs to get current values, not stale closure values!
           reasoning_metadata: {
-            statusPills: statusPills,
-            searchResults: searchResults,
+            statusPills: statusPillsRef.current,
+            searchResults: searchResultsRef.current,
           },
         } as any);
         
-        // Now safe to clear streaming state
-        finishStreaming(fullContent);
+        // CRITICAL: Batch finishStreaming and setIsSending using requestAnimationFrame
+        // This prevents cascading re-renders that cause flicker
+        requestAnimationFrame(() => {
+          finishStreaming(fullContent);
+          setIsSending(false);
+        });
 
       } catch (err: any) {
         console.error("Failed to send message:", err);
@@ -733,7 +751,6 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
         removeMessage(tempUserMessageId);
         removeMessage(tempAssistantMessageId);
         finishStreaming();
-      } finally {
         setIsSending(false);
       }
     },

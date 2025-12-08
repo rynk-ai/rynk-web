@@ -306,6 +306,19 @@ const ChatContent = memo(
       finishStreaming,
     } = streamingState;
 
+    // Refs for statusPills and searchResults to avoid stale closures in handleSubmit
+    // These values change during streaming, so we need refs to get current values
+    const statusPillsRef = useRef(statusPills);
+    const searchResultsRef = useRef(searchResults);
+
+    useEffect(() => {
+      statusPillsRef.current = statusPills;
+    }, [statusPills]);
+
+    useEffect(() => {
+      searchResultsRef.current = searchResults;
+    }, [searchResults]);
+
     // Other local state
     const [isSending, setIsSending] = useState(false);
     const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -1020,14 +1033,19 @@ const ChatContent = memo(
               messageState.updateMessage(assistantMessageId, {
                 content: fullContent,
                 // Persist reasoning metadata so sources display immediately
+                // CRITICAL: Use refs to get current values, not stale closure values!
                 reasoning_metadata: {
-                  statusPills: statusPills,
-                  searchResults: searchResults,
+                  statusPills: statusPillsRef.current,
+                  searchResults: searchResultsRef.current,
                 },
               });
             }
-            // Now safe to clear streaming state
-            finishStreaming(fullContent);
+            // CRITICAL: Batch finishStreaming and setIsSending using requestAnimationFrame
+            // This prevents cascading re-renders that cause flicker
+            requestAnimationFrame(() => {
+              finishStreaming(fullContent);
+              setIsSending(false);
+            });
           }
         } catch (err: any) {
           console.error("Failed to send message:", err);
@@ -1052,7 +1070,6 @@ const ChatContent = memo(
           // Rollback on error
           removeMessage(tempUserMessageId);
           removeMessage(tempAssistantMessageId);
-        } finally {
           setIsSending(false);
         }
       },
@@ -1417,13 +1434,18 @@ const ChatContent = memo(
                   messageState.updateMessage(assistantMessageId, {
                     content: fullContent,
                     // Persist reasoning metadata so sources display immediately
+                    // CRITICAL: Use refs to get current values, not stale closure values!
                     reasoning_metadata: {
-                      statusPills: statusPills,
-                      searchResults: searchResults,
+                      statusPills: statusPillsRef.current,
+                      searchResults: searchResultsRef.current,
                     },
                   });
-                  // Now safe to clear streaming state
-                  finishStreaming(fullContent);
+                  // Batch finishStreaming and setIsSavingEdit using requestAnimationFrame
+                  requestAnimationFrame(() => {
+                    finishStreaming(fullContent);
+                    setIsSavingEdit(false);
+                    setIsEditing(false);
+                  });
                 }
               }
             } else {
@@ -1432,6 +1454,8 @@ const ChatContent = memo(
                 response.status,
                 response.statusText,
               );
+              setIsSavingEdit(false);
+              setIsEditing(false);
             }
           } catch (aiError) {
             console.error(
@@ -1439,6 +1463,8 @@ const ChatContent = memo(
               aiError,
             );
             finishStreaming();
+            setIsSavingEdit(false);
+            setIsEditing(false);
           }
         }
       } catch (error: any) {
@@ -1472,11 +1498,10 @@ const ChatContent = memo(
         } catch (fetchError) {
           console.error("Failed to revert after error:", fetchError);
         }
-      } finally {
         setIsSavingEdit(false);
         setIsEditing(false);
-        console.log("🏁 [handleSaveEdit] Edit operation complete");
       }
+      console.log("🏁 [handleSaveEdit] Edit operation complete");
     };
 
     const handleDeleteMessage = useCallback(
@@ -1749,9 +1774,11 @@ const ChatContent = memo(
     // Load messages from conversation path
     useEffect(() => {
       // Skip if we're in the middle of an edit to prevent race conditions
-      // Also skip if sending (streaming) to prevent overwriting stream with partial DB data
-      // Skip if streaming to prevent race condition where title generation triggers reload mid-stream
-      if (isEditing || isSending || isSavingEdit || streamingMessageId) return;
+      // Also skip if sending to prevent overwriting stream with partial DB data
+      // Note: We intentionally do NOT watch streamingMessageId here because when streaming ends,
+      // the message is already in local state with full content and reasoning_metadata.
+      // Reloading from DB would overwrite that with stale data.
+      if (isEditing || isSending || isSavingEdit) return;
 
       // Check if we switched conversations
       const isSwitching0 = currentConversationIdRef.current !== currentConversation?.id;
@@ -1769,7 +1796,7 @@ const ChatContent = memo(
       isEditing,
       isSending,
       isSavingEdit,
-      streamingMessageId,
+      // Note: streamingMessageId intentionally NOT included - see comment above
       reloadMessages,
     ]); // Reload when conversation changes, NOT on updatedAt to avoid race conditions
 
