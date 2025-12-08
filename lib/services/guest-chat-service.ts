@@ -163,7 +163,7 @@ export class GuestChatService {
         JSON.stringify([]),
         JSON.stringify([]),
         JSON.stringify([]),
-        new Date().toISOString()
+        new Date(Date.now() + 1).toISOString() // +1ms to ensure assistant comes after user
       )
       .run()
 

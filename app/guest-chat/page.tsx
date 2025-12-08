@@ -698,9 +698,6 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
             >
               rynk.
             </TextShimmer>
-            <p className="text-muted-foreground text-center max-w-md">
-              Try our AI chat with {creditsRemaining ?? 5} free messages
-            </p>
           </div>
 
           {/* Messages Container - Fades in/Visible when conversation active */}
