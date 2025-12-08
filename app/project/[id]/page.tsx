@@ -149,14 +149,12 @@ const TagSection = memo(function TagSection({
 
       {/* Add Tag Button */}
       <Button
-        variant={"outline"}
         size="icon"
-        className="w-min px-1 h-6 hover:bg-muted shrink-0 text-xs flex gap-0.5"
+        className="h-6 w-6 rounded-full bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition-all"
         onClick={onTagClick}
         title="Edit tags"
       >
-        <Plus className="h-3 w-2" />
-        <span>Tags</span>
+        <BookmarkPlus className="h-3.5 w-3.5" />
       </Button>
     </div>
   );
@@ -1153,6 +1151,8 @@ const ChatContent = memo(
     // Ref for the input container to handle scroll locking
     const inputContainerRef = useRef<HTMLDivElement>(null);
     const virtuosoRef = useRef<VirtualizedMessageListRef>(null);
+    // Track current conversation ID to detect switches
+    const currentConversationIdRef = useRef(currentConversationId);
 
     // Prevent body scroll when touching the input container (except for textarea)
     useEffect(() => {
@@ -1632,9 +1632,18 @@ const ChatContent = memo(
 
           const optimistic = prev.filter((m) => m.id.startsWith("temp-"));
 
+
           // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
           // This prevents "flash of duplicates" if server returns the message before we replace the temp one
           const uniqueOptimistic = optimistic.filter((opt) => {
+            // ✅ CRITICAL FIX: Only keep optimistic messages that belong to the CURRENT conversation
+            // This prevents messages from the previous conversation from "leaking" into the new one
+            // when switching conversations (since they wouldn't be in the server response for the new conversation)
+            // Note: In project page, currentConversation?.id is the source of truth
+            if (currentConversation?.id && opt.conversationId !== currentConversation.id) {
+               return false;
+            }
+
             const isDuplicate = mergedMessages.some((serverMsg) => {
               // Match by role
               if (serverMsg.role !== opt.role) return false;
@@ -1734,6 +1743,16 @@ const ChatContent = memo(
       // Also skip if sending (streaming) to prevent overwriting stream with partial DB data
       // Skip if streaming to prevent race condition where title generation triggers reload mid-stream
       if (isEditing || isSending || isSavingEdit || streamingMessageId) return;
+
+      // Check if we switched conversations
+      const isSwitching0 = currentConversationIdRef.current !== currentConversation?.id;
+      
+      if (isSwitching0 && currentConversation?.id) {
+          console.log("[ProjectPage] Switching conversation, clearing state...");
+          setMessages([]);
+          setMessageVersions(new Map());
+      }
+      currentConversationIdRef.current = currentConversation?.id || null;
 
       reloadMessages();
     }, [

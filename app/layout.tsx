@@ -100,9 +100,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} antialiased tracking-tight`}
       >
+
+
         <AuthProvider>
           <FontProviderWrapper defaultFont="geist">
             <ThemeProvider

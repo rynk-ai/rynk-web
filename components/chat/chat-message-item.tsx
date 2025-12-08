@@ -326,7 +326,7 @@ export const ChatMessageItem = memo(
               return (
                 <span
                   key={idx}
-                  className="bg-amber-200/60 dark:bg-amber-800/40 hover:bg-amber-300/70 dark:hover:bg-amber-700/50 cursor-pointer rounded px-0.5 transition-colors"
+                  className="bg-accent/20 dark:bg-accent/30 hover:bg-accent/30 dark:hover:bg-accent/40 cursor-pointer rounded-sm px-0.5 transition-colors border-b border-accent/40"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenExistingSubChat?.(seg.subChat!);
@@ -553,24 +553,24 @@ export const ChatMessageItem = memo(
                     {onQuote && (
                       <Button
                         size="sm"
-                        variant="secondary"
-                        className="h-7 gap-1.5 px-2.5 shadow-lg"
+                        className="h-7 gap-1.5 px-2.5 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 border-0 rounded-md"
                         onClick={handleQuoteClick}
                         onMouseDown={(e) => e.preventDefault()}
                       >
                         <Quote className="h-3.5 w-3.5" />
+                        <span className="text-xs font-medium">Quote</span>
                       </Button>
                     )}
                     {onOpenSubChat && (
                       <Button
                         size="sm"
-                        variant="secondary"
-                        className="h-7 p-0 shadow-lg"
+                        className="h-7 gap-1.5 px-2.5 shadow-lg bg-teal-600 text-white hover:bg-teal-700 border-0 rounded-md"
                         onClick={handleSubChatClick}
                         onMouseDown={(e) => e.preventDefault()}
                         title="Ask about this"
                       >
                         <MessageSquarePlus className="h-3.5 w-3.5" />
+                        <span className="text-xs font-medium">Ask</span>
                       </Button>
                     )}
                   </div>,
@@ -579,49 +579,53 @@ export const ChatMessageItem = memo(
 
               {/* Sub-chat dropdown */}
               {hasSubChats && messageSubChats.length > 0 && (
-                <div className="absolute -right-2 top-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 rounded-full bg-primary/10 hover:bg-primary/20"
-                        title="View sub-chats"
-                      >
-                        <MessageSquarePlus className="h-3 w-3 text-primary" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                        Sub-chats ({messageSubChats.length})
-                      </div>
-                      <DropdownMenuSeparator />
-                      {messageSubChats.map((sc) => (
-                        <DropdownMenuItem
-                          key={sc.id}
-                          className="flex items-center justify-between gap-2 cursor-pointer"
-                          onClick={() => onOpenExistingSubChat?.(sc)}
+                <div className="absolute -left-12 top-0 h-full w-10">
+                  <div className="sticky top-6 flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="h-7 w-7 p-0 rounded-full shadow-md bg-teal-600 text-white hover:bg-teal-700 border border-teal-500/50 transition-all select-none"
+                          title="View sub-chats"
                         >
-                          <span className="truncate text-sm flex-1">
-                            "{sc.quotedText.slice(0, 40)}{sc.quotedText.length > 40 ? '...' : ''}"
-                          </span>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <MessageSquarePlus className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-72">
+                        <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                          <span>Sub-chats ({messageSubChats.length})</span>
+                        </div>
+                        <DropdownMenuSeparator />
+                        {messageSubChats.map((sc) => (
+                          <DropdownMenuItem
+                            key={sc.id}
+                            className="flex items-start gap-2.5 cursor-pointer py-2.5"
+                            onClick={() => onOpenExistingSubChat?.(sc)}
+                          >
+                            <div className="mt-0.5 min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-none mb-1">
+                                Context
+                              </p>
+                              <p className="text-xs text-muted-foreground line-clamp-2 italic">
+                                "{sc.quotedText}"
+                              </p>
+                            </div>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive shrink-0"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteSubChat?.(sc.id);
                               }}
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               )}
 
@@ -673,7 +677,7 @@ export const ChatMessageItem = memo(
             <div className="flex flex-col items-end w-full">
               <MessageContent
                 className={cn(
-                  "text-foreground bg-secondary/60 hover:bg-secondary/85 backdrop-blur-sm rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/20",
+                  "text-foreground bg-secondary/80 hover:bg-secondary rounded-lg px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/40",
                   isEditing && "opacity-50",
                 )}
                 onMouseUp={handleTextSelection}
@@ -699,24 +703,24 @@ export const ChatMessageItem = memo(
                   {onQuote && (
                     <Button
                       size="sm"
-                      variant="secondary"
-                      className="h-7 gap-1.5 px-2.5 shadow-lg"
+                      className="h-7 gap-1.5 px-2.5 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 border-0 rounded-md"
                       onClick={handleQuoteClick}
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       <Quote className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Quote</span>
                     </Button>
                   )}
                   {onOpenSubChat && (
                     <Button
                       size="sm"
-                      variant="secondary"
-                      className="h-7 w-7 p-0 shadow-lg"
+                      className="h-7 gap-1.5 px-2.5 shadow-lg bg-teal-600 text-white hover:bg-teal-700 border-0 rounded-md"
                       onClick={handleSubChatClick}
                       onMouseDown={(e) => e.preventDefault()}
                       title="Ask about this"
                     >
                       <MessageSquarePlus className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Ask</span>
                     </Button>
                   )}
                 </div>,

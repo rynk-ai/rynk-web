@@ -349,7 +349,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           <div className="flex gap-1">
             <Button
               variant="outline"
-              className="flex-1 justify-start gap-2 px-3 shadow-none border-border/50 bg-background/50 hover:bg-accent hover:text-accent-foreground transition-all"
+              className="flex-1 justify-start gap-2 px-3 shadow-none border-border bg-accent hover:bg-accent hover:text-accent-foreground transition-all"
               onClick={() => {
                 // Navigate to /chat (new chat) and clear the conversation selection
                 // The conversation will be created when user sends first message

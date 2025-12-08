@@ -420,7 +420,7 @@ export const PromptInputWithFiles = memo(function
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-8 rounded-full text-muted-foreground hover:text-foreground"
+                        className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
                         disabled={isLoading || isSubmittingEdit || disabled}
                       >
                         <Paperclip size={16} />
@@ -441,7 +441,7 @@ export const PromptInputWithFiles = memo(function
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-8 rounded-full text-muted-foreground hover:text-foreground"
+                        className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
                         disabled={isLoading || isSubmittingEdit || disabled}
                       >
                         <Plus size={16} />
@@ -455,7 +455,7 @@ export const PromptInputWithFiles = memo(function
               <Button
                 type="button"
                 size="icon"
-                className="size-8 shrink-0 rounded-full"
+                className="size-8 shrink-0 rounded-lg"
                 onClick={handleSubmit}
                 disabled={
                   (isLoading || isSubmittingEdit || disabled) ||

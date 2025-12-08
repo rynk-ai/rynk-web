@@ -85,9 +85,9 @@ export default {
         },
       },
       animation: {
-        "fade-slide-up": "fade-slide-up 0.3s ease-out",
-        "fade-slide-down": "fade-slide-down 0.3s ease-out",
-        "scale-in": "scale-in 0.2s ease-out",
+        "fade-slide-up": "fade-slide-up 0.2s ease-out",
+        "fade-slide-down": "fade-slide-down 0.2s ease-out",
+        "scale-in": "scale-in 0.15s ease-out",
         "shimmer": "shimmer 8s linear infinite",
       },
     },

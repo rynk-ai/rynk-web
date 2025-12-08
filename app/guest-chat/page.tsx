@@ -52,6 +52,7 @@ import {
   MessageSquare,
   X,
   Loader2,
+  BookmarkPlus,
   Plus,
   Tag,
   ChevronDown,
@@ -82,6 +83,46 @@ function filterActiveVersions(messages: any[]): any[] {
   return activeMessages.sort((a, b) => a.timestamp - b.timestamp);
 }
 
+// Memoized TagSection component
+const TagSection = memo(function TagSection({
+  conversationId,
+  tags,
+  onTagClick,
+}: {
+  conversationId: string;
+  tags: string[];
+  onTagClick: () => void;
+}) {
+  return (
+    <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
+      {/* Existing Tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
+          {tags.map((tag, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-1 bg-secondary hover:bg-secondary/80 px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
+            >
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="lg:font-medium">{tag}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Tag Button */}
+      <Button
+        size="icon"
+        className="h-6 w-6 rounded-full bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition-all"
+        onClick={onTagClick}
+        title="Edit tags"
+      >
+        <BookmarkPlus className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+});
+
 // Context Badges component
 type ContextItem = {
   type: "conversation" | "folder";
@@ -108,7 +149,7 @@ const ContextBadges = memo(function ContextBadges({
         return (
           <div
             key={i}
-            className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
+            className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-full text-xs transition-colors"
           >
             {isLoading ? (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
@@ -189,6 +230,36 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
   // Keyboard awareness for mobile
   const keyboardHeight = useKeyboardAwarePosition();
 
+  // Tags state
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+
+  const loadTags = useCallback(async () => {
+    try {
+      const tags = await getAllTags();
+      setAllTags(tags);
+    } catch (err) {
+      console.error("Failed to load tags:", err);
+    }
+  }, [getAllTags]);
+
+  const handleTagClick = () => {
+    setTagDialogOpen(true);
+  };
+
+  const currentTags = currentConversation?.tags || [];
+
+  // Load all tags when component mounts
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+
+  const handleSaveTags = async (tags: string[]) => {
+    if (!currentConversationId) return;
+    await updateConversationTags(currentConversationId, tags);
+    await loadTags();
+  };
+
   const {
     messages,
     setMessages,
@@ -210,8 +281,6 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
   // Local state
   const [isSending, setIsSending] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
-  const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [allTags, setAllTags] = useState<string[]>([]);
   const [quotedMessage, setQuotedMessage] = useState<{
     messageId: string;
     quotedText: string;
@@ -238,22 +307,6 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
   // Refs
   const virtuosoRef = useRef<VirtualizedMessageListRef>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
-
-  const currentTags = (currentConversation?.tags as string[]) || [];
-
-  // Load tags
-  const loadTags = useCallback(async () => {
-    try {
-      const tags = await getAllTags();
-      setAllTags(tags);
-    } catch (err) {
-      console.error("Failed to load tags:", err);
-    }
-  }, [getAllTags]);
-
-  useEffect(() => {
-    loadTags();
-  }, [loadTags]);
 
   // Handle URL-based conversation selection
   useEffect(() => {
@@ -316,6 +369,13 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
 
               // 3. Deduplicate: Don't add optimistic messages if they likely exist in the loaded messages
               const uniqueOptimistic = optimistic.filter((opt) => {
+                // ✅ CRITICAL FIX: Only keep optimistic messages that belong to the CURRENT conversation
+                // This prevents messages from the previous conversation from "leaking" into the new one
+                // when switching conversations (since they wouldn't be in the server response for the new conversation)
+                if (currentConversationId && opt.conversationId !== currentConversationId) {
+                  return false;
+                }
+
                 const isDuplicate = mergedMessages.some((serverMsg) => {
                   // Match by role
                   if (serverMsg.role !== opt.role) return false;
@@ -383,13 +443,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     setQuotedMessage(null);
   }, []);
 
-  const handleTagClick = () => setTagDialogOpen(true);
 
-  const handleSaveTags = async (tags: string[]) => {
-    if (!currentConversationId) return;
-    await updateConversationTags(currentConversationId, tags);
-    await loadTags();
-  };
 
   // Sub-chat handlers
   const loadSubChats = useCallback(async (conversationId: string) => {
@@ -731,6 +785,14 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
             <div className="relative h-full flex flex-col px-2 md:px-3 lg:px-4">
               {/* Messages List - Virtuoso handles its own scrolling */}
               <div className="flex-1 relative">
+                {/* Tag Section */}
+                {currentConversationId && (
+                  <TagSection
+                    conversationId={currentConversationId}
+                    tags={currentTags}
+                    onTagClick={handleTagClick}
+                  />
+                )}
                 <VirtualizedMessageList
                   ref={virtuosoRef}
                   messages={filteredMessages}
@@ -763,7 +825,9 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                   currentTags={currentTags}
                   allTags={allTags}
                   onSave={handleSaveTags}
-                  onClose={() => setTagDialogOpen(false)}
+                  onClose={() => {
+                    setTagDialogOpen(false);
+                  }}
                 />
               )}
 
@@ -771,7 +835,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
               {!isScrolledUp && messages.length > 0 ? (
                 <Button
                   variant="outline"
-                  className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border-border/50 hover:border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
+                  className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
                   onClick={() => virtuosoRef.current?.scrollToBottom()}
                   title="Scroll to bottom"
                 >

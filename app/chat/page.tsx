@@ -78,10 +78,10 @@ import {
   MessageSquare,
   X,
   Loader2,
-  Plus,
   Tag,
   Tags,
   BookmarkPlus,
+  Plus,
   Bookmark,
   ChevronDown,
 } from "lucide-react";
@@ -136,7 +136,7 @@ const TagSection = memo(function TagSection({
           {tags.map((tag, index) => (
             <div
               key={index}
-              className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
+              className="flex items-center gap-1 bg-secondary hover:bg-secondary/80 px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
             >
               <Tag className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="lg:font-medium">{tag}</span>
@@ -147,14 +147,12 @@ const TagSection = memo(function TagSection({
 
       {/* Add Tag Button */}
       <Button
-        variant={"outline"}
         size="icon"
-        className="w-min px-1 h-6 hover:bg-muted shrink-0 text-xs flex gap-0.5"
+        className="h-6 w-6 rounded-full bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition-all"
         onClick={onTagClick}
         title="Edit tags"
       >
-        <Plus className="h-3 w-2" />
-        <span>Tags</span>
+        <BookmarkPlus className="h-3.5 w-3.5" />
       </Button>
     </div>
   );
@@ -187,7 +185,7 @@ const ContextBadges = memo(function ContextBadges({
         return (
           <div
             key={i}
-            className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
+            className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-full text-xs transition-colors"
           >
             {/* Show spinner when loading, otherwise show normal icon */}
             {isLoading ? (
@@ -1708,6 +1706,13 @@ const ChatContent = memo(
             // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
             // This prevents "flash of duplicates" if server returns the message before we replace the temp one
             const uniqueOptimistic = optimistic.filter((opt) => {
+              // ✅ CRITICAL FIX: Only keep optimistic messages that belong to the CURRENT conversation
+              // This prevents messages from the previous conversation from "leaking" into the new one
+              // when switching conversations (since they wouldn't be in the server response for the new conversation)
+              if (opt.conversationId !== targetConversationId) {
+                return false;
+              }
+
               const isDuplicate = mergedMessages.some((serverMsg) => {
                 // Match by role
                 if (serverMsg.role !== opt.role) return false;
@@ -1846,6 +1851,13 @@ const ChatContent = memo(
       const conversationId = currentConversationIdRef.current;
       if (!conversationId) return;
 
+      // Check if we switched conversations (state has messages from another conversation)
+      if (messages.length > 0 && messages[0].conversationId !== conversationId) {
+        console.log("[ChatPage] Switching conversation, clearing state...");
+        setMessages([]);
+        setMessageVersions(new Map());
+      }
+
       console.log(
         "🔄 [ChatPage] Loading messages for conversation:",
         conversationId,
@@ -1911,8 +1923,15 @@ const ChatContent = memo(
                   </div>
                 )}
 
-                {/* Messages List - Virtuoso handles its own scrolling */}
                 <div className="flex-1 relative">
+                  {/* Tag Section - Show when conversation is loaded */}
+                  {currentConversationId && (
+                    <TagSection
+                      conversationId={currentConversationId}
+                      tags={currentTags}
+                      onTagClick={handleTagClick}
+                    />
+                  )}
                   <VirtualizedMessageList
                     ref={virtuosoRef}
                     messages={messages}
@@ -1957,7 +1976,7 @@ const ChatContent = memo(
                 {!isScrolledUp && messages.length > 0 ? (
                   <Button
                     variant="outline"
-                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border-border/50 hover:border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
+                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
                     onClick={() => virtuosoRef.current?.scrollToBottom()}
                     title="Scroll to bottom"
                   >
@@ -2054,7 +2073,12 @@ const ChatContent = memo(
                 // Quote props
                 quotedMessage={quotedMessage}
                 onClearQuote={handleClearQuote}
-                className="pb-4"
+                className={cn(
+                  "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-lg hover:shadow-xl",
+                  !currentConversationId
+                    ? "shadow-xl"
+                    : "shadow-sm hover:shadow-md",
+                )}
               />
             </div>
           </div>
@@ -2145,7 +2169,7 @@ const ChatHeader = memo(function ChatHeader() {
 
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
-      <div className="flex items-center gap-1 bg-background/60 backdrop-blur-md border border-border/40 shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-background/80 hover:shadow-md hover:border-border/60 group">
+      <div className="flex items-center gap-1 bg-background border border-border shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-accent hover:shadow-md group">
         <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button

@@ -7,51 +7,51 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   ENHANCED DESIGN SYSTEM
-   Clean, modern, technical aesthetic
+   DEEP WORK DESIGN SYSTEM
+   High contrast, precision, monochrome + teal
    ============================================ */
 
 @layer base {
     :root {
-        /* Backgrounds - Warm Off-White (reduces eye strain) */
-        --background: 45 30% 98%;
-        --foreground: 220 15% 12%;
+        /* Backgrounds - Crisp White */
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
 
-        /* Card/Surface - Slightly darker with warmth */
-        --card: 45 25% 96%;
-        --card-foreground: 220 15% 12%;
+        /* Card/Surface - Very subtle definition */
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 3.9%;
 
-        /* Popover - Clean white with warmth */
+        /* Popover - Pure White */
         --popover: 0 0% 100%;
-        --popover-foreground: 220 15% 12%;
+        --popover-foreground: 240 10% 3.9%;
 
-        /* Primary - Deep navy for contrast */
-        --primary: 220 25% 15%;
-        --primary-foreground: 45 30% 96%;
+        /* Primary - Deep Black for actions */
+        --primary: 240 5.9% 10%;
+        --primary-foreground: 0 0% 98%;
 
-        /* Secondary - Neutral warm gray */
-        --secondary: 220 13% 92%;
-        --secondary-foreground: 220 15% 12%;
+        /* Secondary - Cool Gray for subtle elements */
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
 
-        /* Muted - Warm gray for secondary info */
-        --muted: 220 13% 92%;
-        --muted-foreground: 220 8% 45%;
+        /* Muted - For de-emphasized text */
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
 
-        /* Accent - Subtle warm blue */
-        --accent: 220 20% 90%;
-        --accent-foreground: 220 20% 15%;
+        /* Accent - Electric Teal (Focus/Deep Work) */
+        --accent: 173 80% 40%; /* Teal-600 */
+        --accent-foreground: 0 0% 100%;
 
-        /* Destructive - Red 500 */
+        /* Destructive - Sharp Red */
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 0 0% 98%;
 
-        /* Borders & Inputs - Soft gray */
-        --border: 220 13% 88%;
-        --input: 220 13% 88%;
-        --ring: 220 25% 15%;
+        /* Borders & Inputs - Crisp, high contrast borders */
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 173 80% 40%; /* Teal Focus Ring */
 
-        /* Radius */
-        --radius: 0.75rem;
+        /* Radius - Tighter for technical feel */
+        --radius: 0.5rem;
 
         /* Font Families */
         --font-geist: "Geist Sans", sans-serif;
@@ -61,69 +61,68 @@
     }
 
     .dark {
-        /* Backgrounds - Soft dark gray (not pure black) */
-        --background: 220 15% 10%;
-        --foreground: 45 20% 92%;
+        /* Backgrounds - Deep Carbon/Obsidian (Not gray, deep black) */
+        --background: 0 0% 3.9%; /* Hex #0a0a0a */
+        --foreground: 0 0% 98%;
 
-        /* Card/Surface - Slightly lighter than background */
-        --card: 220 16% 12%;
-        --card-foreground: 45 20% 92%;
+        /* Card/Surface - Slightly lighter black */
+        --card: 0 0% 3.9%;
+        --card-foreground: 0 0% 98%;
 
-        /* Popover - Darker surface */
-        --popover: 220 15% 9%;
-        --popover-foreground: 45 20% 92%;
+        /* Popover - Matches bg */
+        --popover: 0 0% 3.9%;
+        --popover-foreground: 0 0% 98%;
 
-        /* Primary - Warm light */
-        --primary: 45 20% 92%;
-        --primary-foreground: 220 15% 10%;
+        /* Primary - White for minimal actions against dark */
+        --primary: 0 0% 98%;
+        --primary-foreground: 240 5.9% 10%;
 
-        /* Secondary - Elevated surface */
-        --secondary: 220 15% 15%;
-        --secondary-foreground: 45 20% 88%;
+        /* Secondary - Dark Gray surface */
+        --secondary: 240 3.7% 15.9%;
+        --secondary-foreground: 0 0% 98%;
 
-        /* Muted - For secondary info */
-        --muted: 220 15% 15%;
-        --muted-foreground: 45 10% 65%;
+        /* Muted */
+        --muted: 240 3.7% 15.9%;
+        --muted-foreground: 240 5% 64.9%;
 
-        /* Accent - Subtle warm */
-        --accent: 45 15% 18%;
-        --accent-foreground: 45 20% 88%;
+        /* Accent - Electric Teal glow */
+        --accent: 173 70% 35%; /* Teal-700/600 hybrid */
+        --accent-foreground: 0 0% 100%;
 
-        /* Destructive - Red 900 */
+        /* Destructive */
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 0 0% 98%;
 
-        /* Borders & Inputs - Dark surface */
-        --border: 220 15% 18%;
-        --input: 220 15% 18%;
-        --ring: 45 20% 88%;
+        /* Borders - Subtle but defined */
+        --border: 240 3.7% 15.9%;
+        --input: 240 3.7% 15.9%;
+        --ring: 173 70% 50%;
     }
-
 }
 
 @layer base {
     :root {
-        /* Sidebar Colors - Light Mode */
-        --sidebar: 45 20% 96%;
-        --sidebar-foreground: 220 15% 12%;
-        --sidebar-primary: 220 25% 15%;
-        --sidebar-primary-foreground: 45 30% 96%;
-        --sidebar-accent: 220 13% 90%;
-        --sidebar-accent-foreground: 220 15% 12%;
-        --sidebar-border: 220 13% 85%;
-        --sidebar-ring: 220 25% 15%;
+        /* Sidebar Colors - Light Mode - Clean Gray */
+        --sidebar: 240 4.8% 98%; /* Slightly off-white */
+        --sidebar-foreground: 240 5.9% 10%;
+        --sidebar-primary: 240 5.9% 10%;
+        --sidebar-primary-foreground: 0 0% 98%;
+        --sidebar-accent: 240 4.8% 90%;
+        --sidebar-accent-foreground: 240 5.9% 10%;
+        --sidebar-border: 240 5.9% 90%;
+        --sidebar-ring: 173 80% 40%;
     }
 
     .dark {
-        /* Sidebar Colors - Dark Mode */
-        --sidebar: 220 15% 11%;
-        --sidebar-foreground: 45 20% 92%;
-        --sidebar-primary: 45 20% 92%;
-        --sidebar-primary-foreground: 220 15% 10%;
-        --sidebar-accent: 220 15% 16%;
-        --sidebar-accent-foreground: 45 20% 88%;
-        --sidebar-border: 220 15% 20%;
-        --sidebar-ring: 45 20% 88%;
+        /* Sidebar Colors - Dark Mode - Low Contrast with Main */
+        --sidebar: 0 0% 0%; /* Pure Black */
+        --sidebar-foreground: 240 4.8% 95.9%;
+        --sidebar-primary: 224.3 76.3% 48%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 240 3.7% 15.9%;
+        --sidebar-accent-foreground: 240 4.8% 95.9%;
+        --sidebar-border: 240 3.7% 15.9%;
+        --sidebar-ring: 173 70% 50%;
     }
 }
 
@@ -136,14 +135,10 @@
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
+    
+    --radius-sm: calc(var(--radius) - 2px);
+    --radius-md: var(--radius);
+    --radius-lg: calc(var(--radius) + 2px);
     --radius-xl: calc(var(--radius) + 4px);
 }
 
@@ -157,24 +152,28 @@
         font-feature-settings: "rlig" 1, "calt" 1;
     }
 
-    /* Smooth transitions for interactive elements */
-    button, a, [role="button"] {
-        @apply transition-all duration-200 ease-out;
+    /* Sharp technical transitions */
+    button, a, [role="button"], input, select, textarea {
+        @apply transition-all duration-150 ease-out;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        @apply tracking-tight font-semibold;
     }
 }
 
 /* ============================================
-   ANIMATIONS & UTILITIES
+   UTILITIES
    ============================================ */
 
 @layer utilities {
-    /* Glassmorphism */
-    .glass {
-        @apply backdrop-blur-xl bg-background/70 border border-border/50 shadow-sm;
+    /* Subtle Utility - No Blur/Glass */
+    .surface-elevated {
+        @apply bg-secondary/30 border border-border shadow-sm;
     }
     
-    .glass-hover {
-        @apply hover:bg-background/80 hover:shadow-md transition-all duration-300;
+    .surface-hover {
+        @apply hover:bg-secondary/50 transition-colors duration-150;
     }
 
     /* Text Gradients */
@@ -183,20 +182,21 @@
     }
     
     .text-gradient-primary {
-        @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70;
+        /* Teal Gradient */
+        @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-teal-700 dark:from-teal-400 dark:to-teal-600;
     }
 
-    /* Animations */
+    /* Animations - Faster, snappier */
     .animate-in-up {
-        animation: fade-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: fade-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
     
     .animate-in-down {
-        animation: fade-slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: fade-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
     
     .animate-scale {
-        animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 }
 
@@ -204,7 +204,7 @@
 @keyframes fade-slide-up {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(5px); /* Reduced movement */
     }
     to {
         opacity: 1;
@@ -215,7 +215,7 @@
 @keyframes fade-slide-down {
     from {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(-5px);
     }
     to {
         opacity: 1;
@@ -226,7 +226,7 @@
 @keyframes scale-in {
     from {
         opacity: 0;
-        transform: scale(0.95);
+        transform: scale(0.98);
     }
     to {
         opacity: 1;
@@ -243,10 +243,10 @@
     }
 }
 
-/* Scrollbar Styling */
+/* Minimal Scrollbar Styling - Thinner, less obtrusive */
 ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -254,11 +254,9 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/15 rounded-full hover:bg-muted-foreground/30 transition-colors;
-    border-radius: 10px;
+    @apply bg-secondary-foreground/10 rounded-full hover:bg-secondary-foreground/20 transition-colors;
 }
 
-/* Enable thin scrollbars and prevent layout shift */
 @supports selector(::-webkit-scrollbar) {
     * {
         scrollbar-width: thin;
@@ -266,23 +264,24 @@
     }
 }
 
-/* Sub-chat highlight styling */
+/* Highlighting */
 .subchat-highlight {
-    background-color: rgba(251, 191, 36, 0.4); /* amber-400 with opacity */
+    background-color: rgba(20, 184, 166, 0.15); /* Teal tint */
+    border-bottom: 2px solid rgba(20, 184, 166, 0.4);
     padding: 0 2px;
-    border-radius: 2px;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
 
 .subchat-highlight:hover {
-    background-color: rgba(251, 191, 36, 0.6);
+    background-color: rgba(20, 184, 166, 0.3);
 }
 
 .dark .subchat-highlight {
-    background-color: rgba(180, 83, 9, 0.4); /* amber-700 with opacity */
+    background-color: rgba(20, 184, 166, 0.2);
 }
 
 .dark .subchat-highlight:hover {
-    background-color: rgba(180, 83, 9, 0.6);
+    background-color: rgba(20, 184, 166, 0.4);
 }
+

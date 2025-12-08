@@ -87,30 +87,33 @@ export function SubChatSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full lg:min-w-3xl sm:max-w-md  flex flex-col p-0 gap-0 focus:outline-0"
+        className="w-full lg:min-w-[500px] sm:max-w-md flex flex-col p-0 gap-0 focus:outline-0 border-l border-border bg-background shadow-2xl"
       >
         {/* Header with full message context and highlighted text */}
-        <SheetHeader className="px-4 py-3 border-b bg-muted/30 flex-shrink-0">
-          <SheetTitle className="text-sm font-medium flex items-center gap-2">
-            <Quote className="h-4 w-4 text-muted-foreground" />
-            {""}
+        <SheetHeader className="px-6 py-4 border-b border-border bg-background flex-shrink-0">
+          <SheetTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <Quote className="h-4 w-4 text-primary" />
+            Context
           </SheetTitle>
 
           {/* Highlighted text */}
-          <p className="text-sm text-amber-900 dark:text-amber-200 italic">
-            "{subChat.quotedText}"
-          </p>
+          <div className="mt-3 relative pl-4 border-l-2 border-primary/50">
+            <p className="text-sm text-foreground/90 italic leading-relaxed">
+              "{subChat.quotedText}"
+            </p>
+          </div>
         </SheetHeader>
 
         {/* Messages area */}
-        <ScrollArea className="flex-1 px-4 py-3" ref={scrollRef}>
-          <div className="flex flex-col gap-3">
+        <ScrollArea className="flex-1 px-6 py-4 bg-background" ref={scrollRef}>
+          <div className="flex flex-col gap-4 pb-4">
             {/* Search Results */}
             {searchResults && searchResults.sources.length > 0 && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl px-3.5 py-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200/30 dark:border-blue-800/30">
-                  <p className="text-xs text-blue-700 dark:text-blue-400 mb-2 font-medium">
-                    Search Results ({searchResults.totalResults})
+              <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
+                <div className="max-w-[90%] rounded-xl px-4 py-3 bg-muted/30 border border-border/50">
+                  <p className="text-xs text-primary mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                    <ExternalLink className="h-3 w-3" />
+                    Sources ({searchResults.totalResults})
                   </p>
                   <div className="flex flex-col gap-2">
                     {searchResults.sources.slice(0, 3).map((source, idx) => (
@@ -119,16 +122,15 @@ export function SubChatSheet({
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block p-2 rounded-lg bg-white/50 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/30 transition-colors"
+                        className="block p-2.5 rounded-lg bg-background hover:bg-muted/50 border border-border/40 transition-colors group"
                       >
-                        <div className="flex items-start gap-2">
-                          <ExternalLink className="h-3 w-3 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        <div className="flex items-start gap-2.5">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100 truncate">
+                            <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                               {source.title}
                             </p>
-                            <p className="text-xs text-blue-700/80 dark:text-blue-300/80 line-clamp-2 mt-0.5">
-                              {source.snippet}
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                              {source.url}
                             </p>
                           </div>
                         </div>
@@ -145,8 +147,8 @@ export function SubChatSheet({
 
             {/* Streaming message */}
             {isLoading && streamingContent && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl px-3.5 py-2.5 bg-muted/50">
+              <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
+                <div className="max-w-[90%] rounded-xl px-4 py-3 bg-muted/30 text-foreground">
                   <Markdown className="!bg-transparent !p-0 text-sm">
                     {streamingContent}
                   </Markdown>
@@ -156,10 +158,10 @@ export function SubChatSheet({
 
             {/* Loading indicator when no content yet */}
             {isLoading && !streamingContent && !searchResults && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-muted/50 rounded-2xl">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
+              <div className="flex justify-start animate-in fade-in zoom-in-95">
+                <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 rounded-full border border-border/40">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span className="text-xs font-medium text-muted-foreground">
                     Thinking...
                   </span>
                 </div>
@@ -169,26 +171,31 @@ export function SubChatSheet({
         </ScrollArea>
 
         {/* Input area */}
-        <div className="px-4 py-3 border-t bg-background flex-shrink-0">
-          <div className="flex items-end gap-2">
+        <div className="px-6 py-4 border-t border-border bg-background flex-shrink-0">
+          <div className="relative">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about this ..."
+              placeholder="Ask a follow-up..."
               className={cn(
-                "flex-1 resize-none rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5",
-                "text-sm placeholder:text-muted-foreground",
-                "focus:outline-none focus:ring-1 focus:ring-ring",
-                "min-h-[40px] max-h-[120px]",
+                "w-full resize-none rounded-xl border border-input bg-background pl-4 pr-12 py-3",
+                "text-sm placeholder:text-muted-foreground/70",
+                "focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all",
+                "min-h-[48px] max-h-[120px] shadow-sm",
               )}
               rows={1}
               disabled={isLoading}
             />
             <Button
               size="icon"
-              className="h-10 w-10 rounded-full flex-shrink-0"
+              className={cn(
+                "absolute right-1.5 bottom-1.5 h-9 w-9 rounded-lg transition-all",
+                input.trim() 
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                  : "bg-muted text-muted-foreground hover:bg-muted"
+              )}
               onClick={handleSubmit}
               disabled={!input.trim() || isLoading}
             >
@@ -209,19 +216,19 @@ function SubChatMessageBubble({ message }: { message: SubChatMessage }) {
   const isUser = message.role === "user";
 
   return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
+    <div className={cn("flex w-full animate-in fade-in slide-in-from-bottom-2", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-3.5 py-2.5",
+          "max-w-[85%] rounded-xl px-4 py-2.5 text-sm shadow-sm",
           isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted/50 text-foreground",
+            ? "bg-secondary text-secondary-foreground border border-border/50"
+            : "bg-transparent -ml-2",
         )}
       >
         {isUser ? (
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
-          <Markdown className="!bg-transparent !p-0 text-sm">
+          <Markdown className="!bg-transparent !p-0 text-foreground">
             {message.content}
           </Markdown>
         )}
