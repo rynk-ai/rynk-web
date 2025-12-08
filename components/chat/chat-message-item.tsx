@@ -118,13 +118,21 @@ export const ChatMessageItem = memo(
     const lastStreamingStatusPills = useRef<any[]>([]);
     const lastStreamingSearchResults = useRef<any>(null);
 
-    // Update refs synchronously during render (before checking effective values)
-    // This ensures refs are updated immediately when props change
-    if (streamingStatusPills && streamingStatusPills.length > 0) {
-      lastStreamingStatusPills.current = streamingStatusPills;
-    }
-    if (streamingSearchResults) {
-      lastStreamingSearchResults.current = streamingSearchResults;
+    // Update refs based on streaming state and message metadata
+    // Only cache values during streaming; clear when message has its own metadata
+    if (isStreaming) {
+      // While streaming, always cache the latest values
+      if (streamingStatusPills && streamingStatusPills.length > 0) {
+        lastStreamingStatusPills.current = streamingStatusPills;
+      }
+      if (streamingSearchResults) {
+        lastStreamingSearchResults.current = streamingSearchResults;
+      }
+    } else if (message.reasoning_metadata?.searchResults) {
+      // Once message has its own metadata, clear the cached streaming values
+      // This prevents stale data from showing on subsequent messages
+      lastStreamingStatusPills.current = [];
+      lastStreamingSearchResults.current = null;
     }
 
     // Quote button state

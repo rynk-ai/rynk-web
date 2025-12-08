@@ -1069,12 +1069,19 @@ const ChatContent = memo(
             console.error("❌ [handleSubmit] Error reading stream:", err);
           } finally {
             console.log("🏁 [handleSubmit] Stream finished, updating message");
+            // CRITICAL: Update message content AND reasoning metadata BEFORE clearing streaming state
+            // This prevents the flash where sources disappear between stream end and message update
             if (assistantMessageId) {
               messageStateRef.current.updateMessage(assistantMessageId, {
                 content: fullContent,
+                // Persist reasoning metadata so sources display immediately after stream completes
+                reasoning_metadata: {
+                  statusPills: statusPills,
+                  searchResults: searchResults,
+                },
               });
             }
-            // Pass final content to ensure it's flushed before clearing state
+            // Now safe to clear streaming state - message already has the data
             finishStreamingRef.current(fullContent);
           }
         } catch (err: any) {
@@ -1463,14 +1470,17 @@ const ChatContent = memo(
                     fullContent.length,
                   );
                 } finally {
-                  // Clear streaming state
-                  // Pass final content to ensure it's flushed before clearing state
-                  finishStreaming(fullContent);
-
-                  // Optimistic update instead of DB fetch!
+                  // CRITICAL: Update message BEFORE clearing streaming state to prevent flicker
                   messageState.updateMessage(assistantMessageId, {
                     content: fullContent,
+                    // Persist reasoning metadata so sources display immediately
+                    reasoning_metadata: {
+                      statusPills: statusPills,
+                      searchResults: searchResults,
+                    },
                   });
+                  // Now safe to clear streaming state
+                  finishStreaming(fullContent);
                 }
               }
             } else {

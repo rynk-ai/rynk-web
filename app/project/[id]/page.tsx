@@ -1015,12 +1015,18 @@ const ChatContent = memo(
           } catch (err) {
             console.error("Error reading stream:", err);
           } finally {
+            // CRITICAL: Update message BEFORE clearing streaming state to prevent flicker
             if (assistantMessageId) {
               messageState.updateMessage(assistantMessageId, {
                 content: fullContent,
+                // Persist reasoning metadata so sources display immediately
+                reasoning_metadata: {
+                  statusPills: statusPills,
+                  searchResults: searchResults,
+                },
               });
             }
-            // Pass final content to ensure it's flushed before clearing state
+            // Now safe to clear streaming state
             finishStreaming(fullContent);
           }
         } catch (err: any) {
@@ -1407,14 +1413,17 @@ const ChatContent = memo(
                     fullContent.length,
                   );
                 } finally {
-                  // Clear streaming state
-                  // Pass final content to ensure it's flushed before clearing state
-                  finishStreaming(fullContent);
-
-                  // Optimistic update instead of DB fetch!
+                  // CRITICAL: Update message BEFORE clearing streaming state to prevent flicker
                   messageState.updateMessage(assistantMessageId, {
                     content: fullContent,
+                    // Persist reasoning metadata so sources display immediately
+                    reasoning_metadata: {
+                      statusPills: statusPills,
+                      searchResults: searchResults,
+                    },
                   });
+                  // Now safe to clear streaming state
+                  finishStreaming(fullContent);
                 }
               }
             } else {

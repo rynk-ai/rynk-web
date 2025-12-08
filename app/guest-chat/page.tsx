@@ -700,8 +700,25 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
             versionNumber: 1,
           } as any);
         }
-
-        finishStreaming();
+        // CRITICAL: Update message with final content AND reasoning_metadata BEFORE clearing streaming state
+        // This ensures sources appear immediately and content doesn't flicker
+        replaceMessage(tempAssistantMessageId, {
+          id: tempAssistantMessageId,
+          conversationId,
+          role: "assistant",
+          content: fullContent,
+          attachments: [],
+          timestamp: timestamp + 1,
+          versionNumber: 1,
+          // Persist reasoning metadata so sources display immediately after stream completes
+          reasoning_metadata: {
+            statusPills: statusPills,
+            searchResults: searchResults,
+          },
+        } as any);
+        
+        // Now safe to clear streaming state
+        finishStreaming(fullContent);
 
       } catch (err: any) {
         console.error("Failed to send message:", err);

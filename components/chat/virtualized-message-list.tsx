@@ -143,13 +143,15 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
               : undefined
           }
           streamingSearchResults={
-            // Show search results for:
+            // Pass search results to assistant messages:
             // 1. The currently streaming message
-            // 2. Any assistant message while sending (for status updates)
-            // 3. The last assistant message when streaming just completed (to show sources)
-            (streamingMessageId && streamingMessageId === message.id) ||
-            (!streamingMessageId && isSending && message.role === 'assistant') ||
-            (!streamingMessageId && !isSending && message.role === 'assistant' && message.id === (messages[messages.length - 1]?.id))
+            // 2. While sending (covers the transition phase)  
+            // 3. The last assistant message when searchResults exist (until persisted to message.reasoning_metadata)
+            message.role === 'assistant' && (
+              streamingMessageId === message.id ||
+              isSending ||
+              (index === messages.length - 1 && searchResults)
+            )
               ? searchResults
               : undefined
           }
