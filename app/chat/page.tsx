@@ -1701,7 +1701,9 @@ const ChatContent = memo(
               return serverMsg;
             });
 
-            const optimistic = prev.filter((m) => m.id.startsWith("temp-"));
+            // 2. Identify optimistic messages (those present locally but not in server response)
+            const serverIds = new Set(mergedMessages.map((m) => m.id));
+            const optimistic = prev.filter((m) => !serverIds.has(m.id));
 
             // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
             // This prevents "flash of duplicates" if server returns the message before we replace the temp one
@@ -1711,21 +1713,44 @@ const ChatContent = memo(
                 if (serverMsg.role !== opt.role) return false;
 
                 // For user messages, content must match (trimmed)
-                if (
-                  opt.role === "user" &&
-                  serverMsg.content?.trim() !== opt.content?.trim()
-                )
-                  return false;
+                if (opt.role === "user") {
+                  return serverMsg.content?.trim() === opt.content?.trim();
+                }
 
-                // Timestamp check (relaxed to 60 seconds to handle clock skew)
+                // For assistant messages, if the server message has content, assume it replaces the empty/partial optimistic one
+                // OR if the content matches exactly
+                if (opt.role === "assistant") {
+                  // precise match
+                  if (serverMsg.content === opt.content) return true;
+                  // server has content, optimistic is empty/loading -> duplicate (server has the real data)
+                  if (serverMsg.content && !opt.content) return true;
+                }
+
+                // Timestamp check (relaxed to 60 seconds to handle clock skew) as a fallback if content logic didn't catch it
                 return Math.abs(serverMsg.createdAt - opt.createdAt) < 60000;
               });
 
               return !isDuplicate;
             });
 
+            // FIX: Ensure optimistic messages are always strictly after the latest server message
+            // This handles cases where server clock is ahead of client clock
+            let maxServerTs = mergedMessages.reduce(
+              (max, m) => Math.max(max, m.timestamp || 0),
+              0,
+            );
+
+            const adjustedOptimistic = uniqueOptimistic.map((opt) => {
+              if ((opt.timestamp || 0) <= maxServerTs) {
+                maxServerTs += 1; // Increment to ensure strict ordering
+                return { ...opt, timestamp: maxServerTs };
+              }
+              return opt;
+            });
+
             // If we have optimistic messages, append them to the loaded messages
-            return [...mergedMessages, ...uniqueOptimistic];
+            // We can also sort if we want to be extra safe, but appending adjusted ones is fine
+            return [...mergedMessages, ...adjustedOptimistic];
           });
 
           // Load versions for each message (load from all versions, not just active)

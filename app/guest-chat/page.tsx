@@ -319,20 +319,41 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                 const isDuplicate = mergedMessages.some((serverMsg) => {
                   // Match by role
                   if (serverMsg.role !== opt.role) return false;
+                  
                   // For user messages, content must match (trimmed)
-                  if (
-                    opt.role === "user" &&
-                    serverMsg.content?.trim() !== opt.content?.trim()
-                  )
-                    return false;
-                  // Timestamp check (relaxed to 60 seconds to handle clock skew)
+                  if (opt.role === "user") {
+                     return serverMsg.content?.trim() === opt.content?.trim();
+                  }
+                  
+                  // For assistant messages, if the server message has content, assume it replaces the empty/partial optimistic one
+                  // OR if the content matches exactly
+                  if (opt.role === "assistant") {
+                    // precise match
+                    if (serverMsg.content === opt.content) return true;
+                    // server has content, optimistic is empty/loading -> duplicate (server has the real data)
+                    if (serverMsg.content && !opt.content) return true;
+                  }
+
+                  // Timestamp check (relaxed to 60 seconds to handle clock skew) as a fallback if content logic didn't catch it
                   return Math.abs((serverMsg.timestamp || 0) - (opt.timestamp || 0)) < 60000;
                 });
                 return !isDuplicate;
               });
 
               // 4. Combine and sort by timestamp
-              const combined = [...mergedMessages, ...uniqueOptimistic];
+              // FIX: Ensure optimistic messages are always strictly after the latest server message
+              // This handles cases where server clock is ahead of client clock
+              let maxServerTs = mergedMessages.reduce((max, m) => Math.max(max, m.timestamp || 0), 0);
+              
+              const adjustedOptimistic = uniqueOptimistic.map(opt => {
+                if ((opt.timestamp || 0) <= maxServerTs) {
+                  maxServerTs += 1; // Increment to ensure strict ordering
+                  return { ...opt, timestamp: maxServerTs };
+                }
+                return opt;
+              });
+
+              const combined = [...mergedMessages, ...adjustedOptimistic];
               return combined.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
             });
           }
