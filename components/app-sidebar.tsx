@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Plus,
-  Search,
+
   FolderPlus,
   PinIcon,
   MoreHorizontal,
@@ -42,6 +42,8 @@ import {
   Pencil,
   Trash,
   HelpCircle,
+  Command,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/hooks/chat-context";
@@ -53,7 +55,7 @@ import { FolderListItem } from "@/components/sidebar/folder-list-item";
 import { FolderDialog } from "@/components/folder-dialog";
 import { DeleteConversationDialog } from "@/components/delete-conversation-dialog";
 import { TagDialog } from "@/components/tag-dialog";
-import { SearchDialog } from "@/components/search-dialog";
+
 import { AddToFolderDialog } from "@/components/add-to-folder-dialog";
 import { RenameDialog } from "@/components/rename-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,7 +108,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
   const [isLoadingFolders, setIsLoadingFolders] = useState(true);
 
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
@@ -163,6 +165,8 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
     };
     fetchData();
   }, [getAllTags]);
+
+
 
   // Infinite scroll for conversations
   useEffect(() => {
@@ -345,18 +349,29 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
       </SidebarHeader>
 
       <SidebarContent className="">
-        <div className="flex flex-col gap-2 p-2">
-          <div className="flex gap-1">
+        <div className="flex flex-col gap-2.5 p-3">
+          {/* Search Bar - Matches command bar style */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-command-bar"))}
+            className="group flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-muted-foreground bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] border border-border/40 hover:border-border/60 rounded-xl transition-all duration-150 shadow-sm hover:shadow"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left truncate">Search...</span>
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/60 bg-muted/50 border border-border/40 rounded">
+              ⌘K
+            </kbd>
+          </button>
+
+          {/* New Chat + Folder Actions */}
+          <div className="flex gap-1.5">
             <Button
               variant="outline"
-              className="flex-1 justify-start gap-2 px-3 shadow-none border-border bg-accent hover:bg-accent hover:text-accent-foreground transition-all"
+              className="flex-1 justify-start gap-2.5 px-3 h-10 shadow-sm border-border/40 bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] hover:border-border/60 text-foreground rounded-xl transition-all"
               onClick={() => {
-                // Navigate to /chat (new chat) and clear the conversation selection
-                // The conversation will be created when user sends first message
                 handleSelectConversation(null);
               }}
             >
-              <Plus className="size-4 text-muted-foreground" />
+              <Plus className="size-4" />
               <span className="text-sm font-medium">New Chat</span>
             </Button>
             {!activeProjectId && (
@@ -365,7 +380,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    className="shrink-0 h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-xl transition-all"
                     onClick={handleCreateFolder}
                   >
                     <FolderPlus className="size-4" />
@@ -374,19 +389,6 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                 <TooltipContent>New Folder</TooltipContent>
               </Tooltip>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSearchDialogOpen(true)}
-                >
-                  <Search className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Search</TooltipContent>
-            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-auto" ref={scrollableRef}>
@@ -622,13 +624,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
         />
       )}
 
-      <SearchDialog
-        open={searchDialogOpen}
-        onOpenChange={setSearchDialogOpen}
-        conversations={conversations}
-        allTags={allTags}
-        onSelectConversation={handleSelectConversation}
-      />
+      {/* CommandBar handles its own visibility via global shortcut and custom event */}
 
       {renameDialogOpen && conversationToRename && (
         <RenameDialog

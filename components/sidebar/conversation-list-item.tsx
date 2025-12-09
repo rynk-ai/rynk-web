@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { PinIcon, MoreHorizontal } from "lucide-react";
+import { PinIcon, MoreHorizontal, Hash } from "lucide-react";
 
 interface ConversationListItemProps {
   conversation: Conversation;
@@ -41,20 +41,63 @@ export const ConversationListItem = memo(
     showMenu = true,
     isLoading = false,
   }: ConversationListItemProps) {
+    // Get preview from last message or title
+    const preview = conversation.preview || conversation.title?.slice(0, 50);
+    const hasTags = conversation.tags && conversation.tags.length > 0;
+    
     return (
       <div className="group/conversation relative">
         <button
           className={cn(
-            "flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted hover:text-foreground pr-10 text-muted-foreground",
-            isActive && "bg-muted text-foreground font-medium",
+            "flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-150 pr-10",
+            isActive 
+              ? "bg-[hsl(var(--surface))] text-foreground shadow-sm border border-border/40" 
+              : "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]",
           )}
           onClick={() => onSelect(conversation.id)}
         >
-          <div className="flex w-full flex-col gap-1">
+          <div className="flex w-full flex-col gap-1 min-w-0">
+            {/* Title */}
             <div className="flex items-center gap-2">
-              <span className="truncate pl-1 flex-1">{conversation.title}</span>
+              <span className={cn(
+                "truncate flex-1 font-medium",
+                isActive ? "text-foreground" : "text-foreground/90"
+              )}>
+                {conversation.title}
+              </span>
+              {conversation.isPinned && (
+                <PinIcon className="h-3 w-3 fill-primary/60 text-primary/60 shrink-0" />
+              )}
             </div>
+            
+            {/* Preview - first 40 chars of last message */}
+            {preview && (
+              <p className="text-xs text-muted-foreground/70 truncate leading-relaxed">
+                {preview.slice(0, 45)}{preview.length > 45 ? '...' : ''}
+              </p>
+            )}
+            
+            {/* Tags */}
+            {hasTags && (
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                {conversation.tags!.slice(0, 3).map((tag, i) => (
+                  <span 
+                    key={i}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary/80 font-medium"
+                  >
+                    <Hash className="h-2 w-2" />
+                    {tag}
+                  </span>
+                ))}
+                {conversation.tags!.length > 3 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    +{conversation.tags!.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+          
           {isLoading && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
               <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -67,7 +110,7 @@ export const ConversationListItem = memo(
             variant="ghost"
             size="icon"
             className={cn(
-              "absolute right-9 top-1/2 -translate-y-1/2 h-7 w-7 transition-opacity",
+              "absolute right-9 top-3 h-6 w-6 transition-opacity rounded-md",
               conversation.isPinned
                 ? "opacity-100 group-hover/conversation:opacity-100"
                 : "opacity-0 group-hover/conversation:opacity-100",
@@ -81,7 +124,7 @@ export const ConversationListItem = memo(
             }
           >
             <PinIcon
-              className={cn("h-4 w-4", conversation.isPinned && "fill-current")}
+              className={cn("h-3.5 w-3.5", conversation.isPinned && "fill-current")}
             />
           </Button>
         )}
@@ -92,9 +135,9 @@ export const ConversationListItem = memo(
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover/conversation:opacity-100 transition-opacity"
+                className="absolute right-2 top-3 h-6 w-6 opacity-0 group-hover/conversation:opacity-100 transition-opacity rounded-md"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -137,6 +180,8 @@ export const ConversationListItem = memo(
       prevProps.conversation.title === nextProps.conversation.title &&
       prevProps.conversation.updatedAt === nextProps.conversation.updatedAt &&
       prevProps.conversation.isPinned === nextProps.conversation.isPinned &&
+      prevProps.conversation.preview === nextProps.conversation.preview &&
+      JSON.stringify(prevProps.conversation.tags) === JSON.stringify(nextProps.conversation.tags) &&
       prevProps.isActive === nextProps.isActive &&
       prevProps.showPinAction === nextProps.showPinAction &&
       prevProps.showMenu === nextProps.showMenu

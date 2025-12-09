@@ -92,6 +92,7 @@ import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-positio
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
+import { CommandBar } from "@/components/ui/command-bar";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -131,106 +132,70 @@ const TagSection = memo(function TagSection({
   tags: string[];
   onTagClick: () => void;
 }) {
-  return (
-    <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
-      {/* Existing Tags */}
-      {tags.length > 0 && (
-        <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
-          {tags.map((tag, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
-            >
-              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="lg:font-medium">{tag}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Add Tag Button */}
-      <Button
-        size="icon"
-        className="h-6 w-6 rounded-full bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition-all"
-        onClick={onTagClick}
-        title="Edit tags"
-      >
-        <BookmarkPlus className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-});
-
-// Memoized ContextBadges component to prevent re-renders
-type ContextItem = {
-  type: "conversation" | "folder";
-  id: string;
-  title: string;
-  status?: "loading" | "loaded";
-};
-
-const ContextBadges = memo(function ContextBadges({
-  context,
-  onRemove,
-  onClearAll,
-}: {
-  context: ContextItem[];
-  onRemove: (index: number) => void;
-  onClearAll: () => void;
-}) {
-  if (context.length === 0) return null;
+  const [showAll, setShowAll] = useState(false);
+  const displayTags = showAll ? tags : tags.slice(0, 3);
+  const hasMore = tags.length > 3;
 
   return (
-    <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
-      {context.map((c, i) => {
-        const isLoading = c.status === "loading";
-
-        return (
-          <div
-            key={i}
-            className="flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary/70 px-3 py-1.5 rounded-full text-xs transition-colors"
-          >
-            {/* Show spinner when loading, otherwise show normal icon */}
-            {isLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            ) : c.type === "folder" ? (
-              <FolderIcon className="h-3 w-3 text-blue-500" />
-            ) : (
-              <MessageSquare className="h-3 w-3 text-muted-foreground" />
+    <div className="absolute top-4 right-5 z-30">
+      <div className="flex items-center gap-2">
+        {/* Tags Display */}
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[320px]">
+            {displayTags.map((tag, index) => (
+              <button
+                key={index}
+                onClick={onTagClick}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
+              >
+                <span className="text-primary">#</span>
+                {tag}
+              </button>
+            ))}
+            {hasMore && !showAll && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+              >
+                +{tags.length - 3} more
+              </button>
             )}
-            <span className="font-medium text-foreground max-w-[100px] truncate">
-              {c.title}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRemove(i);
-              }}
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            {showAll && hasMore && (
+              <button
+                onClick={() => setShowAll(false)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+              >
+                Show less
+              </button>
+            )}
           </div>
-        );
-      })}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClearAll();
-        }}
-      >
-        Clear all
-      </Button>
+        )}
+
+        {/* Add Tag Button */}
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn(
+            "h-7 w-7 rounded-lg transition-all duration-150",
+            tags.length > 0
+              ? "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
+              : "bg-[hsl(var(--surface))] text-primary hover:bg-[hsl(var(--surface-hover))] border border-border/30"
+          )}
+          onClick={onTagClick}
+          title={tags.length > 0 ? "Edit tags" : "Add tags"}
+        >
+          {tags.length > 0 ? (
+            <Tag className="h-3.5 w-3.5" />
+          ) : (
+            <BookmarkPlus className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
     </div>
   );
 });
+
+
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -1770,27 +1735,7 @@ const ChatContent = memo(
             {/* Background for input section */}
             <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
               {/* Show editContext when editing, activeContext otherwise */}
-              <ContextBadges
-                context={editingMessageId ? editContext : activeContext}
-                onRemove={(index) => {
-                  if (editingMessageId) {
-                    setEditContext(
-                      editContext.filter((_, idx) => idx !== index),
-                    );
-                  } else {
-                    handleContextChange(
-                      activeContext.filter((_, idx) => idx !== index),
-                    );
-                  }
-                }}
-                onClearAll={() => {
-                  if (editingMessageId) {
-                    setEditContext([]);
-                  } else {
-                    handleContextChange([]);
-                  }
-                }}
-              />
+
 
               <PromptInputWithFiles
                 onSubmit={handleSubmit}
@@ -1815,8 +1760,10 @@ const ChatContent = memo(
                 // Quote props
                 quotedMessage={quotedMessage}
                 onClearQuote={handleClearQuote}
+                reasoningMode={reasoningMode}
+                onToggleReasoningMode={toggleReasoningMode}
                 className={cn(
-                  "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-lg hover:shadow-xl",
+                  "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                   !currentConversationId
                     ? "shadow-xl"
                     : "shadow-sm hover:shadow-md",
@@ -1877,15 +1824,74 @@ function FullChatApp({ projectId }: { projectId: string }) {
   );
 }
 
+// Command Bar wrapper that accesses chat context
+function CommandBarWrapper({
+  open,
+  onOpenChange
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const {
+    conversations,
+    selectConversation,
+    currentConversationId,
+    folders,
+    projects,
+  } = useChatContext();
+  const router = useRouter();
+
+  const handleSelectConversation = useCallback((id: string) => {
+    selectConversation(id);
+    router.push(`/chat?id=${encodeURIComponent(id)}`);
+  }, [selectConversation, router]);
+
+  const handleSelectProject = useCallback((id: string) => {
+    router.push(`/project/${id}`);
+  }, [router]);
+
+  const handleNewChat = useCallback(() => {
+    selectConversation(null);
+    router.push('/chat');
+  }, [selectConversation, router]);
+
+  // Listen for sidebar search button click
+  useEffect(() => {
+    const handleOpen = () => onOpenChange(true);
+    window.addEventListener("open-command-bar", handleOpen);
+    return () => window.removeEventListener("open-command-bar", handleOpen);
+  }, [onOpenChange]);
+
+  return (
+    <CommandBar
+      open={open}
+      onOpenChange={onOpenChange}
+      conversations={conversations.map(c => ({
+        id: c.id,
+        title: c.title || 'Untitled',
+        isPinned: c.isPinned,
+        updatedAt: c.updatedAt,
+        projectId: c.projectId,
+      }))}
+      projects={projects}
+      onSelectConversation={handleSelectConversation}
+      onSelectProject={handleSelectProject}
+      onNewChat={handleNewChat}
+    />
+  );
+}
+
 // Separate component that uses useSearchParams and ChatProvider
 // This ensures useSearchParams is wrapped in Suspense
 // AppSidebar and ChatHeader are inside to share the same ChatProvider context
 function ChatContentWithProvider({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const chatId = searchParams.get("id") || null;
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
 
   return (
     <ChatProvider initialConversationId={chatId}>
+      <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
@@ -1916,14 +1922,14 @@ const ChatHeader = memo(function ChatHeader({
   }, [router, projectId, selectConversation]);
 
   return (
-    <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
-      <div className="flex items-center gap-1 bg-background/60 backdrop-blur-md border border-border/40 shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-background/80 hover:shadow-md hover:border-border/60 group">
-        <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
+    <div className="absolute top-3 left-3 z-20 flex items-center gap-2 animate-in-down">
+      <div className="flex items-center gap-1 bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1 transition-all duration-300 hover:bg-[hsl(var(--surface))] hover:shadow-md hover:border-border/50 group">
+        <SidebarTrigger className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+          className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors"
           onClick={handleNewChat}
           title="Start new chat"
         >

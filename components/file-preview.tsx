@@ -22,7 +22,8 @@ export function FilePreview({
   file,
   onRemove,
   showRemove = false,
-}: FilePreviewProps) {
+  className,
+}: FilePreviewProps & { className?: string }) {
   const isImage = file.type.startsWith("image/");
   const isPDF = file.type === "application/pdf";
   
@@ -47,8 +48,8 @@ export function FilePreview({
   if (!shouldShowPreview) {
     // Show as document icon for PDFs and other files
     return (
-      <div className="relative group">
-        <div className="relative overflow-hidden rounded-lg border bg-muted/20 max-w-[300px]">
+      <div className={cn("relative group", className)}>
+        <div className="relative overflow-hidden rounded-lg border bg-muted/20 w-fit max-w-[300px]">
           <div className="flex items-center gap-3 p-3">
             <div className="flex size-12 items-center justify-center rounded-md bg-muted">
               <FileIcon size={24} className="text-muted-foreground" />
@@ -84,22 +85,22 @@ export function FilePreview({
 
   // Show image preview
   return (
-    <div className="relative group">
-      <div className="relative overflow-hidden rounded-lg border bg-muted/20 max-w-[200px] max-h-[200px]">
-        <div className="relative">
+    <div className={cn("relative group w-32 h-32", className)}>
+      <div className="relative overflow-hidden rounded-lg border bg-muted/20 w-full h-full">
+        <div className="relative w-full h-full">
           <img
             src={fileURL}
             alt={file.name}
-            className="h-32 w-32 object-cover brightness-75"
+            className="w-full h-full object-cover brightness-75"
           />
           {showRemove && onRemove && (
             <Button
               size="icon"
               variant="destructive"
-              className="absolute right-2 top-2 h-6 w-6 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute right-1 top-1 h-5 w-5 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
               onClick={handleRemove}
             >
-              <Trash size={14} />
+              <Trash size={12} />
             </Button>
           )}
         </div>
@@ -112,17 +113,19 @@ type FilePreviewListProps = {
   files: (File | Attachment)[];
   onRemove?: (file: File | Attachment) => void;
   showRemove?: boolean;
+  className?: string;
 };
 
 export function FilePreviewList({
   files,
   onRemove,
   showRemove = true,
+  className,
 }: FilePreviewListProps) {
   if (files.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 pt-2">
+    <div className={cn("flex flex-wrap gap-2 pt-2", className)}>
       {files.map((file, index) => (
         <FilePreview
           key={`${file.name}-${index}`}

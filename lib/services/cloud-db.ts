@@ -28,6 +28,7 @@ export interface CloudConversation {
   activeBranchId?: string
   activeReferencedConversations?: { id: string; title: string }[]
   activeReferencedFolders?: { id: string; name: string }[]
+  preview?: string // First 50 chars of last message for sidebar display
 }
 
 export interface CloudMessage {

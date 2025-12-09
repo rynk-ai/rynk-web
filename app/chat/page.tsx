@@ -58,6 +58,7 @@ import {
   ChatContainerRoot,
 } from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
+import { EmptyStateChat } from "@/components/chat/empty-state-chat";
 import {
   useRef,
   useState,
@@ -91,6 +92,8 @@ import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-positio
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
+import { CommandBar } from "@/components/ui/command-bar";
+import { Search, Command } from "lucide-react";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -130,106 +133,70 @@ const TagSection = memo(function TagSection({
   tags: string[];
   onTagClick: () => void;
 }) {
-  return (
-    <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
-      {/* Existing Tags */}
-      {tags.length > 0 && (
-        <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
-          {tags.map((tag, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 bg-secondary hover:bg-secondary/80 px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
-            >
-              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="lg:font-medium">{tag}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Add Tag Button */}
-      <Button
-        size="icon"
-        className="h-6 w-6 rounded-full bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition-all"
-        onClick={onTagClick}
-        title="Edit tags"
-      >
-        <BookmarkPlus className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-});
-
-// Memoized ContextBadges component to prevent re-renders
-type ContextItem = {
-  type: "conversation" | "folder";
-  id: string;
-  title: string;
-  status?: "loading" | "loaded";
-};
-
-const ContextBadges = memo(function ContextBadges({
-  context,
-  onRemove,
-  onClearAll,
-}: {
-  context: ContextItem[];
-  onRemove: (index: number) => void;
-  onClearAll: () => void;
-}) {
-  if (context.length === 0) return null;
+  const [showAll, setShowAll] = useState(false);
+  const displayTags = showAll ? tags : tags.slice(0, 3);
+  const hasMore = tags.length > 3;
 
   return (
-    <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
-      {context.map((c, i) => {
-        const isLoading = c.status === "loading";
-
-        return (
-          <div
-            key={i}
-            className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-full text-xs transition-colors"
-          >
-            {/* Show spinner when loading, otherwise show normal icon */}
-            {isLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            ) : c.type === "folder" ? (
-              <FolderIcon className="h-3 w-3 text-blue-500" />
-            ) : (
-              <MessageSquare className="h-3 w-3 text-muted-foreground" />
+    <div className="absolute top-4 right-5 z-30">
+      <div className="flex items-center gap-2">
+        {/* Tags Display */}
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[320px]">
+            {displayTags.map((tag, index) => (
+              <button
+                key={index}
+                onClick={onTagClick}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary/10 text-primary/90 hover:bg-primary/15 rounded-md border border-primary/20 transition-all cursor-pointer"
+              >
+                <span className="text-primary/60">#</span>
+                {tag}
+              </button>
+            ))}
+            {hasMore && !showAll && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+              >
+                +{tags.length - 3} more
+              </button>
             )}
-            <span className="font-medium text-foreground max-w-[100px] truncate">
-              {c.title}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRemove(i);
-              }}
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            {showAll && hasMore && (
+              <button
+                onClick={() => setShowAll(false)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+              >
+                Show less
+              </button>
+            )}
           </div>
-        );
-      })}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClearAll();
-        }}
-      >
-        Clear all
-      </Button>
+        )}
+
+        {/* Add Tag Button */}
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn(
+            "h-7 w-7 rounded-lg transition-all",
+            tags.length > 0
+              ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              : "bg-primary/10 text-primary hover:bg-primary/20"
+          )}
+          onClick={onTagClick}
+          title={tags.length > 0 ? "Edit tags" : "Add tags"}
+        >
+          {tags.length > 0 ? (
+            <Tag className="h-3.5 w-3.5" />
+          ) : (
+            <BookmarkPlus className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
     </div>
   );
 });
+
+
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -262,6 +229,9 @@ const ChatContent = memo(
       clearConversationContext,
       updateConversationTags,
       getAllTags,
+      // Reasoning mode
+      reasoningMode,
+      toggleReasoningMode,
       streamingMessageId: globalStreamingMessageId,
       loadingConversations,
     } = useChatContext();
@@ -1677,22 +1647,29 @@ const ChatContent = memo(
         <div className="flex flex-1 flex-col relative overflow-hidden">
           {/* Top Section: Messages & Title */}
           <div className="flex-1 overflow-y-auto w-full relative">
-            {/* Title for New Chat - Fades out when conversation starts */}
+            {/* Empty State - Shows when no conversation is active */}
             <div
               className={cn(
-                "absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-in-out pointer-events-none",
+                "absolute inset-0 transition-all duration-500 ease-in-out",
                 !currentConversationId
-                  ? "opacity-100 translate-y-0 pb-24"
-                  : "opacity-0 -translate-y-10 pb-24",
+                  ? "opacity-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 -translate-y-10 pointer-events-none",
               )}
             >
-              <TextShimmer
-                spread={5}
-                duration={4}
-                className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
-              >
-                rynk.
-              </TextShimmer>
+              <EmptyStateChat
+                brandName="rynk."
+                onSelectSuggestion={(prompt) => {
+                  // Set the prompt in the input
+                  const textarea = document.getElementById("main-chat-input") as HTMLTextAreaElement;
+                  if (textarea) {
+                    textarea.value = prompt;
+                    textarea.focus();
+                    // Trigger input event to update state
+                    const event = new Event('input', { bubbles: true });
+                    textarea.dispatchEvent(event);
+                  }
+                }}
+              />
             </div>
 
             {/* Messages Container - Fades in/Visible when conversation active */}
@@ -1810,7 +1787,7 @@ const ChatContent = memo(
             ref={inputContainerRef}
             className={cn(
               "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
-              !currentConversationId ? "bottom-1/3" : "bottom-0 mb-4",
+              !currentConversationId ? "bottom-2/7" : "bottom-0 mb-4",
             )}
             style={{
               transform: `translateY(-${
@@ -1829,27 +1806,7 @@ const ChatContent = memo(
             {/* Background for input section */}
             <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
               {/* Show editContext when editing, activeContext otherwise */}
-              <ContextBadges
-                context={editingMessageId ? editContext : activeContext}
-                onRemove={(index) => {
-                  if (editingMessageId) {
-                    setEditContext(
-                      editContext.filter((_, idx) => idx !== index),
-                    );
-                  } else {
-                    handleContextChange(
-                      activeContext.filter((_, idx) => idx !== index),
-                    );
-                  }
-                }}
-                onClearAll={() => {
-                  if (editingMessageId) {
-                    setEditContext([]);
-                  } else {
-                    handleContextChange([]);
-                  }
-                }}
-              />
+
 
               <PromptInputWithFiles
                 onSubmit={handleSubmit}
@@ -1874,8 +1831,10 @@ const ChatContent = memo(
                 // Quote props
                 quotedMessage={quotedMessage}
                 onClearQuote={handleClearQuote}
+                reasoningMode={reasoningMode}
+                onToggleReasoningMode={toggleReasoningMode}
                 className={cn(
-                  "glass relative z-10 w-full rounded-3xl border border-border/50 transition-all duration-300 shadow-lg hover:shadow-xl",
+                  "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                   !currentConversationId
                     ? "shadow-xl"
                     : "shadow-sm hover:shadow-md",
@@ -1942,35 +1901,114 @@ function FullChatApp() {
 function ChatContentWithProvider() {
   const searchParams = useSearchParams();
   const chatId = searchParams.get("id") || null;
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <ChatProvider initialConversationId={chatId}>
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <ChatHeader />
+          <ChatHeaderWithCommandBar 
+            commandBarOpen={commandBarOpen}
+            setCommandBarOpen={setCommandBarOpen}
+          />
           <ChatContent />
+          <CommandBarWrapper 
+            open={commandBarOpen} 
+            onOpenChange={setCommandBarOpen} 
+          />
         </SidebarInset>
       </SidebarProvider>
     </ChatProvider>
   );
 }
 
-// Memoized ChatHeader to prevent re-renders when parent state changes
-const ChatHeader = memo(function ChatHeader() {
+// Command Bar wrapper that accesses chat context
+function CommandBarWrapper({ 
+  open, 
+  onOpenChange 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+}) {
+  const { 
+    conversations, 
+    selectConversation, 
+    currentConversationId,
+    folders,
+    projects,
+  } = useChatContext();
+  const router = useRouter();
+
+  const handleSelectConversation = useCallback((id: string) => {
+    selectConversation(id);
+    router.push(`/chat?id=${encodeURIComponent(id)}`);
+  }, [selectConversation, router]);
+
+  const handleSelectProject = useCallback((id: string) => {
+    router.push(`/project/${id}`);
+  }, [router]);
+
+  const handleNewChat = useCallback(() => {
+    selectConversation(null);
+    router.push('/chat');
+  }, [selectConversation, router]);
+
+  // Listen for sidebar search button click
+  useEffect(() => {
+    const handleOpen = () => onOpenChange(true);
+    window.addEventListener("open-command-bar", handleOpen);
+    return () => window.removeEventListener("open-command-bar", handleOpen);
+  }, [onOpenChange]);
+
+  return (
+    <CommandBar
+      open={open}
+      onOpenChange={onOpenChange}
+      conversations={conversations.map(c => ({
+        id: c.id,
+        title: c.title || 'Untitled',
+        isPinned: c.isPinned,
+        updatedAt: c.updatedAt,
+        projectId: c.projectId,
+      }))}
+      projects={projects?.map(p => ({
+        id: p.id,
+        name: p.name,
+      })) || []}
+      folders={folders?.map(f => ({
+        id: f.id,
+        name: f.name,
+        conversationIds: f.conversationIds,
+      })) || []}
+      onSelectConversation={handleSelectConversation}
+      onSelectProject={handleSelectProject}
+      onNewChat={handleNewChat}
+    />
+  );
+}
+
+// Memoized ChatHeader with Command Bar trigger
+const ChatHeaderWithCommandBar = memo(function ChatHeaderWithCommandBar({
+  commandBarOpen,
+  setCommandBarOpen,
+}: {
+  commandBarOpen: boolean;
+  setCommandBarOpen: (open: boolean) => void;
+}) {
   const { selectConversation } = useChatContext();
   const { state } = useSidebar();
   const router = useRouter();
 
   const handleNewChat = useCallback(() => {
-    // Navigate to /chat (new chat) and clear current conversation
     router.push("/chat");
     selectConversation(null);
   }, [router, selectConversation]);
 
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
-      <div className="flex items-center gap-1 bg-background border border-border shadow-sm rounded-full p-1 transition-all duration-300 hover:bg-accent hover:shadow-md group">
+      <div className="flex items-center gap-1 bg-background border border-border shadow-sm rounded-full p-1 transition-all duration-300 hover:shadow-md">
         <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
@@ -1981,6 +2019,19 @@ const ChatHeader = memo(function ChatHeader() {
           title="Start new chat"
         >
           <Plus className="h-4 w-4" />
+        </Button>
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          onClick={() => setCommandBarOpen(true)}
+          title="Search (⌘K)"
+        >
+          <Search className="h-4 w-4" />
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/70 bg-muted/50 border border-border/50 rounded">
+            ⌘K
+          </kbd>
         </Button>
       </div>
     </div>

@@ -102,9 +102,9 @@ function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
         href={citation.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="group flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:border-border hover:bg-muted/30 transition-all duration-200"
+        className="group flex items-start gap-3 p-3.5 rounded-xl border border-border/30 bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] hover:border-border/50 transition-all duration-150"
       >
-        <div className="flex-shrink-0 w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
           {citation.id}
         </div>
         <div className="flex-1 min-w-0">
@@ -149,16 +149,16 @@ function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
           href={citation.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center gap-2 p-2 rounded-lg border border-border/40 hover:border-border/80 hover:bg-muted/40 transition-all duration-200"
+          className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border/30 bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] hover:border-border/50 transition-all duration-150"
         >
-          <div className="flex-shrink-0 w-5 h-5 rounded bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+          <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
             {citation.id}
           </div>
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             {citation.favicon && (
               <img 
                 src={citation.favicon} 
-                className="h-3.5 w-3.5 rounded-sm flex-shrink-0" 
+                className="h-4 w-4 rounded-md flex-shrink-0" 
                 alt=""
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
@@ -215,26 +215,26 @@ export function SourcePills({
   const remaining = citations.length - maxVisible
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {visible.map((citation) => (
         <a
           key={citation.id}
           href={citation.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/60 hover:bg-secondary text-xs transition-colors"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] border border-border/30 text-xs transition-all duration-150"
         >
           {citation.favicon && (
             <img 
               src={citation.favicon} 
-              className="h-3 w-3 rounded-sm" 
+              className="h-3.5 w-3.5 rounded-md" 
               alt=""
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
               }}
             />
           )}
-          <span className="truncate max-w-[80px]">
+          <span className="truncate max-w-[100px]">
             {new URL(citation.url).hostname.replace('www.', '')}
           </span>
         </a>

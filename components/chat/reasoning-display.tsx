@@ -1,18 +1,14 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   LiveSourcePills,
   type DiscoveredSource,
 } from "@/components/chat/live-source-pills";
 import { getFaviconUrl, getDomainName } from "@/lib/types/citation";
-import {
-  Steps,
-  StepsContent,
-  StepsItem,
-  StepsTrigger,
-} from "@/components/prompt-kit/steps";
-import { Loader2, CheckCircle2, Brain } from "lucide-react";
+import { DotsLoader } from "@/components/prompt-kit/loader";
+import { Globe, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StatusPill {
   status: "analyzing" | "searching" | "synthesizing" | "complete";
@@ -46,14 +42,42 @@ interface ReasoningDisplayProps {
   defaultCollapsed?: boolean;
 }
 
+// User-friendly status message translations
+const STATUS_MESSAGES: Record<string, string> = {
+  "analyzing": "Thinking",
+  "searching": "Searching",
+  "synthesizing": "Writing",
+  "complete": "Done",
+};
+
+// Get the best user-facing status message
+function getCurrentPhase(statuses: StatusPill[]): { message: string; status: string } {
+  if (!statuses || statuses.length === 0) {
+    return { message: "Thinking", status: "analyzing" };
+  }
+  
+  const current = statuses[statuses.length - 1];
+  const lowerMessage = current.message.toLowerCase();
+  
+  // Map internal messages to simple phases
+  if (lowerMessage.includes("exa") || lowerMessage.includes("perplexity") || lowerMessage.includes("searching")) {
+    return { message: "Searching", status: "searching" };
+  }
+  if (lowerMessage.includes("synthesizing") || lowerMessage.includes("crafting")) {
+    return { message: "Writing", status: "synthesizing" };
+  }
+  if (current.status === "complete") {
+    return { message: "Done", status: "complete" };
+  }
+  
+  return { message: STATUS_MESSAGES[current.status] || "Thinking", status: current.status };
+}
+
 export function ReasoningDisplay({
   statuses,
   searchResults,
   isComplete = false,
-  defaultCollapsed = false,
 }: ReasoningDisplayProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
   // Extract discovered sources for live pills
   const discoveredSources = useMemo(() => {
     if (!searchResults?.sources) return [];
@@ -71,61 +95,56 @@ export function ReasoningDisplay({
     );
   }, [searchResults]);
 
-  // Don't render if no status
+  // Don't render if no status or if complete with no sources
   if (!statuses || statuses.length === 0) return null;
-
-  const currentStatus = statuses[statuses.length - 1];
-  const isThinking = !isComplete && currentStatus.status !== "complete";
+  
+  const { message, status } = getCurrentPhase(statuses);
+  const isThinking = !isComplete && status !== "complete";
+  const sourceCount = discoveredSources.length;
+  
+  // If complete and no sources, don't show anything
+  if (isComplete && sourceCount === 0) return null;
 
   return (
-    <div className="w-full max-w-3xl mx-auto mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <Steps open={isOpen} onOpenChange={setIsOpen}>
-        <StepsTrigger className="w-full">
-          <div className="flex items-center gap-2 text-sm">
-            {isThinking ? (
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            ) : (
-              <Brain className="h-4 w-4 text-primary" />
-            )}
-            <span className="font-medium text-foreground">
-              {isThinking ? currentStatus.message : "Process complete"}
-            </span>
-          </div>
-        </StepsTrigger>
-        <StepsContent>
-          <div className="space-y-2 py-2">
-            {statuses.map((status, index) => (
-              <StepsItem
-                key={`${status.status}-${index}`}
-                className="flex items-start gap-2"
-              >
-                {index === statuses.length - 1 && isThinking ? (
-                  <Loader2 className="h-3 w-3 mt-0.5 animate-spin text-primary shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
-                )}
-                <span>{status.message}</span>
-              </StepsItem>
-            ))}
-
-            {/* Show search results inside the steps if available */}
-            {discoveredSources.length > 0 && (
-              <div className="pt-2 pl-5">
-                <div className="text-xs text-muted-foreground mb-1.5">
-                  Found {discoveredSources.length} sources:
-                </div>
-                <LiveSourcePills
-                  sources={discoveredSources}
-                  isSearching={
-                    statuses.some((s) => s.status === "searching") &&
-                    !isComplete
-                  }
-                />
-              </div>
+    <div className="w-full max-w-3xl mx-auto mb-3 animate-in fade-in duration-200">
+      <div className="flex items-center gap-3">
+        {/* Status indicator */}
+        {isThinking ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <DotsLoader size="sm" className="text-primary" />
+            <span className="font-medium">{message}</span>
+            
+            {/* Show source count while searching */}
+            {sourceCount > 0 && (
+              <span className="flex items-center gap-1 text-xs bg-secondary/50 px-2 py-0.5 rounded-md">
+                <Globe className="h-3 w-3" />
+                {sourceCount}
+              </span>
             )}
           </div>
-        </StepsContent>
-      </Steps>
+        ) : (
+          // Complete state - just show sources if any
+          sourceCount > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span className="font-medium">{sourceCount} sources found</span>
+            </div>
+          )
+        )}
+      </div>
+      
+      {/* Live source pills */}
+      {sourceCount > 0 && (
+        <div className={cn(
+          "mt-2 transition-all duration-200",
+          isThinking ? "opacity-80" : "opacity-100"
+        )}>
+          <LiveSourcePills
+            sources={discoveredSources}
+            isSearching={isThinking && status === "searching"}
+          />
+        </div>
+      )}
     </div>
   );
 }

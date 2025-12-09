@@ -118,30 +118,35 @@ export const ChatMessageItem = memo(
     const lastStreamingStatusPills = useRef<any[]>([]);
     const lastStreamingSearchResults = useRef<any>(null);
     const lastStreamingContentRef = useRef<string>('');
+    
+    // Track if we've ever streamed data for this message
+    const hasStreamedDataRef = useRef(false);
 
     // Update refs based on streaming state and message metadata
-    // Only cache values during streaming; clear when message has its own metadata
+    // CRITICAL: Cache during streaming, KEEP cached values until message has its own metadata
     if (isStreaming) {
       // While streaming, always cache the latest values
       if (streamingStatusPills && streamingStatusPills.length > 0) {
         lastStreamingStatusPills.current = streamingStatusPills;
+        hasStreamedDataRef.current = true;
       }
       if (streamingSearchResults) {
         lastStreamingSearchResults.current = streamingSearchResults;
+        hasStreamedDataRef.current = true;
       }
       // Cache streaming content to prevent flicker during transition
       if (streamingContent) {
         lastStreamingContentRef.current = streamingContent;
       }
     } else if (message.reasoning_metadata?.searchResults) {
-      // Once message has its own metadata, clear the cached streaming values
-      // This prevents stale data from showing on subsequent messages
+      // ONLY clear cached values when message has its own metadata from DB
+      // This ensures we show cached data during the transition period
       lastStreamingStatusPills.current = [];
       lastStreamingSearchResults.current = null;
-    } else if (message.content) {
-      // Clear cached streaming content once message has real content
-      lastStreamingContentRef.current = '';
+      hasStreamedDataRef.current = false;
     }
+    // NOTE: If not streaming AND message has no reasoning_metadata,
+    // we KEEP the cached refs - this is the transition period!
 
     // Quote button state
     const [showQuoteButton, setShowQuoteButton] = useState(false);
@@ -562,7 +567,7 @@ export const ChatMessageItem = memo(
                 typeof window !== "undefined" &&
                 createPortal(
                   <div
-                    className="absolute z-[9999] flex items-center gap-1 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                    className="absolute z-[9999] flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
                     style={{
                       top: `${buttonPosition.top + 4}px`,
                       left: `${buttonPosition.left + 8}px`,
@@ -571,7 +576,7 @@ export const ChatMessageItem = memo(
                     {onQuote && (
                       <Button
                         size="sm"
-                        className="h-7 gap-1.5 px-2.5 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 border-0 rounded-md"
+                        className="h-8 gap-1.5 px-3 shadow-lg bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] border border-border/30 rounded-xl"
                         onClick={handleQuoteClick}
                         onMouseDown={(e) => e.preventDefault()}
                       >
@@ -582,13 +587,13 @@ export const ChatMessageItem = memo(
                     {onOpenSubChat && (
                       <Button
                         size="sm"
-                        className="h-7 gap-1.5 px-2.5 shadow-lg bg-teal-600 text-white hover:bg-teal-700 border-0 rounded-md"
+                        className="h-8 gap-1.5 px-3 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
                         onClick={handleSubChatClick}
                         onMouseDown={(e) => e.preventDefault()}
                         title="Ask about this"
                       >
                         <MessageSquarePlus className="h-3.5 w-3.5" />
-                        <span className="text-xs font-medium">Ask</span>
+                        <span className="text-xs font-medium">Deep dive</span>
                       </Button>
                     )}
                   </div>,
@@ -603,27 +608,25 @@ export const ChatMessageItem = memo(
                       <DropdownMenuTrigger asChild>
                         <Button
                           size="sm"
-                          className="h-7 w-7 p-0 rounded-full shadow-md bg-teal-600 text-white hover:bg-teal-700 border border-teal-500/50 transition-all select-none"
+                          className="h-8 w-8 p-0 rounded-xl shadow-md bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] border border-border/30 transition-all select-none"
                           title="View sub-chats"
                         >
-                          <MessageSquarePlus className="h-3.5 w-3.5" />
+                          <MessageSquarePlus className="h-4 w-4 text-primary" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-72">
-                        <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                          <span>Sub-chats ({messageSubChats.length})</span>
+                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
+                          <MessageSquarePlus className="h-3.5 w-3.5" />
+                          <span>{messageSubChats.length} deep dive{messageSubChats.length > 1 ? 's' : ''}</span>
                         </div>
                         <DropdownMenuSeparator />
                         {messageSubChats.map((sc) => (
                           <DropdownMenuItem
                             key={sc.id}
-                            className="flex items-start gap-2.5 cursor-pointer py-2.5"
+                            className="flex items-start gap-3 cursor-pointer py-3 px-3"
                             onClick={() => onOpenExistingSubChat?.(sc)}
                           >
                             <div className="mt-0.5 min-w-0 flex-1">
-                              <p className="text-sm font-medium leading-none mb-1">
-                                Context
-                              </p>
                               <p className="text-xs text-muted-foreground line-clamp-2 italic">
                                 "{sc.quotedText}"
                               </p>
@@ -631,7 +634,7 @@ export const ChatMessageItem = memo(
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive shrink-0"
+                              className="h-6 w-6 p-0 rounded-lg hover:bg-destructive/10 hover:text-destructive shrink-0"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteSubChat?.(sc.id);
@@ -649,7 +652,7 @@ export const ChatMessageItem = memo(
 
               <MessageActions
                 className={cn(
-                  "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-1 pl-1",
+                  "flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-1 pl-1",
                   isLastMessage && !isStreaming && "opacity-100",
                 )}
               >
@@ -657,7 +660,7 @@ export const ChatMessageItem = memo(
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-full h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
                     onClick={handleCopy}
                   >
                     <Copy className="h-3.5 w-3.5" />
@@ -667,7 +670,7 @@ export const ChatMessageItem = memo(
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-full h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
                     onClick={handleBranch}
                   >
                     <GitBranch className="h-3.5 w-3.5" />
@@ -695,7 +698,7 @@ export const ChatMessageItem = memo(
             <div className="flex flex-col items-end w-full">
               <MessageContent
                 className={cn(
-                  "text-foreground bg-secondary/80 hover:bg-secondary rounded-lg px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-200 border border-border/40",
+                  "text-foreground bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-150 border border-border/30",
                   isEditing && "opacity-50",
                 )}
                 onMouseUp={handleTextSelection}
@@ -852,7 +855,7 @@ export const ChatMessageItem = memo(
 
             {/* Action Buttons */}
             {!isEditing && (
-              <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="flex items-center gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                 {/* Version Indicator */}
                 {onSwitchVersion && versions.length > 1 && (
                   <VersionIndicator
@@ -862,23 +865,23 @@ export const ChatMessageItem = memo(
                   />
                 )}
 
-                <MessageActions className="flex gap-0">
+                <MessageActions className="flex gap-0.5">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
                     onClick={handleEdit}
                   >
-                    <Pencil className="h-3 w-3" />
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
 
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     onClick={handleDelete}
                   >
-                    <Trash className="h-3 w-3" />
+                    <Trash className="h-3.5 w-3.5" />
                   </Button>
                 </MessageActions>
               </div>

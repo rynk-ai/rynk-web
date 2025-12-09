@@ -36,6 +36,7 @@ interface Conversation {
   activeBranchId?: string  // Which branch is currently active
   branches: Branch[]       // All branches for this conversation
   projectId?: string       // Optional project ID
+  preview?: string         // First 50 chars of last message for sidebar display
 }
 
 interface Folder {

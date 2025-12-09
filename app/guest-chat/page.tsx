@@ -95,32 +95,65 @@ const TagSection = memo(function TagSection({
   tags: string[];
   onTagClick: () => void;
 }) {
-  return (
-    <div className="absolute top-4 right-5 z-30 flex flex-col items-end gap-2">
-      {/* Existing Tags */}
-      {tags.length > 0 && (
-        <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[400px] max-md:ml-20 overflow-x-auto">
-          {tags.map((tag, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 bg-secondary hover:bg-secondary/80 px-2.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap"
-            >
-              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="lg:font-medium">{tag}</span>
-            </div>
-          ))}
-        </div>
-      )}
+  const [showAll, setShowAll] = useState(false);
+  const displayTags = showAll ? tags : tags.slice(0, 3);
+  const hasMore = tags.length > 3;
 
-      {/* Add Tag Button */}
-      <Button
-        size="icon"
-        className="h-6 w-6 rounded-full bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition-all"
-        onClick={onTagClick}
-        title="Edit tags"
-      >
-        <BookmarkPlus className="h-3.5 w-3.5" />
-      </Button>
+  return (
+    <div className="absolute top-4 right-5 z-30">
+      <div className="flex items-center gap-2">
+        {/* Tags Display */}
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[320px]">
+            {displayTags.map((tag, index) => (
+              <button
+                key={index}
+                onClick={onTagClick}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
+              >
+                <span className="text-primary">#</span>
+                {tag}
+              </button>
+            ))}
+            {hasMore && !showAll && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+              >
+                +{tags.length - 3} more
+              </button>
+            )}
+            {showAll && hasMore && (
+              <button
+                onClick={() => setShowAll(false)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+              >
+                Show less
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Add Tag Button */}
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn(
+            "h-7 w-7 rounded-lg transition-all duration-150",
+            tags.length > 0
+              ? "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
+              : "bg-[hsl(var(--surface))] text-primary hover:bg-[hsl(var(--surface-hover))] border border-border/30"
+          )}
+          onClick={onTagClick}
+          title={tags.length > 0 ? "Edit tags" : "Add tags"}
+        >
+          {tags.length > 0 ? (
+            <Tag className="h-3.5 w-3.5" />
+          ) : (
+            <BookmarkPlus className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
     </div>
   );
 });
@@ -133,66 +166,7 @@ type ContextItem = {
   status?: "loading" | "loaded";
 };
 
-const ContextBadges = memo(function ContextBadges({
-  context,
-  onRemove,
-  onClearAll,
-}: {
-  context: ContextItem[];
-  onRemove: (index: number) => void;
-  onClearAll: () => void;
-}) {
-  if (context.length === 0) return null;
 
-  return (
-    <div className="mb-2.5 flex flex-wrap gap-1.5 transition-all duration-300 justify-start">
-      {context.map((c, i) => {
-        const isLoading = c.status === "loading";
-        return (
-          <div
-            key={i}
-            className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-full text-xs transition-colors"
-          >
-            {isLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            ) : c.type === "folder" ? (
-              <FolderIcon className="h-3 w-3 text-blue-500" />
-            ) : (
-              <MessageSquare className="h-3 w-3 text-muted-foreground" />
-            )}
-            <span className="font-medium text-foreground max-w-[100px] truncate">
-              {c.title}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4 ml-0.5 rounded-full hover:bg-background/60 hover:text-destructive opacity-60 hover:opacity-100 transition-all"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRemove(i);
-              }}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        );
-      })}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClearAll();
-        }}
-      >
-        Clear all
-      </Button>
-    </div>
-  );
-});
 
 interface GuestChatContentProps {
   onMenuClick?: () => void;
@@ -763,11 +737,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
         >
           {/* Background for input section */}
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
-            <ContextBadges
-              context={activeContext}
-              onRemove={(index) => handleContextChange(activeContext.filter((_, idx) => idx !== index))}
-              onClearAll={() => handleContextChange([])}
-            />
+
 
             <PromptInputWithFiles
               onSubmit={handleSubmit}
@@ -781,7 +751,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
               folders={folders as any}
               quotedMessage={quotedMessage}
               onClearQuote={handleClearQuote}
-              className="pb-4"
+              className="bg-background rounded-3xl border border-border/60 shadow-lg pb-4"
               // Hide only file upload button for guests (context picker still available)
               hideFileUpload={true}
             />
@@ -814,14 +784,14 @@ const GuestChatHeader = memo(function GuestChatHeader() {
   }, [router, selectConversation]);
 
   return (
-    <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
-      <div className="flex items-center gap-1 bg-background/60 backdrop-blur-md border border-border/40 shadow-sm rounded-full p-1">
-        <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80" />
+    <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
+      <div className="flex items-center gap-1 bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1">
+        <SidebarTrigger className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))]" />
         <Separator orientation="vertical" className="h-4" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full hover:bg-muted/80"
+          className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))]"
           onClick={handleNewChat}
           title="Start new chat"
         >
@@ -830,7 +800,7 @@ const GuestChatHeader = memo(function GuestChatHeader() {
       </div>
       {/* Credit indicator */}
       {creditsRemaining !== null && (
-        <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-full px-3 py-1 text-xs text-muted-foreground">
+        <div className="bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 rounded-xl px-3 py-1.5 text-xs text-muted-foreground">
           {creditsRemaining} messages left
         </div>
       )}
