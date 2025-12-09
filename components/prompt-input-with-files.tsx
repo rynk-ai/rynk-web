@@ -753,15 +753,14 @@ export const PromptInputWithFiles = memo(function
                 )}
               </div>
 
-              {/* Send Button - Enhanced */}
               <Button
                 type="button"
                 size="icon"
                 className={cn(
                   "size-10 shrink-0 rounded-xl transition-all duration-150",
                   (prompt.trim().length > 0 || files.length > 0) && !isLoading
-                    ? "bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg"
-                    : "bg-secondary/50 hover:bg-secondary"
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}
                 onClick={handleSubmit}
                 disabled={

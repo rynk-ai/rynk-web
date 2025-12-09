@@ -233,7 +233,7 @@ const ChatContent = memo(
     } = useChatContext();
 
     // Get streaming-specific values from separate context to avoid re-renders
-    const { statusPills, searchResults } = useStreamingContext();
+    const { statusPills, searchResults, contextCards } = useStreamingContext();
 
     // Use custom hooks for separated state management
     const messageState = useMessageState();
@@ -1662,6 +1662,7 @@ const ChatContent = memo(
                     isLoadingMore={isLoadingMore}
                     statusPills={statusPills}
                     searchResults={searchResults}
+                    contextCards={contextCards}
                     onIsAtBottomChange={setIsScrolledUp}
                   />
 

@@ -45,6 +45,7 @@ import {
   formatCitationsFromSearchResults,
   type Citation,
 } from "@/lib/types/citation";
+import { ContextCardList, type ContextCardData } from "@/components/chat/context-card";
 
 import { VersionIndicator } from "@/components/ui/version-indicator";
 
@@ -79,6 +80,7 @@ interface ChatMessageItemProps {
   onSwitchVersion?: (messageId: string) => Promise<void>;
   streamingStatusPills?: any[];
   streamingSearchResults?: any;
+  streamingContextCards?: ContextCardData[];
 }
 
 /**
@@ -110,6 +112,7 @@ export const ChatMessageItem = memo(
     onSwitchVersion,
     streamingStatusPills,
     streamingSearchResults,
+    streamingContextCards,
   }: ChatMessageItemProps) {
     const isAssistant = message.role === "assistant";
 
@@ -531,6 +534,11 @@ export const ChatMessageItem = memo(
           >
             <div className="group flex w-full flex-col gap-0 relative">
               <div className="w-full" onMouseUp={handleTextSelection}>
+                {/* Context Cards - Shows what context was retrieved from RAG */}
+                {streamingContextCards && streamingContextCards.length > 0 && (
+                  <ContextCardList cards={streamingContextCards} className="mb-2" />
+                )}
+
                 {/* Reasoning Display - Shows current status during streaming */}
                 <ReasoningDisplay
                   statuses={effectiveStatusPills || []}

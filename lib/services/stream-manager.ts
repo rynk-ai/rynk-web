@@ -15,6 +15,20 @@ export interface SearchResultsUpdate {
   timestamp: number
 }
 
+export interface ContextCard {
+  source: string
+  snippet: string
+  score: number
+  conversationId?: string
+  conversationTitle?: string
+}
+
+export interface ContextCardsUpdate {
+  type: 'context_cards'
+  cards: ContextCard[]
+  timestamp: number
+}
+
 export class StreamManager {
   private controller: ReadableStreamDefaultController
   private encoder: TextEncoder
@@ -44,6 +58,18 @@ export class StreamManager {
     const update: SearchResultsUpdate = {
       type: 'search_results',
       ...results,
+      timestamp: Date.now()
+    }
+    this.enqueue(JSON.stringify(update) + '\n')
+  }
+
+  /**
+   * Send context cards to the client (retrieved RAG context)
+   */
+  sendContextCards(cards: ContextCard[]) {
+    const update: ContextCardsUpdate = {
+      type: 'context_cards',
+      cards,
       timestamp: Date.now()
     }
     this.enqueue(JSON.stringify(update) + '\n')
@@ -91,3 +117,4 @@ export class StreamManager {
     }
   }
 }
+

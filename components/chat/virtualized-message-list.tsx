@@ -28,6 +28,7 @@ interface VirtualizedMessageListProps {
   isLoadingMore?: boolean
   statusPills?: any[]
   searchResults?: any
+  contextCards?: Array<{ source: string; snippet: string; score: number }>
   onIsAtBottomChange?: (isAtBottom: boolean) => void
 }
 
@@ -57,6 +58,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   isLoadingMore = false,
   statusPills,
   searchResults,
+  contextCards,
   onIsAtBottomChange
 }, ref) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
@@ -144,6 +146,15 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
               ? searchResults
               : undefined
           }
+          streamingContextCards={
+            // Pass context cards to assistant messages during streaming/sending
+            message.role === 'assistant' && (
+              streamingMessageId === message.id ||
+              isSending
+            )
+              ? contextCards
+              : undefined
+          }
         />
       )
     }
@@ -168,6 +179,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     onSwitchVersion,
     statusPills,
     searchResults,
+    contextCards,
     messages.length
   ])
   
@@ -214,6 +226,7 @@ const compareProps = (prevProps: VirtualizedMessageListProps, nextProps: Virtual
     prevProps.isLoadingMore === nextProps.isLoadingMore &&
     prevProps.statusPills === nextProps.statusPills &&
     prevProps.searchResults === nextProps.searchResults &&
+    prevProps.contextCards === nextProps.contextCards &&
     prevProps.onStartEdit === nextProps.onStartEdit &&
     prevProps.onDeleteMessage === nextProps.onDeleteMessage &&
     prevProps.onBranchFromMessage === nextProps.onBranchFromMessage &&

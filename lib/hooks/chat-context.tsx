@@ -105,6 +105,11 @@ const StreamingContext = createContext<{
     timestamp: number
   }>
   searchResults: any
+  contextCards: Array<{
+    source: string
+    snippet: string
+    score: number
+  }>
 } | null>(null)
 
 export function ChatProvider({ children, initialConversationId }: { children: React.ReactNode, initialConversationId?: string | null }) {
@@ -135,9 +140,11 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
   const streamingContextValue = useMemo(() => ({
     statusPills: chatHook.statusPills,
     searchResults: chatHook.searchResults,
+    contextCards: chatHook.contextCards,
   }), [
     chatHook.statusPills,
     chatHook.searchResults,
+    chatHook.contextCards,
   ])
 
   return (

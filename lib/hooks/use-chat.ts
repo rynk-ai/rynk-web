@@ -95,6 +95,13 @@ export function useChat(initialConversationId?: string | null) {
   // Search results from web search
   const [searchResults, setSearchResults] = useState<any>(null)
 
+  // Context cards from RAG (shows what context was retrieved)
+  const [contextCards, setContextCards] = useState<Array<{
+    source: string
+    snippet: string
+    score: number
+  }>>([]);
+
   // Toggle reasoning mode: auto -> on -> online -> off -> auto
   const toggleReasoningMode = useCallback(() => {
     setReasoningMode(prev => {
@@ -269,6 +276,7 @@ export function useChat(initialConversationId?: string | null) {
     // Clear transient state
     setStatusPills([])
     setSearchResults(null)
+    setContextCards([])
   }, [queryClient, effectiveProjectId])
 
   const selectProject = useCallback((id: string | null) => {
@@ -447,6 +455,7 @@ export function useChat(initialConversationId?: string | null) {
       timestamp: Date.now()
     }]) // Show initial status immediately
     setSearchResults(null) // Clear previous search results
+    setContextCards([]) // Clear previous context cards
 
     // Track reasoning metadata to be saved with message
     const collectedStatusPills: typeof statusPills = []
@@ -555,8 +564,8 @@ export function useChat(initialConversationId?: string | null) {
                 const line = lines[i]
 
                 try {
-                  // Try to parse as JSON status or search results message
-                  if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"')) {
+                  // Try to parse as JSON status, search results, or context cards message
+                  if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"') || line.startsWith('{"type":"context_cards"')) {
                     const parsed = JSON.parse(line)
 
                     if (parsed.type === 'status') {
@@ -580,6 +589,12 @@ export function useChat(initialConversationId?: string | null) {
                         strategy: parsed.strategy,
                         totalResults: parsed.totalResults
                       })
+                      continue // Don't pass this to the content stream
+                    }
+
+                    if (parsed.type === 'context_cards') {
+                      console.log('[useChat] Parsed context cards:', parsed.cards?.length)
+                      setContextCards(parsed.cards || [])
                       continue // Don't pass this to the content stream
                     }
                   }
@@ -1028,6 +1043,7 @@ export function useChat(initialConversationId?: string | null) {
     toggleReasoningMode,
     statusPills,
     searchResults,
+    contextCards,
     streamingMessageId
   }
 }

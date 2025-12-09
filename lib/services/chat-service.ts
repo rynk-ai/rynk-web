@@ -146,7 +146,7 @@ export class ChatService {
             console.error('❌ [chatService] Failed to retrieve KB context:', error)
           }
 
-          const legacyContext = await this.buildContext(
+          const { contextText: legacyContext, retrievedChunks } = await this.buildContext(
             userId,
             conversationId,
             messageContent,
@@ -154,6 +154,17 @@ export class ChatService {
             messageRefs.referencedFolders,
             project?.id
           )
+          
+          // Send context cards to frontend (shows what RAG found)
+          if (retrievedChunks.length > 0) {
+            streamManager.sendContextCards(
+              retrievedChunks.slice(0, 5).map(chunk => ({
+                source: chunk.source,
+                snippet: chunk.content.substring(0, 200),
+                score: chunk.score
+              }))
+            )
+          }
           
           const finalContext = `${legacyContext}\n\n${kbContext ? `=== RELEVANT KNOWLEDGE BASE CONTEXT ===\n${kbContext}` : ''}`.trim()
 
@@ -411,14 +422,14 @@ You have access to the search results above. Follow these rules STRICTLY:
     referencedFolders: any[],
     projectId?: string,
     onProgress?: (message: string) => void
-  ) {
+  ): Promise<{ contextText: string; retrievedChunks: { content: string; source: string; score: number }[] }> {
     let contextText = ''
     
     // --- 1. RECENT CONTEXT (Standard) ---
     // We still inject the recent conversation history directly via `prepareMessagesForAI` (last 1000 msgs).
     // So `buildContext` is primarily for RETRIEVED context (RAG).
 
-    if (!query.trim()) return ''
+    if (!query.trim()) return { contextText: '', retrievedChunks: [] }
 
     try {
       const aiProvider = getAIProvider();
@@ -626,11 +637,12 @@ You have access to the search results above. Follow these rules STRICTLY:
         contextText += `=== END OF RETRIEVED CONTEXT ===\n`;
       }
 
+      return { contextText, retrievedChunks: topChunks };
+
     } catch (err) {
       console.error('❌ [buildContext] Error in Unified RAG:', err);
+      return { contextText: '', retrievedChunks: [] };
     }
-
-    return contextText
   }
 
   private async prepareMessagesForAI(conversationId: string, contextText: string, project: any = null): Promise<ApiMessage[]> {

@@ -90,7 +90,7 @@ export function UserProfileDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-accent transition-colors">
+        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-sidebar-accent transition-colors">
           <Avatar className="h-9 w-9">
             <AvatarImage src={user.image || undefined} alt={user.name || ""} />
             <AvatarFallback className="bg-primary/10 text-primary font-medium">
@@ -99,7 +99,7 @@ export function UserProfileDropdown() {
           </Avatar>
           <div className="flex-1 text-left overflow-hidden">
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium truncate">{user.name}</span>
+              <span className="text-sm font-medium truncate text-sidebar-foreground">{user.name}</span>
             </div>
             <div className="text-xs text-muted-foreground truncate">
               {user.email}
