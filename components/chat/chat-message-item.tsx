@@ -133,7 +133,8 @@ export const ChatMessageItem = memo(
     const hasStreamedDataRef = useRef(false);
 
     // Update refs based on streaming state and message metadata
-    // CRITICAL: Cache during streaming, KEEP cached values until message has its own metadata
+    // CRITICAL: Cache during streaming, use cached values during transition,
+    // clear once message has its own persisted content
     if (isStreaming) {
       // While streaming, always cache the latest values
       if (streamingStatusPills && streamingStatusPills.length > 0) {
@@ -144,18 +145,19 @@ export const ChatMessageItem = memo(
         lastStreamingSearchResults.current = streamingSearchResults;
         hasStreamedDataRef.current = true;
       }
-      // Cache streaming content to prevent flicker during transition
+      // Cache streaming content to prevent flicker during transition  
       if (streamingContent) {
         lastStreamingContentRef.current = streamingContent;
       }
-    } else if (message.reasoning_metadata?.searchResults) {
-      // ONLY clear cached values when message has its own metadata from DB
-      // This ensures we show cached data during the transition period
+    } else if (message.content && message.content.length > 0) {
+      // Clear refs once message has actual content persisted (not just metadata)
+      // This is the authoritative source after streaming completes
       lastStreamingStatusPills.current = [];
       lastStreamingSearchResults.current = null;
+      lastStreamingContentRef.current = '';
       hasStreamedDataRef.current = false;
     }
-    // NOTE: If not streaming AND message has no reasoning_metadata,
+    // NOTE: If not streaming AND message has no content,
     // we KEEP the cached refs - this is the transition period!
 
     // Quote button state
@@ -578,9 +580,10 @@ export const ChatMessageItem = memo(
                 {/* Surface Trigger - Open as Course/Guide buttons */}
                 {conversationId && !isStreaming && (
                   <SurfaceTrigger
+                    messageId={message.id}
+                    content={displayContent}
+                    role={message.role}
                     conversationId={conversationId}
-                    messageContent={displayContent}
-                    savedSurfaces={savedSurfaces}
                   />
                 )}
               </div>

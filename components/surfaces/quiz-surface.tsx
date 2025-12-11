@@ -1,16 +1,17 @@
 /**
- * Quiz Surface - Interactive Q&A Component
+ * Quiz Surface - Premium Interactive Q&A Component
  * 
  * Features:
- * - Multiple choice and open-ended questions
- * - Progress tracking
- * - Immediate feedback with explanations
- * - Score summary
+ * - Modern card design with glassmorphism
+ * - Keyboard shortcuts (1-4, Enter to submit)
+ * - Animated feedback for correct/incorrect
+ * - Segmented progress bar
+ * - Detailed results dashboard
  */
 
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { 
@@ -19,7 +20,15 @@ import {
   ChevronRight, 
   Trophy,
   RotateCcw,
-  Loader2 
+  Loader2,
+  Sparkles,
+  Target,
+  Zap,
+  Brain,
+  Clock,
+  ArrowRight,
+  Keyboard,
+  HelpCircle,
 } from "lucide-react";
 import type { QuizMetadata, SurfaceState } from "@/lib/services/domain-types";
 
@@ -42,6 +51,8 @@ export const QuizSurface = memo(function QuizSurface({
 }: QuizSurfaceProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [isStreaking, setIsStreaking] = useState(false);
   
   const quizState = surfaceState.quiz;
   const currentQuestionIndex = quizState?.currentQuestion ?? 0;
@@ -50,31 +61,71 @@ export const QuizSurface = memo(function QuizSurface({
   const answers = quizState?.answers ?? {};
   
   // Calculate progress
-  const answeredCount = Object.keys(answers).length;
   const totalQuestions = metadata.questions.length;
-  const progressPercent = Math.round((answeredCount / totalQuestions) * 100);
   
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input (though there are no inputs here yet)
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+      if (!showFeedback && currentQuestion?.options) {
+        const key = parseInt(e.key);
+        if (key >= 1 && key <= currentQuestion.options.length) {
+          handleSelectAnswer(key - 1);
+        } else if ((e.key === 'Enter' || e.key === ' ') && selectedAnswer !== null) {
+          e.preventDefault();
+          handleSubmitAnswer();
+        }
+      } else if (showFeedback) {
+        if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === ' ') {
+          e.preventDefault();
+          handleNextQuestion();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentQuestion, selectedAnswer, showFeedback]);
+
   // Handle answer selection
-  const handleSelectAnswer = (answer: string | number) => {
-    if (showFeedback) return; // Already answered
+  const handleSelectAnswer = useCallback((answer: string | number) => {
+    if (showFeedback) return;
     setSelectedAnswer(answer);
-  };
+  }, [showFeedback]);
   
   // Handle answer submission
-  const handleSubmitAnswer = () => {
+  const handleSubmitAnswer = useCallback(() => {
     if (selectedAnswer === null) return;
     setShowFeedback(true);
+    
+    const isCorrect = typeof currentQuestion?.correctAnswer === 'number' 
+      ? selectedAnswer === currentQuestion.correctAnswer
+      : selectedAnswer === currentQuestion?.correctAnswer;
+    
+    if (isCorrect) {
+      setStreak(s => {
+        const newStreak = s + 1;
+        if (newStreak >= 3) setIsStreaking(true);
+        return newStreak;
+      });
+    } else {
+      setStreak(0);
+      setIsStreaking(false);
+    }
+    
     onAnswerQuestion(currentQuestionIndex, selectedAnswer);
-  };
+  }, [currentQuestionIndex, selectedAnswer, currentQuestion, onAnswerQuestion]);
   
   // Handle next question
-  const handleNextQuestion = () => {
+  const handleNextQuestion = useCallback(() => {
     setSelectedAnswer(null);
     setShowFeedback(false);
     onNextQuestion();
-  };
+  }, [onNextQuestion]);
   
-  // Check if answer is correct
+  // Check if answer is correct (for display)
   const isCorrect = selectedAnswer !== null && 
     (typeof currentQuestion?.correctAnswer === 'number' 
       ? selectedAnswer === currentQuestion.correctAnswer
@@ -85,47 +136,80 @@ export const QuizSurface = memo(function QuizSurface({
     const score = quizState.correctCount;
     const total = totalQuestions;
     const percentage = Math.round((score / total) * 100);
+    const timeSpent = quizState.completedAt && quizState.startedAt 
+      ? Math.round((quizState.completedAt - quizState.startedAt) / 1000 / 60) 
+      : 0;
     
     return (
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Trophy className={cn(
-            "h-16 w-16 mx-auto mb-4",
-            percentage >= 80 ? "text-yellow-500" : 
-            percentage >= 60 ? "text-gray-400" : "text-orange-400"
-          )} />
-          <h1 className="text-2xl font-bold mb-2">Quiz Complete!</h1>
-          <p className="text-muted-foreground">{metadata.topic}</p>
+      <div className="max-w-xl mx-auto py-8 text-center animate-in-up">
+        {/* Celebration Header */}
+        <div className="relative mb-10">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-purple-500/20 to-primary/20 rounded-full blur-3xl opacity-50" />
+          
+          <div className="relative inline-flex items-center justify-center p-4 bg-background rounded-full border-4 border-muted/30 shadow-2xl mb-6">
+            <div className={cn(
+              "w-24 h-24 rounded-full flex items-center justify-center border-4",
+              percentage >= 80 ? "border-yellow-500/20 bg-yellow-500/10" : 
+              percentage >= 60 ? "border-primary/20 bg-primary/10" : "border-orange-500/20 bg-orange-500/10"
+            )}>
+              <Trophy className={cn(
+                "h-12 w-12",
+                percentage >= 80 ? "text-yellow-500" : 
+                percentage >= 60 ? "text-primary" : "text-orange-500"
+              )} />
+            </div>
+          </div>
+          
+          <h1 className="text-3xl font-bold mb-2">Quiz Complete!</h1>
+          <p className="text-muted-foreground max-w-sm mx-auto">{metadata.topic}</p>
         </div>
         
         {/* Score Card */}
-        <div className="bg-card border rounded-xl p-6 mb-6">
-          <div className="text-center">
-            <div className="text-5xl font-bold mb-2">
-              {score}/{total}
+        <div className="bg-card border rounded-3xl p-8 mb-8 shadow-sm">
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Final Score</span>
+            <div className="flex items-baseline gap-2 mb-6">
+              <span className="text-6xl font-black tracking-tighter text-foreground">{score}</span>
+              <span className="text-2xl text-muted-foreground font-medium">/ {total}</span>
             </div>
-            <div className="text-lg text-muted-foreground">
-              {percentage}% correct
+            
+            <div className="w-full h-3 bg-muted rounded-full overflow-hidden mb-8">
+              <div 
+                className={cn(
+                  "h-full rounded-full transition-all duration-1000",
+                  percentage >= 80 ? "bg-gradient-to-r from-yellow-500 to-amber-500" :
+                  percentage >= 60 ? "bg-gradient-to-r from-primary to-primary/80" :
+                  "bg-gradient-to-r from-orange-500 to-red-500"
+                )}
+                style={{ width: `${percentage}%` }}
+              />
             </div>
-            <div className={cn(
-              "mt-4 text-sm font-medium",
-              percentage >= 80 ? "text-green-500" : 
-              percentage >= 60 ? "text-yellow-500" : "text-red-500"
-            )}>
-              {percentage >= 80 ? "🎉 Excellent work!" : 
-               percentage >= 60 ? "👍 Good effort!" : "📚 Keep learning!"}
+          </div>
+          
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-4 pt-6 border-t">
+            <div className="p-4 rounded-2xl bg-muted/30 flex flex-col items-center">
+              <div className="flex items-center gap-2 mb-1 text-green-600 dark:text-green-400">
+                <CheckCircle className="h-4 w-4" />
+                <span className="font-bold text-lg">{quizState.correctCount}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Correct</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-muted/30 flex flex-col items-center">
+              <div className="flex items-center gap-2 mb-1 text-red-500">
+                <XCircle className="h-4 w-4" />
+                <span className="font-bold text-lg">{quizState.incorrectCount}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Incorrect</span>
             </div>
           </div>
         </div>
         
         {/* Actions */}
-        <div className="flex gap-3 justify-center">
-          <Button onClick={onRestartQuiz} variant="outline" className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Retake Quiz
-          </Button>
-        </div>
+        <Button onClick={onRestartQuiz} variant="outline" size="lg" className="rounded-xl h-12 px-8 gap-2 hover:bg-muted/50">
+          <RotateCcw className="h-4 w-4" />
+          Retake Quiz
+        </Button>
       </div>
     );
   }
@@ -133,35 +217,92 @@ export const QuizSurface = memo(function QuizSurface({
   // Loading state
   if (!currentQuestion || isGenerating) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+          <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
+        </div>
+        <p className="text-muted-foreground mt-6 font-medium">Preparing question...</p>
       </div>
     );
   }
   
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-lg font-semibold">🎯 {metadata.topic}</h1>
-          <span className="text-sm text-muted-foreground">
-            Question {currentQuestionIndex + 1} of {totalQuestions}
-          </span>
+      {/* Header with Stats */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded-lg">
+              <Brain className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="font-semibold text-lg leading-none mb-1">{metadata.topic}</h1>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded-md font-medium uppercase tracking-wide text-[10px]",
+                  metadata.difficulty === 'easy' && "bg-green-500/10 text-green-600 dark:text-green-400",
+                  metadata.difficulty === 'medium' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+                  metadata.difficulty === 'hard' && "bg-red-500/10 text-red-500"
+                )}>
+                  {metadata.difficulty}
+                </span>
+                <span>•</span>
+                <span>{totalQuestions} Questions</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Streak Indicator */}
+          {streak > 1 && (
+            <div className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500",
+              isStreaking 
+                ? "bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-orange-500/30 text-orange-600 dark:text-orange-400 scale-110" 
+                : "bg-muted border-border text-muted-foreground"
+            )}>
+              <Zap className={cn("h-3.5 w-3.5", isStreaking && "fill-orange-500 text-orange-500 animate-pulse")} />
+              <span className="text-sm font-bold">{streak}</span>
+            </div>
+          )}
         </div>
         
-        {/* Progress bar */}
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-primary transition-all duration-300" 
-            style={{ width: `${progressPercent}%` }}
-          />
+        {/* Segmented Progress Bar */}
+        <div className="flex gap-1 h-1.5 mb-2">
+          {Array.from({ length: totalQuestions }).map((_, i) => {
+            const isAnswered = answers.hasOwnProperty(i);
+            const isCurrent = i === currentQuestionIndex;
+            // Determine color based on previous answers if available
+            // Note: In a real app we might track correct/incorrect per question index in history
+            
+            return (
+              <div 
+                key={i}
+                className={cn(
+                  "flex-1 rounded-full transition-all duration-300",
+                  isCurrent ? "bg-primary scale-110 shadow-[0_0_10px_rgba(var(--primary),0.5)]" :
+                  isAnswered ? "bg-primary/40" : "bg-muted"
+                )}
+              />
+            );
+          })}
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground px-0.5">
+          <span>Start</span>
+          <span>Question {currentQuestionIndex + 1} of {totalQuestions}</span>
+          <span>Finish</span>
         </div>
       </div>
       
       {/* Question Card */}
-      <div className="bg-card border rounded-xl p-6 mb-6">
-        <p className="text-lg font-medium mb-6">{currentQuestion.question}</p>
+      <div className={cn(
+        "relative bg-card border rounded-3xl p-6 md:p-8 mb-6 shadow-sm transition-all duration-500",
+        showFeedback && isCorrect && "border-green-500/30 shadow-[0_0_30px_-5px_rgba(34,197,94,0.15)]",
+        showFeedback && !isCorrect && "border-red-500/30 shadow-[0_0_30px_-5px_rgba(239,68,68,0.15)]"
+      )}>
+        <p className="text-xl md:text-2xl font-medium mb-8 leading-relaxed selection:bg-primary/20">
+          {currentQuestion.question}
+        </p>
         
         {/* Options */}
         {currentQuestion.options && (
@@ -169,8 +310,11 @@ export const QuizSurface = memo(function QuizSurface({
             {currentQuestion.options.map((option, index) => {
               const isSelected = selectedAnswer === index;
               const isCorrectOption = currentQuestion.correctAnswer === index;
+              
+              // Visual states
               const showCorrect = showFeedback && isCorrectOption;
               const showIncorrect = showFeedback && isSelected && !isCorrectOption;
+              const isDimmed = showFeedback && !showCorrect && !showIncorrect;
               
               return (
                 <button
@@ -178,82 +322,111 @@ export const QuizSurface = memo(function QuizSurface({
                   onClick={() => handleSelectAnswer(index)}
                   disabled={showFeedback}
                   className={cn(
-                    "w-full text-left p-4 rounded-lg border-2 transition-all",
-                    "hover:border-primary/50 hover:bg-muted/50",
-                    isSelected && !showFeedback && "border-primary bg-primary/10",
-                    showCorrect && "border-green-500 bg-green-500/10",
-                    showIncorrect && "border-red-500 bg-red-500/10",
-                    showFeedback && !showCorrect && !showIncorrect && "opacity-50"
+                    "group relative w-full text-left p-4 rounded-xl border-2 transition-all duration-200",
+                    "flex items-center gap-4 hover:shadow-md",
+                    !showFeedback && !isSelected && "hover:border-primary/50 hover:bg-muted/30",
+                    isSelected && !showFeedback && "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20",
+                    showCorrect && "border-green-500 bg-green-500/10 ring-1 ring-green-500/20",
+                    showIncorrect && "border-red-500 bg-red-500/10 ring-1 ring-red-500/20",
+                    isDimmed && "opacity-50 grayscale border-border bg-muted/10",
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={cn(
-                      "flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium",
-                      "bg-muted",
-                      isSelected && !showFeedback && "bg-primary text-primary-foreground",
-                      showCorrect && "bg-green-500 text-white",
-                      showIncorrect && "bg-red-500 text-white"
-                    )}>
-                      {showCorrect ? <CheckCircle className="h-4 w-4" /> : 
-                       showIncorrect ? <XCircle className="h-4 w-4" /> : 
-                       String.fromCharCode(65 + index)}
-                    </span>
-                    <span className="flex-1">{option}</span>
+                  {/* Keyboard hint / Status Icon */}
+                  <div className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold transition-all border shrink-0",
+                    !showFeedback && !isSelected && "bg-background border-border text-muted-foreground group-hover:border-primary/50 group-hover:text-primary",
+                    isSelected && !showFeedback && "bg-primary text-primary-foreground border-primary",
+                    showCorrect && "bg-green-500 text-white border-green-500",
+                    showIncorrect && "bg-red-500 text-white border-red-500",
+                    isDimmed && "bg-muted border-transparent text-muted-foreground/50",
+                  )}>
+                    {showCorrect ? <CheckCircle className="h-5 w-5" /> : 
+                     showIncorrect ? <XCircle className="h-5 w-5" /> : 
+                     <span className="font-mono text-xs">{index + 1}</span>}
                   </div>
+                  
+                  <span className={cn(
+                    "flex-1 text-base font-medium",
+                    isDimmed && "text-muted-foreground"
+                  )}>
+                    {option}
+                  </span>
+                  
+                  {/* Selection Indicator Arrow */}
+                  {isSelected && !showFeedback && (
+                    <div className="absolute right-4 text-primary animate-in fade-in slide-in-from-left-2">
+                       <ArrowRight className="h-4 w-4" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
         )}
-        
-        {/* Feedback */}
-        {showFeedback && (
+      </div>
+      
+      {/* Feedback & Navigation Area */}
+      <div className="min-h-[140px]">
+        {showFeedback ? (
           <div className={cn(
-            "mt-6 p-4 rounded-lg",
-            isCorrect ? "bg-green-500/10 border border-green-500/30" : "bg-red-500/10 border border-red-500/30"
+            "rounded-2xl p-5 border animate-in fade-in slide-in-from-bottom-4 duration-300",
+            isCorrect 
+              ? "bg-green-500/10 border-green-500/20" 
+              : "bg-red-500/10 border-red-500/20"
           )}>
-            <div className="flex items-center gap-2 mb-2">
-              {isCorrect ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-500" />
-              )}
-              <span className={cn(
-                "font-medium",
-                isCorrect ? "text-green-500" : "text-red-500"
+            <div className="flex items-start gap-4">
+              <div className={cn(
+                "p-2 rounded-full shrink-0 mt-0.5",
+                isCorrect ? "bg-green-500/20 text-green-600 dark:text-green-400" : "bg-red-500/20 text-red-600 dark:text-red-400"
               )}>
-                {isCorrect ? "Correct!" : "Incorrect"}
-              </span>
+                {isCorrect ? <CheckCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
+              </div>
+              <div className="flex-1">
+                <h3 className={cn("font-bold mb-1", isCorrect ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                  {isCorrect ? "That's correct!" : "Not quite right"}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                  {currentQuestion.explanation}
+                </p>
+                <Button onClick={handleNextQuestion} className={cn(
+                  "gap-2 text-white shadow-lg transition-transform hover:scale-105 active:scale-95",
+                  isCorrect 
+                    ? "bg-green-600 hover:bg-green-700 shadow-green-500/20" 
+                    : "bg-primary hover:bg-primary/90 shadow-primary/20"
+                )}>
+                  {currentQuestionIndex < totalQuestions - 1 ? "Next Question" : "See Results"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <div className="hidden sm:inline-flex items-center gap-1 ml-4 text-[10px] text-muted-foreground/70">
+                   <Keyboard className="h-3 w-3" /> <kbd className="bg-background/50 px-1 rounded">Enter</kbd>
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {currentQuestion.explanation}
-            </p>
+          </div>
+        ) : (
+          <div className="flex justify-end pt-2">
+            <Button 
+              onClick={handleSubmitAnswer}
+              disabled={selectedAnswer === null}
+              size="lg"
+              className={cn(
+                "rounded-xl px-8 gap-2 transition-all duration-300",
+                selectedAnswer !== null ? "shadow-lg shadow-primary/25 translate-y-0 opacity-100" : "translate-y-2 opacity-50"
+              )}
+            >
+              <span>Submit Answer</span>
+            </Button>
           </div>
         )}
       </div>
       
-      {/* Actions */}
-      <div className="flex justify-end gap-3">
-        {!showFeedback ? (
-          <Button 
-            onClick={handleSubmitAnswer}
-            disabled={selectedAnswer === null}
-          >
-            Submit Answer
-          </Button>
-        ) : (
-          <Button onClick={handleNextQuestion} className="gap-2">
-            {currentQuestionIndex < totalQuestions - 1 ? (
-              <>
-                Next Question
-                <ChevronRight className="h-4 w-4" />
-              </>
-            ) : (
-              "See Results"
-            )}
-          </Button>
-        )}
-      </div>
+      {/* Keyboard hints footer */}
+      {!showFeedback && (
+        <div className="hidden sm:flex justify-center mt-8 text-xs text-muted-foreground/50 gap-6">
+          <span className="flex items-center gap-1.5"><kbd className="bg-muted px-1.5 py-0.5 rounded border border-border/50 font-mono text-[10px]">1-4</kbd> Select</span>
+          <span className="flex items-center gap-1.5"><kbd className="bg-muted px-1.5 py-0.5 rounded border border-border/50 font-mono text-[10px]">Enter</kbd> Submit</span>
+        </div>
+      )}
     </div>
   );
 });

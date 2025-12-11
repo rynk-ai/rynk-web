@@ -87,33 +87,91 @@ async function generateLearningStructure(
   aiProvider: any,
   query: string
 ): Promise<SurfaceState> {
-  const prompt = `You are creating a structured course outline for the following topic.
+  const prompt = `You are a world-renowned professor creating a university-level course curriculum.
 
-User's question: "${query}"
+SUBJECT: "${query}"
 
-Generate a course structure as JSON with the following format:
+Create an EXHAUSTIVE, COMPREHENSIVE course that would satisfy a serious student wanting to master this topic. Think: What would a $2000 online course or a university semester cover?
+
+Generate the course structure as JSON:
 {
-  "title": "Course title (short, descriptive)",
-  "description": "One sentence description",
+  "title": "Professional, compelling course title",
+  "subtitle": "Clarifying subtitle that sets expectations",
+  "description": "2-3 sentences: What mastery looks like after completion. Be specific about skills gained.",
   "depth": "basic|intermediate|advanced|expert",
-  "estimatedTime": <total minutes>,
-  "prerequisites": ["optional prerequisites"],
+  "estimatedTime": <total minutes - be generous, real learning takes time>,
+  "prerequisites": ["Specific prior knowledge required - be honest about requirements"],
+  "targetAudience": "Detailed description of ideal learner and their goals",
+  "learningOutcomes": [
+    "Specific, measurable outcome 1 (use action verbs: build, analyze, create, evaluate)",
+    "Specific, measurable outcome 2",
+    "Specific, measurable outcome 3",
+    "Specific, measurable outcome 4",
+    "Specific, measurable outcome 5"
+  ],
+  "courseHighlights": [
+    "What makes this course valuable/unique"
+  ],
   "chapters": [
     {
       "id": "ch1",
-      "title": "Chapter title",
-      "description": "Brief chapter description",
-      "estimatedTime": <minutes>
+      "title": "Chapter title - be specific and descriptive",
+      "description": "2-3 sentences explaining what this chapter covers and why it's essential",
+      "estimatedTime": <minutes>,
+      "chapterType": "foundation|concept|practical|deep-dive|synthesis|assessment",
+      "objectives": [
+        "By the end of this chapter, you will be able to...",
+        "Second specific objective"
+      ],
+      "topics": [
+        "Key topic 1 covered in this chapter",
+        "Key topic 2",
+        "Key topic 3"
+      ],
+      "keyTakeaways": [
+        "Most important insight 1",
+        "Most important insight 2"
+      ],
+      "practiceElements": "Brief description of exercises, examples, or hands-on work in this chapter"
     }
   ]
 }
 
-Create 4-8 logical chapters that cover the topic progressively.
+CRITICAL REQUIREMENTS:
+
+1. CHAPTER COUNT: Create 8-12 chapters minimum. This is a COMPREHENSIVE course, not a quick overview.
+
+2. CHAPTER STRUCTURE - Include these types:
+   - 1-2 FOUNDATION chapters (context, motivation, fundamentals)
+   - 3-4 CONCEPT chapters (core theoretical knowledge)
+   - 2-3 PRACTICAL chapters (hands-on application, real examples)
+   - 1-2 DEEP-DIVE chapters (advanced topics, edge cases)
+   - 1 SYNTHESIS chapter (bringing it all together)
+
+3. CONTENT DEPTH:
+   - Each chapter should feel like a full lesson, not a bullet point
+   - Topics should be specific (not "basics" but "The three fundamental principles of X")
+   - Include real-world context and practical applications
+   - Reference specific techniques, tools, or methodologies
+
+4. LEARNING DESIGN:
+   - Progressive complexity: each chapter builds on the previous
+   - Include practice elements: exercises, examples, thought experiments
+   - Balance theory and application
+
+5. TIME ESTIMATES:
+   - Foundation chapters: 15-25 minutes
+   - Concept chapters: 20-40 minutes  
+   - Practical chapters: 30-45 minutes
+   - Deep-dive: 25-40 minutes
+   - Synthesis: 15-25 minutes
+   - Total should feel substantial (2-5 hours for a real course)
+
 Return ONLY valid JSON, no markdown or explanation.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a course structure generator. Output only valid JSON.' },
+      { role: 'system', content: 'You are a master educator who has taught at top universities and created bestselling courses. Your curricula are known for their depth, clarity, and transformative impact. You never create superficial content - every course you design would be worth paying thousands for. You think like an expert who remembers what it was like to be a beginner.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -137,16 +195,19 @@ Return ONLY valid JSON, no markdown or explanation.`
     console.error('Failed to parse learning structure:', e)
     // Fallback structure
     structure = {
-      title: query.slice(0, 50),
-      description: 'A structured learning experience',
+      title: `Mastering ${query.slice(0, 40)}`,
+      description: 'A comprehensive learning experience',
       depth: 'intermediate',
-      estimatedTime: 30,
+      estimatedTime: 45,
       prerequisites: [],
+      targetAudience: 'Curious learners',
+      learningOutcomes: ['Understand core concepts', 'Apply knowledge practically'],
       chapters: [
-        { id: 'ch1', title: 'Introduction', description: 'Getting started', estimatedTime: 5 },
-        { id: 'ch2', title: 'Core Concepts', description: 'Key principles', estimatedTime: 10 },
-        { id: 'ch3', title: 'Practical Application', description: 'Hands-on practice', estimatedTime: 10 },
-        { id: 'ch4', title: 'Summary', description: 'Wrap up and next steps', estimatedTime: 5 },
+        { id: 'ch1', title: 'Introduction & Context', description: 'Setting the foundation', estimatedTime: 8, objectives: ['Understand the importance'], keyTakeaways: ['Key concept'] },
+        { id: 'ch2', title: 'Core Concepts', description: 'Essential building blocks', estimatedTime: 12, objectives: ['Master fundamentals'], keyTakeaways: ['Key concept'] },
+        { id: 'ch3', title: 'Practical Application', description: 'Putting knowledge to work', estimatedTime: 15, objectives: ['Apply concepts'], keyTakeaways: ['Key concept'] },
+        { id: 'ch4', title: 'Advanced Techniques', description: 'Going deeper', estimatedTime: 10, objectives: ['Level up skills'], keyTakeaways: ['Key concept'] },
+        { id: 'ch5', title: 'Summary & Next Steps', description: 'Consolidation and growth paths', estimatedTime: 5, objectives: ['Synthesize learning'], keyTakeaways: ['Key concept'] },
       ]
     }
   }
@@ -156,14 +217,14 @@ Return ONLY valid JSON, no markdown or explanation.`
     title: structure.title || 'Course',
     description: structure.description || '',
     depth: structure.depth || 'intermediate',
-    estimatedTime: structure.estimatedTime || 30,
+    estimatedTime: structure.estimatedTime || 45,
     prerequisites: structure.prerequisites || [],
     chapters: (structure.chapters || []).map((ch: any, i: number) => ({
       id: ch.id || `ch${i + 1}`,
       title: ch.title || `Chapter ${i + 1}`,
       description: ch.description || '',
-      estimatedTime: ch.estimatedTime || 5,
-      status: i === 0 ? 'available' : 'available' as const, // All chapters available
+      estimatedTime: ch.estimatedTime || 8,
+      status: 'available' as const,
     })),
   }
 
@@ -185,31 +246,90 @@ async function generateGuideStructure(
   aiProvider: any,
   query: string
 ): Promise<SurfaceState> {
-  const prompt = `You are creating a step-by-step guide for the following task.
+  const prompt = `You are a senior technical documentation expert creating the definitive guide for this task.
 
-User's question: "${query}"
+TASK: "${query}"
 
-Generate a guide structure as JSON with the following format:
+Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow to achieve success. Think: What would a professional documentation writer at a top tech company create?
+
+Generate a guide structure as JSON:
 {
-  "title": "Guide title (short, action-oriented)",
-  "description": "One sentence description of what this guide accomplishes",
+  "title": "Professional, clear title (e.g., 'Complete Guide to...', 'How to... From Start to Finish')",
+  "subtitle": "Clarifying subtitle with scope",
+  "description": "2-3 sentences explaining what this guide covers and what success looks like",
   "difficulty": "beginner|intermediate|advanced",
-  "estimatedTime": <total minutes>,
+  "estimatedTime": <total minutes - be realistic, include potential troubleshooting time>,
+  "prerequisites": [
+    "Specific hardware/software requirement 1",
+    "Prior knowledge requirement",
+    "Account/access requirement"
+  ],
+  "toolsRequired": [
+    "Specific tool 1",
+    "Specific tool 2"
+  ],
+  "outcomes": [
+    "Specific outcome 1 - what will be working/completed",
+    "Specific outcome 2",
+    "Specific outcome 3"
+  ],
+  "safetyWarnings": ["Any data loss risks or irreversible actions to be aware of"],
   "steps": [
     {
       "index": 0,
-      "title": "Step title (action verb)",
-      "estimatedTime": <minutes>
+      "title": "Clear, specific step title (start with strong action verb)",
+      "description": "1-2 sentences explaining what this step accomplishes",
+      "estimatedTime": <minutes>,
+      "category": "preparation|setup|configuration|action|verification|cleanup|optional",
+      "substeps": [
+        "Specific substep 1",
+        "Specific substep 2"
+      ],
+      "criticalNotes": ["Important warnings or tips for this step"],
+      "successCriteria": "How to know this step was completed correctly"
     }
-  ]
+  ],
+  "troubleshooting": [
+    {
+      "problem": "Common problem description",
+      "solution": "How to fix it"
+    }
+  ],
+  "nextSteps": ["What to do after completing this guide"]
 }
 
-Create 4-10 clear, actionable steps.
+CRITICAL REQUIREMENTS:
+
+1. STEP COUNT: Create 10-15 steps. This is a COMPLETE guide, not a quick overview.
+
+2. STEP STRUCTURE - Include these types:
+   - 1-2 PREPARATION steps (prerequisites check, environment setup)
+   - 2-3 SETUP steps (installations, configurations)
+   - 5-8 ACTION steps (the main work, broken into manageable chunks)
+   - 2-3 VERIFICATION steps (confirm things are working)
+   - 1 CLEANUP/FINALIZATION step
+
+3. SUBSTEPS: Each main step should have 2-5 specific substeps that break down the action.
+
+4. SAFETY: Always include warnings for:
+   - Data loss risks
+   - Breaking changes
+   - Irreversible actions
+   - Admin/sudo requirements
+
+5. VERIFICATION: After major milestones, include a verification step to confirm progress.
+
+6. TIME ESTIMATES:
+   - Preparation: 5-10 minutes
+   - Setup: 10-20 minutes per step
+   - Action: 5-15 minutes per step
+   - Verification: 2-5 minutes
+
 Return ONLY valid JSON, no markdown or explanation.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a guide structure generator. Output only valid JSON.' },
+      { role: 'system', content: 'You are a world-class technical documentation writer who has created guides for companies like Google, Apple, and Stripe. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -232,15 +352,18 @@ Return ONLY valid JSON, no markdown or explanation.`
     console.error('Failed to parse guide structure:', e)
     // Fallback structure
     structure = {
-      title: `Guide: ${query.slice(0, 40)}`,
-      description: 'Step-by-step instructions',
+      title: `How to ${query.slice(0, 40)}`,
+      description: 'Step-by-step instructions to complete this task',
       difficulty: 'intermediate',
-      estimatedTime: 15,
+      estimatedTime: 20,
+      prerequisites: [],
+      outcomes: ['Task completed successfully'],
       steps: [
-        { index: 0, title: 'Prepare', estimatedTime: 2 },
-        { index: 1, title: 'Execute main task', estimatedTime: 5 },
-        { index: 2, title: 'Verify results', estimatedTime: 3 },
-        { index: 3, title: 'Finish up', estimatedTime: 2 },
+        { index: 0, title: 'Gather prerequisites', estimatedTime: 3, category: 'setup' },
+        { index: 1, title: 'Set up your environment', estimatedTime: 5, category: 'setup' },
+        { index: 2, title: 'Perform the main task', estimatedTime: 7, category: 'action' },
+        { index: 3, title: 'Verify your work', estimatedTime: 3, category: 'verification' },
+        { index: 4, title: 'Final cleanup and next steps', estimatedTime: 2, category: 'action' },
       ]
     }
   }
@@ -278,36 +401,90 @@ async function generateQuizStructure(
   aiProvider: any,
   query: string
 ): Promise<SurfaceState> {
-  const prompt = `You are creating an interactive quiz for the following topic.
+  const prompt = `You are an expert assessment designer creating a comprehensive knowledge test.
 
-User's question: "${query}"
+TOPIC: "${query}"
 
-Generate a quiz as JSON with the following format:
+Create a RIGOROUS, COMPREHENSIVE quiz that thoroughly assesses understanding. This should feel like a professional certification exam or university final - not a trivial quiz.
+
+Generate a quiz as JSON:
 {
-  "topic": "Quiz topic (short, descriptive)",
-  "description": "One sentence describing what this quiz tests",
+  "topic": "Professional, clear quiz title",
+  "description": "What this quiz assesses and what a passing score indicates",
   "difficulty": "easy|medium|hard",
   "format": "multiple-choice",
+  "totalPoints": <total points>,
+  "passingScore": <minimum to pass - typically 70%>,
+  "timeLimit": <suggested minutes>,
+  "sections": [
+    {
+      "name": "Section name (e.g., 'Fundamentals', 'Applied Knowledge')",
+      "description": "What this section tests"
+    }
+  ],
   "questions": [
     {
       "id": "q1",
-      "question": "The question text",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "section": "Which section this belongs to",
+      "question": "Clear, specific question. For scenario questions, provide detailed context.",
+      "questionType": "knowledge|comprehension|application|analysis|evaluation",
+      "scenario": "Optional: A real-world scenario or code snippet that sets up the question",
+      "options": [
+        "Option A - specific, plausible choice",
+        "Option B - another plausible choice",
+        "Option C - a third option",
+        "Option D - fourth option"
+      ],
       "correctAnswer": 0,
-      "explanation": "Brief explanation of why this answer is correct"
+      "explanation": "THOROUGH explanation: Why this is correct, what principle it demonstrates, and how to think about similar problems",
+      "whyOthersWrong": [
+        "Why A is wrong (if not correct)",
+        "Why B is wrong (if not correct)",
+        "Why C is wrong (if not correct)",
+        "Why D is wrong (if not correct)"
+      ],
+      "points": 1,
+      "hint": "Helpful hint that guides thinking without giving away the answer",
+      "difficulty": "easy|medium|hard",
+      "conceptTested": "The specific concept this question tests"
     }
   ]
 }
 
-Create 5-10 engaging multiple-choice questions that test understanding.
-- Make questions progressively harder
-- Include plausible distractors
-- Keep explanations concise but educational
+CRITICAL REQUIREMENTS:
+
+1. QUESTION COUNT: Create 15-20 questions minimum. This is a THOROUGH assessment.
+
+2. QUESTION DISTRIBUTION (follow Bloom's Taxonomy):
+   - 3-4 Knowledge questions (recall, define, list)
+   - 4-5 Comprehension questions (explain, describe, interpret)
+   - 4-5 Application questions (apply, demonstrate, use)
+   - 3-4 Analysis questions (compare, contrast, analyze)
+   - 2-3 Evaluation questions (judge, evaluate, recommend)
+
+3. DIFFICULTY PROGRESSION:
+   - First 4-5 questions: Easy (build confidence)
+   - Middle 8-10 questions: Medium (core assessment)
+   - Final 4-5 questions: Hard (separate masters from learners)
+
+4. QUESTION QUALITY:
+   - Use SCENARIOS: "A developer is building..." not just "What is..."
+   - Include CODE SNIPPETS for technical topics (use markdown code blocks in the scenario)
+   - ALL distractors must be PLAUSIBLE (no joke answers)
+   - Each wrong answer should represent a COMMON MISCONCEPTION
+   - Explanations should TEACH - if someone gets it wrong, they should learn why
+
+5. AVOID:
+   - "All of the above" / "None of the above"
+   - Trick questions or gotchas
+   - Vague or ambiguous wording
+   - Questions that test memorization of trivia
+
 Return ONLY valid JSON, no markdown or explanation.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a quiz generator. Output only valid JSON.' },
+      { role: 'system', content: 'You are a world-class assessment designer who has created certification exams for major organizations. Your quizzes are famous for being fair yet rigorous - they truly measure understanding, not just memorization. Every question you write has educational value, and your explanations are so good that even failing the quiz teaches something valuable.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -330,17 +507,18 @@ Return ONLY valid JSON, no markdown or explanation.`
     console.error('Failed to parse quiz structure:', e)
     // Fallback structure
     structure = {
-      topic: query.slice(0, 50),
-      description: 'Test your knowledge',
+      topic: `Quiz: ${query.slice(0, 40)}`,
+      description: 'Test your understanding of key concepts',
       difficulty: 'medium',
       format: 'multiple-choice',
       questions: [
         {
           id: 'q1',
-          question: `What is a key concept related to "${query.slice(0, 30)}"?`,
+          question: `Which of the following best describes a core principle of "${query.slice(0, 30)}"?`,
           options: ['Option A', 'Option B', 'Option C', 'Option D'],
           correctAnswer: 0,
-          explanation: 'This is the correct answer based on the topic.'
+          explanation: 'This concept is fundamental to understanding the topic.',
+          questionType: 'comprehension'
         }
       ]
     }
@@ -382,39 +560,113 @@ async function generateComparisonStructure(
   aiProvider: any,
   query: string
 ): Promise<SurfaceState> {
-  const prompt = `You are creating a comparison analysis for the following topic.
+  const prompt = `You are a senior research analyst creating a definitive comparison report.
 
-User's question: "${query}"
+TOPIC: "${query}"
 
-Generate a comparison as JSON with the following format:
+Create an EXHAUSTIVE, OBJECTIVE comparison that would help someone make a confident, well-informed decision. This should feel like a professional analyst's report.
+
+Generate a comparison as JSON:
 {
-  "title": "Comparison title",
-  "description": "What is being compared",
+  "title": "Professional comparison title (e.g., 'X vs Y: Complete 2024 Comparison')",
+  "subtitle": "What decision this helps with",
+  "description": "2-3 sentences explaining the scope and methodology of this comparison",
+  "lastUpdated": "When this comparison would be most accurate",
+  "targetAudience": "Who this comparison is for",
   "items": [
     {
       "id": "item1",
-      "name": "Option/Item name",
-      "description": "Brief description",
-      "pros": ["Advantage 1", "Advantage 2"],
-      "cons": ["Disadvantage 1"],
-      "attributes": { "Price": "$99", "Rating": 4.5 }
+      "name": "Full, accurate name",
+      "tagline": "What it's known for in one line",
+      "description": "3-4 sentences comprehensive description",
+      "idealFor": ["Specific use case 1", "Specific use case 2", "Specific use case 3"],
+      "notIdealFor": ["When NOT to choose this"],
+      "pros": [
+        "Specific, data-backed advantage 1",
+        "Specific advantage 2",
+        "Specific advantage 3",
+        "Specific advantage 4",
+        "Specific advantage 5"
+      ],
+      "cons": [
+        "Specific, honest disadvantage 1",
+        "Specific disadvantage 2",
+        "Specific disadvantage 3"
+      ],
+      "uniqueFeatures": ["What sets this apart from alternatives"],
+      "pricing": "Pricing structure or cost range",
+      "attributes": {
+        "Specific Metric 1": "Quantified value",
+        "Specific Metric 2": "Quantified value",
+        "Specific Feature": true/false
+      }
     }
   ],
   "criteria": [
-    { "name": "Criteria name", "weight": 0.8, "description": "Why this matters" }
+    {
+      "name": "Criteria name",
+      "weight": 0.0-1.0,
+      "description": "Why this matters for the decision",
+      "howMeasured": "How we evaluate this criterion"
+    }
+  ],
+  "detailedComparison": [
+    {
+      "criterion": "Criterion name",
+      "analysis": "2-3 sentences comparing all items on this criterion",
+      "winner": "item_id or 'tie'"
+    }
   ],
   "recommendation": {
-    "itemId": "item1",
-    "reason": "Why this is recommended"
-  }
+    "overallWinner": "item_id for most users",
+    "reason": "3-4 sentences explaining why",
+    "caveats": "Important limitations of this recommendation"
+  },
+  "scenarioGuide": [
+    {
+      "scenario": "If you are a [specific user type/need]...",
+      "recommendation": "item_id",
+      "reason": "Why this is best for this scenario"
+    }
+  ],
+  "bottomLine": "1-2 sentence definitive summary for someone who just wants the answer"
 }
 
-Compare 2-4 items with 3-5 comparison criteria.
+CRITICAL REQUIREMENTS:
+
+1. ITEM DEPTH: Each item should have 5+ pros and 3+ cons. Be SPECIFIC and HONEST.
+
+2. CRITERIA: Include 8-10 comparison criteria covering:
+   - Core functionality/features
+   - Performance/speed/quality
+   - Ease of use/learning curve
+   - Pricing/value
+   - Support/community
+   - Scalability/future-proofing
+   - Integration/compatibility
+   - Specific domain requirements
+
+3. OBJECTIVITY:
+   - Present facts, not opinions
+   - Acknowledge trade-offs honestly
+   - Note where each option genuinely excels
+   - Don't artificially favor any option
+
+4. ACTIONABILITY:
+   - Provide clear scenarios for different user needs
+   - Make the "winner" conditional on use case
+   - Include a bottom-line summary
+
+5. DATA:
+   - Include specific metrics where possible
+   - Use real pricing (or realistic estimates)
+   - Reference specific features, not vague claims
+
 Return ONLY valid JSON, no markdown or explanation.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a comparison analysis generator. Output only valid JSON.' },
+      { role: 'system', content: 'You are a senior industry analyst known for creating the definitive comparisons in your field. Your analysis is so thorough and fair that both vendors and buyers trust it. You never oversimplify, never show bias, and always provide actionable recommendations with clear reasoning. Your comparisons help people make decisions they won\'t regret.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -466,32 +718,83 @@ async function generateFlashcardStructure(
   aiProvider: any,
   query: string
 ): Promise<SurfaceState> {
-  const prompt = `You are creating study flashcards for the following topic.
+  const prompt = `You are a cognitive scientist and expert educator creating a comprehensive flashcard deck.
 
-User's question: "${query}"
+TOPIC: "${query}"
 
-Generate flashcards as JSON with the following format:
+Create a THOROUGH flashcard deck that would help someone truly master this topic. This should feel like a professional study set - comprehensive enough for exam preparation.
+
+Generate flashcards as JSON:
 {
-  "topic": "Topic title",
-  "description": "What these flashcards cover",
+  "topic": "Professional, clear deck title",
+  "description": "What mastering this deck enables you to do",
+  "studyStrategy": "Recommended approach for studying these cards (e.g., daily sessions, topic grouping)",
+  "estimatedMasteryTime": "<hours to master the full deck>",
+  "studyTips": [
+    "Tip 1 for effective learning",
+    "Tip 2 for retention"
+  ],
+  "categories": [
+    {
+      "name": "Category name",
+      "description": "What this category covers",
+      "cardCount": <number of cards in this category>
+    }
+  ],
   "cards": [
     {
       "id": "card1",
-      "front": "Question or term",
-      "back": "Answer or definition",
-      "hints": ["Optional hint"],
-      "difficulty": "easy|medium|hard"
+      "front": "Specific question or term - not vague or overly broad",
+      "back": "Clear, comprehensive answer with:\n- Key definition or explanation\n- Why it matters\n- Example if applicable",
+      "category": "Category name",
+      "cardType": "definition|concept|application|comparison|process|example",
+      "hints": ["Memory hook 1", "Partial answer hint"],
+      "difficulty": "beginner|intermediate|advanced",
+      "mnemonic": "Memory device or association (if applicable)",
+      "relatedCards": ["IDs of conceptually related cards"],
+      "whyImportant": "Why knowing this matters"
     }
   ]
 }
 
-Create 8-15 flashcards that progressively cover the topic.
-Mix difficulty levels. Make fronts concise, backs informative.
+CRITICAL REQUIREMENTS:
+
+1. CARD COUNT: Create 25-35 cards minimum. This is a COMPREHENSIVE study deck.
+
+2. CATEGORY COVERAGE: Divide cards into 4-6 logical categories that progress from foundational to advanced.
+
+3. CARD TYPE DISTRIBUTION:
+   - 6-8 Definition cards (What is X?)
+   - 6-8 Concept cards (Explain why/how X works)
+   - 4-6 Application cards (When/how would you use X?)
+   - 4-6 Comparison cards (X vs Y, differences between...)
+   - 3-4 Process cards (Steps to do X)
+   - 2-3 Example cards (Give an example of X)
+
+4. ANSWER QUALITY:
+   - Backs should be COMPREHENSIVE but SCANNABLE
+   - Use bullet points for multi-part answers
+   - Include the "why it matters" context
+   - For technical topics, include code snippets or formulas
+   - Maximum 100 words per back
+
+5. LEARNING SCIENCE:
+   - Include mnemonics for difficult concepts
+   - Link related cards together
+   - Progress from simple → complex within each category
+   - Front should prompt ACTIVE RECALL (not recognition)
+
+6. AVOID:
+   - Yes/No questions
+   - Overly vague fronts like "Explain X"
+   - Backs that are just single words
+   - Duplicate concepts
+
 Return ONLY valid JSON, no markdown or explanation.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a flashcard generator. Output only valid JSON.' },
+      { role: 'system', content: 'You are a learning scientist who has studied memory and retention for decades. Your flashcard decks are famous for being so well-designed that students retain 90%+ after one week. You apply cognitive psychology principles like elaborative interrogation, dual coding, and interleaving. Each card you create optimizes for long-term retention, not just short-term recognition.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -552,34 +855,53 @@ async function generateTimelineStructure(
   aiProvider: any,
   query: string
 ): Promise<SurfaceState> {
-  const prompt = `You are creating a timeline for the following topic.
+  const prompt = `You are a historian creating an educational timeline.
 
-User's question: "${query}"
+TOPIC: "${query}"
 
-Generate a timeline as JSON with the following format:
+Create a timeline that tells a story, not just lists dates. Show how events connect and lead to each other.
+
+Generate a timeline as JSON:
 {
-  "title": "Timeline title",
-  "description": "What this timeline covers",
-  "startDate": "Start date/period (optional)",
-  "endDate": "End date/period (optional)",
+  "title": "Descriptive timeline title",
+  "description": "What story this timeline tells",
+  "era": "Historical period or context",
+  "startDate": "When it begins",
+  "endDate": "When it ends (or 'Present')",
+  "themes": ["Key themes that run through this timeline"],
   "events": [
     {
       "id": "event1",
-      "date": "Date or period (e.g., '1969', 'March 2020', 'Early Renaissance')",
+      "date": "Specific date or period",
       "title": "Event title",
-      "description": "What happened and why it matters",
-      "category": "Optional category",
-      "importance": "minor|moderate|major"
+      "description": "What happened (2-3 sentences)",
+      "significance": "Why this event matters in the larger story",
+      "category": "Category (e.g., 'Political', 'Scientific', 'Cultural')",
+      "importance": "minor|moderate|major",
+      "keyFigures": ["Important people involved"],
+      "consequences": ["What this led to"]
     }
-  ]
+  ],
+  "summary": {
+    "keyTakeaway": "Main lesson or insight from this timeline",
+    "currentRelevance": "How this connects to today (if applicable)"
+  }
 }
 
-Create 6-12 chronological events. Mark 2-3 as 'major' importance.
+REQUIREMENTS:
+- Create 8-15 chronological events
+- Mark 3-4 as 'major' importance (turning points)
+- Show cause-effect: how events connect to each other
+- Include diverse categories (political, cultural, technological, etc.)
+- Explain significance, not just what happened
+- Focus on key figures and their impact
+- Make the timeline tell a coherent story
+
 Return ONLY valid JSON, no markdown or explanation.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a timeline generator. Output only valid JSON.' },
+      { role: 'system', content: 'You are a master historian who makes history come alive. You show how events connect, explain why things matter, and help readers see the bigger picture. Your timelines tell compelling stories that illuminate the present.' },
       { role: 'user', content: prompt }
     ]
   })

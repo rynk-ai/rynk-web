@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, FlaskConical } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -35,7 +35,10 @@ const SURFACE_MODES: Array<{
   { type: 'chat', icon: MessageSquare, label: 'Chat', placeholder: 'Ask anything', color: 'text-foreground' },
   { type: 'learning', icon: BookOpen, label: 'Course', placeholder: 'Teach me about...', color: 'text-blue-500' },
   { type: 'guide', icon: ListChecks, label: 'Guide', placeholder: 'Guide me through...', color: 'text-green-500' },
-  { type: 'research', icon: FlaskConical, label: 'Research', placeholder: 'Research about...', color: 'text-purple-500' },
+  { type: 'quiz', icon: Target, label: 'Quiz', placeholder: 'Test me on...', color: 'text-pink-500' },
+  { type: 'comparison', icon: Scale, label: 'Compare', placeholder: 'Compare A vs B...', color: 'text-indigo-500' },
+  { type: 'flashcard', icon: Layers, label: 'Flashcards', placeholder: 'Create flashcards about...', color: 'text-teal-500' },
+  { type: 'timeline', icon: Calendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500' },
 ];
 
 type PromptInputWithFilesProps = {

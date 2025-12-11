@@ -103,31 +103,85 @@ async function generateChapterContent(
     .join('\n')
 
   const prompt = action === 'simplify' 
-    ? `Simplify the following chapter content for easier understanding:\n\n${state.learning?.chaptersContent[chapterIndex] || ''}\n\nRewrite in simpler terms:`
+    ? `Simplify this chapter content for easier understanding. Use simpler vocabulary, shorter sentences, and more analogies:\n\n${state.learning?.chaptersContent[chapterIndex] || ''}\n\nRewrite to be accessible for beginners while keeping all the valuable information.`
     : action === 'expand'
-    ? `Expand on the following chapter content with more detail:\n\n${state.learning?.chaptersContent[chapterIndex] || ''}\n\nAdd more examples and explanation:`
-    : `You are writing Chapter ${chapterIndex + 1} of a course.
+    ? `Expand this chapter content with significantly more depth:\n\n${state.learning?.chaptersContent[chapterIndex] || ''}\n\nAdd:\n- More detailed explanations of each concept\n- Additional examples and edge cases\n- Common mistakes and misconceptions\n- Advanced considerations\n- Practice exercises with solutions`
+    : `You are writing Chapter ${chapterIndex + 1} of a premium educational course. This is NOT a summary or overview - this is the ACTUAL LESSON CONTENT that students will read to learn.
 
-Course Topic: ${metadata.title}
-Original Question: ${originalQuery}
-Chapter: ${chapter.title}
-Description: ${chapter.description}
-Depth Level: ${metadata.depth}
+COURSE: ${metadata.title}
+ORIGINAL QUERY: ${originalQuery}
+CHAPTER: ${chapter.title}
+CHAPTER DESCRIPTION: ${chapter.description}
+COURSE DEPTH: ${metadata.depth}
 
-${previousChapters ? `Previous chapters covered:\n${previousChapters}\n` : ''}
+${previousChapters ? `CHAPTERS ALREADY COVERED:\n${previousChapters}\n\nIMPORTANT: Build on this foundation. Reference previous concepts when relevant. Don't repeat what was covered.\n` : 'This is the opening chapter. Establish strong context and motivation. Make the learner excited to continue.\n'}
 
-Write comprehensive, educational content for this chapter. Include:
-- Clear explanations of key concepts
-- Examples where helpful
-- Mermaid diagrams if they would aid understanding (use \`\`\`mermaid code blocks)
-- Code examples if relevant (with proper syntax highlighting)
+Write COMPREHENSIVE, IN-DEPTH educational content that would be worthy of a paid course.
 
-Keep the content focused and well-structured. Use markdown formatting.
-Target length: 400-800 words.`
+REQUIRED STRUCTURE (follow this precisely):
+
+## Introduction
+- 3-4 sentences establishing WHY this chapter matters
+- What the learner will be able to do after completing it
+- Brief preview of what's coming
+
+## [Main Concept Section 1]
+### [Subsection if needed]
+- Thorough explanation of the first major concept
+- Include the "what", "why", and "how"
+- Use a concrete, specific example
+- Include an analogy for complex ideas
+
+## [Main Concept Section 2]  
+### [Subsection if needed]
+- Thorough explanation of the second major concept
+- Another concrete example, different from the first
+- Show how this connects to the previous concept
+
+## [Main Concept Section 3]
+(Continue for all major concepts in this chapter)
+
+## Practical Application
+- A real-world scenario or case study
+- Step-by-step walkthrough of applying the concepts
+- Include code examples with comments if technical, OR
+- Include a \`\`\`mermaid diagram if it helps visualize the concept
+
+## Common Mistakes & Misconceptions
+- 2-3 mistakes learners typically make
+- Why these mistakes happen
+- How to avoid them
+
+## Summary & Key Takeaways
+- Bullet points of the 5-7 most important things to remember
+- Connect back to the chapter objectives
+
+## Practice Exercise
+- A meaningful exercise or thought experiment
+- Clear instructions
+- What success looks like
+
+---
+
+CONTENT REQUIREMENTS:
+- Write like a skilled teacher, not a textbook
+- Use **bold** for key terms when first introduced
+- Use specific, concrete examples (not vague "for example...")
+- Include actual data, numbers, or code when relevant
+- Explain the "why" behind every concept
+- Use short paragraphs (3-4 sentences max)
+- Include headers and subheaders for scannability
+- Make it feel like a conversation with a knowledgeable mentor
+
+TONE: Warm, encouraging, expert but accessible. Like learning from a brilliant friend who genuinely wants you to succeed.
+
+TARGET LENGTH: 1500-2500 words. This should feel like a substantial lesson, not a skim-read summary.
+
+Write the complete chapter content now:`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are an expert educator writing course content. Be clear, thorough, and engaging.' },
+      { role: 'system', content: 'You are a master educator known for creating transformative learning experiences. Your content is so good that students say "this finally made it click for me." You combine deep expertise with the ability to explain complex ideas simply. You never rush through concepts - you take the time to truly teach. Every lesson you write would justify a paid course.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -182,30 +236,42 @@ async function generateStepContent(
     .join('\n')
 
   const prompt = action === 'simplify'
-    ? `Simplify the following step instructions for easier understanding:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nRewrite in simpler terms:`
+    ? `Simplify these instructions. Use clearer language, add visual cues, and break down complex actions:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nMake it foolproof for complete beginners.`
     : action === 'expand'
-    ? `Expand on the following step with more detail:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nAdd troubleshooting tips and alternative approaches:`
+    ? `Expand these instructions with more detail:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nAdd:\n- Troubleshooting for common problems\n- Alternative approaches\n- Edge cases to watch for\n- Pro tips from experience`
     : `You are writing Step ${stepIndex + 1} of a practical guide.
 
-Guide: ${metadata.title}
-Original Question: ${originalQuery}
-Step: ${step.title}
-Difficulty: ${metadata.difficulty}
+GUIDE: ${metadata.title}
+GOAL: ${originalQuery}
+STEP: ${step.title}
+DIFFICULTY: ${metadata.difficulty}
 
-${previousSteps ? `Previously completed steps:\n${previousSteps}\n` : ''}
+${previousSteps ? `COMPLETED STEPS:\n${previousSteps}\n\nAssume these are done. Reference them if needed.\n` : 'This is the first step. Set the context clearly.\n'}
 
-Write clear, actionable instructions for this step. Include:
-- Exact commands to run (if applicable)
-- Expected output or results
-- Common errors and how to fix them
-- Screenshots or visual descriptions where helpful
+Write clear, actionable instructions that ANYONE can follow.
 
-Be specific and practical. Use code blocks for commands.
-Target length: 200-500 words.`
+REQUIRED SECTIONS:
+1. **What You'll Do** (1 sentence summary)
+2. **Instructions** (numbered steps with exact details)
+3. **Verification** (how to know you did it right)
+4. **Troubleshooting** (2-3 common issues and fixes)
+
+CONTENT REQUIREMENTS:
+- Be SPECIFIC: "Click the blue 'Save' button" not "save your work"
+- Use code blocks (\`\`\`) for commands with expected output
+- Include [optional] markers for non-essential substeps
+- Add ⚠️ warnings for risky or irreversible actions
+- Use ✅ for verification checkpoints
+- Add "💡 Tip:" for helpful shortcuts
+
+TONE: Friendly, confident, supportive. Like a senior colleague helping out.
+TARGET LENGTH: 300-600 words.
+
+Write the step content now:`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a technical writer creating step-by-step guides. Be precise and practical.' },
+      { role: 'system', content: 'You are a patient, experienced mentor who writes guides that work the first time. You anticipate problems, provide clear verification steps, and never leave users guessing. Your instructions are tested and reliable.' },
       { role: 'user', content: prompt }
     ]
   })

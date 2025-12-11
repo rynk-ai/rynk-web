@@ -171,9 +171,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     messageVersions,
     isSending,
     streamingMessageId,
-    // NOTE: streamingContent intentionally NOT included here
-    // Including it causes itemContent to recreate 60x/second during streaming
-    // ChatMessageItem handles streaming content via its own memoization
+    streamingContent,
     editingMessageId,
     onStartEdit,
     onDeleteMessage,

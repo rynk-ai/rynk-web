@@ -10,7 +10,20 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, CheckCircle, MoreVertical, Trash2 } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Loader2, 
+  MoreVertical, 
+  Trash2, 
+  BookOpen, 
+  ListChecks, 
+  Target, 
+  Scale, 
+  Layers, 
+  Calendar,
+  Cloud,
+  CheckCircle2
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,6 +45,7 @@ import { QuizSurface } from "@/components/surfaces/quiz-surface";
 import { ComparisonSurface } from "@/components/surfaces/comparison-surface";
 import { FlashcardSurface } from "@/components/surfaces/flashcard-surface";
 import { TimelineSurface } from "@/components/surfaces/timeline-surface";
+import { cn } from "@/lib/utils";
 import type { 
   SurfaceState, 
   SurfaceType, 
@@ -42,6 +56,19 @@ import type {
   FlashcardMetadata,
   TimelineMetadata 
 } from "@/lib/services/domain-types";
+
+// Helper to get icon and label for surface type
+const getSurfaceInfo = (type: string) => {
+  switch (type) {
+    case 'learning': return { icon: BookOpen, label: 'Course', color: 'text-blue-500' };
+    case 'guide': return { icon: ListChecks, label: 'Guide', color: 'text-green-500' };
+    case 'quiz': return { icon: Target, label: 'Quiz', color: 'text-pink-500' };
+    case 'comparison': return { icon: Scale, label: 'Comparison', color: 'text-indigo-500' };
+    case 'flashcard': return { icon: Layers, label: 'Flashcards', color: 'text-teal-500' };
+    case 'timeline': return { icon: Calendar, label: 'Timeline', color: 'text-amber-500' };
+    default: return { icon: BookOpen, label: 'Surface', color: 'text-primary' };
+  }
+};
 
 export default function SurfacePage() {
   const params = useParams();
@@ -81,10 +108,10 @@ export default function SurfacePage() {
           surfaceState: stateToSave,
         }),
       });
-      console.log('[SurfacePage] State saved');
+      // Small delay just to show the optimistic UI state
+      setTimeout(() => setIsSaving(false), 800);
     } catch (err) {
       console.error('[SurfacePage] Failed to save state:', err);
-    } finally {
       setIsSaving(false);
     }
   }, [conversationId, surfaceType]);
@@ -509,15 +536,23 @@ export default function SurfacePage() {
     }
   }, [conversationId, surfaceType, router]);
 
+  // Get Surface Info
+  const surfaceInfo = getSurfaceInfo(surfaceType);
+  const SurfaceIcon = surfaceInfo.icon;
+
   // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">
+          <div className="relative">
+             <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+             <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
+          </div>
+          <p className="text-muted-foreground font-medium animate-pulse">
             {surfaceType === 'learning' ? 'Preparing your course...' : 
-             surfaceType === 'quiz' ? 'Generating your quiz...' : 'Building your guide...'}
+             surfaceType === 'quiz' ? 'Generating your quiz...' : 
+             surfaceType === 'flashcard' ? 'Shuffling deck...' : 'Building surface...'}
           </p>
         </div>
       </div>
@@ -527,11 +562,14 @@ export default function SurfacePage() {
   // Error state
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-4 text-center max-w-md">
-          <p className="text-destructive font-medium">Something went wrong</p>
+      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+        <div className="bg-card border rounded-2xl p-8 flex flex-col items-center gap-4 text-center max-w-md shadow-lg">
+          <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
+            <Trash2 className="h-6 w-6 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold">Something went wrong</h2>
           <p className="text-muted-foreground text-sm">{error}</p>
-          <Button onClick={handleBackToChat} variant="outline">
+          <Button onClick={handleBackToChat} variant="outline" className="mt-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Chat
           </Button>
@@ -556,53 +594,78 @@ export default function SurfacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleBackToChat}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Chat
-          </Button>
-
-          {/* Title and Progress */}
-          <div className="flex-1 text-center">
-            <h1 className="text-sm font-medium">
-              {surfaceType === 'learning' ? '📚 Course' : 
-               surfaceType === 'quiz' ? '🎯 Quiz' : '✅ Guide'}
-            </h1>
-            {isSaving && (
-              <span className="text-[10px] text-muted-foreground">Saving...</span>
-            )}
+    <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      {/* Enhanced Header */}
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4 md:px-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleBackToChat}
+              className="gap-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back to Chat</span>
+            </Button>
+            
+            <div className="h-4 w-px bg-border hidden sm:block" />
+            
+            <div className="flex items-center gap-2">
+              <div className={cn("p-1.5 rounded-lg bg-muted/50", surfaceInfo.color.replace('text-', 'bg-').replace('500', '500/10'))}>
+                <SurfaceIcon className={cn("h-4 w-4", surfaceInfo.color)} />
+              </div>
+              <span className="font-semibold text-sm hidden sm:inline-block">
+                {surfaceInfo.label}
+              </span>
+            </div>
           </div>
 
-          {/* Actions Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Surface
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex-1 max-w-md mx-6 hidden md:block text-center">
+             <h1 className="text-sm font-medium truncate opacity-90">
+               {(surfaceState.metadata as any).title || (surfaceState.metadata as any).topic}
+             </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Status Indicator */}
+            <div className="flex items-center gap-2 mr-2 px-3 py-1 bg-muted/30 rounded-full border border-border/30">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Saving</span>
+                </>
+              ) : (
+                <>
+                   <Cloud className="h-3 w-3 text-muted-foreground/70" />
+                   <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">Saved</span>
+                </>
+              )}
+            </div>
+
+            {/* Actions Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive cursor-pointer group"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                  Delete Surface
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="container py-6">
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-8 animate-in fade-in duration-500 slide-in-from-bottom-2">
         {surfaceType === 'learning' && surfaceState.metadata?.type === 'learning' ? (
           <LearningSurface
             metadata={surfaceState.metadata as LearningMetadata}
@@ -649,23 +712,29 @@ export default function SurfacePage() {
             metadata={surfaceState.metadata as TimelineMetadata}
           />
         ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Invalid surface type</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
+              <Cloud className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground">Surface Not Found</h3>
+            <p className="text-muted-foreground mt-2 max-w-xs">
+              This surface type doesn't exist or hasn't been implemented yet.
+            </p>
           </div>
         )}
       </main>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete this surface?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete your progress on this {surfaceType === 'learning' ? 'course' : 'guide'}. 
+            <DialogDescription className="pt-2">
+              This will permanently delete your progress on this <strong className="text-foreground">{surfaceInfo.label.toLowerCase()}</strong>. 
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel
             </Button>
@@ -673,8 +742,10 @@ export default function SurfacePage() {
               variant="destructive"
               onClick={handleDeleteSurface}
               disabled={isDeleting}
+              className="gap-2"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'Deleting...' : 'Delete Forever'}
             </Button>
           </DialogFooter>
         </DialogContent>

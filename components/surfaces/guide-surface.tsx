@@ -1,7 +1,8 @@
 /**
- * Guide Surface - Full Page Component
+ * Guide Surface - Premium Full Page Component
  * 
- * Step-by-step guide with progress tracking and completion.
+ * Step-by-step guide with modern progress tracking, animations,
+ * and engaging status indicators.
  */
 
 "use client";
@@ -15,13 +16,16 @@ import {
   Clock,
   Loader2,
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   SkipForward,
+  Sparkles,
+  Trophy,
+  Zap,
+  AlertCircle,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Markdown } from "@/components/prompt-kit/markdown";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface GuideSurfaceProps {
   metadata: GuideMetadata;
@@ -55,6 +59,7 @@ export const GuideSurface = memo(function GuideSurface({
   const progress = steps.length > 0 
     ? Math.round((totalComplete / steps.length) * 100) 
     : 0;
+  const isComplete = totalComplete === steps.length && steps.length > 0;
 
   const handleStepClick = useCallback((index: number) => {
     setExpandedStep(expandedStep === index ? -1 : index);
@@ -88,43 +93,105 @@ export const GuideSurface = memo(function GuideSurface({
     }
   }, [steps, completedSteps, skippedSteps, onSkipStep]);
 
+  // Get current/next step for the header
+  const currentStepIndex = steps.findIndex((_, i) => 
+    !completedSteps.includes(i) && !skippedSteps.includes(i)
+  );
+
   return (
     <div className={cn("max-w-3xl mx-auto", className)}>
-      {/* Header */}
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <ListChecks className="h-6 w-6 text-primary" />
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent border border-green-500/20 mb-8">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        
+        <div className="relative z-10 p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            {/* Guide Info */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/20">
+                  <ListChecks className="h-5 w-5 text-green-500" />
+                </div>
+                <span className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wide",
+                  metadata.difficulty === 'beginner' && "bg-green-500/20 text-green-500",
+                  metadata.difficulty === 'intermediate' && "bg-yellow-500/20 text-yellow-600",
+                  metadata.difficulty === 'advanced' && "bg-red-500/20 text-red-500",
+                )}>
+                  {metadata.difficulty}
+                </span>
               </div>
-              <div>
-                <CardTitle className="text-xl">{metadata.title}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {metadata.description}
-                </p>
+              
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">{metadata.title}</h1>
+              <p className="text-muted-foreground text-sm md:text-base">{metadata.description}</p>
+              
+              <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Target className="h-4 w-4" />
+                  {steps.length} steps
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  ~{metadata.estimatedTime} min
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
-                ~{metadata.estimatedTime} min
-              </span>
-              <span className="px-2.5 py-1 rounded-full bg-muted text-xs font-medium capitalize">
-                {metadata.difficulty}
+
+            {/* Progress Stats */}
+            <div className="flex flex-col items-center">
+              <div className="relative w-24 h-24">
+                {/* Background ring */}
+                <svg className="w-24 h-24 transform -rotate-90">
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="42"
+                    strokeWidth="8"
+                    stroke="currentColor"
+                    fill="transparent"
+                    className="text-muted/30"
+                  />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="42"
+                    strokeWidth="8"
+                    stroke="currentColor"
+                    fill="transparent"
+                    strokeLinecap="round"
+                    className="text-green-500 transition-all duration-700"
+                    style={{
+                      strokeDasharray: `${2 * Math.PI * 42}`,
+                      strokeDashoffset: `${2 * Math.PI * 42 * (1 - progress / 100)}`,
+                    }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xl font-bold">{progress}%</span>
+                </div>
+              </div>
+              <span className="text-sm text-muted-foreground mt-2">
+                {totalComplete}/{steps.length} done
               </span>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0">
+        </div>
+      </div>
+
+      {/* Completion Banner */}
+      {isComplete && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/10 to-green-500/20 border border-green-500/30">
           <div className="flex items-center gap-4">
-            <Progress value={progress} className="flex-1 h-2" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {totalComplete}/{steps.length} steps
-            </span>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500">
+              <Trophy className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-600 dark:text-green-400">Guide Complete!</h3>
+              <p className="text-sm text-muted-foreground">You've finished all steps. Great work!</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
       {/* Steps */}
       <div className="space-y-3">
@@ -134,35 +201,50 @@ export const GuideSurface = memo(function GuideSurface({
           const isSkipped = skippedSteps.includes(step.index);
           const content = stepsContent[step.index] || null;
           const isStepGenerating = isGenerating && expandedStep === step.index;
+          const isCurrent = step.index === currentStepIndex;
 
           return (
-            <Card 
-              key={step.index} 
+            <div 
+              key={step.index}
               className={cn(
-                "transition-all",
-                isExpanded && "ring-2 ring-primary/20",
-                isCompleted && "opacity-70",
-                isSkipped && "opacity-50"
+                "relative rounded-xl border-2 overflow-hidden transition-all duration-300",
+                isExpanded && "shadow-lg",
+                isCompleted 
+                  ? "border-green-500/30 bg-green-500/5" 
+                  : isSkipped
+                    ? "border-muted bg-muted/30" 
+                    : isCurrent && !isExpanded
+                      ? "border-primary/30"
+                      : "border-border",
+                isExpanded && !isCompleted && !isSkipped && "border-primary",
               )}
             >
+              {/* Progress Line Connector */}
+              {step.index < steps.length - 1 && (
+                <div className={cn(
+                  "absolute left-8 top-full w-0.5 h-3 -translate-x-1/2 z-10",
+                  isCompleted ? "bg-green-500" : "bg-border"
+                )} />
+              )}
+
               {/* Step Header */}
               <button
                 onClick={() => handleStepClick(step.index)}
-                className="w-full text-left px-6 py-4 flex items-center gap-4"
+                className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-muted/30 transition-colors"
               >
                 {/* Step Number/Check */}
                 <div className={cn(
-                  "flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center font-medium text-sm",
+                  "flex-shrink-0 w-10 h-10 rounded-xl border-2 flex items-center justify-center font-bold text-sm transition-all",
                   isCompleted 
-                    ? "bg-green-500 border-green-500 text-white" 
+                    ? "bg-green-500 border-green-500 text-white shadow-md shadow-green-500/30" 
                     : isSkipped
                       ? "bg-muted border-muted-foreground/30 text-muted-foreground"
-                      : isExpanded
-                        ? "border-primary text-primary"
+                      : isCurrent
+                        ? "border-primary text-primary bg-primary/10"
                         : "border-muted-foreground/30 text-muted-foreground"
                 )}>
                   {isCompleted ? (
-                    <Check className="h-4 w-4" />
+                    <Check className="h-5 w-5" />
                   ) : (
                     step.index + 1
                   )}
@@ -170,95 +252,112 @@ export const GuideSurface = memo(function GuideSurface({
 
                 {/* Step Info */}
                 <div className="flex-1 min-w-0">
-                  <h3 className={cn(
-                    "font-medium",
-                    (isCompleted || isSkipped) && "line-through text-muted-foreground"
-                  )}>
-                    {step.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className={cn(
+                      "font-medium text-base",
+                      (isCompleted || isSkipped) && "text-muted-foreground"
+                    )}>
+                      {step.title}
+                    </h3>
+                    {isCurrent && !isCompleted && !isSkipped && (
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">
+                        Current
+                      </span>
+                    )}
+                    {isSkipped && (
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                        Skipped
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
                     <Clock className="h-3.5 w-3.5" />
-                    {step.estimatedTime} min
-                    {isSkipped && <span className="text-xs">(Skipped)</span>}
+                    ~{step.estimatedTime} min
                   </p>
                 </div>
 
                 {/* Expand Icon */}
                 {isExpanded ? (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  <ChevronUp className="h-5 w-5 text-muted-foreground transition-transform" />
                 ) : (
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
                 )}
               </button>
 
               {/* Expanded Content */}
               {isExpanded && (
-                <CardContent className="pt-0 border-t">
-                  {isStepGenerating ? (
-                    <div className="flex items-center py-8 justify-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <span className="ml-3 text-muted-foreground">
-                        Generating step details...
-                      </span>
-                    </div>
-                  ) : content ? (
-                    <>
-                      <div className="prose dark:prose-invert max-w-none py-4">
-                        <Markdown>{content}</Markdown>
-                      </div>
-                      {!isCompleted && !isSkipped && (
-                        <div className="flex items-center gap-3 pt-4 border-t">
-                          <Button 
-                            onClick={() => handleComplete(step.index)}
-                            className="gap-2"
-                          >
-                            <Check className="h-4 w-4" />
-                            Mark Complete
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            onClick={() => handleSkip(step.index)}
-                            className="gap-2"
-                          >
-                            <SkipForward className="h-4 w-4" />
-                            Skip
-                          </Button>
+                <div className="border-t bg-card/50">
+                  <div className="p-5">
+                    {isStepGenerating ? (
+                      <div className="flex flex-col items-center py-12">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse" />
+                          <Loader2 className="h-10 w-10 animate-spin text-green-500 relative" />
                         </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="py-6 text-center">
-                      <Button 
-                        onClick={() => onGenerateStep(step.index)}
-                        variant="outline"
-                      >
-                        Generate Step Details
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
+                        <p className="text-muted-foreground mt-4 flex items-center gap-2">
+                          <Sparkles className="h-4 w-4" />
+                          Generating step details...
+                        </p>
+                      </div>
+                    ) : content ? (
+                      <>
+                        <div className="prose prose-sm dark:prose-invert max-w-none
+                          prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
+                          prose-p:text-muted-foreground prose-p:leading-relaxed
+                          prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                          prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg
+                          prose-li:text-muted-foreground
+                        ">
+                          <Markdown>{content}</Markdown>
+                        </div>
+                        {!isCompleted && !isSkipped && (
+                          <div className="flex items-center gap-3 pt-5 mt-5 border-t">
+                            <Button 
+                              onClick={() => handleComplete(step.index)}
+                              className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                            >
+                              <Check className="h-4 w-4" />
+                              Mark Complete
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => handleSkip(step.index)}
+                              className="gap-2"
+                            >
+                              <SkipForward className="h-4 w-4" />
+                              Skip Step
+                            </Button>
+                          </div>
+                        )}
+                        {isCompleted && (
+                          <div className="flex items-center gap-2 pt-4 mt-4 border-t text-green-500">
+                            <Check className="h-5 w-5" />
+                            <span className="font-medium">Step completed!</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center py-10 text-center">
+                        <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                          <Zap className="h-7 w-7 text-muted-foreground/50" />
+                        </div>
+                        <h4 className="font-medium mb-2">Ready to begin?</h4>
+                        <p className="text-muted-foreground text-sm mb-5 max-w-sm">
+                          Generate the detailed instructions for this step.
+                        </p>
+                        <Button onClick={() => onGenerateStep(step.index)} className="gap-2">
+                          <Sparkles className="h-4 w-4" />
+                          Generate Instructions
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>
-
-      {/* Completion Message */}
-      {totalComplete === steps.length && steps.length > 0 && (
-        <Card className="mt-6 bg-green-500/10 border-green-500/20">
-          <CardContent className="py-6 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500 mb-4">
-              <Check className="h-6 w-6 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold text-green-600 dark:text-green-400">
-              Guide Complete!
-            </h3>
-            <p className="text-muted-foreground mt-1">
-              You've finished all steps. Great work!
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 });
