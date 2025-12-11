@@ -349,38 +349,44 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
       </SidebarHeader>
 
       <SidebarContent className="">
-        <div className="flex flex-col gap-2.5 p-3">
-          {/* Search Bar - Matches command bar style */}
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("open-command-bar"))}
-            className="group flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-muted-foreground bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] border border-border/40 hover:border-border/60 rounded-xl transition-all duration-150 shadow-sm hover:shadow"
-          >
-            <Search className="h-4 w-4 shrink-0" />
-            <span className="flex-1 text-left truncate">Search...</span>
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/60 bg-muted/50 border border-border/40 rounded">
-              ⌘K
-            </kbd>
-          </button>
-
-          {/* New Chat + Folder Actions */}
-          <div className="flex gap-1.5">
-            <Button
-              variant="outline"
-              className="flex-1 justify-start gap-2.5 px-3 h-10 shadow-sm border-border/40 bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] hover:border-border/60 text-foreground rounded-xl transition-all"
-              onClick={() => {
-                handleSelectConversation(null);
-              }}
+        <div className="flex flex-col gap-2 p-4">
+          {/* Action Area: Search & New Chat in one row */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("open-command-bar"))}
+              className="group flex-1 flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground/70 bg-secondary/50 hover:bg-secondary/80 hover:text-foreground rounded-lg transition-all duration-200"
             >
-              <Plus className="size-4" />
-              <span className="text-sm font-medium">New Chat</span>
-            </Button>
+              <Search className="h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100" />
+              <span className="truncate">Search</span>
+              <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/50 bg-transparent rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                ⌘K
+              </kbd>
+            </button>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-all"
+                  onClick={() => {
+                   handleSelectConversation(null);
+                  }}
+                >
+                  <Plus className="size-5" />
+                  <span className="sr-only">New Chat</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New Chat</TooltipContent>
+            </Tooltip>
+
             {!activeProjectId && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-xl transition-all"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-all"
                     onClick={handleCreateFolder}
                   >
                     <FolderPlus className="size-4" />
@@ -391,9 +397,9 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
             )}
           </div>
         </div>
-        <div className="flex-1 overflow-auto" ref={scrollableRef}>
+        <div className="flex-1 overflow-auto no-scrollbar" ref={scrollableRef}>
           {!activeProjectId ? (
-            <div className="mb-2">
+            <div className="mb-6">
               {isLoadingProjects ? (
                 <div className="px-4 py-2 space-y-2">
                   <div className="flex items-center justify-between mb-1">
@@ -421,7 +427,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
             <div className="px-4 mb-4">
               <Button
                 variant="ghost"
-                className="w-full justify-start px-2 -ml-2 mb-2 text-muted-foreground hover:text-foreground"
+                className="w-full justify-start px-2 -ml-2 mb-2 text-muted-foreground hover:text-foreground font-normal"
                 onClick={() => {
                   if (typeof window !== 'undefined') {
                     window.location.href = '/chat';
@@ -431,9 +437,9 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Back to all chats
               </Button>
-              <div className="flex items-center gap-2 py-1">
-                <FolderIcon className="h-4 w-4 text-primary" />
-                <h2 className="font-semibold text-lg tracking-tight">
+              <div className="flex items-center gap-2 py-1 px-1">
+                <FolderIcon className="h-4 w-4 text-primary/70" />
+                <h2 className="font-medium text-base tracking-tight">
                   {projects.find((p) => p.id === activeProjectId)?.name ||
                     "Project"}
                 </h2>
@@ -447,34 +453,11 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           {/* Folders Section - Show grouped conversations (hidden on project pages) */}
           {!activeProjectId && (
             <>
-              <div className="px-3 mb-2">
+              <div className="px-5 mb-2 mt-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Folders</h2>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-4 w-4">
-                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                          <span className="sr-only">What are folders?</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-sm">
-                        <p>
-                          Folders help you organize your chats by grouping related conversations together.
-                          You can reference these organized chats in your conversation input to maintain context across your chats.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Folders</h2>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={handleCreateFolder}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="sr-only">New Folder</span>
-                  </Button>
                 </div>
               </div>
 

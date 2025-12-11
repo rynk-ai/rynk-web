@@ -9,6 +9,7 @@ import { getFaviconUrl, getDomainName } from "@/lib/types/citation";
 import { DotsLoader } from "@/components/prompt-kit/loader";
 import { Globe, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Loader } from "../ui/loader";
 
 interface StatusPill {
   status: "analyzing" | "searching" | "synthesizing" | "complete";
@@ -111,7 +112,7 @@ export function ReasoningDisplay({
         {/* Status indicator */}
         {isThinking ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <DotsLoader size="sm" className="text-primary" />
+            <Loader variant="loading-dots" size="sm" className="text-primary" />
             <span className="font-medium">{message}</span>
             
             {/* Show source count while searching */}

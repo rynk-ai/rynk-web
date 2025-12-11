@@ -543,17 +543,13 @@ export const ChatMessageItem = memo(
           >
             <div className="group flex w-full flex-col gap-0 relative">
               <div className="w-full" onMouseUp={handleTextSelection}>
-                {/* Context Cards - Shows what context was retrieved from RAG */}
-                {streamingContextCards && streamingContextCards.length > 0 && (
-                  <ContextCardList cards={streamingContextCards} className="mb-2" />
-                )}
 
                 {/* Reasoning Display - Shows current status during streaming */}
                 <ReasoningDisplay
                   statuses={effectiveStatusPills || []}
-                  searchResults={null}
+                  searchResults={streamingSearchResults || effectiveSearchResults}
                   isComplete={!isStreaming}
-                  defaultCollapsed={false}
+                  defaultCollapsed={true}
                 />
 
                 {/* Message content with inline citations */}
@@ -594,27 +590,27 @@ export const ChatMessageItem = memo(
                 typeof window !== "undefined" &&
                 createPortal(
                   <div
-                    className="absolute z-[9999] flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                    className="absolute z-[9999] flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
                     style={{
-                      top: `${buttonPosition.top + 4}px`,
+                      top: `${buttonPosition.top + 8}px`,
                       left: `${buttonPosition.left + 8}px`,
                     }}
                   >
                     {onQuote && (
                       <Button
                         size="sm"
-                        className="h-8 gap-1.5 px-3 shadow-lg bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] border border-border/30 rounded-xl"
+                        className="h-8 gap-1.5 px-3 shadow-xl bg-background text-foreground hover:bg-secondary/80 border-none rounded-xl ring-1 ring-black/5"
                         onClick={handleQuoteClick}
                         onMouseDown={(e) => e.preventDefault()}
                       >
-                        <Quote className="h-3.5 w-3.5" />
+                        <Quote className="h-3.5 w-3.5 opacity-70" />
                         <span className="text-xs font-medium">Quote</span>
                       </Button>
                     )}
                     {onOpenSubChat && (
                       <Button
                         size="sm"
-                        className="h-8 gap-1.5 px-3 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+                        className="h-8 gap-1.5 px-3 shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-none rounded-xl"
                         onClick={handleSubChatClick}
                         onMouseDown={(e) => e.preventDefault()}
                         title="Ask about this"
@@ -725,7 +721,7 @@ export const ChatMessageItem = memo(
             <div className="flex flex-col items-end w-full">
               <MessageContent
                 className={cn(
-                  "text-foreground bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] rounded-2xl px-5 py-3 prose prose-slate dark:prose-invert shadow-sm transition-all duration-150 border border-border/30",
+                  "text-foreground bg-secondary/60 hover:bg-secondary/80 rounded-[1.25rem] px-5 py-3 prose prose-slate dark:prose-invert transition-all duration-200 border-none selection:bg-primary/20",
                   isEditing && "opacity-50",
                 )}
                 onMouseUp={handleTextSelection}
@@ -742,33 +738,33 @@ export const ChatMessageItem = memo(
               typeof window !== "undefined" &&
               createPortal(
                 <div
-                  className="absolute z-[9999] flex items-center gap-1 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                  className="absolute z-[9999] flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
                   style={{
-                    top: `${buttonPosition.top + 4}px`,
+                    top: `${buttonPosition.top + 8}px`,
                     left: `${buttonPosition.left + 8}px`,
                   }}
                 >
                   {onQuote && (
                     <Button
                       size="sm"
-                      className="h-7 gap-1.5 px-2.5 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 border-0 rounded-md"
+                      className="h-8 gap-1.5 px-3 shadow-xl bg-background text-foreground hover:bg-secondary/80 border-none rounded-xl ring-1 ring-black/5"
                       onClick={handleQuoteClick}
                       onMouseDown={(e) => e.preventDefault()}
                     >
-                      <Quote className="h-3.5 w-3.5" />
+                      <Quote className="h-3.5 w-3.5 opacity-70" />
                       <span className="text-xs font-medium">Quote</span>
                     </Button>
                   )}
                   {onOpenSubChat && (
                     <Button
                       size="sm"
-                      className="h-7 gap-1.5 px-2.5 shadow-lg bg-teal-600 text-white hover:bg-teal-700 border-0 rounded-md"
+                      className="h-8 gap-1.5 px-3 shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-none rounded-xl"
                       onClick={handleSubChatClick}
                       onMouseDown={(e) => e.preventDefault()}
                       title="Ask about this"
                     >
                       <MessageSquarePlus className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">Ask</span>
+                      <span className="text-xs font-medium">Deep dive</span>
                     </Button>
                   )}
                 </div>,

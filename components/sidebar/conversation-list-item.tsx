@@ -102,13 +102,6 @@ export const ConversationListItem = memo(
               )}
             </div>
             
-            {/* Preview - first 40 chars of last message */}
-            {preview && (
-              <p className="text-xs text-muted-foreground/70 truncate leading-relaxed">
-                {preview.slice(0, 45)}{preview.length > 45 ? '...' : ''}
-              </p>
-            )}
-            
             {/* Tags */}
             {hasTags && (
               <div className="flex items-center gap-1 flex-wrap mt-0.5">

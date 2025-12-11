@@ -718,6 +718,7 @@ export const PromptInputWithFiles = memo(function
           onValueChange={handlePromptChange}
           onSubmit={handleSubmit}
           disabled={disabled || isSubmittingEdit}
+          className="bg-card shadow-2xl rounded-2xl border-none ring-1 ring-black/5"
         >
           <div className="flex flex-col">
             <PromptInputTextarea
@@ -731,7 +732,7 @@ export const PromptInputWithFiles = memo(function
                       ? currentSurfaceMode.placeholder 
                       : `${currentSurfaceMode.placeholder} (Shift+Enter for new line)`
               }
-              className="min-h-[44px] pt-3 pl-3 text-base leading-[1.4] sm:text-base md:text-base overscroll-contain"
+              className="min-h-[52px] pt-4 pl-4 text-base leading-[1.6] sm:text-base md:text-base overscroll-contain bg-transparent border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
             />

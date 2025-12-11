@@ -7,193 +7,143 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   DEEP WORK DESIGN SYSTEM
-   High contrast, precision, monochrome + teal
+   RYNK "NORDIC CLEAN" DESIGN SYSTEM
+   Minimalist, airy, premium, focus on typography.
    ============================================ */
 
 @layer base {
     :root {
-        /* Backgrounds - Crisp White */
-        --background: 0 0% 100%;
-        --foreground: 240 10% 3.9%;
+        /* Backgrounds - "Vapor" (Cool, soft gray-white) */
+        --background: 220 20% 97%;
+        
+        /* Foreground - "Soft Ink" */
+        --foreground: 224 25% 12%; 
 
-        /* Card/Surface - Very subtle definition */
+        /* Card/Surface - Pure White for depth against the gray bg */
         --card: 0 0% 100%;
-        --card-foreground: 240 10% 3.9%;
+        --card-foreground: 224 25% 12%;
 
         /* Popover - Pure White */
         --popover: 0 0% 100%;
-        --popover-foreground: 240 10% 3.9%;
+        --popover-foreground: 224 25% 12%;
 
-        /* Primary - Deep Black for actions */
-        --primary: 240 5.9% 10%;
-        --primary-foreground: 0 0% 98%;
+        /* Primary - Elegant Charcoal */
+        --primary: 224 25% 12%;
+        --primary-foreground: 210 20% 98%;
 
-        /* Secondary - Cool Gray for subtle elements */
-        --secondary: 240 4.8% 95.9%;
-        --secondary-foreground: 240 5.9% 10%;
-
-        /* Muted - For de-emphasized text */
-        --muted: 240 4.8% 95.9%;
-        --muted-foreground: 240 3.8% 46.1%;
-
-        /* Accent - Electric Teal (Focus/Deep Work) */
-        --accent: 173 80% 40%; /* Teal-600 */
-        --accent-foreground: 0 0% 100%;
-
-        /* Destructive - Sharp Red */
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-
-        /* Borders & Inputs - Crisp, high contrast borders */
-        --border: 240 5.9% 90%;
-        --input: 240 5.9% 90%;
-        --ring: 173 80% 40%; /* Teal Focus Ring */
-
-        /* Radius - Tighter for technical feel */
-        --radius: 0.5rem;
-
-        /* ============================================
-           NEW: Canvas & Surface System
-           ============================================ */
-        --canvas: 0 0% 98%;                      /* Main content background */
-        --canvas-subtle: 240 4.8% 96%;           /* Slightly darker canvas */
-        --surface: 0 0% 100%;                    /* Elevated surfaces (cards, modals) */
-        --surface-hover: 240 4.8% 97%;           /* Surface on hover */
-        --surface-active: 240 4.8% 95%;          /* Surface when active/pressed */
-        
-        /* Glow effects */
-        --glow-primary: 173 80% 40% / 0.15;      /* Teal glow */
-        --glow-accent: 200 100% 50% / 0.1;       /* Blue accent glow */
-        --glow-soft: 240 5.9% 10% / 0.04;        /* Subtle shadow glow */
-        
-        /* Command bar specific */
-        --command-bg: 0 0% 100%;
-        --command-border: 240 5.9% 85%;
-        --command-item-hover: 240 4.8% 96%;
-        --command-item-active: 173 80% 95%;
-        --command-kbd: 240 4.8% 92%;
-
-        /* ============================================
-           NEW: Typography Scale
-           ============================================ */
-        --text-xs: 0.75rem;      /* 12px - timestamps, labels */
-        --text-sm: 0.8125rem;    /* 13px - secondary text */
-        --text-base: 0.875rem;   /* 14px - body text */
-        --text-lg: 1rem;         /* 16px - emphasis */
-        --text-xl: 1.25rem;      /* 20px - headings */
-        --text-2xl: 1.5rem;      /* 24px - section titles */
-        --text-3xl: 2rem;        /* 32px - hero text */
-        
-        /* Line heights */
-        --leading-tight: 1.25;
-        --leading-normal: 1.5;
-        --leading-relaxed: 1.625;
-
-        /* ============================================
-           NEW: Motion Primitives
-           ============================================ */
-        --duration-instant: 50ms;
-        --duration-fast: 100ms;
-        --duration-normal: 200ms;
-        --duration-slow: 300ms;
-        --duration-slower: 500ms;
-        
-        --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-        --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-        /* Font Families */
-        --font-geist: "Geist Sans", sans-serif;
-        --font-inter: "Inter", sans-serif;
-        --font-system: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-    }
-
-    .dark {
-        /* Backgrounds - Deep Carbon/Obsidian (Not gray, deep black) */
-        --background: 0 0% 3.9%; /* Hex #0a0a0a */
-        --foreground: 0 0% 98%;
-
-        /* Card/Surface - Slightly lighter black */
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-
-        /* Popover - Matches bg */
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-
-        /* Primary - White for minimal actions against dark */
-        --primary: 0 0% 98%;
-        --primary-foreground: 240 5.9% 10%;
-
-        /* Secondary - Dark Gray surface */
-        --secondary: 240 3.7% 15.9%;
-        --secondary-foreground: 0 0% 98%;
+        /* Secondary - Soft Cloud Gray */
+        --secondary: 220 14% 93%;
+        --secondary-foreground: 224 25% 12%;
 
         /* Muted */
-        --muted: 240 3.7% 15.9%;
-        --muted-foreground: 240 5% 64.9%;
+        --muted: 220 14% 93%;
+        --muted-foreground: 220 10% 45%;
 
-        /* Accent - Electric Teal glow */
-        --accent: 173 70% 35%; /* Teal-700/600 hybrid */
+        /* Accent - "Electric Indigo" (Vibrant tech feel) */
+        --accent: 230 85% 60%;
         --accent-foreground: 0 0% 100%;
 
         /* Destructive */
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 210 20% 98%;
 
-        /* Borders - Subtle but defined */
-        --border: 240 3.7% 15.9%;
-        --input: 240 3.7% 15.9%;
-        --ring: 173 70% 50%;
+        /* Borders - Transparent/Subtle */
+        --border: 220 15% 90%; 
+        --input: 220 15% 90%;
+        --ring: 230 85% 60%;
 
-        /* ============================================
-           NEW: Canvas & Surface System (Dark)
-           ============================================ */
-        --canvas: 240 10% 4%;                    /* Main content background */
-        --canvas-subtle: 240 8% 6%;              /* Slightly lighter canvas */
-        --surface: 240 6% 8%;                    /* Elevated surfaces */
-        --surface-hover: 240 5% 12%;             /* Surface on hover */
-        --surface-active: 240 5% 10%;            /* Surface when active */
+        /* Radius - Consistent Friendliness */
+        --radius: 0.75rem;
+
+        /* Surface System */
+        --canvas: 220 20% 97%;
+        --canvas-subtle: 220 20% 95%; /* Slightly darker for distinct areas */
+        --surface: 0 0% 100%;
+        --surface-hover: 220 20% 98%; 
+        --surface-active: 220 20% 96%;
         
-        /* Glow effects */
-        --glow-primary: 173 70% 50% / 0.2;       /* Teal glow (brighter in dark) */
-        --glow-accent: 200 100% 60% / 0.15;      /* Blue accent glow */
-        --glow-soft: 0 0% 100% / 0.03;           /* Subtle white glow */
+        /* Shadows - Premium Diffusion */
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04); /* Slightly deeper */
+        --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.03);
+        --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.15); /* Deep float */
         
-        /* Command bar specific */
-        --command-bg: 240 6% 6%;
-        --command-border: 240 5% 18%;
-        --command-item-hover: 240 5% 12%;
-        --command-item-active: 173 70% 15%;
-        --command-kbd: 240 5% 20%;
+        /* Glows */
+        --glow-primary: 230 85% 60% / 0.15;
+    }
+
+    .dark {
+        /* Backgrounds - "Carbon" (Deep, rich charcoal - NOT black) */
+        --background: 224 15% 10%; 
+        
+        /* Foreground - Soft White */
+        --foreground: 210 20% 95%;
+
+        /* Card/Surface - Slightly lighter layer */
+        --card: 224 15% 12%; 
+        --card-foreground: 210 20% 95%;
+
+        /* Popover */
+        --popover: 224 15% 12%;
+        --popover-foreground: 210 20% 95%;
+
+        /* Primary - White for actions */
+        --primary: 210 20% 98%;
+        --primary-foreground: 224 15% 10%;
+
+        /* Secondary - Dark Gray surface */
+        --secondary: 224 15% 16%; 
+        --secondary-foreground: 210 20% 95%;
+
+        /* Muted */
+        --muted: 224 15% 16%;
+        --muted-foreground: 215 15% 65%;
+
+        /* Accent - Brighter Indigo for dark mode */
+        --accent: 230 85% 65%; 
+        --accent-foreground: 0 0% 100%;
+
+        /* Borders */
+        --border: 224 15% 18%;
+        --input: 224 15% 18%;
+        --ring: 230 85% 65%;
+
+        /* Surfaces */
+        --canvas: 224 15% 10%;
+        --canvas-subtle: 224 15% 8%; /* Darker sidebar */
+        --surface: 224 15% 12%;
+        --surface-hover: 224 15% 15%;
+        --surface-active: 224 15% 17%;
+        
+        /* Glows */
+        --glow-primary: 230 85% 65% / 0.2;
     }
 }
 
 @layer base {
     :root {
-        /* Sidebar Colors - Light Mode - Clean Gray */
-        --sidebar: 240 4.8% 98%; /* Slightly off-white */
-        --sidebar-foreground: 240 5.9% 10%;
-        --sidebar-primary: 240 5.9% 10%;
+        /* Sidebar Colors - Light Mode - "Vapor" but distinct */
+        --sidebar: var(--canvas-subtle); 
+        --sidebar-foreground: 224 25% 12%; 
+        --sidebar-primary: 224 25% 12%;
         --sidebar-primary-foreground: 0 0% 98%;
-        --sidebar-accent: 240 4.8% 90%;
-        --sidebar-accent-foreground: 240 5.9% 10%;
-        --sidebar-border: 240 5.9% 90%;
-        --sidebar-ring: 173 80% 40%;
+        --sidebar-accent: 220 14% 93%;
+        --sidebar-accent-foreground: 224 25% 12%;
+        --sidebar-border: 220 15% 90%;
+        --sidebar-ring: 230 85% 60%;
     }
 
     .dark {
-        /* Sidebar Colors - Dark Mode - Low Contrast with Main */
-        --sidebar: 0 0% 0%; /* Pure Black */
-        --sidebar-foreground: 240 4.8% 95.9%;
-        --sidebar-primary: 224.3 76.3% 48%;
+        /* Sidebar Colors - Dark Mode - "Carbon" but distinct */
+        --sidebar: 224 15% 8%; /* Darker than main canvas */
+        --sidebar-foreground: 215 15% 70%;
+        --sidebar-primary: 230 85% 65%; /* Accent color for active items */
         --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 240 3.7% 15.9%;
-        --sidebar-accent-foreground: 240 4.8% 95.9%;
-        --sidebar-border: 240 3.7% 15.9%;
-        --sidebar-ring: 173 70% 50%;
+        --sidebar-accent: 224 15% 12%;
+        --sidebar-accent-foreground: 210 20% 98%;
+        --sidebar-border: 224 15% 10%;
+        --sidebar-ring: 230 85% 65%;
     }
 }
 
@@ -207,10 +157,11 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
     
-    --radius-sm: calc(var(--radius) - 2px);
-    --radius-md: var(--radius);
-    --radius-lg: calc(var(--radius) + 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
+    --radius-2xl: calc(var(--radius) + 8px);
 }
 
 @layer base {
@@ -219,17 +170,18 @@
     }
 
     body {
-        @apply bg-background text-foreground antialiased;
-        font-feature-settings: "rlig" 1, "calt" 1;
+        @apply bg-background text-foreground antialiased selection:bg-accent/20 selection:text-accent-foreground/80;
+        font-feature-settings: "ss01", "ss02", "cv01", "cv02"; /* Modern font features */
     }
 
-    /* Sharp technical transitions */
-    button, a, [role="button"], input, select, textarea {
-        @apply transition-all duration-150 ease-out;
+    /* Soften text rendering */
+    h1, h2, h3, h4, h5, h6 {
+        @apply tracking-tight font-semibold text-foreground;
     }
     
-    h1, h2, h3, h4, h5, h6 {
-        @apply tracking-tight font-semibold;
+    /* Relaxed Paragraphs */
+    p {
+        @apply leading-relaxed;
     }
 }
 
@@ -238,370 +190,64 @@
    ============================================ */
 
 @layer utilities {
-    /* Subtle Utility - No Blur/Glass */
-    .surface-elevated {
-        @apply bg-secondary/30 border border-border shadow-sm;
+    /* Floating Card Effect */
+    .card-float {
+        @apply bg-card rounded-xl border border-border/40 shadow-sm transition-all duration-300;
     }
     
-    .surface-hover {
-        @apply hover:bg-secondary/50 transition-colors duration-150;
+    .card-float:hover {
+        @apply shadow-md -translate-y-[2px];
+    }
+    
+    /* Glass Effect (Refined) */
+    .glass {
+        @apply bg-background/80 backdrop-blur-md border border-white/20;
+    }
+    
+    .dark .glass {
+        @apply bg-background/80 backdrop-blur-md border border-white/5;
     }
 
-    /* Enhanced surface with glow effect */
-    .surface-glow {
-        @apply bg-secondary/50 border border-border/50;
-        box-shadow: 0 0 0 1px hsl(var(--border)/0.1), 
-                    0 2px 8px -2px hsl(var(--foreground)/0.05);
+    /* Invisible Scrollbar */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
 
-    .surface-glow:hover {
-        box-shadow: 0 0 0 1px hsl(var(--border)/0.2), 
-                    0 4px 12px -2px hsl(var(--foreground)/0.08);
+    /* Better Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        @apply bg-muted-foreground/10 rounded-full hover:bg-muted-foreground/20 transition-colors;
     }
 
-    /* ============================================
-       NEW: Canvas Background System
-       ============================================ */
-    .bg-canvas {
-        background-color: hsl(var(--canvas));
+    /* Typography Utilities */
+    .text-balance {
+        text-wrap: balance;
     }
     
-    .bg-canvas-subtle {
-        background-color: hsl(var(--canvas-subtle));
-    }
-    
-    .bg-surface {
-        background-color: hsl(var(--surface));
-    }
-    
-    .bg-surface-hover {
-        @apply transition-colors;
-    }
-    
-    .bg-surface-hover:hover {
-        background-color: hsl(var(--surface-hover));
-    }
-    
-    /* Glow backgrounds */
-    .glow-primary {
-        box-shadow: 0 0 20px -5px hsl(var(--glow-primary));
-    }
-    
-    .glow-accent {
-        position: relative;
-    }
-    
-    /* Text glow effect - creates smooth radial glow behind text */
-    .glow-text {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .glow-text::before {
-        content: attr(data-text);
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: inherit;
-        font-weight: inherit;
-        color: transparent;
-        background: radial-gradient(ellipse at center, hsl(var(--glow-primary)) 0%, transparent 70%);
-        filter: blur(40px);
-        opacity: 0.6;
-        pointer-events: none;
-        z-index: -1;
-        width: 150%;
-        height: 200%;
-    }
-    
-    .glow-soft {
-        box-shadow: 0 4px 20px -4px hsl(var(--glow-soft));
+    .text-pretty {
+        text-wrap: pretty;
     }
 
-    /* ============================================
-       NEW: Collapsible Sidebar Utilities
-       ============================================ */
-    .sidebar-collapsed {
-        width: 48px;
-        min-width: 48px;
+    /* Animation Utilities */
+    .animate-in-fade {
+        animation: fadeIn 0.3s ease-out forwards;
     }
     
-    .sidebar-expanded {
-        width: 280px;
-        min-width: 280px;
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
-    
-    .sidebar-transition {
-        transition: width var(--duration-normal) var(--ease-out),
-                    min-width var(--duration-normal) var(--ease-out),
-                    transform var(--duration-normal) var(--ease-out);
-    }
-    
-    /* Sidebar floating overlay mode */
-    .sidebar-float {
-        position: absolute;
-        z-index: 40;
-        height: 100%;
-        box-shadow: 4px 0 24px -4px hsl(var(--foreground)/0.1);
-    }
-    
-    /* Icon strip for collapsed state */
-    .icon-strip {
-        @apply flex flex-col items-center gap-1 py-2;
-    }
-    
-    .icon-strip-item {
-        @apply flex items-center justify-center w-10 h-10 rounded-lg 
-               text-muted-foreground hover:text-foreground 
-               hover:bg-secondary/80 transition-all cursor-pointer;
-    }
-    
-    .icon-strip-item.active {
-        @apply text-primary bg-secondary;
-    }
-
-    /* Text Gradients */
-    .text-gradient {
-        @apply bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70;
-    }
-    
-    .text-gradient-primary {
-        /* Teal Gradient */
-        @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-teal-700 dark:from-teal-400 dark:to-teal-600;
-    }
-
-    /* Premium Focus Ring */
-    .focus-ring {
-        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
-    }
-
-    /* ============================================
-       Enhanced Animations
-       ============================================ */
-    .animate-in-up {
-        animation: fade-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    
-    .animate-in-down {
-        animation: fade-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    
-    .animate-scale {
-        animation: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    
-    .animate-slide-in-left {
-        animation: slide-in-left var(--duration-normal) var(--ease-out) forwards;
-    }
-    
-    .animate-slide-out-left {
-        animation: slide-out-left var(--duration-fast) var(--ease-out) forwards;
-    }
-
-    /* Micro-interaction hover effects */
-    .hover-lift {
-        @apply transition-all duration-150;
-    }
-    
-    .hover-lift:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px -2px hsl(var(--foreground)/0.1);
-    }
-
-    .hover-lift:active {
-        transform: translateY(0);
-    }
-    
-    /* Hover scale for icons/buttons */
-    .hover-scale {
-        @apply transition-transform;
-    }
-    
-    .hover-scale:hover {
-        transform: scale(1.05);
-    }
-    
-    .hover-scale:active {
-        transform: scale(0.98);
-    }
-
-    /* Pulse animation for loading states */
-    .pulse-subtle {
-        animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-
-    /* Glow accent for important elements */
-    .accent-glow {
-        box-shadow: 0 0 12px -3px hsl(var(--accent)/0.4);
-    }
-
-    /* Kbd styling */
-    .kbd {
-        @apply inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/70 bg-background/80 border border-border/50 rounded;
-    }
-    
-    /* ============================================
-       NEW: Empty State / Canvas Utilities
-       ============================================ */
-    .empty-state-center {
-        @apply absolute inset-0 flex flex-col items-center justify-center;
-        padding-bottom: 180px; /* Space for input field */
-    }
-    
-    /* Brand text with glow effect */
-    .brand-glow {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .brand-glow::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 120%;
-        height: 120%;
-        transform: translate(-50%, -50%);
-        background: radial-gradient(
-            ellipse at center,
-            hsl(var(--glow-primary)) 0%,
-            hsl(var(--glow-primary) / 0.5) 30%,
-            transparent 70%
-        );
-        filter: blur(50px);
-        opacity: 0.7;
-        pointer-events: none;
-        z-index: -1;
-    }
-    
-    .suggestion-card {
-        @apply flex items-center gap-3 px-4 py-3 rounded-xl 
-               bg-secondary/50 hover:bg-secondary/80 
-               border border-border/50 hover:border-border
-               cursor-pointer transition-all duration-150;
-    }
-    
-    .suggestion-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px -4px hsl(var(--foreground)/0.1);
-    }
-}
-
-/* Keyframes */
-@keyframes fade-slide-up {
-    from {
-        opacity: 0;
-        transform: translateY(5px); /* Reduced movement */
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fade-slide-down {
-    from {
-        opacity: 0;
-        transform: translateY(-5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes scale-in {
-    from {
-        opacity: 0;
-        transform: scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes shimmer {
-    0% {
-        background-position: 200% 0;
-    }
-    100% {
-        background-position: -200% 0;
-    }
-}
-
-/* NEW: Slide animations for sidebar */
-@keyframes slide-in-left {
-    from {
-        opacity: 0;
-        transform: translateX(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes slide-out-left {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(-10px);
-    }
-}
-
-@keyframes pulse-subtle {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.7;
-    }
-}
-
-/* Minimal Scrollbar Styling - Thinner, less obtrusive */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    @apply bg-secondary-foreground/10 rounded-full hover:bg-secondary-foreground/20 transition-colors;
-}
-
-@supports selector(::-webkit-scrollbar) {
-    * {
-        scrollbar-width: thin;
-        scrollbar-gutter: stable;
-    }
-}
-
-/* Highlighting */
-.subchat-highlight {
-    background-color: rgba(20, 184, 166, 0.15); /* Teal tint */
-    border-bottom: 2px solid rgba(20, 184, 166, 0.4);
-    padding: 0 2px;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-
-.subchat-highlight:hover {
-    background-color: rgba(20, 184, 166, 0.3);
-}
-
-.dark .subchat-highlight {
-    background-color: rgba(20, 184, 166, 0.2);
-}
-
-.dark .subchat-highlight:hover {
-    background-color: rgba(20, 184, 166, 0.4);
 }
 
