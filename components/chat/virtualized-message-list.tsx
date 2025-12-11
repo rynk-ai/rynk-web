@@ -30,6 +30,9 @@ interface VirtualizedMessageListProps {
   searchResults?: any
   contextCards?: Array<{ source: string; snippet: string; score: number }>
   onIsAtBottomChange?: (isAtBottom: boolean) => void
+  // Surface trigger - needs conversationId and saved surface states
+  conversationId?: string | null
+  savedSurfaces?: Record<string, any>
 }
 
 export interface VirtualizedMessageListRef {
@@ -59,7 +62,10 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   statusPills,
   searchResults,
   contextCards,
-  onIsAtBottomChange
+  onIsAtBottomChange,
+  // Surface trigger props
+  conversationId,
+  savedSurfaces,
 }, ref) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
@@ -155,6 +161,9 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
               ? contextCards
               : undefined
           }
+          // Surface trigger props
+          conversationId={conversationId}
+          savedSurfaces={savedSurfaces}
         />
       )
     }
@@ -180,7 +189,10 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     statusPills,
     searchResults,
     contextCards,
-    messages.length
+    messages.length,
+    // Surface trigger props
+    conversationId,
+    savedSurfaces,
   ])
   
   const Header = () => {

@@ -29,6 +29,7 @@ export interface CloudConversation {
   activeReferencedConversations?: { id: string; title: string }[]
   activeReferencedFolders?: { id: string; name: string }[]
   preview?: string // First 50 chars of last message for sidebar display
+  surfaceStates?: Record<string, any> // Persisted surface states (learning, guide)
 }
 
 export interface CloudMessage {
@@ -162,7 +163,8 @@ export const cloudDb = {
       branches: JSON.parse(c.branches as string || '[]'),
       isPinned: Boolean(c.isPinned),
       activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
-      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]'),
+      surfaceStates: c.surfaceStates ? JSON.parse(c.surfaceStates as string) : undefined
     })) as CloudConversation[]
   },
 
@@ -179,7 +181,8 @@ export const cloudDb = {
       branches: JSON.parse(c.branches as string || '[]'),
       isPinned: Boolean(c.isPinned),
       activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
-      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]'),
+      surfaceStates: c.surfaceStates ? JSON.parse(c.surfaceStates as string) : undefined
     })) as CloudConversation[]
   },
 
@@ -194,7 +197,8 @@ export const cloudDb = {
       branches: JSON.parse(result.branches as string || '[]'),
       isPinned: Boolean(result.isPinned),
       activeReferencedConversations: JSON.parse(result.activeReferencedConversations as string || '[]'),
-      activeReferencedFolders: JSON.parse(result.activeReferencedFolders as string || '[]')
+      activeReferencedFolders: JSON.parse(result.activeReferencedFolders as string || '[]'),
+      surfaceStates: result.surfaceStates ? JSON.parse(result.surfaceStates as string) : undefined
     } as CloudConversation
   },
 
@@ -208,7 +212,8 @@ export const cloudDb = {
       branches: JSON.parse(c.branches as string || '[]'),
       isPinned: Boolean(c.isPinned),
       activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
-      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]'),
+      surfaceStates: c.surfaceStates ? JSON.parse(c.surfaceStates as string) : undefined
     })) as CloudConversation[]
   },
 
@@ -300,7 +305,8 @@ export const cloudDb = {
       branches: JSON.parse(c.branches as string || '[]'),
       isPinned: Boolean(c.isPinned),
       activeReferencedConversations: JSON.parse(c.activeReferencedConversations as string || '[]'),
-      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]')
+      activeReferencedFolders: JSON.parse(c.activeReferencedFolders as string || '[]'),
+      surfaceStates: c.surfaceStates ? JSON.parse(c.surfaceStates as string) : undefined
     })) as CloudConversation[]
   },
 

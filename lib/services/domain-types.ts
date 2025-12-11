@@ -296,3 +296,221 @@ export function getDisclaimerText(domain: Domain): string {
     .map(type => DISCLAIMER_TEMPLATES[type])
     .join('\n\n')
 }
+
+// ============================================================================
+// ADAPTIVE SURFACES - Version Switcher Model
+// ============================================================================
+
+/**
+ * Surface types - alternative views of AI responses
+ */
+export type SurfaceType = 
+  | 'chat'         // 💬 Default conversational response
+  | 'learning'     // 📚 Course with chapters
+  | 'guide'        // ✅ Step-by-step instructions
+  | 'research'     // 🔬 Evidence cards, citations
+  | 'wiki'         // 📖 Wikipedia-style structured info
+  | 'quiz'         // 🎯 Interactive Q&A
+  | 'comparison'   // ⚖️ Side-by-side analysis
+  | 'flashcard'    // 🃏 Study cards
+  | 'timeline'     // 📅 Chronological events
+  | 'events'       // 📰 News cards
+  | 'professional' // 💼 Executive summary, data viz
+  | 'creative'     // ✨ Canvas, variations
+
+/**
+ * Metadata for Learning surface (course structure)
+ */
+export interface LearningMetadata {
+  type: 'learning'
+  title: string
+  description: string
+  depth: 'basic' | 'intermediate' | 'advanced' | 'expert'
+  estimatedTime: number // minutes
+  prerequisites: string[]
+  chapters: {
+    id: string
+    title: string
+    description: string
+    estimatedTime: number
+    status: 'locked' | 'available' | 'in-progress' | 'completed'
+  }[]
+}
+
+/**
+ * Metadata for Guide surface (step structure)
+ */
+export interface GuideMetadata {
+  type: 'guide'
+  title: string
+  description: string
+  difficulty: 'beginner' | 'intermediate' | 'advanced'
+  estimatedTime: number // minutes
+  steps: {
+    index: number
+    title: string
+    estimatedTime: number
+    status: 'pending' | 'in-progress' | 'completed' | 'skipped'
+  }[]
+}
+
+/**
+ * Metadata for default chat surface
+ */
+export interface ChatMetadata {
+  type: 'chat'
+}
+
+/**
+ * Metadata for Quiz surface
+ */
+export interface QuizMetadata {
+  type: 'quiz'
+  topic: string
+  description: string
+  questionCount: number
+  difficulty: 'easy' | 'medium' | 'hard'
+  format: 'multiple-choice' | 'true-false' | 'open-ended' | 'mixed'
+  questions: {
+    id: string
+    question: string
+    options?: string[]          // For multiple-choice
+    correctAnswer: string | number  // Index for MC, string for open-ended
+    explanation: string
+  }[]
+}
+
+/**
+ * Metadata for Comparison surface
+ */
+export interface ComparisonMetadata {
+  type: 'comparison'
+  title: string
+  description: string
+  items: {
+    id: string
+    name: string
+    description: string
+    pros: string[]
+    cons: string[]
+    attributes: Record<string, string | number | boolean>
+  }[]
+  criteria: {
+    name: string
+    weight: number  // 0-1 importance
+    description?: string
+  }[]
+  recommendation?: {
+    itemId: string
+    reason: string
+  }
+}
+
+/**
+ * Metadata for Flashcard surface
+ */
+export interface FlashcardMetadata {
+  type: 'flashcard'
+  topic: string
+  description: string
+  cardCount: number
+  cards: {
+    id: string
+    front: string    // Question or term
+    back: string     // Answer or definition
+    hints?: string[]
+    difficulty: 'easy' | 'medium' | 'hard'
+  }[]
+}
+
+/**
+ * Metadata for Timeline surface
+ */
+export interface TimelineMetadata {
+  type: 'timeline'
+  title: string
+  description: string
+  startDate?: string
+  endDate?: string
+  events: {
+    id: string
+    date: string
+    title: string
+    description: string
+    category?: string
+    importance: 'minor' | 'moderate' | 'major'
+  }[]
+}
+
+/**
+ * Union type for all surface metadata
+ */
+export type SurfaceMetadata = 
+  | LearningMetadata 
+  | GuideMetadata 
+  | QuizMetadata 
+  | ComparisonMetadata
+  | FlashcardMetadata
+  | TimelineMetadata
+  | ChatMetadata
+
+/**
+ * State for a specific surface version
+ */
+export interface SurfaceState {
+  surfaceType: SurfaceType
+  metadata: SurfaceMetadata
+  createdAt: number
+  updatedAt: number
+  // Learning-specific state
+  learning?: {
+    currentChapter: number
+    completedChapters: number[]
+    chaptersContent: Record<number, string>
+    notes: Array<{ chapterId: number; content: string; createdAt: number }>
+  }
+  // Guide-specific state
+  guide?: {
+    currentStep: number
+    completedSteps: number[]
+    skippedSteps: number[]
+    stepsContent: Record<number, string>
+    questionsAsked: Array<{ question: string; answer: string; stepIndex: number }>
+  }
+  // Quiz-specific state
+  quiz?: {
+    currentQuestion: number
+    answers: Record<number, string | number>  // questionIndex -> answer
+    correctCount: number
+    incorrectCount: number
+    completed: boolean
+    startedAt: number
+    completedAt?: number
+  }
+  // Flashcard-specific state
+  flashcard?: {
+    currentCard: number
+    knownCards: number[]     // Indices of cards marked as known
+    unknownCards: number[]   // Indices of cards marked as need review
+    completed: boolean
+    shuffleOrder?: number[]  // Custom order if shuffled
+  }
+}
+
+/**
+ * Surface state stored per message - multiple versions can coexist
+ */
+export interface MessageSurfaceState {
+  // Available versions for this message
+  versions: {
+    chat: { content: string; generated: true }
+    learning?: { generated: boolean; state: SurfaceState }
+    guide?: { generated: boolean; state: SurfaceState }
+    quiz?: { generated: boolean; state: SurfaceState }
+  }
+  // Currently displayed version
+  activeVersion: SurfaceType
+  // Version currently being generated (null if none)
+  generatingVersion: SurfaceType | null
+}
+

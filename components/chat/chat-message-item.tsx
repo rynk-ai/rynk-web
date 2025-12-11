@@ -46,6 +46,7 @@ import {
   type Citation,
 } from "@/lib/types/citation";
 import { ContextCardList, type ContextCardData } from "@/components/chat/context-card";
+import { SurfaceTrigger } from "@/components/surfaces/surface-trigger";
 
 import { VersionIndicator } from "@/components/ui/version-indicator";
 
@@ -81,6 +82,9 @@ interface ChatMessageItemProps {
   streamingStatusPills?: any[];
   streamingSearchResults?: any;
   streamingContextCards?: ContextCardData[];
+  // Surface trigger - needs conversationId and saved surfaces
+  conversationId?: string | null;
+  savedSurfaces?: Record<string, any>;
 }
 
 /**
@@ -113,6 +117,9 @@ export const ChatMessageItem = memo(
     streamingStatusPills,
     streamingSearchResults,
     streamingContextCards,
+    // Surface trigger - needs conversationId and saved surfaces
+    conversationId,
+    savedSurfaces,
   }: ChatMessageItemProps) {
     const isAssistant = message.role === "assistant";
 
@@ -547,7 +554,7 @@ export const ChatMessageItem = memo(
                   defaultCollapsed={false}
                 />
 
-                {/* Message content with inline citations and sub-chat highlights */}
+                {/* Message content with inline citations */}
                 <div ref={assistantContentRef}>
                   <Markdown
                     className="!bg-transparent !p-0 !text-foreground"
@@ -566,6 +573,15 @@ export const ChatMessageItem = memo(
                       )}
                     <SourcesFooter citations={citations} variant="compact" />
                   </>
+                )}
+
+                {/* Surface Trigger - Open as Course/Guide buttons */}
+                {conversationId && !isStreaming && (
+                  <SurfaceTrigger
+                    conversationId={conversationId}
+                    messageContent={displayContent}
+                    savedSurfaces={savedSurfaces}
+                  />
                 )}
               </div>
 
@@ -937,7 +953,9 @@ export const ChatMessageItem = memo(
       JSON.stringify(prevProps.streamingStatusPills) ===
         JSON.stringify(nextProps.streamingStatusPills) &&
       JSON.stringify(prevProps.streamingSearchResults) ===
-        JSON.stringify(nextProps.streamingSearchResults)
+        JSON.stringify(nextProps.streamingSearchResults) &&
+      // Conversation ID for surface trigger
+      prevProps.conversationId === nextProps.conversationId
     );
   },
 );

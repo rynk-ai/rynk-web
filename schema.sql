@@ -53,6 +53,7 @@ CREATE TABLE conversations (
   branches TEXT, -- JSON array of Branch objects
   activeReferencedConversations TEXT, -- JSON array for persistent context
   activeReferencedFolders TEXT, -- JSON array for persistent context
+  surfaceStates TEXT, -- JSON object for adaptive surface states
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,

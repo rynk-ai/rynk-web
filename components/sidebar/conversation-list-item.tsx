@@ -11,7 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { PinIcon, MoreHorizontal, Hash } from "lucide-react";
+import { PinIcon, MoreHorizontal, Hash, BookOpen, ListChecks } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ConversationListItemProps {
   conversation: Conversation;
@@ -65,6 +70,33 @@ export const ConversationListItem = memo(
               )}>
                 {conversation.title}
               </span>
+              
+              {/* Surface Icons */}
+              {(conversation as any).surfaceStates && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {(conversation as any).surfaceStates.learning && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-blue-500">
+                          <BookOpen className="h-3 w-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">Has Course</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {(conversation as any).surfaceStates.guide && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-green-500">
+                          <ListChecks className="h-3 w-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">Has Guide</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              )}
+              
               {conversation.isPinned && (
                 <PinIcon className="h-3 w-3 fill-primary/60 text-primary/60 shrink-0" />
               )}
@@ -182,6 +214,7 @@ export const ConversationListItem = memo(
       prevProps.conversation.isPinned === nextProps.conversation.isPinned &&
       prevProps.conversation.preview === nextProps.conversation.preview &&
       JSON.stringify(prevProps.conversation.tags) === JSON.stringify(nextProps.conversation.tags) &&
+      JSON.stringify((prevProps.conversation as any).surfaceStates) === JSON.stringify((nextProps.conversation as any).surfaceStates) &&
       prevProps.isActive === nextProps.isActive &&
       prevProps.showPinAction === nextProps.showPinAction &&
       prevProps.showMenu === nextProps.showMenu

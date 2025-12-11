@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, FlaskConical } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -22,6 +22,21 @@ import { validateFile } from "@/lib/utils/file-converter";
 import { ACCEPTED_FILE_TYPES } from "@/lib/constants/file-config";
 import { textToFile, LONG_TEXT_THRESHOLD } from "@/lib/utils/text-to-file-converter";
 import { toast } from "sonner";
+import type { SurfaceType } from "@/lib/services/domain-types";
+
+// Surface Mode Configuration
+const SURFACE_MODES: Array<{
+  type: SurfaceType | 'chat';
+  icon: typeof MessageSquare;
+  label: string;
+  placeholder: string;
+  color: string;
+}> = [
+  { type: 'chat', icon: MessageSquare, label: 'Chat', placeholder: 'Ask anything', color: 'text-foreground' },
+  { type: 'learning', icon: BookOpen, label: 'Course', placeholder: 'Teach me about...', color: 'text-blue-500' },
+  { type: 'guide', icon: ListChecks, label: 'Guide', placeholder: 'Guide me through...', color: 'text-green-500' },
+  { type: 'research', icon: FlaskConical, label: 'Research', placeholder: 'Research about...', color: 'text-purple-500' },
+];
 
 type PromptInputWithFilesProps = {
   onSubmit?: (text: string, files: File[]) => void;
@@ -59,6 +74,9 @@ type PromptInputWithFilesProps = {
   // Reasoning mode props
   reasoningMode?: boolean | "online" | "off" | "on" | "auto";
   onToggleReasoningMode?: () => void;
+  // Surface mode props
+  surfaceMode?: SurfaceType | 'chat';
+  onSurfaceModeChange?: (mode: SurfaceType | 'chat') => void;
 };
 
 // Slash Commands Configuration
@@ -135,6 +153,8 @@ export const PromptInputWithFiles = memo(function
   onClearQuote,
   reasoningMode,
   onToggleReasoningMode,
+  surfaceMode = 'chat',
+  onSurfaceModeChange,
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
   const [files, setFiles] = useState<(File | Attachment)[]>([]);
@@ -143,6 +163,10 @@ export const PromptInputWithFiles = memo(function
   // Slash Command State
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
+
+  // Surface Mode dropdown state
+  const [surfaceModeOpen, setSurfaceModeOpen] = useState(false);
+  const currentSurfaceMode = SURFACE_MODES.find(m => m.type === surfaceMode) || SURFACE_MODES[0];
 
   // Detect if device is mobile
   useEffect(() => {
@@ -701,8 +725,8 @@ export const PromptInputWithFiles = memo(function
                   : (context.length > 0 || files.length > 0)
                     ? "Ask a question..."
                     : isMobile 
-                      ? placeholder 
-                      : `${placeholder} (Shift+Enter for new line)`
+                      ? currentSurfaceMode.placeholder 
+                      : `${currentSurfaceMode.placeholder} (Shift+Enter for new line)`
               }
               className="min-h-[44px] pt-3 pl-3 text-base leading-[1.4] sm:text-base md:text-base overscroll-contain"
               onKeyDown={handleKeyDown}
@@ -711,6 +735,55 @@ export const PromptInputWithFiles = memo(function
 
             <PromptInputActions className="flex w-full items-center justify-between gap-2 px-3 pb-3 pt-2">
               <div className="flex items-center gap-1">
+                {/* Surface Mode Dropdown */}
+                {!hideActions && onSurfaceModeChange && (
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 gap-1.5 px-2 text-xs font-medium rounded-lg transition-all",
+                        surfaceMode !== 'chat' 
+                          ? [currentSurfaceMode.color, "bg-secondary/80"]
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                      )}
+                      onClick={() => setSurfaceModeOpen(!surfaceModeOpen)}
+                      disabled={isLoading || isSubmittingEdit || disabled}
+                    >
+                      <currentSurfaceMode.icon className="h-3.5 w-3.5" />
+                      {currentSurfaceMode.label}
+                      <ChevronDown className={cn("h-3 w-3 transition-transform", surfaceModeOpen && "rotate-180")} />
+                    </Button>
+                    
+                    {/* Dropdown Menu */}
+                    {surfaceModeOpen && (
+                      <div className="absolute bottom-full left-0 mb-2 z-[200] animate-in slide-in-from-bottom-2 duration-150">
+                        <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+                          <div className="p-1">
+                            {SURFACE_MODES.map((mode) => (
+                              <button
+                                key={mode.type}
+                                onClick={() => {
+                                  onSurfaceModeChange?.(mode.type);
+                                  setSurfaceModeOpen(false);
+                                }}
+                                className={cn(
+                                  "w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors text-left",
+                                  mode.type === surfaceMode
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-foreground hover:bg-muted/50"
+                                )}
+                              >
+                                <mode.icon className={cn("h-4 w-4", mode.color)} />
+                                <span className="font-medium">{mode.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {!hideActions && !hideFileUpload && (
                   <PromptInputAction tooltip="Attach files">
                     <FileUploadTrigger asChild>
@@ -793,6 +866,7 @@ export const PromptInputWithFiles = memo(function
     prevProps.hideActions === nextProps.hideActions &&
     prevProps.quotedMessage?.messageId === nextProps.quotedMessage?.messageId &&
     prevProps.quotedMessage?.quotedText === nextProps.quotedMessage?.quotedText &&
-    prevProps.reasoningMode === nextProps.reasoningMode // Include reasoning mode check
+    prevProps.reasoningMode === nextProps.reasoningMode &&
+    prevProps.surfaceMode === nextProps.surfaceMode
   ); 
 });

@@ -90,6 +90,7 @@ import {
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
+import { SavedSurfacesPill } from "@/components/surfaces";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
@@ -244,6 +245,9 @@ const ChatContent = memo(
     const editState = useMessageEdit();
     const streamingState = useStreaming();
 
+    // Surface mode state for prompt input dropdown
+    const [surfaceMode, setSurfaceMode] = useState<'chat' | 'learning' | 'guide' | 'research'>('chat');
+
     // Keyboard awareness for mobile
     const keyboardHeight = useKeyboardAwarePosition();
 
@@ -313,6 +317,7 @@ const ChatContent = memo(
       handleDeleteSubChat,
       handleSubChatSendMessage,
     } = useSubChats(currentConversationId);
+
 
     const loadTags = useCallback(async () => {
       try {
@@ -744,7 +749,19 @@ const ChatContent = memo(
               "🆕 [handleSubmit] New conversation created, navigating:",
               conversationId,
             );
-            router.push(`/chat?id=${encodeURIComponent(conversationId)}`);
+            
+            // If surface mode is selected (not chat), navigate to surface page
+            if (surfaceMode !== 'chat') {
+              console.log(
+                `🎯 [handleSubmit] Surface mode "${surfaceMode}" selected, navigating to surface`,
+              );
+              const query = encodeURIComponent(text.slice(0, 500));
+              router.push(`/surface/${surfaceMode}/${conversationId}?q=${query}`);
+              // Reset surface mode to chat for next interaction
+              setSurfaceMode('chat');
+            } else {
+              router.push(`/chat?id=${encodeURIComponent(conversationId)}`);
+            }
           }
 
           // Replace optimistic messages with real ones
@@ -862,6 +879,7 @@ const ChatContent = memo(
         initiateMultipartUploadAction,
         uploadPartAction,
         completeMultipartUploadAction,
+        surfaceMode,
       ],
     );
 
@@ -1701,6 +1719,14 @@ const ChatContent = memo(
                   </div>
                 )}
 
+                {/* Saved Surfaces Indicator - Show when conversation has saved surfaces */}
+                {currentConversationId && currentConversation?.surfaceStates && (
+                  <SavedSurfacesPill
+                    conversationId={currentConversationId}
+                    surfaceStates={currentConversation.surfaceStates}
+                  />
+                )}
+
                 <div className="flex-1 relative">
                   {/* Tag Section - Show when conversation is loaded */}
                   {currentConversationId && (
@@ -1735,6 +1761,9 @@ const ChatContent = memo(
                     searchResults={searchResults}
                     contextCards={contextCards}
                     onIsAtBottomChange={setIsScrolledUp}
+                    // Surface trigger props
+                    conversationId={currentConversationId}
+                    savedSurfaces={currentConversation?.surfaceStates}
                   />
                 </div>
 
@@ -1754,8 +1783,8 @@ const ChatContent = memo(
                 {/* Scroll to Bottom Button */}
                 {!isScrolledUp && messages.length > 0 ? (
                   <Button
-                    variant="outline"
-                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
+                    variant="ghost"
+                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in border:gray-500 border"
                     onClick={() => virtuosoRef.current?.scrollToBottom()}
                     title="Scroll to bottom"
                   >
@@ -1766,7 +1795,6 @@ const ChatContent = memo(
                   </Button>
                 ) : (
                   <Button
-                    variant="outline"
                     className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm border-border/50 transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-out slide-out-to-bottom-8 fade-out pointer-events-none"
                     style={{ opacity: 0 }}
                     onClick={() => {}}
@@ -1834,6 +1862,8 @@ const ChatContent = memo(
                 onClearQuote={handleClearQuote}
                 reasoningMode={reasoningMode}
                 onToggleReasoningMode={toggleReasoningMode}
+                surfaceMode={surfaceMode}
+                onSurfaceModeChange={(mode) => setSurfaceMode(mode as 'chat' | 'learning' | 'guide' | 'research')}
                 className={cn(
                   "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                   !currentConversationId
