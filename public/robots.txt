@@ -1,13 +1,38 @@
 User-agent: *
 Allow: /
 
+# Allow main user-facing pages
+Allow: /chat
+Allow: /guest-chat
+Allow: /subscription
+
 # Disallow private/admin pages
-Disallow: /chat
-Disallow: /login
 Disallow: /api/
+Disallow: /project/
+Disallow: /surface/
 
 # Sitemap
 Sitemap: https://rynk.io/sitemap.xml
 
 # Crawl-delay (optional)
 Crawl-delay: 1
+
+# GPTBot (OpenAI crawler)
+User-agent: GPTBot
+Allow: /
+
+# Google-Extended (Bard/Gemini)
+User-agent: Google-Extended
+Allow: /
+
+# CCBot (Common Crawl)
+User-agent: CCBot
+Allow: /
+
+# Anthropic's Claude
+User-agent: anthropic-ai
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /

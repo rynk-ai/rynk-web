@@ -1,7 +1,7 @@
 {
-  "name": "rynk. - AI Chat Application",
+  "name": "rynk. - AI Chat with Memory, Learning Surfaces & Projects",
   "short_name": "rynk.",
-  "description": "AI chat application with file uploads, message versioning, and conversation branching",
+  "description": "The best ChatGPT alternative with perfect memory. AI that remembers across conversations, creates learning courses, quizzes, flashcards, timelines, and comparison tables. Chat with PDFs, web search with citations, project workspaces.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
@@ -27,7 +27,11 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities", "social networking"],
+  "categories": ["productivity", "education", "utilities", "business"],
   "lang": "en-US",
-  "dir": "ltr"
+  "dir": "ltr",
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "scope": "/",
+  "id": "rynk-ai-chat"
 }
