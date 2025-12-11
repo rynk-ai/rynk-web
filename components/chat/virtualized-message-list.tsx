@@ -134,32 +134,22 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
           versions={versions}
           onSwitchVersion={onSwitchVersion}
           streamingStatusPills={
-            // Show status pills for the streaming message OR any assistant message when sending
-            streamingMessageId === message.id || (isSending && message.role === 'assistant')
-              ? statusPills
-              : undefined
+            // Only pass status pills to the message that is actively streaming
+            streamingMessageId === message.id ? statusPills : undefined
           }
           streamingSearchResults={
-            // Pass search results to assistant messages:
-            // 1. The currently streaming message
-            // 2. While sending (covers the transition phase)  
-            // 3. The last assistant message when searchResults exist (until persisted to message.reasoning_metadata)
+            // Only pass search results to the actively streaming message
+            // or the last assistant message if it just finished and results exist
             message.role === 'assistant' && (
               streamingMessageId === message.id ||
-              isSending ||
-              (index === messages.length - 1 && searchResults)
+              (index === messages.length - 1 && searchResults && !streamingMessageId)
             )
               ? searchResults
               : undefined
           }
           streamingContextCards={
-            // Pass context cards to assistant messages during streaming/sending
-            message.role === 'assistant' && (
-              streamingMessageId === message.id ||
-              isSending
-            )
-              ? contextCards
-              : undefined
+            // Only pass context cards to the actively streaming message
+            streamingMessageId === message.id ? contextCards : undefined
           }
           // Surface trigger props
           conversationId={conversationId}

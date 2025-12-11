@@ -6,10 +6,11 @@ import {
   type DiscoveredSource,
 } from "@/components/chat/live-source-pills";
 import { getFaviconUrl, getDomainName } from "@/lib/types/citation";
-import { DotsLoader } from "@/components/prompt-kit/loader";
+import { BarsLoader, DotsLoader } from "@/components/prompt-kit/loader";
 import { Globe, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Loader } from "../ui/loader";
+import { Loader } from "@/components/prompt-kit/loader"
+
 
 interface StatusPill {
   status: "analyzing" | "searching" | "synthesizing" | "complete";
@@ -112,7 +113,7 @@ export function ReasoningDisplay({
         {/* Status indicator */}
         {isThinking ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader variant="loading-dots" size="sm" className="text-primary" />
+            <Loader variant="typing" size="sm" />
             <span className="font-medium">{message}</span>
             
             {/* Show source count while searching */}

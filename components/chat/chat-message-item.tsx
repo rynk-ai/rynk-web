@@ -133,32 +133,33 @@ export const ChatMessageItem = memo(
     const hasStreamedDataRef = useRef(false);
 
     // Update refs based on streaming state and message metadata
-    // CRITICAL: Cache during streaming, use cached values during transition,
-    // clear once message has its own persisted content
-    if (isStreaming) {
-      // While streaming, always cache the latest values
-      if (streamingStatusPills && streamingStatusPills.length > 0) {
-        lastStreamingStatusPills.current = streamingStatusPills;
-        hasStreamedDataRef.current = true;
+    // Using useEffect to avoid side effects during render
+    useEffect(() => {
+      if (isStreaming) {
+        // While streaming, cache the latest values
+        if (streamingStatusPills && streamingStatusPills.length > 0) {
+          lastStreamingStatusPills.current = streamingStatusPills;
+          hasStreamedDataRef.current = true;
+        }
+        if (streamingSearchResults) {
+          lastStreamingSearchResults.current = streamingSearchResults;
+          hasStreamedDataRef.current = true;
+        }
+        // Cache streaming content to prevent flicker during transition  
+        if (streamingContent) {
+          lastStreamingContentRef.current = streamingContent;
+        }
+      } else if (message.content && message.content.length > 0) {
+        // Clear refs once message has actual content persisted
+        // This is the authoritative source after streaming completes
+        lastStreamingStatusPills.current = [];
+        lastStreamingSearchResults.current = null;
+        lastStreamingContentRef.current = '';
+        hasStreamedDataRef.current = false;
       }
-      if (streamingSearchResults) {
-        lastStreamingSearchResults.current = streamingSearchResults;
-        hasStreamedDataRef.current = true;
-      }
-      // Cache streaming content to prevent flicker during transition  
-      if (streamingContent) {
-        lastStreamingContentRef.current = streamingContent;
-      }
-    } else if (message.content && message.content.length > 0) {
-      // Clear refs once message has actual content persisted (not just metadata)
-      // This is the authoritative source after streaming completes
-      lastStreamingStatusPills.current = [];
-      lastStreamingSearchResults.current = null;
-      lastStreamingContentRef.current = '';
-      hasStreamedDataRef.current = false;
-    }
-    // NOTE: If not streaming AND message has no content,
-    // we KEEP the cached refs - this is the transition period!
+      // NOTE: If not streaming AND message has no content,
+      // we KEEP the cached refs - this is the transition period!
+    }, [isStreaming, streamingStatusPills, streamingSearchResults, streamingContent, message.content]);
 
     // Quote button state
     const [showQuoteButton, setShowQuoteButton] = useState(false);
@@ -520,15 +521,15 @@ export const ChatMessageItem = memo(
         (effectiveStatusPills && effectiveStatusPills.length > 0) ||
         !!effectiveSearchResults;
 
-      // Show skeleton only if: last message, sending, AND no content at all AND no reasoning status
+      // Simplified skeleton logic:
+      // Only show skeleton if it's the last message, we're sending, NOT yet streaming,
+      // no content exists, AND no reasoning updates have arrived yet
       const showSkeleton =
         isLastMessage &&
         isSending &&
-        ((!isStreaming &&
-          (!message.content || message.content.trim().length < 3)) ||
-          (isStreaming &&
-            (!displayContent || displayContent.trim().length === 0))) &&
-        !hasReasoning; // Don't show skeleton if we have reasoning updates to show
+        !isStreaming &&
+        !displayContent &&
+        !hasReasoning;
 
       if (showSkeleton) {
         return <AssistantSkeleton />;
