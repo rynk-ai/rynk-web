@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { PinIcon, MoreHorizontal, Hash, BookOpen, ListChecks } from "lucide-react";
+import { PinIcon, MoreHorizontal, Hash, BookOpen, ListChecks, Target, Scale, Layers, Calendar } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -72,28 +72,31 @@ export const ConversationListItem = memo(
               </span>
               
               {/* Surface Icons */}
+              {/* Surface Icons */}
               {(conversation as any).surfaceStates && (
                 <div className="flex items-center gap-0.5 shrink-0">
-                  {(conversation as any).surfaceStates.learning && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-blue-500">
-                          <BookOpen className="h-3 w-3" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">Has Course</TooltipContent>
-                    </Tooltip>
-                  )}
-                  {(conversation as any).surfaceStates.guide && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-green-500">
-                          <ListChecks className="h-3 w-3" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">Has Guide</TooltipContent>
-                    </Tooltip>
-                  )}
+                  {Object.entries({
+                    learning: { icon: BookOpen, color: "text-blue-500", label: "Has Course" },
+                    guide: { icon: ListChecks, color: "text-green-500", label: "Has Guide" },
+                    quiz: { icon: Target, color: "text-pink-500", label: "Has Quiz" },
+                    comparison: { icon: Scale, color: "text-indigo-500", label: "Has Comparison" },
+                    flashcard: { icon: Layers, color: "text-teal-500", label: "Has Flashcards" },
+                    timeline: { icon: Calendar, color: "text-amber-500", label: "Has Timeline" },
+                    wiki: { icon: BookOpen, color: "text-orange-500", label: "Has Wiki" },
+                  }).map(([type, config]) => {
+                    if (!(conversation as any).surfaceStates[type]) return null;
+                    const Icon = config.icon;
+                    return (
+                      <Tooltip key={type}>
+                        <TooltipTrigger asChild>
+                          <span className={config.color}>
+                            <Icon className="h-3 w-3" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">{config.label}</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
                 </div>
               )}
               

@@ -23,6 +23,7 @@ import { ACCEPTED_FILE_TYPES } from "@/lib/constants/file-config";
 import { textToFile, LONG_TEXT_THRESHOLD } from "@/lib/utils/text-to-file-converter";
 import { toast } from "sonner";
 import type { SurfaceType } from "@/lib/services/domain-types";
+import EmptyStateChat from "./chat/empty-state-chat";
 
 // Surface Mode Configuration
 const SURFACE_MODES: Array<{
@@ -516,7 +517,31 @@ export const PromptInputWithFiles = memo(function
   };
 
   return (
-    <div className={cn("flex flex-col gap-2 relative", className)}>
+    <div className={cn("relative flex flex-col gap-2 relative", className)}>
+       {/* Empty State - Shows when no conversation is active */}
+                  <div
+                    className={cn(
+                      "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
+                      !currentConversationId
+                        ? "opacity-100 translate-y-0 pointer-events-auto -top-50 lg:-top-60"
+                        : "opacity-0 -translate-y-10 pointer-events-auto",
+                    )}
+                  >
+                    <EmptyStateChat
+                      brandName="rynk."
+                      onSelectSuggestion={(prompt:any) => {
+                        // Set the prompt in the input
+                        const textarea = document.getElementById("main-chat-input") as HTMLTextAreaElement;
+                        if (textarea) {
+                          textarea.value = prompt;
+                          textarea.focus();
+                          // Trigger input event to update state
+                          const event = new Event('input', { bubbles: true });
+                          textarea.dispatchEvent(event);
+                        }
+                      }}
+                    />
+                  </div>
       {/* Edit mode indicator */}
       {editMode && onCancelEdit && (
         <div className="absolute -top-8 right-2 z-30">

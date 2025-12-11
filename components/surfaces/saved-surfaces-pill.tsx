@@ -9,7 +9,7 @@
 
 import { memo } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ListChecks, ChevronRight } from "lucide-react";
+import { BookOpen, ListChecks, ChevronRight, Target, Scale, Layers, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SavedSurfacesPillProps {
@@ -30,6 +30,36 @@ const SURFACE_CONFIG = {
     label: "Guide", 
     color: "text-green-500",
     bgColor: "bg-green-500/10",
+  },
+  quiz: {
+    icon: Target,
+    label: "Quiz",
+    color: "text-pink-500",
+    bgColor: "bg-pink-500/10",
+  },
+  comparison: {
+    icon: Scale,
+    label: "Compare",
+    color: "text-indigo-500",
+    bgColor: "bg-indigo-500/10",
+  },
+  flashcard: {
+    icon: Layers,
+    label: "Flashcards",
+    color: "text-teal-500",
+    bgColor: "bg-teal-500/10",
+  },
+  timeline: {
+    icon: Calendar,
+    label: "Timeline",
+    color: "text-amber-500",
+    bgColor: "bg-amber-500/10",
+  },
+  wiki: {
+    icon: BookOpen,
+    label: "Wiki",
+    color: "text-orange-500",
+    bgColor: "bg-orange-500/10",
   },
 } as const;
 

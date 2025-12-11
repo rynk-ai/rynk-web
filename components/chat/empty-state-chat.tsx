@@ -68,15 +68,15 @@ export function EmptyStateChat({
       className={cn(
         // Use flex-col and justify-center to center vertically in available space
         // Add minimal padding to avoid edge collision
-        "flex flex-col items-center justify-center p-4 min-h-full",
+        "flex flex-col items-center justify-center",
         className
       )}
     >
       {/* Container to push content slightly up visually to balance with bottom input */}
-      <div className="flex flex-col items-center justify-center w-full max-w-2xl -mt-20">
+      <div className="flex flex-col items-center justify-center w-full max-w-2xl">
         
         {/* Brand Logo with Glow */}
-        <div className="mb-6 brand-glow relative z-10">
+        <div className="brand-glow relative z-10">
           <TextShimmer
             spread={5}
             duration={4}
@@ -87,12 +87,12 @@ export function EmptyStateChat({
         </div>
 
         {/* Subtitle */}
-        <p className="text-muted-foreground text-lg mb-4 text-center max-w-md font-light tracking-wide">
+        <p className="text-muted-foreground mb-4 text-center max-w-md font-light tracking-wide">
           What would you like to explore today?
         </p>
 
         {/* Suggestion Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full max-w-4xl mb-8">
+        <div className="grid grid-cols-4 gap-3 w-full max-w-4xl pointer-events-auto">
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.id}
@@ -104,7 +104,7 @@ export function EmptyStateChat({
                   className: "h-5 w-5 opacity-70 group-hover:opacity-100 transition-opacity"
                 })}
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col max-md:hidden">
                 <span className="font-medium text-sm text-foreground/90">{suggestion.title}</span>
                 <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
                   {suggestion.id === "brainstorm" && "Ideation"}
@@ -116,35 +116,9 @@ export function EmptyStateChat({
             </button>
           ))}
         </div>
-
-        {/* Recent Prompts - Optional, keep if needed but make subtle */}
-        {recentPrompts.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 justify-center max-w-lg animate-in fade-in duration-500 delay-150 opacity-0 fill-mode-forwards">
-            <span className="text-xs text-muted-foreground/40 mr-1 uppercase tracking-widest font-semibold">Recent</span>
-            {recentPrompts.slice(0, 3).map((prompt, i) => (
-              <button
-                key={i}
-                onClick={() => onSelectRecent?.(prompt)}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors px-2.5 py-1 rounded-full bg-secondary/30 hover:bg-secondary/60 truncate max-w-[150px]"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Feature Hints (subtle footer) */}
-      <div className="absolute bottom-4 left-0 right-0 flex justify-center items-center gap-6 text-[10px] uppercase tracking-widest text-muted-foreground/30 pointer-events-none select-none">
-        <span className="flex items-center gap-1.5">
-          <Sparkles className="h-2.5 w-2.5" />
-          AI Powered
-        </span>
-        <span className="flex items-center gap-1.5">
-          <MessageSquare className="h-2.5 w-2.5" />
-          Context Aware
-        </span>
-      </div>
+      
     </div>
   );
 }

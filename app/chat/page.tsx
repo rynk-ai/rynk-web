@@ -1665,30 +1665,7 @@ const ChatContent = memo(
         <div className="flex flex-1 flex-col relative overflow-hidden">
           {/* Top Section: Messages & Title */}
           <div className="flex-1 overflow-y-auto w-full relative">
-            {/* Empty State - Shows when no conversation is active */}
-            <div
-              className={cn(
-                "absolute inset-0 transition-all duration-500 ease-in-out",
-                !currentConversationId
-                  ? "opacity-100 translate-y-0 pointer-events-auto"
-                  : "opacity-0 -translate-y-10 pointer-events-none",
-              )}
-            >
-              <EmptyStateChat
-                brandName="rynk."
-                onSelectSuggestion={(prompt) => {
-                  // Set the prompt in the input
-                  const textarea = document.getElementById("main-chat-input") as HTMLTextAreaElement;
-                  if (textarea) {
-                    textarea.value = prompt;
-                    textarea.focus();
-                    // Trigger input event to update state
-                    const event = new Event('input', { bubbles: true });
-                    textarea.dispatchEvent(event);
-                  }
-                }}
-              />
-            </div>
+           
 
             {/* Messages Container - Fades in/Visible when conversation active */}
             <div
@@ -1720,10 +1697,10 @@ const ChatContent = memo(
                 )}
 
                 {/* Saved Surfaces Indicator - Show when conversation has saved surfaces */}
-                {currentConversationId && currentConversation?.surfaceStates && (
+                {currentConversationId  && (
                   <SavedSurfacesPill
                     conversationId={currentConversationId}
-                    surfaceStates={currentConversation.surfaceStates}
+                    surfaceStates={currentConversation?.surfaceStates}
                   />
                 )}
 
@@ -1835,7 +1812,6 @@ const ChatContent = memo(
             {/* Background for input section */}
             <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
               {/* Show editContext when editing, activeContext otherwise */}
-
 
               <PromptInputWithFiles
                 onSubmit={handleSubmit}
