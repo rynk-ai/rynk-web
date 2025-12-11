@@ -249,7 +249,7 @@ export function ContextPicker({
         triggerContent
       )}
       
-      <DialogContent className="sm:max-w-[600px] h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] h-[80vh] flex flex-col border border-border/40 shadow-xl">
         <DialogHeader>
           <DialogTitle className="flex justify-between items-center">
             <span>Select chats</span>
@@ -266,7 +266,7 @@ export function ContextPicker({
               placeholder="Search conversations and folders..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 h-10 bg-muted/50 border-border/50 focus:bg-background transition-colors"
+              className="pl-9 h-10 bg-secondary/50 border-border/40 focus:bg-card transition-colors"
             />
           </div>
         </div>

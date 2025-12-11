@@ -47,51 +47,44 @@ export const ComparisonSurface = memo(function ComparisonSurface({
 
   return (
     <div className="max-w-5xl mx-auto pb-10">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-500/10 mb-10 p-8 md:p-10 text-center">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+      {/* Clean Hero Header */}
+      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-10 p-8 md:p-10 text-center">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 mb-4">
+          <Scale className="h-6 w-6 text-primary" />
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight">{metadata.title}</h1>
+        <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">{metadata.description}</p>
         
-        <div className="relative z-10">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/20 mb-5 shadow-lg shadow-indigo-500/10 backdrop-blur-sm">
-            <Scale className="h-7 w-7 text-indigo-500" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight">{metadata.title}</h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">{metadata.description}</p>
-          
-          <div className="flex justify-center gap-6 mt-6">
-             <div className="px-4 py-1.5 rounded-full bg-background/50 border backdrop-blur text-sm font-medium flex items-center gap-2">
-               <span className="flex h-2 w-2 rounded-full bg-indigo-500" />
-               {items.length} Options
-             </div>
-             <div className="px-4 py-1.5 rounded-full bg-background/50 border backdrop-blur text-sm font-medium flex items-center gap-2">
-               <span className="flex h-2 w-2 rounded-full bg-purple-500" />
-               {criteria.length} Criteria
-             </div>
-          </div>
+        <div className="flex justify-center gap-4 mt-6">
+           <div className="px-4 py-1.5 rounded-full bg-secondary/50 text-sm font-medium flex items-center gap-2">
+             <span className="flex h-2 w-2 rounded-full bg-primary" />
+             {items.length} Options
+           </div>
+           <div className="px-4 py-1.5 rounded-full bg-secondary/50 text-sm font-medium flex items-center gap-2">
+             <span className="flex h-2 w-2 rounded-full bg-muted-foreground" />
+             {criteria.length} Criteria
+           </div>
         </div>
       </div>
 
-      {/* Recommendation Card (Top placement for impact) */}
+      {/* Recommendation Card */}
       {recommendation && recommendedItem && (
-        <div className="mb-10 relative overflow-hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-indigo-500/10 border border-indigo-500/20 rounded-2xl p-1">
-          <div className="bg-card/80 backdrop-blur-sm rounded-xl p-6 md:p-8">
-            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-              <div className="flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
-                <Trophy className="h-8 w-8" />
+        <div className="mb-10 bg-primary/5 border border-primary/20 rounded-2xl p-6 md:p-8">
+          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+            <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
+              <Trophy className="h-7 w-7" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-bold uppercase tracking-wide">
+                  Highest Rated
+                </span>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wide border border-indigo-500/20">
-                    Highest Rated
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                  {recommendedItem.name}
-                  <Sparkles className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">{recommendation.reason}</p>
-              </div>
+              <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                {recommendedItem.name}
+                <Sparkles className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">{recommendation.reason}</p>
             </div>
           </div>
         </div>
@@ -183,7 +176,7 @@ export const ComparisonSurface = memo(function ComparisonSurface({
 
       {/* Attribute Comparison Grid */}
       {criteria.length > 0 && (
-        <div className="bg-card border rounded-3xl overflow-hidden shadow-sm">
+        <div className="bg-card border border-border/40 rounded-2xl overflow-hidden shadow-lg">
           <div className="p-6 border-b bg-muted/20">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Scale className="h-5 w-5 text-indigo-500" />

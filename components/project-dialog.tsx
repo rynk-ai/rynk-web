@@ -187,7 +187,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
         onOpenChange(newOpen)
       }
     }}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto border border-border/40 shadow-xl">
         <DialogHeader>
           <DialogTitle>{mode === 'create' ? 'Create New Project' : 'Edit Project'}</DialogTitle>
         </DialogHeader>
@@ -235,7 +235,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
 
             <div className="space-y-2">
               <Label>Attachments</Label>
-              <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-muted/50 transition-colors cursor-pointer relative">
+              <div className="border border-dashed border-border/60 rounded-xl p-4 text-center hover:bg-secondary/30 transition-colors cursor-pointer relative">
                 <input
                   type="file"
                   multiple
@@ -260,7 +260,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
                     const fileType = isFileObject ? file.type : (file as any).type || ''
                     
                     return (
-                      <div key={i} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30 text-sm group relative">
+                      <div key={i} className="flex items-center gap-2 p-2.5 border border-border/40 rounded-lg bg-secondary/30 text-sm group relative">
                         {fileType.startsWith('image/') ? (
                           <ImageIcon className="h-4 w-4 text-blue-500" />
                         ) : (

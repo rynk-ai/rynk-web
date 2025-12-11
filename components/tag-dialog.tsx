@@ -65,9 +65,12 @@ export function TagDialog({
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg border border-border/40 shadow-xl">
         <DialogHeader>
-          <DialogTitle>Manage Tags</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Tag className="h-4 w-4 text-primary" />
+            Manage Tags
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col space-y-4">
@@ -79,9 +82,9 @@ export function TagDialog({
                 {selectedTags.map((tag) => (
                   <div
                     key={tag}
-                    className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm"
+                    className="flex items-center gap-1 rounded-full bg-primary/5 border border-primary/20 px-3 py-1 text-sm"
                   >
-                    <Tag className="h-3 w-3" />
+                    <Tag className="h-3 w-3 text-primary" />
                     <span>{tag}</span>
                     <button
                       onClick={() => toggleTag(tag)}
@@ -132,8 +135,8 @@ export function TagDialog({
                     key={tag}
                     onClick={() => toggleTag(tag)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
-                      selectedTags.includes(tag) && "bg-muted",
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary/50 transition-colors",
+                      selectedTags.includes(tag) && "bg-secondary",
                     )}
                   >
                     <Tag className="h-4 w-4" />

@@ -35,11 +35,11 @@ export function GuestUpgradeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] border border-border/40 shadow-xl">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
-              <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <DialogTitle className="text-xl">
               Guest credits exhausted
@@ -94,9 +94,8 @@ export function GuestUpgradeModal({
             </div>
           </div>
 
-          {/* Conversation preview */}
           {guestConversationData && guestConversationData.messageCount > 0 && (
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
+            <div className="mt-6 p-4 bg-secondary/50 rounded-xl border border-border/40">
               <p className="text-sm font-medium mb-2">Your guest conversation:</p>
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {guestConversationData.messages.slice(0, 3).map((msg, idx) => (
@@ -126,7 +125,7 @@ export function GuestUpgradeModal({
         <DialogFooter className="flex-col sm:flex-col gap-3">
           <Button
             onClick={handleSignUp}
-            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full sm:w-auto bg-primary hover:bg-primary/90"
             size="lg"
           >
             <UserPlus className="h-4 w-4 mr-2" />

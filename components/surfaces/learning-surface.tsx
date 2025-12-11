@@ -133,63 +133,50 @@ export const LearningSurface = memo(function LearningSurface({
   }, [activeChapterIndex, onMarkComplete, hasNextChapter, handleNext]);
 
   return (
-    <div className={cn("max-w-7xl mx-auto", className)}>
-      {/* Hero Header with Gradient */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20 mb-8">
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-        
-        <div className="relative z-10 p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+    <div className={cn("max-w-6xl mx-auto", className)}>
+      {/* Clean Hero Header */}
+      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8">
+        <div className="p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             {/* Course Info */}
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                </div>
+              <div className="flex items-center gap-3 mb-4">
                 <span className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wide",
-                  metadata.depth === 'basic' && "bg-green-500/20 text-green-500",
-                  metadata.depth === 'intermediate' && "bg-yellow-500/20 text-yellow-500",
-                  metadata.depth === 'advanced' && "bg-orange-500/20 text-orange-500",
-                  metadata.depth === 'expert' && "bg-red-500/20 text-red-500",
+                  "px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
+                  metadata.depth === 'basic' && "bg-green-500/10 text-green-600 dark:text-green-400",
+                  metadata.depth === 'intermediate' && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                  metadata.depth === 'advanced' && "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+                  metadata.depth === 'expert' && "bg-red-500/10 text-red-600 dark:text-red-400",
                 )}>
                   {metadata.depth}
                 </span>
               </div>
               
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{metadata.title}</h1>
-              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{metadata.description}</p>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">{metadata.title}</h1>
+              <p className="text-muted-foreground text-base max-w-2xl leading-relaxed">{metadata.description}</p>
               
-              <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 mt-5 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <BookOpen className="h-4 w-4" />
+                  <BookOpen className="h-4 w-4 opacity-70" />
                   {chapters.length} chapters
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
+                  <Clock className="h-4 w-4 opacity-70" />
                   ~{metadata.estimatedTime} min
                 </span>
-                {metadata.prerequisites && metadata.prerequisites.length > 0 && (
-                  <span className="flex items-center gap-1.5">
-                    <Target className="h-4 w-4" />
-                    {metadata.prerequisites.length} prerequisites
-                  </span>
-                )}
               </div>
             </div>
 
             {/* Progress Ring */}
-            <div className="flex flex-col items-center">
-              <ProgressRing progress={progress} size={100} strokeWidth={8} />
+            <div className="flex flex-col items-center p-4 bg-secondary/30 rounded-xl">
+              <ProgressRing progress={progress} size={80} strokeWidth={6} />
               <span className="text-sm text-muted-foreground mt-2">
-                {completedChapters.length}/{chapters.length} complete
+                {completedChapters.length} of {chapters.length}
               </span>
               {isComplete && (
                 <div className="flex items-center gap-1.5 mt-2 text-primary">
                   <Trophy className="h-4 w-4" />
-                  <span className="text-sm font-medium">Course Complete!</span>
+                  <span className="text-xs font-semibold">Complete!</span>
                 </div>
               )}
             </div>
@@ -198,11 +185,11 @@ export const LearningSurface = memo(function LearningSurface({
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-8">
         {/* Sidebar: Chapter List */}
         <aside className="col-span-12 md:col-span-4 lg:col-span-3">
-          <div className="sticky top-20 space-y-2">
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 px-1">
+          <div className="sticky top-20">
+            <h2 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3 px-1">
               Chapters
             </h2>
             <nav className="space-y-1">
@@ -216,22 +203,21 @@ export const LearningSurface = memo(function LearningSurface({
                     key={chapter.id}
                     onClick={() => handleChapterClick(index)}
                     className={cn(
-                      "w-full text-left px-4 py-3 rounded-xl transition-all group",
-                      "border border-transparent",
+                      "w-full text-left px-3 py-2.5 rounded-lg transition-all group",
                       isActive 
-                        ? "bg-primary/10 border-primary/30 shadow-sm" 
-                        : "hover:bg-muted/50",
+                        ? "bg-secondary shadow-sm" 
+                        : "hover:bg-secondary/50",
                     )}
                   >
                     <div className="flex items-center gap-3">
                       {/* Status indicator */}
                       <div className={cn(
-                        "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium transition-all",
+                        "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
                         isCompleted 
                           ? "bg-green-500 text-white" 
                           : isActive
-                            ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-                            : "bg-muted text-muted-foreground group-hover:bg-muted-foreground/20",
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground",
                       )}>
                         {isCompleted ? (
                           <Check className="h-4 w-4" />
@@ -269,9 +255,9 @@ export const LearningSurface = memo(function LearningSurface({
 
         {/* Main: Chapter Content */}
         <main className="col-span-12 md:col-span-8 lg:col-span-9">
-          <div className="bg-card border rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border/40 rounded-2xl overflow-hidden shadow-lg">
             {/* Chapter Header */}
-            <div className="px-6 py-5 border-b bg-muted/30">
+            <div className="px-6 py-4 border-b border-border/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">

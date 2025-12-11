@@ -141,31 +141,29 @@ export const QuizSurface = memo(function QuizSurface({
       : 0;
     
     return (
-      <div className="max-w-xl mx-auto py-8 text-center animate-in-up">
+      <div className="max-w-xl mx-auto py-8 text-center">
         {/* Celebration Header */}
-        <div className="relative mb-10">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-purple-500/20 to-primary/20 rounded-full blur-3xl opacity-50" />
-          
-          <div className="relative inline-flex items-center justify-center p-4 bg-background rounded-full border-4 border-muted/30 shadow-2xl mb-6">
+        <div className="mb-10">
+          <div className="inline-flex items-center justify-center p-4 bg-card rounded-full border border-border/40 shadow-lg mb-6">
             <div className={cn(
-              "w-24 h-24 rounded-full flex items-center justify-center border-4",
-              percentage >= 80 ? "border-yellow-500/20 bg-yellow-500/10" : 
-              percentage >= 60 ? "border-primary/20 bg-primary/10" : "border-orange-500/20 bg-orange-500/10"
+              "w-20 h-20 rounded-full flex items-center justify-center",
+              percentage >= 80 ? "bg-yellow-500/10" : 
+              percentage >= 60 ? "bg-primary/10" : "bg-orange-500/10"
             )}>
               <Trophy className={cn(
-                "h-12 w-12",
+                "h-10 w-10",
                 percentage >= 80 ? "text-yellow-500" : 
                 percentage >= 60 ? "text-primary" : "text-orange-500"
               )} />
             </div>
           </div>
           
-          <h1 className="text-3xl font-bold mb-2">Quiz Complete!</h1>
-          <p className="text-muted-foreground max-w-sm mx-auto">{metadata.topic}</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Quiz Complete!</h1>
+          <p className="text-muted-foreground">{metadata.topic}</p>
         </div>
         
         {/* Score Card */}
-        <div className="bg-card border rounded-3xl p-8 mb-8 shadow-sm">
+        <div className="bg-card border border-border/40 rounded-2xl p-8 mb-8 shadow-lg">
           <div className="flex flex-col items-center">
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Final Score</span>
             <div className="flex items-baseline gap-2 mb-6">
@@ -177,9 +175,9 @@ export const QuizSurface = memo(function QuizSurface({
               <div 
                 className={cn(
                   "h-full rounded-full transition-all duration-1000",
-                  percentage >= 80 ? "bg-gradient-to-r from-yellow-500 to-amber-500" :
-                  percentage >= 60 ? "bg-gradient-to-r from-primary to-primary/80" :
-                  "bg-gradient-to-r from-orange-500 to-red-500"
+                  percentage >= 80 ? "bg-primary" :
+                  percentage >= 60 ? "bg-primary/80" :
+                  "bg-orange-500"
                 )}
                 style={{ width: `${percentage}%` }}
               />
@@ -296,9 +294,9 @@ export const QuizSurface = memo(function QuizSurface({
       
       {/* Question Card */}
       <div className={cn(
-        "relative bg-card border rounded-3xl p-6 md:p-8 mb-6 shadow-sm transition-all duration-500",
-        showFeedback && isCorrect && "border-green-500/30 shadow-[0_0_30px_-5px_rgba(34,197,94,0.15)]",
-        showFeedback && !isCorrect && "border-red-500/30 shadow-[0_0_30px_-5px_rgba(239,68,68,0.15)]"
+        "relative bg-card border rounded-2xl p-6 md:p-8 mb-6 shadow-lg transition-all duration-300",
+        showFeedback && isCorrect && "border-green-500/30",
+        showFeedback && !isCorrect && "border-red-500/30"
       )}>
         <p className="text-xl md:text-2xl font-medium mb-8 leading-relaxed selection:bg-primary/20">
           {currentQuestion.question}

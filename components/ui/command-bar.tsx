@@ -371,14 +371,13 @@ export function CommandBar({
       {/* Command Bar */}
       <div className="fixed inset-x-4 top-[20vh] z-50 mx-auto max-w-xl animate-in fade-in slide-in-from-top-4 duration-200">
         <div
-          className="overflow-hidden rounded-xl border border-[hsl(var(--command-border))] bg-[hsl(var(--command-bg))] shadow-2xl"
+          className="overflow-hidden rounded-2xl border border-border/40 bg-card shadow-2xl"
           style={{
             boxShadow:
               "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px hsl(var(--command-border))",
           }}
         >
-          {/* Search Input */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="flex items-center gap-3 border-b border-border/40 px-4 py-4">
             <Search className="h-5 w-5 text-muted-foreground shrink-0" />
             <input
               ref={inputRef}
@@ -389,7 +388,7 @@ export function CommandBar({
               onKeyDown={handleKeyDown}
               className="flex-1 bg-transparent text-base placeholder:text-muted-foreground focus:outline-none"
             />
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-[hsl(var(--command-kbd))] bg-[hsl(var(--command-kbd))] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-border bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
               esc
             </kbd>
           </div>
@@ -421,14 +420,14 @@ export function CommandBar({
                         onClick={() => item.onSelect?.()}
                         onMouseEnter={() => setSelectedIndex(currentIndex)}
                         className={cn(
-                          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                          "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors",
                           isSelected
-                            ? "bg-[hsl(var(--command-item-active))]"
-                            : "hover:bg-[hsl(var(--command-item-hover))]"
+                            ? "bg-primary/10"
+                            : "hover:bg-secondary/50"
                         )}
                       >
                         {item.icon && (
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/50">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/70 text-muted-foreground">
                             {item.icon}
                           </div>
                         )}
@@ -447,7 +446,7 @@ export function CommandBar({
                             {item.shortcut.map((key, i) => (
                               <kbd
                                 key={i}
-                                className="inline-flex items-center rounded border border-[hsl(var(--command-kbd))] bg-[hsl(var(--command-kbd))] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                className="inline-flex items-center rounded-md border border-border bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground"
                               >
                                 {key}
                               </kbd>
@@ -466,16 +465,16 @@ export function CommandBar({
           </div>
 
           {/* Footer hint */}
-          <div className="border-t border-border px-4 py-2 text-xs text-muted-foreground flex items-center justify-between">
+          <div className="border-t border-border/40 px-4 py-2.5 text-xs text-muted-foreground flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <kbd className="kbd">↑↓</kbd> Navigate
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded border border-border bg-secondary text-[11px]">↑↓</kbd> Navigate
               </span>
-              <span className="flex items-center gap-1">
-                <kbd className="kbd">↵</kbd> Select
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded border border-border bg-secondary text-[11px]">↵</kbd> Select
               </span>
-              <span className="flex items-center gap-1">
-                <kbd className="kbd">/</kbd> Commands
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded border border-border bg-secondary text-[11px]">/</kbd> Commands
               </span>
             </div>
           </div>

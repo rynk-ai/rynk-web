@@ -45,6 +45,7 @@ import { QuizSurface } from "@/components/surfaces/quiz-surface";
 import { ComparisonSurface } from "@/components/surfaces/comparison-surface";
 import { FlashcardSurface } from "@/components/surfaces/flashcard-surface";
 import { TimelineSurface } from "@/components/surfaces/timeline-surface";
+import { WikiSurface } from "@/components/surfaces/wiki-surface";
 import { cn } from "@/lib/utils";
 import type { 
   SurfaceState, 
@@ -54,7 +55,8 @@ import type {
   QuizMetadata,
   ComparisonMetadata,
   FlashcardMetadata,
-  TimelineMetadata 
+  TimelineMetadata,
+  WikiMetadata 
 } from "@/lib/services/domain-types";
 
 // Helper to get icon and label for surface type
@@ -66,6 +68,7 @@ const getSurfaceInfo = (type: string) => {
     case 'comparison': return { icon: Scale, label: 'Comparison', color: 'text-indigo-500' };
     case 'flashcard': return { icon: Layers, label: 'Flashcards', color: 'text-teal-500' };
     case 'timeline': return { icon: Calendar, label: 'Timeline', color: 'text-amber-500' };
+    case 'wiki': return { icon: BookOpen, label: 'Wiki', color: 'text-orange-500' };
     default: return { icon: BookOpen, label: 'Surface', color: 'text-primary' };
   }
 };
@@ -594,10 +597,10 @@ export default function SurfacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      {/* Enhanced Header */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4 md:px-6">
+    <div className="min-h-screen bg-background">
+      {/* Clean Header */}
+      <header className="sticky top-0 z-50 border-b border-border/30 bg-card/80 backdrop-blur-md">
+        <div className="container max-w-6xl mx-auto flex h-14 items-center justify-between gap-4 px-4 md:px-6">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
@@ -612,10 +615,8 @@ export default function SurfacePage() {
             <div className="h-4 w-px bg-border hidden sm:block" />
             
             <div className="flex items-center gap-2">
-              <div className={cn("p-1.5 rounded-lg bg-muted/50", surfaceInfo.color.replace('text-', 'bg-').replace('500', '500/10'))}>
-                <SurfaceIcon className={cn("h-4 w-4", surfaceInfo.color)} />
-              </div>
-              <span className="font-semibold text-sm hidden sm:inline-block">
+              <SurfaceIcon className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block">
                 {surfaceInfo.label}
               </span>
             </div>
@@ -629,16 +630,16 @@ export default function SurfacePage() {
 
           <div className="flex items-center gap-2">
             {/* Status Indicator */}
-            <div className="flex items-center gap-2 mr-2 px-3 py-1 bg-muted/30 rounded-full border border-border/30">
+            <div className="flex items-center gap-1.5 mr-2 px-2.5 py-1 bg-secondary/50 rounded-full">
               {isSaving ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Saving</span>
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span className="text-[10px] uppercase font-semibold tracking-wide text-muted-foreground">Saving</span>
                 </>
               ) : (
                 <>
-                   <Cloud className="h-3 w-3 text-muted-foreground/70" />
-                   <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">Saved</span>
+                   <CheckCircle2 className="h-3 w-3 text-green-500" />
+                   <span className="text-[10px] uppercase font-semibold tracking-wide text-muted-foreground">Saved</span>
                 </>
               )}
             </div>
@@ -665,7 +666,7 @@ export default function SurfacePage() {
       </header>
 
       {/* Content */}
-      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-8 animate-in fade-in duration-500 slide-in-from-bottom-2">
+      <main className="container max-w-6xl mx-auto px-4 md:px-6 py-8">
         {surfaceType === 'learning' && surfaceState.metadata?.type === 'learning' ? (
           <LearningSurface
             metadata={surfaceState.metadata as LearningMetadata}
@@ -710,6 +711,10 @@ export default function SurfacePage() {
         ) : surfaceType === 'timeline' && surfaceState.metadata?.type === 'timeline' ? (
           <TimelineSurface
             metadata={surfaceState.metadata as TimelineMetadata}
+          />
+        ) : surfaceType === 'wiki' && surfaceState.metadata?.type === 'wiki' ? (
+          <WikiSurface
+            metadata={surfaceState.metadata as WikiMetadata}
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">

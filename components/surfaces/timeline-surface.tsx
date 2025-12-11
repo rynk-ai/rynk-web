@@ -48,27 +48,22 @@ export const TimelineSurface = memo(function TimelineSurface({
 
   return (
     <div className="max-w-4xl mx-auto pb-10">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/10 mb-10 p-8 text-center">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        
-        <div className="relative z-10">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 mb-5 text-amber-600 dark:text-amber-500 shadow-lg shadow-amber-500/10 backdrop-blur-sm">
-            <Calendar className="h-7 w-7" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight">{metadata.title}</h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed mb-6">{metadata.description}</p>
-          
-          {metadata.startDate && metadata.endDate && (
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-background/60 backdrop-blur border rounded-full text-sm font-medium text-foreground/80 shadow-sm">
-              <Clock className="h-4 w-4 text-amber-500" />
-              <span>{metadata.startDate}</span>
-              <span className="text-muted-foreground">to</span>
-              <span>{metadata.endDate}</span>
-            </div>
-          )}
+      {/* Clean Hero Header */}
+      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-10 p-8 text-center">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 mb-4">
+          <Calendar className="h-6 w-6 text-amber-600 dark:text-amber-500" />
         </div>
+        <h1 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight">{metadata.title}</h1>
+        <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed mb-6">{metadata.description}</p>
+        
+        {metadata.startDate && metadata.endDate && (
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary/50 rounded-full text-sm font-medium text-muted-foreground">
+            <Clock className="h-4 w-4 text-amber-500" />
+            <span>{metadata.startDate}</span>
+            <span className="opacity-60">to</span>
+            <span>{metadata.endDate}</span>
+          </div>
+        )}
       </div>
 
       {/* Stats & Filter Bar */}
@@ -120,7 +115,7 @@ export const TimelineSurface = memo(function TimelineSurface({
       {/* Timeline */}
       <div className="relative px-4 md:px-0">
         {/* Timeline line */}
-        <div className="absolute left-8 md:left-1/2 top-4 bottom-4 w-0.5 bg-gradient-to-b from-amber-500/50 via-border to-muted md:-translate-x-1/2 rounded-full" />
+        <div className="absolute left-8 md:left-1/2 top-4 bottom-4 w-0.5 bg-border md:-translate-x-1/2 rounded-full" />
         
         {/* Events */}
         <div className="space-y-12">

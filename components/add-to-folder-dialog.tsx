@@ -65,7 +65,7 @@ export function AddToFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] border border-border/40 shadow-xl">
         <DialogHeader>
           <DialogTitle>Add to Folders</DialogTitle>
           <DialogDescription>
@@ -76,7 +76,7 @@ export function AddToFolderDialog({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label>Select Folders</Label>
-            <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
+            <div className="max-h-[300px] overflow-y-auto space-y-1 border border-border/40 rounded-xl p-2">
               {existingFolders.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
                   No folders yet. Create a folder first to add conversations.
@@ -88,7 +88,7 @@ export function AddToFolderDialog({
                     <div
                       key={folder.id}
                       className={cn(
-                        "flex items-center gap-3 rounded-md p-2 hover:bg-muted",
+                        "flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/50 transition-colors",
                         isAlreadyInFolder && "bg-primary/5"
                       )}
                     >

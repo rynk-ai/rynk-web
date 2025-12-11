@@ -127,16 +127,10 @@ export const FlashcardSurface = memo(function FlashcardSurface({
   if (!currentCard || isGenerating) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <div className="relative">
-          <div className="absolute inset-0 bg-teal-500/20 rounded-full blur-2xl animate-pulse" />
-          <div className="relative bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl p-4">
-            <Loader2 className="h-8 w-8 animate-spin text-white" />
-          </div>
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
-        <p className="text-muted-foreground mt-6 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-teal-500" />
-          Generating flashcards...
-        </p>
+        <p className="text-muted-foreground mt-4 text-sm">Generating flashcards...</p>
       </div>
     );
   }
@@ -148,21 +142,17 @@ export const FlashcardSurface = memo(function FlashcardSurface({
     return (
       <div className="max-w-lg mx-auto py-8">
         {/* Celebration Header */}
-        <div className="relative text-center mb-10">
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-cyan-500/20 to-teal-500/10 rounded-3xl blur-xl" />
-          
-          <div className="relative py-10">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 mb-6 shadow-xl shadow-teal-500/30">
-              <Trophy className="h-12 w-12 text-white" />
-            </div>
-            
-            <h1 className="text-3xl font-bold mb-2">Deck Complete!</h1>
-            <p className="text-muted-foreground">{metadata.topic}</p>
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-6">
+            <Trophy className="h-10 w-10 text-primary" />
           </div>
+          
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Deck Complete!</h1>
+          <p className="text-muted-foreground">{metadata.topic}</p>
         </div>
         
         {/* Stats Card */}
-        <div className="bg-card border-2 rounded-3xl p-8 mb-8 shadow-lg">
+        <div className="bg-card border border-border/40 rounded-2xl p-8 mb-8 shadow-lg">
           {/* Score Ring */}
           <div className="flex justify-center mb-8">
             <div className="relative w-32 h-32">
@@ -184,7 +174,7 @@ export const FlashcardSurface = memo(function FlashcardSurface({
                   stroke="currentColor"
                   fill="transparent"
                   strokeLinecap="round"
-                  className="text-green-500 transition-all duration-1000"
+                  className="text-primary transition-all duration-1000"
                   style={{
                     strokeDasharray: `${2 * Math.PI * 56}`,
                     strokeDashoffset: `${2 * Math.PI * 56 * (1 - knownPercent / 100)}`,
@@ -235,7 +225,7 @@ export const FlashcardSurface = memo(function FlashcardSurface({
             Start Over
           </Button>
           {unknownCards.length > 0 && (
-            <Button onClick={onShuffleCards} size="lg" className="gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white rounded-xl h-12 shadow-lg shadow-teal-500/30">
+            <Button onClick={onShuffleCards} size="lg" className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-12 shadow-lg">
               <Zap className="h-4 w-4" />
               Review Missed ({unknownCards.length})
             </Button>
@@ -251,8 +241,8 @@ export const FlashcardSurface = memo(function FlashcardSurface({
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 shadow-md">
-              <Brain className="h-5 w-5 text-white" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Brain className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h1 className="text-lg font-semibold">{metadata.topic}</h1>
@@ -276,9 +266,9 @@ export const FlashcardSurface = memo(function FlashcardSurface({
         </div>
         
         {/* Progress bar */}
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
           <div 
-            className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full transition-all duration-500 ease-out" 
+            className="h-full bg-primary rounded-full transition-all duration-500 ease-out" 
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -318,9 +308,9 @@ export const FlashcardSurface = memo(function FlashcardSurface({
           {/* Front of card */}
           <div 
             className={cn(
-              "absolute inset-0 rounded-3xl p-8",
-              "bg-gradient-to-br from-card via-card to-muted/20",
-              "border-2 border-border shadow-xl",
+              "absolute inset-0 rounded-2xl p-8",
+              "bg-card",
+              "border border-border/40 shadow-xl",
               "flex flex-col items-center justify-center",
               "group-hover:shadow-2xl group-hover:border-primary/20 transition-all",
             )}
@@ -354,9 +344,9 @@ export const FlashcardSurface = memo(function FlashcardSurface({
           {/* Back of card */}
           <div 
             className={cn(
-              "absolute inset-0 rounded-3xl p-8",
-              "bg-gradient-to-br from-teal-500/10 via-cyan-500/5 to-card",
-              "border-2 border-teal-500/30 shadow-xl shadow-teal-500/10",
+              "absolute inset-0 rounded-2xl p-8",
+              "bg-primary/5",
+              "border border-primary/30 shadow-xl",
               "flex flex-col items-center justify-center",
             )}
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
@@ -391,7 +381,7 @@ export const FlashcardSurface = memo(function FlashcardSurface({
       )}
       
       {/* Controls */}
-      <div className="bg-muted/30 rounded-2xl p-4 border">
+      <div className="bg-secondary/30 rounded-xl p-4 border border-border/30">
         <div className="flex items-center justify-between">
           {/* Navigation */}
           <div className="flex items-center gap-2">
@@ -429,7 +419,7 @@ export const FlashcardSurface = memo(function FlashcardSurface({
               </Button>
               <Button 
                 onClick={() => handleMark(true)}
-                className="gap-2 h-11 px-5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md shadow-green-500/30"
+                className="gap-2 h-11 px-5 rounded-xl bg-green-600 hover:bg-green-700 text-white shadow-md"
               >
                 <Check className="h-4 w-4" />
                 <span>Got It!</span>

@@ -87,12 +87,12 @@ export function EmptyStateChat({
         </div>
 
         {/* Subtitle */}
-        <p className="text-muted-foreground text-lg mb-8 text-center max-w-md font-light tracking-wide">
+        <p className="text-muted-foreground text-lg mb-4 text-center max-w-md font-light tracking-wide">
           What would you like to explore today?
         </p>
 
         {/* Suggestion Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full max-w-3xl mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full max-w-4xl mb-8">
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.id}
@@ -107,7 +107,7 @@ export function EmptyStateChat({
               <div className="flex flex-col">
                 <span className="font-medium text-sm text-foreground/90">{suggestion.title}</span>
                 <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
-                  {suggestion.id === "brainstorm" && "Generate ideas"}
+                  {suggestion.id === "brainstorm" && "Ideation"}
                   {suggestion.id === "write" && "Draft content"}
                   {suggestion.id === "research" && "Deep dive"}
                   {suggestion.id === "code" && "Get help"}

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getAIProvider } from '@/lib/services/ai-factory'
-import type { SurfaceType, SurfaceState, LearningMetadata, GuideMetadata, QuizMetadata, ComparisonMetadata, FlashcardMetadata, TimelineMetadata } from '@/lib/services/domain-types'
+import type { SurfaceType, SurfaceState, LearningMetadata, GuideMetadata, QuizMetadata, ComparisonMetadata, FlashcardMetadata, TimelineMetadata, WikiMetadata } from '@/lib/services/domain-types'
 
 interface GenerateRequest {
   query: string           // Original user question
@@ -62,6 +62,8 @@ export async function POST(request: NextRequest) {
       surfaceState = await generateFlashcardStructure(aiProvider, query)
     } else if (surfaceType === 'timeline') {
       surfaceState = await generateTimelineStructure(aiProvider, query)
+    } else if (surfaceType === 'wiki') {
+      surfaceState = await generateWikiStructure(aiProvider, query)
     } else {
       return NextResponse.json(
         { error: `Unsupported surface type: ${surfaceType}` },
@@ -948,6 +950,194 @@ Return ONLY valid JSON, no markdown or explanation.`
 
   return {
     surfaceType: 'timeline',
+    metadata,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+}
+
+async function generateWikiStructure(
+  aiProvider: any,
+  query: string
+): Promise<SurfaceState> {
+  const prompt = `You are a Wikipedia editor creating a comprehensive, encyclopedic article.
+
+TOPIC: "${query}"
+
+Create an AUTHORITATIVE, WELL-STRUCTURED knowledge article that would serve as the definitive reference on this topic. This should read like a high-quality Wikipedia article - neutral, comprehensive, and well-organized.
+
+Generate the article as JSON:
+{
+  "title": "Proper encyclopedic title (e.g., 'Quantum Computing' not 'What is Quantum Computing')",
+  "summary": "1-2 sentence overview that captures the essence (like Wikipedia's opening paragraph)",
+  "infobox": {
+    "facts": [
+      { "label": "Key Attribute 1", "value": "Specific value" },
+      { "label": "Key Attribute 2", "value": "Specific value" },
+      { "label": "Key Attribute 3", "value": "Specific value" },
+      { "label": "Key Attribute 4", "value": "Specific value" },
+      { "label": "Key Attribute 5", "value": "Specific value" }
+    ]
+  },
+  "sections": [
+    {
+      "id": "section1",
+      "heading": "Overview",
+      "content": "Comprehensive opening section with background context (3-4 paragraphs in markdown)",
+      "subsections": [
+        {
+          "id": "sub1-1",
+          "heading": "Key Concepts",
+          "content": "Detailed exploration of fundamental concepts"
+        }
+      ]
+    },
+    {
+      "id": "section2",
+      "heading": "History",
+      "content": "Historical development and key milestones"
+    },
+    {
+      "id": "section3",
+      "heading": "Core Principles",
+      "content": "Main ideas, mechanisms, or components explained in detail"
+    },
+    {
+      "id": "section4",
+      "heading": "Applications",
+      "content": "Real-world uses and practical examples"
+    },
+    {
+      "id": "section5",
+      "heading": "Challenges & Limitations",
+      "content": "Current limitations, criticisms, or debates"
+    },
+    {
+      "id": "section6",
+      "heading": "Future Outlook",
+      "content": "Emerging trends and what's next"
+    }
+  ],
+  "relatedTopics": [
+    "Related topic 1",
+    "Related topic 2",
+    "Related topic 3",
+    "Related topic 4",
+    "Related topic 5"
+  ],
+  "references": [
+    { "id": "ref1", "title": "Authoritative source 1", "url": null },
+    { "id": "ref2", "title": "Authoritative source 2", "url": null },
+    { "id": "ref3", "title": "Authoritative source 3", "url": null }
+  ],
+  "categories": [
+    "Primary category",
+    "Secondary category"
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+
+1. SECTION COUNT: Create 6-8 substantial sections. Each section should be 2-4 paragraphs of quality content.
+
+2. CONTENT DEPTH:
+   - Each section should contain 150-300 words of actual content
+   - Use markdown formatting: **bold** for key terms, bullet lists for enumerations
+   - Include specific facts, figures, and examples
+   - Maintain encyclopedic neutral tone (avoid promotional language)
+
+3. STRUCTURE:
+   - Start with Overview/Introduction (no "Introduction" heading - just start with context)
+   - Include History/Background section
+   - Core technical/conceptual content in the middle
+   - End with future outlook or conclusion
+
+4. INFOBOX:
+   - Include 5-8 key facts that someone would want at a glance
+   - Use specific values (numbers, dates, categories)
+   - Think: What would be in a Wikipedia infobox?
+
+5. RELATED TOPICS:
+   - Include 5-8 genuinely related topics that readers might want to explore
+   - Should be specific enough to be useful (not "Science" but "Machine Learning")
+
+6. REFERENCES:
+   - List 3-5 authoritative sources (books, papers, organizations)
+   - These should be real, credible sources
+
+7. TONE:
+   - Neutral, encyclopedic voice
+   - Avoid "you" - use passive voice or third person
+   - No promotional or sensational language
+   - Acknowledge multiple perspectives where relevant
+
+Return ONLY valid JSON, no markdown or explanation.`
+
+  const response = await aiProvider.sendMessage({
+    messages: [
+      { role: 'system', content: 'You are a senior Wikipedia editor with expertise across multiple domains. You write comprehensive, well-researched articles that serve as authoritative references. Your writing is neutral, factual, and organized for easy comprehension. You include specific facts and cite authoritative sources. Your articles are used by students, researchers, and professionals as trusted references.' },
+      { role: 'user', content: prompt }
+    ]
+  })
+
+  let content = ''
+  for await (const chunk of response) {
+    content += chunk
+  }
+
+  let structure: any
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      structure = JSON.parse(jsonMatch[0])
+    } else {
+      throw new Error('No JSON found in response')
+    }
+  } catch (e) {
+    console.error('Failed to parse wiki structure:', e)
+    structure = {
+      title: query,
+      summary: `Overview of ${query}`,
+      infobox: { facts: [] },
+      sections: [
+        { id: 'overview', heading: 'Overview', content: 'Information about this topic.' }
+      ],
+      relatedTopics: [],
+      references: [],
+      categories: ['General']
+    }
+  }
+
+  const metadata: WikiMetadata = {
+    type: 'wiki',
+    title: structure.title || query,
+    summary: structure.summary || '',
+    infobox: {
+      image: structure.infobox?.image,
+      facts: structure.infobox?.facts || [],
+    },
+    sections: (structure.sections || []).map((s: any, i: number) => ({
+      id: s.id || `section${i + 1}`,
+      heading: s.heading || `Section ${i + 1}`,
+      content: s.content || '',
+      subsections: s.subsections?.map((sub: any, j: number) => ({
+        id: sub.id || `sub${i + 1}-${j + 1}`,
+        heading: sub.heading || `Subsection ${j + 1}`,
+        content: sub.content || '',
+      })),
+    })),
+    relatedTopics: structure.relatedTopics || [],
+    references: (structure.references || []).map((r: any, i: number) => ({
+      id: r.id || `ref${i + 1}`,
+      title: r.title || `Reference ${i + 1}`,
+      url: r.url,
+    })),
+    categories: structure.categories || ['General'],
+    lastUpdated: new Date().toISOString(),
+  }
+
+  return {
+    surfaceType: 'wiki',
     metadata,
     createdAt: Date.now(),
     updatedAt: Date.now(),

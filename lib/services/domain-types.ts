@@ -443,6 +443,37 @@ export interface TimelineMetadata {
 }
 
 /**
+ * Metadata for Wiki surface (encyclopedic reference)
+ */
+export interface WikiMetadata {
+  type: 'wiki'
+  title: string
+  summary: string  // 1-2 sentence overview
+  infobox: {
+    image?: string
+    facts: { label: string; value: string }[]
+  }
+  sections: {
+    id: string
+    heading: string
+    content: string  // Markdown content
+    subsections?: { 
+      id: string
+      heading: string
+      content: string 
+    }[]
+  }[]
+  relatedTopics: string[]
+  references: { 
+    id: string
+    title: string
+    url?: string 
+  }[]
+  categories: string[]
+  lastUpdated?: string
+}
+
+/**
  * Union type for all surface metadata
  */
 export type SurfaceMetadata = 
@@ -452,6 +483,7 @@ export type SurfaceMetadata =
   | ComparisonMetadata
   | FlashcardMetadata
   | TimelineMetadata
+  | WikiMetadata
   | ChatMetadata
 
 /**

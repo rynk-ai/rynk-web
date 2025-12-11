@@ -88,6 +88,14 @@ const SURFACE_CONFIG: Record<string, {
     bgColor: "bg-amber-500/5 hover:bg-amber-500/10",
     borderColor: "border-amber-500/20 hover:border-amber-500/30",
   },
+  wiki: {
+    label: "Wiki",
+    description: "Read encyclopedic overview",
+    icon: BookOpen,
+    color: "text-orange-500",
+    bgColor: "bg-orange-500/5 hover:bg-orange-500/10",
+    borderColor: "border-orange-500/20 hover:border-orange-500/30",
+  },
 };
 
 export const SurfaceTrigger = function SurfaceTrigger({
@@ -203,6 +211,11 @@ function detectSurfaceRecommendations(content: string): SurfaceType[] {
   // Guide: "step by step", "how to", "instructions", "guide"
   if (text.includes("step by step") || text.includes("how to") || text.includes("guide") || text.includes("instruction")) {
     types.push("guide");
+  }
+  
+  // Wiki: "what is", "explain", "overview", "concept", encyclopedic queries
+  if (text.includes("what is") || text.includes("explain") || text.includes("overview") || text.includes("concept") || text.includes("meaning of")) {
+    types.push("wiki");
   }
   
   // Learning: General fallback for long informational text

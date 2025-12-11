@@ -144,11 +144,10 @@ export function SearchDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTitle></DialogTitle>
-      <DialogContent className="sm:max-w-[600px] p-0 gap-0 bg-background/80 backdrop-blur-xl border-none shadow-2xl overflow-hidden">
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 bg-card border border-border/40 shadow-2xl overflow-hidden">
         <div className="flex flex-col h-[60vh]">
-          {/* Search Input Area */}
-          <div className="flex items-center border-b px-4 py-3">
-            <Search className="mr-3 h-5 w-5 text-muted-foreground/50" />
+          <div className="flex items-center border-b border-border/40 px-4 py-4">
+            <Search className="mr-3 h-5 w-5 text-muted-foreground" />
             <input
               placeholder="Search conversations..."
               value={searchQuery}
@@ -159,9 +158,8 @@ export function SearchDialog({
 
           </div>
 
-          {/* Tags Bar */}
           {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-4 py-3 bg-muted/30 border-b">
+            <div className="flex flex-wrap gap-2 px-4 py-3 bg-secondary/30 border-b border-border/40">
               {allTags.map((tag) => {
                 const isSelected = selectedTags.includes(tag);
                 return (
@@ -263,15 +261,14 @@ export function SearchDialog({
             )}
           </ScrollArea>
           
-          {/* Footer Hint */}
-          <div className="border-t bg-muted/30 px-4 py-2 text-[10px] text-muted-foreground flex justify-between items-center">
+          <div className="border-t border-border/40 bg-secondary/30 px-4 py-2.5 text-xs text-muted-foreground flex justify-between items-center">
             <span>{filteredConversations.length} results</span>
-            <div className="flex gap-3">
-               <span className="flex items-center gap-1">
-                 <kbd className="font-sans">↑↓</kbd> to navigate
+            <div className="flex gap-4">
+               <span className="flex items-center gap-1.5">
+                 <kbd className="px-1.5 py-0.5 rounded border border-border bg-secondary text-[11px]">↑↓</kbd> navigate
                </span>
-               <span className="flex items-center gap-1">
-                 <kbd className="font-sans">↵</kbd> to select
+               <span className="flex items-center gap-1.5">
+                 <kbd className="px-1.5 py-0.5 rounded border border-border bg-secondary text-[11px]">↵</kbd> select
                </span>
             </div>
           </div>

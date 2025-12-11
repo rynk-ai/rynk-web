@@ -39,6 +39,7 @@ const SURFACE_MODES: Array<{
   { type: 'comparison', icon: Scale, label: 'Compare', placeholder: 'Compare A vs B...', color: 'text-indigo-500' },
   { type: 'flashcard', icon: Layers, label: 'Flashcards', placeholder: 'Create flashcards about...', color: 'text-teal-500' },
   { type: 'timeline', icon: Calendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500' },
+  { type: 'wiki', icon: BookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500' },
 ];
 
 type PromptInputWithFilesProps = {

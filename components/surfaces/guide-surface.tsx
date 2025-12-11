@@ -100,78 +100,73 @@ export const GuideSurface = memo(function GuideSurface({
 
   return (
     <div className={cn("max-w-3xl mx-auto", className)}>
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent border border-green-500/20 mb-8">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        
-        <div className="relative z-10 p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      {/* Clean Hero Header */}
+      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8">
+        <div className="p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             {/* Guide Info */}
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/20">
-                  <ListChecks className="h-5 w-5 text-green-500" />
-                </div>
+              <div className="flex items-center gap-3 mb-4">
                 <span className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wide",
-                  metadata.difficulty === 'beginner' && "bg-green-500/20 text-green-500",
-                  metadata.difficulty === 'intermediate' && "bg-yellow-500/20 text-yellow-600",
-                  metadata.difficulty === 'advanced' && "bg-red-500/20 text-red-500",
+                  "px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
+                  metadata.difficulty === 'beginner' && "bg-green-500/10 text-green-600 dark:text-green-400",
+                  metadata.difficulty === 'intermediate' && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                  metadata.difficulty === 'advanced' && "bg-red-500/10 text-red-600 dark:text-red-400",
                 )}>
                   {metadata.difficulty}
                 </span>
               </div>
               
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{metadata.title}</h1>
-              <p className="text-muted-foreground text-sm md:text-base">{metadata.description}</p>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">{metadata.title}</h1>
+              <p className="text-muted-foreground text-base leading-relaxed">{metadata.description}</p>
               
-              <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 mt-5 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Target className="h-4 w-4" />
+                  <Target className="h-4 w-4 opacity-70" />
                   {steps.length} steps
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
+                  <Clock className="h-4 w-4 opacity-70" />
                   ~{metadata.estimatedTime} min
                 </span>
               </div>
             </div>
 
             {/* Progress Stats */}
-            <div className="flex flex-col items-center">
-              <div className="relative w-24 h-24">
+            <div className="flex flex-col items-center p-4 bg-secondary/30 rounded-xl">
+              <div className="relative w-20 h-20">
                 {/* Background ring */}
-                <svg className="w-24 h-24 transform -rotate-90">
+                <svg className="w-20 h-20 transform -rotate-90">
                   <circle
-                    cx="48"
-                    cy="48"
-                    r="42"
-                    strokeWidth="8"
+                    cx="40"
+                    cy="40"
+                    r="34"
+                    strokeWidth="6"
                     stroke="currentColor"
                     fill="transparent"
                     className="text-muted/30"
                   />
                   <circle
-                    cx="48"
-                    cy="48"
-                    r="42"
-                    strokeWidth="8"
+                    cx="40"
+                    cy="40"
+                    r="34"
+                    strokeWidth="6"
                     stroke="currentColor"
                     fill="transparent"
                     strokeLinecap="round"
-                    className="text-green-500 transition-all duration-700"
+                    className="text-primary transition-all duration-700"
                     style={{
-                      strokeDasharray: `${2 * Math.PI * 42}`,
-                      strokeDashoffset: `${2 * Math.PI * 42 * (1 - progress / 100)}`,
+                      strokeDasharray: `${2 * Math.PI * 34}`,
+                      strokeDashoffset: `${2 * Math.PI * 34 * (1 - progress / 100)}`,
                     }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xl font-bold">{progress}%</span>
+                  <span className="text-lg font-bold">{progress}%</span>
                 </div>
               </div>
               <span className="text-sm text-muted-foreground mt-2">
-                {totalComplete}/{steps.length} done
+                {totalComplete} of {steps.length}
               </span>
             </div>
           </div>
@@ -180,14 +175,14 @@ export const GuideSurface = memo(function GuideSurface({
 
       {/* Completion Banner */}
       {isComplete && (
-        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/10 to-green-500/20 border border-green-500/30">
+        <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500">
-              <Trophy className="h-6 w-6 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
+              <Trophy className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-green-600 dark:text-green-400">Guide Complete!</h3>
-              <p className="text-sm text-muted-foreground">You've finished all steps. Great work!</p>
+              <h3 className="font-semibold text-primary">Guide Complete!</h3>
+              <p className="text-sm text-muted-foreground">You've finished all steps.</p>
             </div>
           </div>
         </div>
@@ -207,16 +202,15 @@ export const GuideSurface = memo(function GuideSurface({
             <div 
               key={step.index}
               className={cn(
-                "relative rounded-xl border-2 overflow-hidden transition-all duration-300",
+                "relative rounded-xl border overflow-hidden transition-all duration-300",
                 isExpanded && "shadow-lg",
                 isCompleted 
                   ? "border-green-500/30 bg-green-500/5" 
                   : isSkipped
-                    ? "border-muted bg-muted/30" 
-                    : isCurrent && !isExpanded
-                      ? "border-primary/30"
-                      : "border-border",
-                isExpanded && !isCompleted && !isSkipped && "border-primary",
+                    ? "border-border/30 bg-muted/20" 
+                    : isExpanded
+                      ? "border-primary"
+                      : "border-border/40",
               )}
             >
               {/* Progress Line Connector */}
@@ -234,14 +228,14 @@ export const GuideSurface = memo(function GuideSurface({
               >
                 {/* Step Number/Check */}
                 <div className={cn(
-                  "flex-shrink-0 w-10 h-10 rounded-xl border-2 flex items-center justify-center font-bold text-sm transition-all",
+                  "flex-shrink-0 w-9 h-9 rounded-lg border flex items-center justify-center font-semibold text-sm transition-all",
                   isCompleted 
-                    ? "bg-green-500 border-green-500 text-white shadow-md shadow-green-500/30" 
+                    ? "bg-green-500 border-green-500 text-white" 
                     : isSkipped
-                      ? "bg-muted border-muted-foreground/30 text-muted-foreground"
+                      ? "bg-muted border-border text-muted-foreground"
                       : isCurrent
-                        ? "border-primary text-primary bg-primary/10"
-                        : "border-muted-foreground/30 text-muted-foreground"
+                        ? "border-primary text-primary bg-primary/5"
+                        : "border-border text-muted-foreground"
                 )}>
                   {isCompleted ? (
                     <Check className="h-5 w-5" />

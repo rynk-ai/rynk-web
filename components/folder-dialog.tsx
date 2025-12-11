@@ -98,7 +98,7 @@ export function FolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] border border-border/40 shadow-xl">
         <DialogHeader>
           <DialogTitle>
             {currentFolder ? "Edit Folder" : "Create New Folder"}
@@ -134,7 +134,7 @@ export function FolderDialog({
 
           <div className="grid gap-2">
             <Label>Select Conversations</Label>
-            <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
+            <div className="max-h-[300px] overflow-y-auto space-y-1 border border-border/40 rounded-xl p-2">
               {allConversations.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
                   No conversations yet. Create a chat first to add it to a folder.
@@ -143,7 +143,7 @@ export function FolderDialog({
                 allConversations.map((conversation) => (
                   <div
                     key={conversation.id}
-                    className="flex items-center gap-3 rounded-md p-2 hover:bg-muted"
+                    className="flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/50 transition-colors"
                   >
                     <Checkbox
                       id={`conversation-${conversation.id}`}

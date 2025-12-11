@@ -45,7 +45,7 @@ export function RenameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] border border-border/40 shadow-xl">
         <DialogHeader>
           <DialogTitle>Rename Conversation</DialogTitle>
           <DialogDescription>
