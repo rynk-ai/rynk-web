@@ -81,7 +81,7 @@ export class SourceOrchestrator {
             role: 'user',
             content: query
           }],
-          temperature: 0.2,
+          temperature: 0.5,
           max_tokens: 1000,
           return_citations: true
         })

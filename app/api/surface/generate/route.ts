@@ -3,17 +3,35 @@
  * 
  * Generates the initial structure for a surface (chapters for learning, steps for guide, questions for quiz).
  * POST /api/surface/generate
+ * 
+ * Enhanced with:
+ * - Intent analysis for better query understanding
+ * - Web search integration for Wiki and Guide surfaces
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getAIProvider } from '@/lib/services/ai-factory'
 import type { SurfaceType, SurfaceState, LearningMetadata, GuideMetadata, QuizMetadata, ComparisonMetadata, FlashcardMetadata, TimelineMetadata, WikiMetadata } from '@/lib/services/domain-types'
+import { analyzeSurfaceQuery, SurfaceAnalysis } from '@/lib/services/surfaces/surface-intent-analyzer'
+import { SourceOrchestrator } from '@/lib/services/agentic/source-orchestrator'
+import type { SourceResult } from '@/lib/services/agentic/types'
 
 interface GenerateRequest {
   query: string           // Original user question
   surfaceType: SurfaceType
   messageId: string       // Message to attach surface to
+}
+
+interface WebContext {
+  summary: string           // Synthesized key information
+  citations: Array<{
+    url: string
+    title: string
+    snippet?: string
+  }>
+  keyFacts: string[]
+  lastUpdated: string
 }
 
 export async function POST(request: NextRequest) {
@@ -47,23 +65,57 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    console.log(`🎯 [surface/generate] Starting ${surfaceType} generation for: "${query.substring(0, 50)}..."`)
+
+    // Step 1: Analyze the query for better understanding
+    const analysis = await analyzeSurfaceQuery(query, surfaceType)
+    console.log(`📊 [surface/generate] Analysis:`, {
+      topic: analysis.topic,
+      subtopics: analysis.subtopics.length,
+      needsWebSearch: analysis.needsWebSearch,
+      depth: analysis.depth
+    })
+
+    // Step 2: Fetch web data for wiki/guide surfaces if beneficial
+    let webContext: WebContext | undefined
+    if (analysis.needsWebSearch && (surfaceType === 'wiki' || surfaceType === 'guide')) {
+      try {
+        console.log(`🔍 [surface/generate] Fetching web data...`)
+        const orchestrator = new SourceOrchestrator()
+        const results = await orchestrator.executeSourcePlan({
+          sources: ['exa', 'perplexity'],
+          reasoning: `Enriching ${surfaceType} surface with current information`,
+          searchQueries: {
+            exa: analysis.suggestedQueries[0] || query,
+            perplexity: analysis.suggestedQueries[0] || query
+          },
+          expectedType: 'deep_research'
+        })
+        webContext = synthesizeWebResults(results)
+        console.log(`✅ [surface/generate] Web data fetched: ${webContext.citations.length} citations`)
+      } catch (webError) {
+        console.warn('⚠️ [surface/generate] Web search failed, continuing without:', webError)
+        // Continue without web data - graceful degradation
+      }
+    }
+
     const aiProvider = getAIProvider(false)
     let surfaceState: SurfaceState
 
     if (surfaceType === 'learning') {
-      surfaceState = await generateLearningStructure(aiProvider, query)
+      surfaceState = await generateLearningStructure(aiProvider, query, analysis)
     } else if (surfaceType === 'guide') {
-      surfaceState = await generateGuideStructure(aiProvider, query)
+      surfaceState = await generateGuideStructure(aiProvider, query, analysis, webContext)
     } else if (surfaceType === 'quiz') {
-      surfaceState = await generateQuizStructure(aiProvider, query)
+      surfaceState = await generateQuizStructure(aiProvider, query, analysis)
     } else if (surfaceType === 'comparison') {
-      surfaceState = await generateComparisonStructure(aiProvider, query)
+      surfaceState = await generateComparisonStructure(aiProvider, query, analysis)
     } else if (surfaceType === 'flashcard') {
-      surfaceState = await generateFlashcardStructure(aiProvider, query)
+      surfaceState = await generateFlashcardStructure(aiProvider, query, analysis)
     } else if (surfaceType === 'timeline') {
-      surfaceState = await generateTimelineStructure(aiProvider, query)
+      surfaceState = await generateTimelineStructure(aiProvider, query, analysis)
     } else if (surfaceType === 'wiki') {
-      surfaceState = await generateWikiStructure(aiProvider, query)
+      surfaceState = await generateWikiStructure(aiProvider, query, analysis, webContext)
     } else {
       return NextResponse.json(
         { error: `Unsupported surface type: ${surfaceType}` },
@@ -85,9 +137,54 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Synthesize web search results into a usable context
+ */
+function synthesizeWebResults(results: SourceResult[]): WebContext {
+  const citations: WebContext['citations'] = []
+  const keyFacts: string[] = []
+  
+  for (const result of results) {
+    if (result.error) continue
+    
+    // Collect citations
+    if (result.citations) {
+      citations.push(...result.citations.slice(0, 4).map(c => ({
+        url: c.url,
+        title: c.title,
+        snippet: c.snippet
+      })))
+    }
+    
+    // Extract key content from Perplexity (it provides synthesized answers)
+    if (result.source === 'perplexity' && result.data) {
+      keyFacts.push(String(result.data).substring(0, 2000))
+    }
+    
+    // Extract highlights from Exa
+    if (result.source === 'exa' && Array.isArray(result.data)) {
+      for (const item of result.data.slice(0, 3)) {
+        if (item.highlights?.[0]) {
+          keyFacts.push(item.highlights[0])
+        } else if (item.text) {
+          keyFacts.push(item.text.substring(0, 500))
+        }
+      }
+    }
+  }
+  
+  return {
+    summary: keyFacts.join('\n\n'),
+    citations: citations.slice(0, 8), // Limit to 8 citations
+    keyFacts,
+    lastUpdated: new Date().toISOString()
+  }
+}
+
 async function generateLearningStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis
 ): Promise<SurfaceState> {
   const prompt = `You are a world-renowned professor creating a university-level course curriculum.
 
@@ -246,12 +343,37 @@ Return ONLY valid JSON, no markdown or explanation.`
 
 async function generateGuideStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis,
+  webContext?: WebContext
 ): Promise<SurfaceState> {
+  // Build context from web search if available
+  let webResearchContext = ''
+  if (webContext && webContext.keyFacts.length > 0) {
+    webResearchContext = `
+
+CURRENT RESEARCH DATA (use this for accuracy):
+${webContext.summary.substring(0, 3000)}
+
+AVAILABLE SOURCES (include these as references):
+${webContext.citations.map((c, i) => `${i + 1}. ${c.title} - ${c.url}`).join('\n')}
+`
+  }
+
+  // Use analysis for better topic understanding
+  const topicContext = analysis ? `
+TOPIC ANALYSIS:
+- Main topic: ${analysis.topic}
+- Subtopics to cover: ${analysis.subtopics.join(', ')}
+- Target audience: ${analysis.audience}
+- Depth level: ${analysis.depth}
+` : ''
+
   const prompt = `You are a senior technical documentation expert creating the definitive guide for this task.
 
 TASK: "${query}"
-
+${topicContext}
+${webResearchContext}
 Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow to achieve success. Think: What would a professional documentation writer at a top tech company create?
 
 Generate a guide structure as JSON:
@@ -326,12 +448,16 @@ CRITICAL REQUIREMENTS:
    - Setup: 10-20 minutes per step
    - Action: 5-15 minutes per step
    - Verification: 2-5 minutes
-
+${webContext ? '\n7. USE THE RESEARCH DATA: Incorporate the current information provided above for accuracy.' : ''}
 Return ONLY valid JSON, no markdown or explanation.`
+
+  const systemPrompt = webContext 
+    ? 'You are a world-class technical documentation writer with access to current research data. Use the provided web search results to ensure your guide is accurate and up-to-date. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.'
+    : 'You are a world-class technical documentation writer who has created guides for companies like Google, Apple, and Stripe. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.'
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a world-class technical documentation writer who has created guides for companies like Google, Apple, and Stripe. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.' },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }
     ]
   })
@@ -401,7 +527,8 @@ Return ONLY valid JSON, no markdown or explanation.`
 
 async function generateQuizStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis
 ): Promise<SurfaceState> {
   const prompt = `You are an expert assessment designer creating a comprehensive knowledge test.
 
@@ -560,7 +687,8 @@ Return ONLY valid JSON, no markdown or explanation.`
 
 async function generateComparisonStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis
 ): Promise<SurfaceState> {
   const prompt = `You are a senior research analyst creating a definitive comparison report.
 
@@ -718,7 +846,8 @@ Return ONLY valid JSON, no markdown or explanation.`
 
 async function generateFlashcardStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis
 ): Promise<SurfaceState> {
   const prompt = `You are a cognitive scientist and expert educator creating a comprehensive flashcard deck.
 
@@ -855,7 +984,8 @@ Return ONLY valid JSON, no markdown or explanation.`
 
 async function generateTimelineStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis
 ): Promise<SurfaceState> {
   const prompt = `You are a historian creating an educational timeline.
 
@@ -958,12 +1088,41 @@ Return ONLY valid JSON, no markdown or explanation.`
 
 async function generateWikiStructure(
   aiProvider: any,
-  query: string
+  query: string,
+  analysis?: SurfaceAnalysis,
+  webContext?: WebContext
 ): Promise<SurfaceState> {
+  // Build context from web search if available
+  let webResearchContext = ''
+  let realReferences = ''
+  if (webContext && webContext.keyFacts.length > 0) {
+    webResearchContext = `
+
+CURRENT RESEARCH DATA (use this information to enhance accuracy):
+${webContext.summary.substring(0, 3000)}
+`
+    // Build real references from web citations
+    realReferences = webContext.citations.length > 0 
+      ? `
+USE THESE REAL SOURCES for the references section:
+${webContext.citations.map((c, i) => `- "${c.title}" - ${c.url}`).join('\n')}
+` : ''
+  }
+
+  // Use analysis for better topic understanding
+  const topicContext = analysis ? `
+TOPIC ANALYSIS:
+- Main topic: ${analysis.topic}
+- Subtopics to cover: ${analysis.subtopics.join(', ')}
+- Target depth: ${analysis.depth}
+` : ''
+
   const prompt = `You are a Wikipedia editor creating a comprehensive, encyclopedic article.
 
 TOPIC: "${query}"
-
+${topicContext}
+${webResearchContext}
+${realReferences}
 Create an AUTHORITATIVE, WELL-STRUCTURED knowledge article that would serve as the definitive reference on this topic. This should read like a high-quality Wikipedia article - neutral, comprehensive, and well-organized.
 
 Generate the article as JSON:
@@ -1026,9 +1185,9 @@ Generate the article as JSON:
     "Related topic 5"
   ],
   "references": [
-    { "id": "ref1", "title": "Authoritative source 1", "url": null },
-    { "id": "ref2", "title": "Authoritative source 2", "url": null },
-    { "id": "ref3", "title": "Authoritative source 3", "url": null }
+    { "id": "ref1", "title": "Authoritative source 1", "url": "https://..." },
+    { "id": "ref2", "title": "Authoritative source 2", "url": "https://..." },
+    { "id": "ref3", "title": "Authoritative source 3", "url": "https://..." }
   ],
   "categories": [
     "Primary category",
@@ -1062,8 +1221,8 @@ CRITICAL REQUIREMENTS:
    - Should be specific enough to be useful (not "Science" but "Machine Learning")
 
 6. REFERENCES:
-   - List 3-5 authoritative sources (books, papers, organizations)
-   - These should be real, credible sources
+   - List 3-5 authoritative sources with real URLs
+   - ${webContext ? 'Use the PROVIDED REAL SOURCES above for accurate references' : 'Include credible sources (books, papers, organizations)'}
 
 7. TONE:
    - Neutral, encyclopedic voice
@@ -1073,9 +1232,13 @@ CRITICAL REQUIREMENTS:
 
 Return ONLY valid JSON, no markdown or explanation.`
 
+  const systemPrompt = webContext 
+    ? 'You are a senior Wikipedia editor with access to current research data. Use the provided web search results to ensure your article contains accurate, up-to-date information with real citations. Your writing is neutral, factual, and organized for easy comprehension. You include specific facts from the research provided and cite the real sources given to you.'
+    : 'You are a senior Wikipedia editor with expertise across multiple domains. You write comprehensive, well-researched articles that serve as authoritative references. Your writing is neutral, factual, and organized for easy comprehension. You include specific facts and cite authoritative sources. Your articles are used by students, researchers, and professionals as trusted references.'
+
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a senior Wikipedia editor with expertise across multiple domains. You write comprehensive, well-researched articles that serve as authoritative references. Your writing is neutral, factual, and organized for easy comprehension. You include specific facts and cite authoritative sources. Your articles are used by students, researchers, and professionals as trusted references.' },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }
     ]
   })
