@@ -193,7 +193,7 @@ export class ChatService {
           let searchResults: any = null
           let detectionResult: any = null
 
-          if (userMessageContent && useReasoning !== 'off') {
+          if (messageContent && useReasoning !== 'off') {
             // Use enhanced domain-aware detection
             const { detectEnhanced, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
             

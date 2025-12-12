@@ -1044,6 +1044,10 @@ export function useChat(initialConversationId?: string | null) {
     statusPills,
     searchResults,
     contextCards,
-    streamingMessageId
+    streamingMessageId,
+    // Setters for external stream parsing (used by handleSaveEdit)
+    setStatusPills,
+    setSearchResults,
+    setContextCards,
   }
 }

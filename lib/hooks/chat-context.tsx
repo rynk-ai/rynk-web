@@ -96,20 +96,28 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | null>(null)
 
-// Separate context for frequently-changing streaming state
-// This prevents statusPills/searchResults from causing re-renders in unrelated components
+// Type for status pills
+type StatusPill = {
+  status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+  message: string
+  timestamp: number
+}
+
+// Type for context cards
+type ContextCard = {
+  source: string
+  snippet: string
+  score: number
+}
+
 const StreamingContext = createContext<{
-  statusPills: Array<{
-    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
-    message: string
-    timestamp: number
-  }>
+  statusPills: Array<StatusPill>
   searchResults: any
-  contextCards: Array<{
-    source: string
-    snippet: string
-    score: number
-  }>
+  contextCards: Array<ContextCard>
+  // Setters for external stream parsing (used by handleSaveEdit)
+  setStatusPills: React.Dispatch<React.SetStateAction<Array<StatusPill>>>
+  setSearchResults: React.Dispatch<React.SetStateAction<any>>
+  setContextCards: React.Dispatch<React.SetStateAction<Array<ContextCard>>>
 } | null>(null)
 
 export function ChatProvider({ children, initialConversationId }: { children: React.ReactNode, initialConversationId?: string | null }) {
@@ -141,10 +149,17 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
     statusPills: chatHook.statusPills,
     searchResults: chatHook.searchResults,
     contextCards: chatHook.contextCards,
+    // Setters for external stream parsing (used by handleSaveEdit)
+    setStatusPills: chatHook.setStatusPills,
+    setSearchResults: chatHook.setSearchResults,
+    setContextCards: chatHook.setContextCards,
   }), [
     chatHook.statusPills,
     chatHook.searchResults,
     chatHook.contextCards,
+    chatHook.setStatusPills,
+    chatHook.setSearchResults,
+    chatHook.setContextCards,
   ])
 
   return (

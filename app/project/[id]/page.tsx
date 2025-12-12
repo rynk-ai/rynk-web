@@ -1,7 +1,6 @@
 "use client";
 
 // ChatContainer imports removed as we use VirtualizedMessageList directly
-import { MessageList } from "@/components/chat/message-list";
 import {
   VirtualizedMessageList,
   type VirtualizedMessageListRef,
@@ -13,22 +12,14 @@ import {
   uploadPart as uploadPartAction,
   completeMultipartUpload as completeMultipartUploadAction,
 } from "@/app/actions"; // Import direct action
-import {
-  Message,
-  MessageContent,
-  MessageActions,
-  MessageAction,
-} from "@/components/ui/message";
-import { ScrollButton } from "@/components/ui/scroll-button";
 import { Button } from "@/components/ui/button";
-import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
 import { ChatProvider } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useStreaming } from "@/lib/hooks/use-streaming";
 import { useSubChats } from "@/lib/hooks/use-sub-chats";
-import type { CloudMessage as ChatMessage, SubChat } from "@/lib/services/cloud-db";
+import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   SidebarInset,
@@ -37,56 +28,23 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-
-import {
-  ChatContainerContent,
-  ChatContainerRoot,
-} from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import {
   useRef,
   useState,
-  useEffect,
-  useMemo,
-  useCallback,
+  useEffect, useCallback,
   Suspense,
   memo,
-  use,
+  use
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Markdown } from "@/components/ui/markdown";
-import { FilePreviewList } from "@/components/file-preview";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
-import { VersionIndicator } from "@/components/ui/version-indicator";
-import { ContextPicker } from "@/components/context-picker";
 import { TagDialog } from "@/components/tag-dialog";
 import {
-  Folder as FolderIcon,
-  MessageSquare,
-  X,
-  Loader2,
   Plus,
   Tag,
-  Tags,
-  BookmarkPlus,
-  Bookmark,
-  ChevronDown,
+  BookmarkPlus, ChevronDown
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
@@ -233,7 +191,7 @@ const ChatContent = memo(
     } = useChatContext();
 
     // Get streaming-specific values from separate context to avoid re-renders
-    const { statusPills, searchResults, contextCards } = useStreamingContext();
+    const { statusPills, searchResults, contextCards, setStatusPills, setSearchResults, setContextCards } = useStreamingContext();
 
     // Use custom hooks for separated state management
     const messageState = useMessageState();
@@ -1131,7 +1089,17 @@ const ChatContent = memo(
             console.log("🤖 [handleSaveEdit] Generating AI response for:", {
               conversationId,
               messageId: newMessage.id, // ✅ Uses NEW message ID, not old one!
+              useReasoning: reasoningMode,
             });
+
+            // Clear previous status pills/search results and show initial status
+            setStatusPills([{
+              status: 'analyzing',
+              message: 'Analyzing request...',
+              timestamp: Date.now()
+            }]);
+            setSearchResults(null);
+            setContextCards([]);
 
             const response = await fetch("/api/chat", {
               method: "POST",
@@ -1139,6 +1107,7 @@ const ChatContent = memo(
               body: JSON.stringify({
                 conversationId: conversationId,
                 messageId: newMessage.id, // ✅ CRITICAL: Use NEW message ID
+                useReasoning: reasoningMode, // ✅ Pass reasoning mode
               }),
             });
 
@@ -1172,7 +1141,7 @@ const ChatContent = memo(
                 messageState.addMessages([optimisticAssistant]);
                 startStreaming(assistantMessageId);
 
-                // Read and display the stream
+                // Read and display the stream WITH parsing (same as sendChatRequest)
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let fullContent = "";
@@ -1180,11 +1149,75 @@ const ChatContent = memo(
                 try {
                   while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) {
+                      // Mark reasoning as complete when stream ends
+                      setStatusPills(prev => [...prev, {
+                        status: 'complete',
+                        message: 'Reasoning complete',
+                        timestamp: Date.now()
+                      }]);
+                      break;
+                    }
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    fullContent += chunk;
-                    updateStreamContent(fullContent);
+                    const text = decoder.decode(value, { stream: true });
+                    
+                    // Parse stream for JSON events (status pills, search results, context cards)
+                    const lines = text.split('\n');
+                    let contentChunk = '';
+
+                    for (let i = 0; i < lines.length; i++) {
+                      const line = lines[i];
+
+                      try {
+                        // Try to parse as JSON status, search results, or context cards message
+                        if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"') || line.startsWith('{"type":"context_cards"')) {
+                          const parsed = JSON.parse(line);
+
+                          if (parsed.type === 'status') {
+                            console.log('[handleSaveEdit] Parsed status pill:', parsed);
+                            setStatusPills(prev => [...prev, {
+                              status: parsed.status,
+                              message: parsed.message,
+                              timestamp: parsed.timestamp
+                            }]);
+                            continue; // Don't pass this to the content stream
+                          }
+
+                          if (parsed.type === 'search_results') {
+                            console.log('[handleSaveEdit] Parsed search results:', parsed.sources?.length);
+                            setSearchResults({
+                              query: parsed.query,
+                              sources: parsed.sources,
+                              strategy: parsed.strategy,
+                              totalResults: parsed.totalResults
+                            });
+                            continue; // Don't pass this to the content stream
+                          }
+
+                          if (parsed.type === 'context_cards') {
+                            console.log('[handleSaveEdit] Parsed context cards:', parsed.cards?.length);
+                            setContextCards(parsed.cards || []);
+                            continue; // Don't pass this to the content stream
+                          }
+                        }
+                      } catch (e) {
+                        // Not a JSON object, treat as content
+                      }
+
+                      // If not a status message, it's content
+                      if (line.trim()) {
+                        contentChunk += line;
+                      }
+                      // Add newline after each line to preserve structure
+                      if (i < lines.length - 1) {
+                        contentChunk += '\n';
+                      }
+                    }
+
+                    if (contentChunk) {
+                      fullContent += contentChunk;
+                      updateStreamContent(fullContent);
+                    }
                   }
                   console.log(
                     "✅ [handleSaveEdit] AI response complete, length:",
