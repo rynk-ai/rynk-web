@@ -1758,24 +1758,12 @@ const ChatContent = memo(
                 )}
 
                 {/* Scroll to Bottom Button */}
-                {!isScrolledUp && messages.length > 0 ? (
+                {!isScrolledUp && messages.length > 0 && (
                   <Button
                     variant="ghost"
-                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in border:gray-500 border"
+                    className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border border-border transition-all duration-300 px-4 py-2.5 flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in"
                     onClick={() => virtuosoRef.current?.scrollToBottom()}
                     title="Scroll to bottom"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      Scroll to Bottom
-                    </span>
-                  </Button>
-                ) : (
-                  <Button
-                    className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm border-border/50 transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-out slide-out-to-bottom-8 fade-out pointer-events-none"
-                    style={{ opacity: 0 }}
-                    onClick={() => {}}
-                    title=""
                   >
                     <ChevronDown className="h-4 w-4" />
                     <span className="text-sm font-medium">
@@ -1792,21 +1780,13 @@ const ChatContent = memo(
           <div
             ref={inputContainerRef}
             className={cn(
-              "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
-              !currentConversationId ? "bottom-2/7" : "bottom-0 mb-4",
+              "absolute left-0 right-0 w-full transition-all duration-300 ease-out z-20",
+              !currentConversationId 
+                ? "bottom-1/3 sm:bottom-2/7" 
+                : "bottom-0",
             )}
             style={{
-              transform: `translateY(-${
-                currentConversationId
-                  ? keyboardHeight
-                  : Math.max(
-                      0,
-                      keyboardHeight -
-                        (typeof window !== "undefined"
-                          ? window.innerHeight * 0.33
-                          : 200),
-                    )
-              }px)`,
+              paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
             }}
           >
             {/* Background for input section */}
@@ -2016,26 +1996,26 @@ const ChatHeaderWithCommandBar = memo(function ChatHeaderWithCommandBar({
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
       <div className="flex items-center gap-1 bg-background border border-border shadow-sm rounded-full p-1 transition-all duration-300 hover:shadow-md">
-        <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
-        <Separator orientation="vertical" className="h-4 bg-border/50" />
+        <SidebarTrigger className="h-10 w-10 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
+        <Separator orientation="vertical" className="h-5 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+          className="h-10 w-10 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
           onClick={handleNewChat}
           title="Start new chat"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
         </Button>
-        <Separator orientation="vertical" className="h-4 bg-border/50" />
+        <Separator orientation="vertical" className="h-5 bg-border/50" />
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          className="h-10 px-3 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
           onClick={() => setCommandBarOpen(true)}
           title="Search (⌘K)"
         >
-          <Search className="h-4 w-4" />
+          <Search className="h-5 w-5" />
           <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/70 bg-muted/50 border border-border/50 rounded">
             ⌘K
           </kbd>

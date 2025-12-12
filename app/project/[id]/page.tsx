@@ -1577,24 +1577,6 @@ const ChatContent = memo(
         <div className="flex flex-1 flex-col relative overflow-hidden">
           {/* Top Section: Messages & Title */}
           <div className="flex-1 overflow-y-auto w-full relative">
-            {/* Title for New Chat - Fades out when conversation starts */}
-            <div
-              className={cn(
-                "absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-in-out pointer-events-none",
-                !currentConversationId
-                  ? "opacity-100 translate-y-0 pb-24"
-                  : "opacity-0 -translate-y-10 pb-24",
-              )}
-            >
-              <TextShimmer
-                spread={5}
-                duration={4}
-                className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
-              >
-                rynk.
-              </TextShimmer>
-            </div>
-
             {/* Messages Container - Fades in/Visible when conversation active */}
             <div
               className={cn(
@@ -1667,25 +1649,12 @@ const ChatContent = memo(
                   />
 
                   {/* Scroll to Bottom Button */}
-                  {!isScrolledUp && messages.length > 0 ? (
+                  {!isScrolledUp && messages.length > 0 && (
                     <Button
                       variant="outline"
-                      className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border-border/50 hover:border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
+                      className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border border-border/50 hover:border-border transition-all duration-300 px-4 py-2.5 flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in"
                       onClick={() => virtuosoRef.current?.scrollToBottom()}
                       title="Scroll to bottom"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        Scroll to Bottom
-                      </span>
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm border-border/50 transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-out slide-out-to-bottom-8 fade-out pointer-events-none"
-                      style={{ opacity: 0 }}
-                      onClick={() => {}}
-                      title=""
                     >
                       <ChevronDown className="h-4 w-4" />
                       <span className="text-sm font-medium">
@@ -1716,21 +1685,13 @@ const ChatContent = memo(
           <div
             ref={inputContainerRef}
             className={cn(
-              "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
-              !currentConversationId ? "bottom-1/3" : "bottom-0 mb-4",
+              "absolute left-0 right-0 w-full transition-all duration-300 ease-out z-20",
+              !currentConversationId 
+                ? "bottom-1/3 sm:bottom-2/7" 
+                : "bottom-0",
             )}
             style={{
-              transform: `translateY(-${
-                currentConversationId
-                  ? keyboardHeight
-                  : Math.max(
-                      0,
-                      keyboardHeight -
-                        (typeof window !== "undefined"
-                          ? window.innerHeight * 0.33
-                          : 200),
-                    )
-              }px)`,
+              paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
             }}
           >
             {/* Background for input section */}
@@ -1925,16 +1886,16 @@ const ChatHeader = memo(function ChatHeader({
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-2 animate-in-down">
       <div className="flex items-center gap-1 bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1 transition-all duration-300 hover:bg-[hsl(var(--surface))] hover:shadow-md hover:border-border/50 group">
-        <SidebarTrigger className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors" />
-        <Separator orientation="vertical" className="h-4 bg-border/50" />
+        <SidebarTrigger className="h-10 w-10 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors" />
+        <Separator orientation="vertical" className="h-5 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors"
+          className="h-10 w-10 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors"
           onClick={handleNewChat}
           title="Start new chat"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
         </Button>
       </div>
     </div>

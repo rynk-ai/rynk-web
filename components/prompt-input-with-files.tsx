@@ -482,11 +482,21 @@ export const PromptInputWithFiles = memo(function
       return;
     }
 
-    // Mobile: Prevent Enter from submitting (only send button should work)
-    // Desktop: Default behavior in PromptInputTextarea will handle it (Enter = submit, Shift+Enter = newline)
+    // Mobile: Enter inserts newline (send button required to submit)
+    // Desktop: Default behavior - Enter = submit, Shift+Enter = newline
     if (e.key === 'Enter' && isMobile && !e.shiftKey) {
       e.preventDefault();
-      // Don't submit, just allow newline (default behavior)
+      // Insert newline at cursor position
+      const textarea = e.target as HTMLTextAreaElement;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue = prompt.slice(0, start) + '\n' + prompt.slice(end);
+      setPrompt(newValue);
+      onValueChange?.(newValue);
+      // Move cursor after the newline
+      requestAnimationFrame(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+      });
     }
   };
 
