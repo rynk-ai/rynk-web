@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   ArrowLeft, 
   Loader2, 
@@ -77,6 +78,7 @@ export default function SurfacePage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   
   const surfaceType = params.type as SurfaceType;
   const conversationId = params.id as string;
@@ -202,10 +204,12 @@ export default function SurfacePage() {
     }
   }, [conversationId, surfaceType, queryFromUrl, saveState]);
 
-  // Back to chat
-  const handleBackToChat = useCallback(() => {
+  // Back to chat - invalidate conversations cache to refresh surface states
+  const handleBackToChat = useCallback(async () => {
+    // Invalidate conversations cache so chat page fetches fresh data with updated surfaceStates
+    await queryClient.invalidateQueries({ queryKey: ['conversations'] });
     router.push(`/chat?id=${conversationId}`);
-  }, [router, conversationId]);
+  }, [router, conversationId, queryClient]);
 
   // Generate chapter content
   const handleGenerateChapter = useCallback(async (chapterIndex: number) => {
@@ -586,7 +590,8 @@ export default function SurfacePage() {
       
       if (!response.ok) throw new Error('Failed to delete surface');
       
-      // Navigate back to chat after deletion
+      // Invalidate cache and navigate back to chat after deletion
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] });
       router.push(`/chat?id=${conversationId}`);
     } catch (err) {
       console.error('[SurfacePage] Error deleting surface:', err);
@@ -595,7 +600,7 @@ export default function SurfacePage() {
       setIsDeleting(false);
       setShowDeleteDialog(false);
     }
-  }, [conversationId, surfaceType, router]);
+  }, [conversationId, surfaceType, router, queryClient]);
 
   // Get Surface Info
   const surfaceInfo = getSurfaceInfo(surfaceType);
