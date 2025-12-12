@@ -95,11 +95,22 @@ export default function SurfacePage() {
   
   // Track if we need to save (after state changes)
   const pendingSaveRef = useRef(false);
+  // Abort controller for save requests
+  const saveAbortControllerRef = useRef<AbortController | null>(null);
 
   // Save surface state to API
   const saveState = useCallback(async (stateToSave: SurfaceState) => {
     if (!conversationId || !surfaceType) return;
     
+    // Cancel previous pending save
+    if (saveAbortControllerRef.current) {
+      saveAbortControllerRef.current.abort();
+    }
+
+    // Create new controller
+    const controller = new AbortController();
+    saveAbortControllerRef.current = controller;
+
     setIsSaving(true);
     try {
       await fetch('/api/surface/state', {
@@ -110,12 +121,25 @@ export default function SurfacePage() {
           surfaceType,
           surfaceState: stateToSave,
         }),
+        signal: controller.signal,
       });
-      // Small delay just to show the optimistic UI state
-      setTimeout(() => setIsSaving(false), 800);
+      
+      // Only update UI if this is the active request
+      if (!controller.signal.aborted) {
+        setTimeout(() => setIsSaving(false), 800);
+      }
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return; 
+      }
       console.error('[SurfacePage] Failed to save state:', err);
       setIsSaving(false);
+    } finally {
+      // Cleanup ref if this was the active controller
+      if (saveAbortControllerRef.current === controller) {
+        saveAbortControllerRef.current = null;
+      }
     }
   }, [conversationId, surfaceType]);
 
@@ -203,10 +227,27 @@ export default function SurfacePage() {
 
       if (!response.ok) throw new Error("Failed to generate chapter");
       
-      const data = await response.json() as { updatedState: SurfaceState };
-      setSurfaceState(data.updatedState);
-      // Save after generating
-      await saveState(data.updatedState);
+      const data = await response.json() as { updatedState: SurfaceState; content: string };
+      
+      setSurfaceState((prev) => {
+        if (!prev?.learning) return data.updatedState;
+
+        const updated = {
+          ...prev,
+          updatedAt: Date.now(),
+          learning: {
+            ...prev.learning,
+            chaptersContent: {
+              ...prev.learning.chaptersContent,
+              [chapterIndex]: data.content,
+            },
+          },
+        };
+
+        // Save the merged state
+        saveState(updated);
+        return updated;
+      });
     } catch (err) {
       console.error('[SurfacePage] Error generating chapter:', err);
     } finally {
@@ -255,10 +296,27 @@ export default function SurfacePage() {
 
       if (!response.ok) throw new Error("Failed to generate step");
       
-      const data = await response.json() as { updatedState: SurfaceState };
-      setSurfaceState(data.updatedState);
-      // Save after generating
-      await saveState(data.updatedState);
+      const data = await response.json() as { updatedState: SurfaceState; content: string };
+      
+      setSurfaceState((prev) => {
+        if (!prev?.guide) return data.updatedState;
+
+        const updated = {
+          ...prev,
+          updatedAt: Date.now(),
+          guide: {
+            ...prev.guide,
+            stepsContent: {
+              ...prev.guide.stepsContent,
+              [stepIndex]: data.content,
+            },
+          },
+        };
+
+        // Save the merged state
+        saveState(updated);
+        return updated;
+      });
     } catch (err) {
       console.error('[SurfacePage] Error generating step:', err);
     } finally {
