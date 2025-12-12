@@ -249,5 +249,14 @@
         from { opacity: 0; }
         to { opacity: 1; }
     }
+    
+    /* Sub-chat highlight styles for deep dive feature */
+    .subchat-highlight {
+        @apply bg-accent/20 hover:bg-accent/30 cursor-pointer rounded-sm px-0.5 transition-colors border-b border-accent/40;
+    }
+    
+    .dark .subchat-highlight {
+        @apply bg-accent/30 hover:bg-accent/40;
+    }
 }
 

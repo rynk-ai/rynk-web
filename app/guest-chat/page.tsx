@@ -785,7 +785,7 @@ const GuestChatContent = memo(function GuestChatContent({
             
           }}
         >
-          <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
+          <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
             <PromptInputWithFiles
               onSubmit={handleSubmit}
               isLoading={currentConversationId ? loadingConversations.has(currentConversationId) : false}

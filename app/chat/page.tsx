@@ -1790,7 +1790,7 @@ const ChatContent = memo(
             }}
           >
             {/* Background for input section */}
-            <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
+            <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
               {/* Show editContext when editing, activeContext otherwise */}
 
               <PromptInputWithFiles
