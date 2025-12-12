@@ -178,7 +178,8 @@ export class KnowledgeBaseService {
     conversationId: string, 
     query: string, 
     targetMessageId?: string, // If null, uses the end of the conversation
-    projectId?: string // NEW PARAMETER
+    projectId?: string, // NEW PARAMETER
+    precomputedQueryVector?: number[]  // OPTIMIZATION: Reuse pre-computed embedding from caller
   ): Promise<string> {
     console.log('🔍 [KnowledgeBase] Getting context for query:', query.substring(0, 50))
     
@@ -204,14 +205,22 @@ export class KnowledgeBaseService {
     console.log('📚 [KnowledgeBase] Total active sources:', allSourceIds.length, 
       `(${conversationSourceIds.length} conversation + ${projectSourceIds.length} project)`)
 
-    // 2. Generate Query Embedding
-    // Always use OpenRouter/Multimodal provider for embeddings to match ingestion
+    // 2. Generate Query Embedding (or reuse pre-computed)
     try {
-      console.log('🔄 [KnowledgeBase] Generating embeddings...')
-      const { getOpenRouter } = await import('@/lib/services/openrouter')
-      const aiProvider = getOpenRouter()
-      const queryVector = await aiProvider.getEmbeddings(query, 10000) // 10s timeout
-      console.log('✅ [KnowledgeBase] Embeddings generated')
+      let queryVector: number[]
+      
+      // OPTIMIZATION: Reuse pre-computed embedding if provided
+      if (precomputedQueryVector && precomputedQueryVector.length > 0) {
+        console.log('⚡ [KnowledgeBase] Reusing pre-computed embedding')
+        queryVector = precomputedQueryVector
+      } else {
+        // Always use OpenRouter/Multimodal provider for embeddings to match ingestion
+        console.log('🔄 [KnowledgeBase] Generating embeddings...')
+        const { getOpenRouter } = await import('@/lib/services/openrouter')
+        const aiProvider = getOpenRouter()
+        queryVector = await aiProvider.getEmbeddings(query, 10000) // 10s timeout
+        console.log('✅ [KnowledgeBase] Embeddings generated')
+      }
       
       // 3. Vector Search
       console.log('🔍 [KnowledgeBase] Searching knowledge base with 13 sources...')

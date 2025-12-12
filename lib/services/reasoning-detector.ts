@@ -184,18 +184,174 @@ Query: "What is photosynthesis?"
 // DETECTION FUNCTIONS
 // ============================================================================
 
+// === HEURISTIC PATTERNS FOR FAST DETECTION ===
+const WEB_SEARCH_KEYWORDS = [
+  // Current events
+  'latest', 'recent', 'current', 'today', 'now', 'news', '2024', '2025',
+  // Market data
+  'price', 'stock', 'crypto', 'bitcoin', 'ethereum', 'market',
+  // Comparisons
+  'vs', 'versus', 'compare', 'comparison', 'better', 'best', 'top', 'recommended',
+  // Research
+  'research', 'study', 'statistics', 'data on', 'facts about',
+  // Tech (frameworks change)
+  'tutorial', 'guide', 'documentation', 'docs'
+]
+
+const WEB_SEARCH_PATTERNS = [
+  /what.*(happen|going on|trending)/i,
+  /who (is|are) (the|a)?/i,
+  /(when|where) (is|was|will)/i,
+  /how much (is|does|do)/i,
+  /price of/i,
+  /latest (news|updates|version)/i,
+  /\d{4}.*\b(best|top|new)\b/i,  // Year + best/top/new
+  /(update|release|launch|announce)/i
+]
+
+const REASONING_PATTERNS = [
+  /explain.*(how|why|what)/i,
+  /analyze|analysis/i,
+  /compare|comparison|versus|vs\b/i,
+  /solve|calculate|compute/i,
+  /debug|troubleshoot|fix/i,
+  /implement|build|create.*code/i,
+  /step[- ]?by[- ]?step/i
+]
+
+const DOMAIN_PATTERNS: Record<string, RegExp[]> = {
+  medicine: [/medical|health|symptom|disease|drug|medicine|therapy|doctor|patient|clinic/i],
+  technology: [/code|programming|software|api|database|server|frontend|backend|react|python|javascript/i],
+  business: [/finance|invest|stock|market|crypto|bitcoin|business|startup|profit/i],
+  law: [/legal|law|court|attorney|contract|liability|sue|lawsuit/i],
+  science: [/physics|chemistry|biology|math|equation|formula|experiment|research/i],
+  arts: [/poem|story|write|creative|art|music|movie|film|book|novel/i],
+}
+
+const CODE_PATTERNS = [
+  /\b(code|programming|function|class|method|variable|debug|error|bug|implement)/i,
+  /\b(react|vue|angular|python|javascript|typescript|java|go|rust|sql)\b/i,
+  /\b(api|endpoint|server|database|query|crud)\b/i,
+  /```/,  // Code blocks in message
+]
+
+const MATH_PATTERNS = [
+  /\b(solve|calculate|compute|integrate|derivative|sum|equation)\b/i,
+  /[∫∑∏√±÷×]/,  // Math symbols
+  /\d+\s*[+\-*/^]\s*\d+/,  // Basic arithmetic
+  /\b(algebra|calculus|geometry|trigonometry|statistics)\b/i
+]
+
+const DISCLAIMER_DOMAINS = ['medicine', 'law', 'business']
+
+/**
+ * FAST Enhanced detection using heuristics (no LLM call)
+ * Runs in microseconds instead of 100-500ms
+ */
+export function detectEnhancedFast(query: string): EnhancedDetectionResult {
+  const lowerQuery = query.toLowerCase()
+  
+  // === DOMAIN DETECTION ===
+  let domain: Domain = 'general'
+  let subDomain: string | null = null
+  
+  for (const [d, patterns] of Object.entries(DOMAIN_PATTERNS)) {
+    if (patterns.some(p => p.test(query))) {
+      domain = d as Domain
+      break
+    }
+  }
+
+  // === WEB SEARCH DETECTION ===
+  const hasWebSearchKeyword = WEB_SEARCH_KEYWORDS.some(kw => lowerQuery.includes(kw))
+  const matchesWebSearchPattern = WEB_SEARCH_PATTERNS.some(p => p.test(query))
+  const needsWebSearch = hasWebSearchKeyword || matchesWebSearchPattern
+
+  // === REASONING DETECTION ===
+  const matchesReasoningPattern = REASONING_PATTERNS.some(p => p.test(query))
+  const needsReasoning = matchesReasoningPattern || needsWebSearch
+
+  // === CODE DETECTION ===
+  const needsCode = CODE_PATTERNS.some(p => p.test(query))
+  
+  // === MATH DETECTION ===
+  const isMath = MATH_PATTERNS.some(p => p.test(query))
+  
+  // === INFORMATION TYPE ===
+  let informationType: InformationType = 'factual'
+  if (isMath) informationType = 'mathematical'
+  else if (/how (do|to|can)/i.test(query)) informationType = 'procedural'
+  else if (/compare|vs|versus/i.test(query)) informationType = 'analytical'
+  else if (/explain|what is|define/i.test(query)) informationType = 'conceptual'
+  else if (/news|latest|current/i.test(query)) informationType = 'current_events'
+  else if (/write|create.*story|poem|creative/i.test(query)) informationType = 'creative'
+  else if (/debug|error|fix|troubleshoot/i.test(query)) informationType = 'diagnostic'
+  else if (/price|market|stock/i.test(query)) informationType = 'market_data'
+
+  // === COMPLEXITY ===
+  const queryLength = query.length
+  let complexityLevel: ComplexityLevel = 'basic'
+  if (queryLength > 500) complexityLevel = 'advanced'
+  else if (queryLength > 200) complexityLevel = 'intermediate'
+
+  return {
+    needsReasoning,
+    needsWebSearch,
+    confidence: 0.8,  // Heuristic confidence
+    reasoning: 'Fast heuristic detection',
+    
+    domain,
+    subDomain,
+    informationType,
+    
+    responseRequirements: {
+      needsDiagrams: /diagram|visual|chart|graph/i.test(query),
+      needsRealTimeData: /price|current|live|now/i.test(query),
+      needsCitations: domain === 'science' || domain === 'medicine',
+      needsStepByStep: /step|how to|tutorial|guide/i.test(query),
+      needsDisclaimer: DISCLAIMER_DOMAINS.includes(domain),
+      needsComparison: /compare|vs|versus|difference/i.test(query),
+      needsCode,
+    },
+    
+    queryContext: {
+      isUrgent: /urgent|asap|immediately|now/i.test(query),
+      isAcademic: /research|paper|thesis|academic|study/i.test(query),
+      isProfessional: /client|project|deadline|work/i.test(query),
+      complexityLevel,
+    },
+    
+    detectedTypes: {
+      math: isMath,
+      code: needsCode,
+      logic: /logic|reason|proof|argument/i.test(query),
+      analysis: /analyze|analysis|evaluate/i.test(query),
+      currentEvents: /news|latest|current|today/i.test(query),
+    }
+  }
+}
+
 /**
  * Enhanced detection with domain awareness
- * Returns comprehensive classification for high-quality response generation
+ * NOW USES FAST HEURISTICS BY DEFAULT - no LLM call
+ * Falls back to LLM only if explicitly requested
  */
 export async function detectEnhanced(
-  query: string
+  query: string,
+  useLLM: boolean = false  // Default to fast heuristics
 ): Promise<EnhancedDetectionResult> {
+  // === OPTIMIZATION: Use fast heuristics by default ===
+  if (!useLLM) {
+    console.log('⚡ [detectEnhanced] Using fast heuristics (no LLM call)')
+    return detectEnhancedFast(query)
+  }
+  
+  // === FALLBACK: LLM-based detection (only if explicitly requested) ===
   const apiKey = process.env.GROQ_API_KEY
   
   if (!apiKey) {
-    console.error('[detectEnhanced] Missing GROQ_API_KEY')
-    return getDefaultDetectionResult()
+    console.error('[detectEnhanced] Missing GROQ_API_KEY, using heuristics')
+    return detectEnhancedFast(query)
   }
 
   try {
@@ -234,8 +390,8 @@ export async function detectEnhanced(
     return normalizeDetectionResult(result)
     
   } catch (error) {
-    console.error('[detectEnhanced] Error:', error)
-    return getDefaultDetectionResult()
+    console.error('[detectEnhanced] LLM error, falling back to heuristics:', error)
+    return detectEnhancedFast(query)
   }
 }
 

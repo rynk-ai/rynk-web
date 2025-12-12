@@ -19,6 +19,14 @@ import { getDomainName } from '@/lib/types/citation'
 import { StreamManager } from './stream-manager'
 import { ResponseFormatter } from './response-formatter'
 
+// Static imports for performance - avoid dynamic import() overhead in hot path
+import { knowledgeBase } from '@/lib/services/knowledge-base'
+import { detectEnhanced, resolveReasoningMode, getReasoningModel } from './reasoning-detector'
+import { analyzeIntent } from './agentic/intent-analyzer'
+import { SourceOrchestrator } from './agentic/source-orchestrator'
+import { StatusEmitter } from './agentic/status-emitter'
+import { ResponseSynthesizer } from './agentic/response-synthesizer'
+
 export class ChatService {
   async handleChatRequest(
     userId: string,
@@ -39,8 +47,14 @@ export class ChatService {
       hasNewContent: !!userMessageContent,
     });
 
-    // 1. Check credits
-    const credits = await cloudDb.getUserCredits(userId)
+    // === OPTIMIZED: Parallel DB calls for initialization ===
+    // Step 1: Fetch credits and conversation in parallel (these are independent)
+    const [credits, conversation] = await Promise.all([
+      cloudDb.getUserCredits(userId),
+      cloudDb.getConversation(conversationId)
+    ])
+    
+    // Early exits
     if (credits <= 0) {
       throw new Error("Insufficient credits")
     }
@@ -48,24 +62,56 @@ export class ChatService {
     let userMessage: any
     let messageContent: string
     let messageRefs: any = { referencedConversations, referencedFolders }
+    let project: any = null
+    let assistantMessage: any
 
-    // 2. Get or Create User Message
+    // Step 2: User message handling + project fetch in parallel where possible
+    // Start project fetch early (non-blocking)
+    const projectPromise = conversation?.projectId 
+      ? cloudDb.getProject(conversation.projectId) 
+      : Promise.resolve(null)
+
     if (userMessageId) {
-      // Edit flow: Use existing message
-      userMessage = await cloudDb.getMessage(userMessageId)
-      if (!userMessage) {
+      // Edit flow: Fetch existing message and project in parallel
+      const [existingUserMessage, fetchedProject] = await Promise.all([
+        cloudDb.getMessage(userMessageId),
+        projectPromise
+      ])
+      
+      if (!existingUserMessage) {
         throw new Error(`User message ${userMessageId} not found`)
       }
+      
+      userMessage = existingUserMessage
       messageContent = userMessage.content
       messageRefs = {
         referencedConversations: userMessage.referencedConversations || [],
         referencedFolders: userMessage.referencedFolders || []
       }
+      
+      // Step 3: Deduct credit and create assistant message in parallel
+      const [, newAssistantMessage] = await Promise.all([
+        cloudDb.updateCredits(userId, -1),
+        cloudDb.addMessage(conversationId, {
+          id: providedAssistantMessageId || undefined,
+          role: 'assistant',
+          content: '', // Will be filled by streaming
+          attachments: [],
+        })
+      ])
+      
+      project = fetchedProject
+      assistantMessage = newAssistantMessage
     } else {
       // Normal flow: Create new user message
       if (!userMessageContent) {
         throw new Error("Either userMessageContent or userMessageId must be provided")
       }
+      
+      // CRITICAL: User message must be created FIRST before assistant message
+      // The addMessage function updates the conversation path array, and parallel
+      // addMessage calls to the same conversation cause a race condition where
+      // one message's path update overwrites the other's.
       userMessage = await cloudDb.addMessage(conversationId, {
         id: providedUserMessageId || undefined,
         role: 'user',
@@ -75,25 +121,22 @@ export class ChatService {
         referencedFolders
       })
       messageContent = userMessageContent
+      
+      // Now we can parallelize assistant message creation with other operations
+      const [, newAssistantMessage, fetchedProject] = await Promise.all([
+        cloudDb.updateCredits(userId, -1),
+        cloudDb.addMessage(conversationId, {
+          id: providedAssistantMessageId || undefined,
+          role: 'assistant',
+          content: '', // Will be filled by streaming
+          attachments: [],
+        }),
+        projectPromise
+      ])
+      
+      project = fetchedProject
+      assistantMessage = newAssistantMessage
     }
-
-    // 3. Deduct credit
-    await cloudDb.updateCredits(userId, -1)
-
-    // 4. Fetch conversation and project (if exists)
-    const conversation = await cloudDb.getConversation(conversationId)
-    let project = null
-    if (conversation?.projectId) {
-      project = await cloudDb.getProject(conversation.projectId)
-    }
-
-    // 5. Create assistant message placeholder EARLY
-    const assistantMessage = await cloudDb.addMessage(conversationId, {
-      id: providedAssistantMessageId || undefined,
-      role: 'assistant',
-      content: '', // Will be filled by streaming
-      attachments: [],
-    })
 
     // 6. Start Streaming Response Immediately
     const stream = new ReadableStream({
@@ -132,27 +175,45 @@ export class ChatService {
              // ... (Legacy ingestion logic if needed, skipping for brevity as frontend handles it)
           }
 
-          // Retrieve Context from Knowledge Base
-          const { knowledgeBase } = await import('@/lib/services/knowledge-base')
+          // === OPTIMIZATION: Compute embedding once for reuse ===
+          // This embedding will be used for:
+          // 1. Knowledge Base context retrieval
+          // 2. buildContext vector searches
+          // 3. (Background) User message vectorization already uses the content directly
+          let queryEmbedding: number[] = []
+          try {
+            const aiProvider = getAIProvider()
+            queryEmbedding = await aiProvider.getEmbeddings(messageContent)
+            console.log('⚡ [chatService] Query embedding computed once for reuse')
+          } catch (embeddingError) {
+            console.error('❌ [chatService] Failed to compute query embedding:', embeddingError)
+            // Continue without embedding - fallback to individual computation
+          }
+
+          // Retrieve Context from Knowledge Base (pass pre-computed embedding)
           let kbContext = ''
           try {
             kbContext = await knowledgeBase.getContext(
               conversationId, 
               messageContent,
               undefined, 
-              project?.id
+              project?.id,
+              queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
             )
           } catch (error) {
             console.error('❌ [chatService] Failed to retrieve KB context:', error)
           }
 
+          // Build legacy context (pass pre-computed embedding)
           const { contextText: legacyContext, retrievedChunks } = await this.buildContext(
             userId,
             conversationId,
             messageContent,
             messageRefs.referencedConversations,
             messageRefs.referencedFolders,
-            project?.id
+            project?.id,
+            undefined,  // onProgress
+            queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
           )
           
           // Send context cards to frontend (shows what RAG found)
@@ -194,8 +255,7 @@ export class ChatService {
           let detectionResult: any = null
 
           if (messageContent && useReasoning !== 'off') {
-            // Use enhanced domain-aware detection
-            const { detectEnhanced, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
+            // Use enhanced domain-aware detection (static import)
             
             detectionResult = await detectEnhanced(messageContent)
             const resolved = resolveReasoningMode(useReasoning, detectionResult)
@@ -211,18 +271,15 @@ export class ChatService {
             })
           }
 
-            // --- PHASE 2: SEARCH (If needed) ---
             if (shouldUseWebSearch) {
               streamManager.sendStatus('searching', 'Analyzing search intent...')
               
-              // 1. Analyze Intent & Plan
-              const { analyzeIntent } = await import('./agentic/intent-analyzer')
+              // 1. Analyze Intent & Plan (static import)
               const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
               
               streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
               
-              // 2. Execute Plan
-              const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
+              // 2. Execute Plan (static import)
               const orchestrator = new SourceOrchestrator()
               const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
               
@@ -421,25 +478,169 @@ You have access to the search results above. Follow these rules STRICTLY:
     referencedConversations: any[],
     referencedFolders: any[],
     projectId?: string,
-    onProgress?: (message: string) => void
+    onProgress?: (message: string) => void,
+    precomputedQueryVector?: number[]  // OPTIMIZATION: Reuse pre-computed embedding
   ): Promise<{ contextText: string; retrievedChunks: { content: string; source: string; score: number }[] }> {
     let contextText = ''
     
     // --- 1. RECENT CONTEXT (Standard) ---
-    // We still inject the recent conversation history directly via `prepareMessagesForAI` (last 1000 msgs).
+    // We still inject the recent conversation history directly via `prepareMessagesForAI` (last 50 msgs).
     // So `buildContext` is primarily for RETRIEVED context (RAG).
 
     if (!query.trim()) return { contextText: '', retrievedChunks: [] }
 
     try {
-      const aiProvider = getAIProvider();
-      const queryVector = await aiProvider.getEmbeddings(query);
+      // OPTIMIZATION: Reuse pre-computed embedding if provided
+      let queryVector: number[]
+      if (precomputedQueryVector && precomputedQueryVector.length > 0) {
+        queryVector = precomputedQueryVector
+      } else {
+        const aiProvider = getAIProvider();
+        queryVector = await aiProvider.getEmbeddings(query);
+      }
       
       const retrievedChunks: { content: string, source: string, score: number }[] = [];
 
-      // --- SCOPE 1: CURRENT CONVERSATION (Long-Term Memory) ---
-      // Always search current chat for forgotten details
-      const longTermMemories = await vectorDb.searchConversationMemory(currentConversationId, queryVector, { limit: 5, minScore: 0.5 });
+      // === OPTIMIZATION: Parallelize all vector searches ===
+      // Instead of sequential awaits, we launch all searches in parallel
+      
+      // Helper function to search a single referenced conversation
+      const searchReferencedConversation = async (ref: any) => {
+        const chunks: { content: string, source: string, score: number }[] = [];
+        
+        // A. Search Messages in Referenced Chat via Vectorize
+        const refMemories = await vectorDb.searchConversationMemory(ref.id, queryVector, { limit: 5 });
+        
+        if (refMemories.length > 0) {
+          refMemories.forEach(m => {
+            chunks.push({
+              content: m.content,
+              source: `Referenced Chat: "${ref.title}"`,
+              score: m.score
+            });
+          });
+        } else {
+          // D1 FALLBACK: If Vectorize returns no results, fetch recent messages directly
+          console.log(`⚠️ [buildContext] Vectorize returned 0 for ref ${ref.id}, using D1 fallback...`);
+          const { messages: recentMsgs } = await cloudDb.getMessages(ref.id, 10);
+          recentMsgs.forEach(m => {
+            if (m.role === 'user' || m.role === 'assistant') {
+              const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+              chunks.push({
+                content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`,
+                source: `Referenced Chat: "${ref.title}"`,
+                score: 0.75 // Default score for D1 fallback
+              });
+            }
+          });
+        }
+
+        // B. Search Files in Referenced Chat (Transitive Knowledge)
+        const sources = await vectorDb.getSourcesForConversation(ref.id);
+        const sourceIds = sources.map(s => s.sourceId);
+        
+        if (sourceIds.length > 0) {
+          const fileChunks = await vectorDb.searchKnowledgeBase(sourceIds, queryVector, { limit: 5 });
+          fileChunks.forEach(c => {
+            chunks.push({
+              content: c.content,
+              source: `File in "${ref.title}"`,
+              score: c.score
+            });
+          });
+        }
+        
+        return chunks;
+      };
+      
+      // Helper function to search a single folder
+      const searchReferencedFolder = async (folderRef: any) => {
+        const chunks: { content: string, source: string, score: number }[] = [];
+        
+        const folder = await cloudDb.getFolder(folderRef.id);
+        if (!folder || !folder.conversationIds.length) {
+          console.log(`⚠️ [buildContext] Folder ${folderRef.id} not found or empty`);
+          return chunks;
+        }
+        
+        console.log(`📁 [buildContext] Folder "${folder.name}" has ${folder.conversationIds.length} conversations`);
+        
+        // Search up to 5 conversations in this folder - PARALLEL
+        const folderSearches = folder.conversationIds.slice(0, 5).map(async (convId: string) => {
+          const convChunks: typeof chunks = [];
+          
+          // Try Vectorize first
+          const folderMemories = await vectorDb.searchConversationMemory(convId, queryVector, { limit: 3 });
+          
+          if (folderMemories.length > 0) {
+            folderMemories.forEach(m => {
+              convChunks.push({
+                content: m.content,
+                source: `Folder "${folder.name}"`,
+                score: m.score
+              });
+            });
+          } else {
+            // D1 fallback for folder conversations
+            const { messages: recentMsgs } = await cloudDb.getMessages(convId, 5);
+            recentMsgs.forEach(m => {
+              if (m.role === 'user' || m.role === 'assistant') {
+                const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+                convChunks.push({
+                  content: `[${roleLabel}]: ${m.content.substring(0, 500)}`,
+                  source: `Folder "${folder.name}"`,
+                  score: 0.7
+                });
+              }
+            });
+          }
+          
+          return convChunks;
+        });
+        
+        const allFolderChunks = await Promise.all(folderSearches);
+        return allFolderChunks.flat();
+      };
+
+      // === LAUNCH ALL SEARCHES IN PARALLEL ===
+      console.log('⚡ [buildContext] Launching parallel vector searches...');
+      
+      // SCOPE 1: Current conversation memory
+      const currentConvPromise = vectorDb.searchConversationMemory(
+        currentConversationId, queryVector, { limit: 5, minScore: 0.5 }
+      );
+      
+      // SCOPE 2: Project memory (if applicable)
+      const projectPromise = projectId 
+        ? vectorDb.searchProjectMemory(projectId, queryVector, { 
+            minScore: 0.5,
+            excludeConversationId: currentConversationId 
+          })
+        : Promise.resolve([]);
+      
+      // SCOPE 3: Referenced conversations (parallel)
+      const refConvPromises = referencedConversations.map(ref => searchReferencedConversation(ref));
+      
+      // SCOPE 4: Referenced folders (parallel)
+      const refFolderPromises = (referencedFolders || []).map(f => searchReferencedFolder(f));
+      
+      // Wait for all searches to complete
+      const [
+        longTermMemories,
+        projectMemories,
+        ...refResults
+      ] = await Promise.all([
+        currentConvPromise,
+        projectPromise,
+        ...refConvPromises,
+        ...refFolderPromises
+      ]);
+      
+      console.log('✅ [buildContext] All parallel searches complete');
+
+      // === PROCESS RESULTS ===
+      
+      // SCOPE 1: Current conversation
       longTermMemories.forEach(m => {
         retrievedChunks.push({
           content: m.content,
@@ -448,176 +649,82 @@ You have access to the search results above. Follow these rules STRICTLY:
         });
       });
 
-      // --- SCOPE 2: PROJECT MEMORY (Implicit) ---
-      if (projectId) {
-        console.log('🧠 [buildContext] Project Mode: Searching Project Memory', {
-          projectId,
-          currentConversationId
-        });
-        const projectMemories = await vectorDb.searchProjectMemory(projectId, queryVector, { 
-          minScore: 0.5,
-          excludeConversationId: currentConversationId 
-        });
+      // SCOPE 2: Project memory
+      if (projectId && projectMemories.length > 0) {
         console.log('📊 [buildContext] Project memories found:', projectMemories.length);
         
-        // Fetch conversation titles and message roles for better attribution
-        if (projectMemories.length > 0) {
-          const convIds = Array.from(new Set(projectMemories.map(m => m.conversationId)));
-          const conversations = await cloudDb.getConversationsBatch(convIds);
-          const convMap = new Map(conversations.map(c => [c.id, c.title]));
+        // Fetch metadata in parallel
+        const convIds = Array.from(new Set(projectMemories.map(m => m.conversationId)));
+        const messageIds = projectMemories.map(m => m.messageId);
+        
+        const [conversations, messages] = await Promise.all([
+          cloudDb.getConversationsBatch(convIds),
+          cloudDb.getMessagesByIdBatch(messageIds)
+        ]);
+        
+        const convMap = new Map(conversations.map(c => [c.id, c.title]));
+        const roleMap = new Map(messages.map(m => [m.id, m.role]));
+        
+        projectMemories.forEach(m => {
+          const title = convMap.get(m.conversationId) || 'Unknown Chat';
+          const role = roleMap.get(m.messageId) || 'unknown';
+          const roleLabel = role === 'assistant' ? 'AI' : role === 'user' ? 'User' : 'Unknown';
           
-          // Fetch message roles from DB
-          const messageIds = projectMemories.map(m => m.messageId);
-          const messages = await cloudDb.getMessagesByIdBatch(messageIds);
-          const roleMap = new Map(messages.map(m => [m.id, m.role]));
+          // Format relative time
+          const ageMs = Date.now() - (m.timestamp || 0);
+          const ageMinutes = Math.floor(ageMs / 60000);
+          const ageHours = Math.floor(ageMs / 3600000);
+          const ageDays = Math.floor(ageMs / 86400000);
+          const timeAgo = ageDays > 0 
+            ? `${ageDays} day${ageDays > 1 ? 's' : ''} ago`
+            : ageHours > 0 
+              ? `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
+              : `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
           
-          projectMemories.forEach(m => {
-            const title = convMap.get(m.conversationId) || 'Unknown Chat';
-            const role = roleMap.get(m.messageId) || 'unknown';
-            const roleLabel = role === 'assistant' ? 'AI' : role === 'user' ? 'User' : 'Unknown';
+          retrievedChunks.push({
+            content: `[${roleLabel}]: ${m.content}`,
+            source: `In "${title}" (${timeAgo})`,
+            score: m.score
+          });
+        });
+      } else if (projectId) {
+        // --- D1 FALLBACK: Vectorize hasn't indexed yet, query D1 directly ---
+        console.log('⚠️ [buildContext] Vectorize returned 0 results, using D1 fallback...');
+        const recentMessages = await cloudDb.getRecentProjectMessages(
+          projectId,
+          currentConversationId,
+          10
+        );
+        
+        if (recentMessages.length > 0) {
+          console.log(`✅ [buildContext] D1 fallback found ${recentMessages.length} recent messages`);
+          
+          recentMessages.forEach(m => {
+            const roleLabel = m.role === 'assistant' ? 'AI' : m.role === 'user' ? 'User' : 'Unknown';
             
             // Format relative time
-            const ageMs = Date.now() - (m.timestamp || 0);
+            const ageMs = Date.now() - m.createdAt;
             const ageMinutes = Math.floor(ageMs / 60000);
             const ageHours = Math.floor(ageMs / 3600000);
-            const ageDays = Math.floor(ageMs / 86400000);
-            const timeAgo = ageDays > 0 
-              ? `${ageDays} day${ageDays > 1 ? 's' : ''} ago`
-              : ageHours > 0 
-                ? `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
-                : `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
+            const timeAgo = ageHours > 0 
+              ? `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
+              : `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
             
             retrievedChunks.push({
-              content: `[${roleLabel}]: ${m.content}`,
-              source: `In "${title}" (${timeAgo})`,
-              score: m.score
+              content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`, // Limit content length
+              source: `In "${m.conversationTitle}" (${timeAgo})`,
+              score: 0.8 // Default score for D1 results
             });
           });
-        } else {
-          // --- D1 FALLBACK: Vectorize hasn't indexed yet, query D1 directly ---
-          console.log('⚠️ [buildContext] Vectorize returned 0 results, using D1 fallback...');
-          const recentMessages = await cloudDb.getRecentProjectMessages(
-            projectId,
-            currentConversationId,
-            10
-          );
-          
-          if (recentMessages.length > 0) {
-            console.log(`✅ [buildContext] D1 fallback found ${recentMessages.length} recent messages`);
-            
-            recentMessages.forEach(m => {
-              const roleLabel = m.role === 'assistant' ? 'AI' : m.role === 'user' ? 'User' : 'Unknown';
-              
-              // Format relative time
-              const ageMs = Date.now() - m.createdAt;
-              const ageMinutes = Math.floor(ageMs / 60000);
-              const ageHours = Math.floor(ageMs / 3600000);
-              const timeAgo = ageHours > 0 
-                ? `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
-                : `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
-              
-              retrievedChunks.push({
-                content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`, // Limit content length
-                source: `In "${m.conversationTitle}" (${timeAgo})`,
-                score: 0.8 // Default score for D1 results
-              });
-            });
-          }
         }
       }
 
-      // --- SCOPE 3: REFERENCED CONVERSATIONS (Explicit) ---
-      if (referencedConversations.length > 0) {
-        console.log('🧠 [buildContext] Searching Referenced Conversations:', referencedConversations.length);
-        
-        for (const ref of referencedConversations) {
-          // A. Search Messages in Referenced Chat via Vectorize
-          const refMemories = await vectorDb.searchConversationMemory(ref.id, queryVector, { limit: 5 });
-          
-          if (refMemories.length > 0) {
-            refMemories.forEach(m => {
-              retrievedChunks.push({
-                content: m.content,
-                source: `Referenced Chat: "${ref.title}"`,
-                score: m.score
-              });
-            });
-          } else {
-            // D1 FALLBACK: If Vectorize returns no results, fetch recent messages directly
-            console.log(`⚠️ [buildContext] Vectorize returned 0 for ref ${ref.id}, using D1 fallback...`);
-            const { messages: recentMsgs } = await cloudDb.getMessages(ref.id, 10);
-            recentMsgs.forEach(m => {
-              if (m.role === 'user' || m.role === 'assistant') {
-                const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
-                retrievedChunks.push({
-                  content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`,
-                  source: `Referenced Chat: "${ref.title}"`,
-                  score: 0.75 // Default score for D1 fallback
-                });
-              }
-            });
-          }
-
-          // B. Search Files in Referenced Chat (Transitive Knowledge)
-          const sources = await vectorDb.getSourcesForConversation(ref.id);
-          const sourceIds = sources.map(s => s.sourceId);
-          
-          if (sourceIds.length > 0) {
-            const fileChunks = await vectorDb.searchKnowledgeBase(sourceIds, queryVector, { limit: 5 });
-            fileChunks.forEach(c => {
-              retrievedChunks.push({
-                content: c.content,
-                source: `File in "${ref.title}"`,
-                score: c.score
-              });
-            });
-          }
-        }
-      }
-
-      // --- SCOPE 4: REFERENCED FOLDERS (Explicit) ---
-      if (referencedFolders && referencedFolders.length > 0) {
-        console.log('📁 [buildContext] Searching Referenced Folders:', referencedFolders.length);
-        
-        for (const folderRef of referencedFolders) {
-          const folder = await cloudDb.getFolder(folderRef.id);
-          if (!folder || !folder.conversationIds.length) {
-            console.log(`⚠️ [buildContext] Folder ${folderRef.id} not found or empty`);
-            continue;
-          }
-          
-          console.log(`📁 [buildContext] Folder "${folder.name}" has ${folder.conversationIds.length} conversations`);
-          
-          // Search up to 5 conversations in this folder
-          for (const convId of folder.conversationIds.slice(0, 5)) {
-            // Try Vectorize first
-            const folderMemories = await vectorDb.searchConversationMemory(convId, queryVector, { limit: 3 });
-            
-            if (folderMemories.length > 0) {
-              folderMemories.forEach(m => {
-                retrievedChunks.push({
-                  content: m.content,
-                  source: `Folder "${folder.name}"`,
-                  score: m.score
-                });
-              });
-            } else {
-              // D1 fallback for folder conversations
-              const { messages: recentMsgs } = await cloudDb.getMessages(convId, 5);
-              recentMsgs.forEach(m => {
-                if (m.role === 'user' || m.role === 'assistant') {
-                  const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
-                  retrievedChunks.push({
-                    content: `[${roleLabel}]: ${m.content.substring(0, 500)}`,
-                    source: `Folder "${folder.name}"`,
-                    score: 0.7
-                  });
-                }
-              });
-            }
-          }
-        }
-      }
+      // SCOPE 3 & 4: Referenced conversations and folders (already flattened from promises)
+      const refConvChunks = refResults.slice(0, referencedConversations.length).flat();
+      const refFolderChunks = refResults.slice(referencedConversations.length).flat();
+      
+      retrievedChunks.push(...refConvChunks);
+      retrievedChunks.push(...refFolderChunks);
 
       // --- DEDUPLICATE & RANK ---
       // Sort by score
@@ -647,8 +754,10 @@ You have access to the search results above. Follow these rules STRICTLY:
 
   private async prepareMessagesForAI(conversationId: string, contextText: string, project: any = null): Promise<ApiMessage[]> {
     console.log('📋 [prepareMessagesForAI] Fetching messages for conversation:', conversationId);
-    // Fetch up to 1000 messages for AI context (should be enough for most cases)
-    const { messages } = await cloudDb.getMessages(conversationId, 1000)
+    // OPTIMIZATION: Fetch only the last 50 messages for AI context
+    // RAG retrieval already provides relevant historical context beyond recent messages
+    // 50 messages is sufficient for conversational continuity without excessive token usage
+    const { messages } = await cloudDb.getMessages(conversationId, 50)
     console.log('📋 [prepareMessagesForAI] Messages retrieved:', {
       count: messages.length,
       messageIds: messages.map(m => m.id),
@@ -1048,11 +1157,7 @@ You have access to the search results above. Follow these rules STRICTLY:
     providedUserMessageId?: string,
     providedAssistantMessageId?: string
   ): Promise<Response> {
-    const { StatusEmitter } = await import('./agentic/status-emitter')
-    const { analyzeIntent } = await import('./agentic/intent-analyzer')
-    const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
-    const { ResponseSynthesizer } = await import('./agentic/response-synthesizer')
-    
+    // All modules are now static imports for performance
     const statusEmitter = new StatusEmitter()
     const orchestrator = new SourceOrchestrator()
     const synthesizer = new ResponseSynthesizer()
