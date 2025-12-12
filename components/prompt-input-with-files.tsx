@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, memo, useRef } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar, ArrowRightIcon } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -172,6 +172,21 @@ export const PromptInputWithFiles = memo(function
   // Surface Mode dropdown state
   const [surfaceModeOpen, setSurfaceModeOpen] = useState(false);
   const currentSurfaceMode = SURFACE_MODES.find(m => m.type === surfaceMode) || SURFACE_MODES[0];
+  const surfaceDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close surface dropdown when clicking outside
+  useEffect(() => {
+    if (!surfaceModeOpen) return;
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (surfaceDropdownRef.current && !surfaceDropdownRef.current.contains(event.target as Node)) {
+        setSurfaceModeOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [surfaceModeOpen]);
 
   // Detect if device is mobile
   useEffect(() => {
@@ -768,7 +783,7 @@ export const PromptInputWithFiles = memo(function
                       ? currentSurfaceMode.placeholder 
                       : `${currentSurfaceMode.placeholder} (Shift+Enter for new line)`
               }
-              className="min-h-[52px] pt-4 pl-4 text-base leading-[1.6] sm:text-base md:text-base overscroll-contain bg-transparent border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
+              className="min-h-[52px] pt-4 pl-4 text-base leading-[1.6] sm:text-base md:text-base overscroll-contain bg-card border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
             />
@@ -777,7 +792,7 @@ export const PromptInputWithFiles = memo(function
               <div className="flex items-center gap-1">
                 {/* Surface Mode Dropdown */}
                 {!hideActions && onSurfaceModeChange && (
-                  <div className="relative">
+                  <div className="relative" ref={surfaceDropdownRef}>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -884,7 +899,7 @@ export const PromptInputWithFiles = memo(function
                 {(isLoading || isSubmittingEdit) ? (
                   <div className="size-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                 ) : (
-                  <Send size={18} />
+                  <ArrowRightIcon size={20} />
                 )}
               </Button>
             </PromptInputActions>
