@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Folder, MoreVertical, Pencil, Trash2, FolderOpen, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,13 @@ export function ProjectList({
   
   // Use indexing queue for background file processing
   const { enqueueProjectFile, jobs } = useIndexingQueue()
+
+  // Listen for command bar trigger to open project dialog
+  useEffect(() => {
+    const handleOpenProjectDialog = () => setIsCreateOpen(true);
+    window.addEventListener("open-create-project-dialog", handleOpenProjectDialog);
+    return () => window.removeEventListener("open-create-project-dialog", handleOpenProjectDialog);
+  }, []);
 
   const handleEdit = (project: Project, e: React.MouseEvent) => {
     e.stopPropagation()

@@ -10,7 +10,6 @@ import {
   FolderPlus,
   MessageCircle,
   Star,
-  Settings2,
   ChevronRight,
   Layers,
   ArrowRight,
@@ -61,7 +60,6 @@ interface CommandBarProps {
   onNewChat?: () => void;
   onNewProject?: () => void;
   onNewFolder?: () => void;
-  onOpenSettings?: () => void;
 }
 
 export function CommandBar({
@@ -75,7 +73,6 @@ export function CommandBar({
   onNewChat,
   onNewProject,
   onNewFolder,
-  onOpenSettings,
 }: CommandBarProps) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
@@ -129,19 +126,6 @@ export function CommandBar({
           shortcut: undefined,
           onSelect: () => {
             onNewFolder?.();
-            onOpenChange(false);
-          },
-        },
-        {
-          id: "settings",
-          type: "command" as const,
-          title: "Settings",
-          subtitle: "Open settings",
-          icon: <Settings2 className="h-4 w-4" />,
-          keywords: ["settings", "preferences", "config"],
-          shortcut: [","],
-          onSelect: () => {
-            onOpenSettings?.();
             onOpenChange(false);
           },
         },
@@ -288,7 +272,6 @@ export function CommandBar({
     onNewChat,
     onNewProject,
     onNewFolder,
-    onOpenSettings,
     onOpenChange,
   ]);
 

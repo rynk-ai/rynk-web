@@ -1942,6 +1942,14 @@ function CommandBarWrapper({
     router.push('/chat');
   }, [selectConversation, router]);
 
+  const handleNewProject = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("open-create-project-dialog"));
+  }, []);
+
+  const handleNewFolder = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("open-create-folder-dialog"));
+  }, []);
+
   // Listen for sidebar search button click
   useEffect(() => {
     const handleOpen = () => onOpenChange(true);
@@ -1972,6 +1980,8 @@ function CommandBarWrapper({
       onSelectConversation={handleSelectConversation}
       onSelectProject={handleSelectProject}
       onNewChat={handleNewChat}
+      onNewProject={handleNewProject}
+      onNewFolder={handleNewFolder}
     />
   );
 }

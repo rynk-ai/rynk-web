@@ -166,6 +166,16 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
     fetchData();
   }, [getAllTags]);
 
+  // Listen for command bar trigger to open folder dialog
+  useEffect(() => {
+    const handleOpenFolderDialog = () => {
+      setSelectedFolder(null);
+      setFolderDialogOpen(true);
+    };
+    window.addEventListener("open-create-folder-dialog", handleOpenFolderDialog);
+    return () => window.removeEventListener("open-create-folder-dialog", handleOpenFolderDialog);
+  }, []);
+
 
 
   // Infinite scroll for conversations
