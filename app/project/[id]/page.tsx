@@ -1691,7 +1691,7 @@ const ChatContent = memo(
                 : "bottom-0",
             )}
             style={{
-              paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
+              
             }}
           >
             {/* Background for input section */}
