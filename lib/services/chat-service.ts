@@ -504,6 +504,8 @@ You have access to the search results above. Follow these rules STRICTLY:
       if (precomputedQueryVector && precomputedQueryVector.length > 0) {
         queryVector = precomputedQueryVector
       } else {
+        // Note: If this fails (e.g., OpenRouter credit exhaustion), 
+        // the outer catch block will use D1 fallback for referenced conversations
         const aiProvider = getAIProvider();
         queryVector = await aiProvider.getEmbeddings(query);
       }
@@ -769,9 +771,90 @@ You have access to the search results above. Follow these rules STRICTLY:
 
       return { contextText, retrievedChunks: topChunks };
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ [buildContext] Error in Unified RAG:', err);
-      return { contextText: '', retrievedChunks: [] };
+      
+      // === D1 FALLBACK: When embeddings/Vectorize fail, fetch context directly from D1 ===
+      // This handles cases like OpenRouter credit exhaustion
+      console.log('🔄 [buildContext] Attempting D1-only fallback for referenced content...');
+      
+      let fallbackContextText = '';
+      const fallbackChunks: { content: string, source: string, score: number }[] = [];
+      
+      try {
+        // Fallback for referenced conversations (no vector search, just fetch recent messages)
+        if (referencedConversations && referencedConversations.length > 0) {
+          fallbackContextText += '\n=== REFERENCED CONVERSATION CONTEXT ===\n';
+          
+          for (const ref of referencedConversations) {
+            try {
+              console.log(`📚 [D1 Fallback] Fetching messages from "${ref.title}" (${ref.id})`);
+              const { messages: recentMsgs } = await cloudDb.getMessages(ref.id, 10);
+              
+              if (recentMsgs.length > 0) {
+                fallbackContextText += `\n--- From: "${ref.title}" ---\n`;
+                
+                recentMsgs.forEach(m => {
+                  if (m.role === 'user' || m.role === 'assistant') {
+                    const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+                    const content = `[${roleLabel}]: ${m.content.substring(0, 1000)}`;
+                    fallbackContextText += content + '\n\n';
+                    fallbackChunks.push({
+                      content,
+                      source: `Referenced Chat: "${ref.title}"`,
+                      score: 0.75
+                    });
+                  }
+                });
+              }
+            } catch (refErr) {
+              console.error(`❌ [D1 Fallback] Failed to fetch ref "${ref.title}":`, refErr);
+            }
+          }
+          
+          fallbackContextText += '=== END OF REFERENCED CONTEXT ===\n';
+        }
+        
+        // Fallback for referenced folders
+        if (referencedFolders && referencedFolders.length > 0) {
+          for (const folderRef of referencedFolders) {
+            try {
+              const folder = await cloudDb.getFolder(folderRef.id);
+              if (folder && folder.conversationIds.length > 0) {
+                fallbackContextText += `\n--- From Folder: "${folder.name}" ---\n`;
+                
+                // Get messages from up to 3 conversations in the folder
+                for (const convId of folder.conversationIds.slice(0, 3)) {
+                  const { messages: folderMsgs } = await cloudDb.getMessages(convId, 5);
+                  folderMsgs.forEach(m => {
+                    if (m.role === 'user' || m.role === 'assistant') {
+                      const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+                      const content = `[${roleLabel}]: ${m.content.substring(0, 500)}`;
+                      fallbackContextText += content + '\n';
+                      fallbackChunks.push({
+                        content,
+                        source: `Folder "${folder.name}"`,
+                        score: 0.7
+                      });
+                    }
+                  });
+                }
+              }
+            } catch (folderErr) {
+              console.error(`❌ [D1 Fallback] Failed to fetch folder "${folderRef.name}":`, folderErr);
+            }
+          }
+        }
+        
+        if (fallbackChunks.length > 0) {
+          console.log(`✅ [D1 Fallback] Retrieved ${fallbackChunks.length} chunks from D1`);
+        }
+        
+      } catch (fallbackErr) {
+        console.error('❌ [buildContext] D1 fallback also failed:', fallbackErr);
+      }
+      
+      return { contextText: fallbackContextText, retrievedChunks: fallbackChunks };
     }
   }
 
