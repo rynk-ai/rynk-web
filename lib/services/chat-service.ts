@@ -481,6 +481,15 @@ You have access to the search results above. Follow these rules STRICTLY:
     onProgress?: (message: string) => void,
     precomputedQueryVector?: number[]  // OPTIMIZATION: Reuse pre-computed embedding
   ): Promise<{ contextText: string; retrievedChunks: { content: string; source: string; score: number }[] }> {
+    console.log('📥 [buildContext] Called with:', {
+      userId: userId.substring(0, 20),
+      currentConversationId,
+      queryPreview: query.substring(0, 50),
+      referencedConversations: referencedConversations?.length || 0,
+      referencedFolders: referencedFolders?.length || 0,
+      projectId: projectId || 'none'
+    });
+    
     let contextText = ''
     
     // --- 1. RECENT CONTEXT (Standard) ---
@@ -506,51 +515,61 @@ You have access to the search results above. Follow these rules STRICTLY:
       
       // Helper function to search a single referenced conversation
       const searchReferencedConversation = async (ref: any) => {
+        console.log(`📚 [buildContext] Searching referenced conversation: "${ref.title}" (${ref.id})`);
         const chunks: { content: string, source: string, score: number }[] = [];
         
-        // A. Search Messages in Referenced Chat via Vectorize
-        const refMemories = await vectorDb.searchConversationMemory(ref.id, queryVector, { limit: 5 });
+        try {
+          // A. Search Messages in Referenced Chat via Vectorize
+          const refMemories = await vectorDb.searchConversationMemory(ref.id, queryVector, { limit: 5 });
+          console.log(`📚 [buildContext] Vectorize results for "${ref.title}": ${refMemories.length} memories`);
         
-        if (refMemories.length > 0) {
-          refMemories.forEach(m => {
-            chunks.push({
-              content: m.content,
-              source: `Referenced Chat: "${ref.title}"`,
-              score: m.score
-            });
-          });
-        } else {
-          // D1 FALLBACK: If Vectorize returns no results, fetch recent messages directly
-          console.log(`⚠️ [buildContext] Vectorize returned 0 for ref ${ref.id}, using D1 fallback...`);
-          const { messages: recentMsgs } = await cloudDb.getMessages(ref.id, 10);
-          recentMsgs.forEach(m => {
-            if (m.role === 'user' || m.role === 'assistant') {
-              const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+          if (refMemories.length > 0) {
+            refMemories.forEach(m => {
               chunks.push({
-                content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`,
+                content: m.content,
                 source: `Referenced Chat: "${ref.title}"`,
-                score: 0.75 // Default score for D1 fallback
+                score: m.score
               });
-            }
-          });
-        }
-
-        // B. Search Files in Referenced Chat (Transitive Knowledge)
-        const sources = await vectorDb.getSourcesForConversation(ref.id);
-        const sourceIds = sources.map(s => s.sourceId);
-        
-        if (sourceIds.length > 0) {
-          const fileChunks = await vectorDb.searchKnowledgeBase(sourceIds, queryVector, { limit: 5 });
-          fileChunks.forEach(c => {
-            chunks.push({
-              content: c.content,
-              source: `File in "${ref.title}"`,
-              score: c.score
             });
-          });
+          } else {
+            // D1 FALLBACK: If Vectorize returns no results, fetch recent messages directly
+            console.log(`⚠️ [buildContext] Vectorize returned 0 for ref ${ref.id}, using D1 fallback...`);
+            const { messages: recentMsgs } = await cloudDb.getMessages(ref.id, 10);
+            console.log(`📚 [buildContext] D1 fallback for "${ref.title}": ${recentMsgs.length} messages`);
+            recentMsgs.forEach(m => {
+              if (m.role === 'user' || m.role === 'assistant') {
+                const roleLabel = m.role === 'assistant' ? 'AI' : 'User';
+                chunks.push({
+                  content: `[${roleLabel}]: ${m.content.substring(0, 1000)}`,
+                  source: `Referenced Chat: "${ref.title}"`,
+                  score: 0.75 // Default score for D1 fallback
+                });
+              }
+            });
+          }
+
+          // B. Search Files in Referenced Chat (Transitive Knowledge)
+          const sources = await vectorDb.getSourcesForConversation(ref.id);
+          const sourceIds = sources.map(s => s.sourceId);
+          
+          if (sourceIds.length > 0) {
+            const fileChunks = await vectorDb.searchKnowledgeBase(sourceIds, queryVector, { limit: 5 });
+            fileChunks.forEach(c => {
+              chunks.push({
+                content: c.content,
+                source: `File in "${ref.title}"`,
+                score: c.score
+              });
+            });
+          }
+          
+          console.log(`📚 [buildContext] Total chunks from "${ref.title}": ${chunks.length}`);
+          return chunks;
+          
+        } catch (refError) {
+          console.error(`❌ [buildContext] Error searching ref "${ref.title}":`, refError);
+          return chunks; // Return empty on error
         }
-        
-        return chunks;
       };
       
       // Helper function to search a single folder
@@ -603,7 +622,11 @@ You have access to the search results above. Follow these rules STRICTLY:
       };
 
       // === LAUNCH ALL SEARCHES IN PARALLEL ===
-      console.log('⚡ [buildContext] Launching parallel vector searches...');
+      console.log('⚡ [buildContext] Launching parallel vector searches...', {
+        referencedConversations: referencedConversations.length,
+        referencedFolders: referencedFolders?.length || 0,
+        conversationIds: referencedConversations.map(r => r.id)
+      });
       
       // SCOPE 1: Current conversation memory
       const currentConvPromise = vectorDb.searchConversationMemory(
