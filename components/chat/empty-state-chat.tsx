@@ -90,32 +90,6 @@ export function EmptyStateChat({
         <p className="text-muted-foreground mb-4 text-center max-w-md font-light tracking-wide">
           What would you like to explore today?
         </p>
-
-        {/* Suggestion Grid */}
-        <div className="grid grid-cols-4 gap-3 w-full max-w-4xl pointer-events-auto">
-          {suggestions.map((suggestion) => (
-            <button
-              key={suggestion.id}
-              onClick={() => onSelectSuggestion?.(suggestion.prompt)}
-              className="group flex items-center gap-4 p-3 rounded-xl hover:bg-secondary/50 border border-transparent hover:border-border/40 transition-all duration-200 text-left"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/80 group-hover:bg-background shadow-sm ring-1 ring-black/5 transition-all">
-                {React.isValidElement(suggestion.icon) && React.cloneElement(suggestion.icon as React.ReactElement<{ className?: string }>, {
-                  className: "h-5 w-5 opacity-70 group-hover:opacity-100 transition-opacity"
-                })}
-              </div>
-              <div className="flex flex-col max-md:hidden">
-                <span className="font-medium text-sm text-foreground/90">{suggestion.title}</span>
-                <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
-                  {suggestion.id === "brainstorm" && "Ideation"}
-                  {suggestion.id === "write" && "Draft content"}
-                  {suggestion.id === "research" && "Deep dive"}
-                  {suggestion.id === "code" && "Get help"}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
       </div>
 
       

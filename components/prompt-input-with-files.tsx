@@ -533,7 +533,7 @@ export const PromptInputWithFiles = memo(function
                     className={cn(
                       "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
                       !currentConversationId
-                        ? "opacity-100 translate-y-0 pointer-events-auto -top-50 lg:-top-60"
+                        ? "opacity-100 translate-y-0 pointer-events-auto -top-50 lg:-top-40"
                         : "opacity-0 -translate-y-10 pointer-events-auto",
                     )}
                   >
