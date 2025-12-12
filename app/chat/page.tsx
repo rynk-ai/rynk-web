@@ -1857,7 +1857,7 @@ const ChatContent = memo(
             className={cn(
               "absolute left-0 right-0 w-full transition-all duration-300 ease-out z-20",
               !currentConversationId 
-                ? "bottom-1/3 sm:bottom-2/7" 
+                ? "bottom-1/3 sm:bottom-3/7" 
                 : "bottom-0",
             )}
             style={{
