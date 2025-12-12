@@ -206,7 +206,7 @@ export async function detectEnhanced(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-120b',
         messages: [
           {
             role: 'system',

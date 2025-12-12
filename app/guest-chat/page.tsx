@@ -14,9 +14,13 @@ import {
   MessageAction,
 } from "@/components/ui/message";
 import { Button } from "@/components/ui/button";
-import { GuestChatProvider, useGuestChatContext, useGuestStreamingContext, type GuestMessage } from "@/lib/hooks/guest-chat-context";
+import {
+  GuestChatProvider,
+  useGuestChatContext,
+  useGuestStreamingContext,
+  type GuestMessage,
+} from "@/lib/hooks/guest-chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
-import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useStreaming } from "@/lib/hooks/use-streaming";
 import { useLatest } from "@/lib/hooks/use-latest";
 import { useGuestSubChats } from "@/lib/hooks/use-guest-sub-chats";
@@ -27,7 +31,6 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -47,11 +50,8 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
-import { ContextPicker } from "@/components/context-picker";
 import { TagDialog } from "@/components/tag-dialog";
 import {
-  Folder as FolderIcon,
-  MessageSquare,
   X,
   Loader2,
   BookmarkPlus,
@@ -109,9 +109,9 @@ const TagSection = memo(function TagSection({
               <button
                 key={index}
                 onClick={onTagClick}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary/10 text-primary/90 hover:bg-primary/15 rounded-md border border-primary/20 transition-all cursor-pointer"
               >
-                <span className="text-primary">#</span>
+                <span className="text-primary/60">#</span>
                 {tag}
               </button>
             ))}
@@ -139,10 +139,10 @@ const TagSection = memo(function TagSection({
           size="icon"
           variant="ghost"
           className={cn(
-            "h-7 w-7 rounded-lg transition-all duration-150",
+            "h-7 w-7 rounded-lg transition-all",
             tags.length > 0
-              ? "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
-              : "bg-[hsl(var(--surface))] text-primary hover:bg-[hsl(var(--surface-hover))] border border-border/30"
+              ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              : "bg-primary/10 text-primary hover:bg-primary/20"
           )}
           onClick={onTagClick}
           title={tags.length > 0 ? "Edit tags" : "Add tags"}
@@ -158,7 +158,7 @@ const TagSection = memo(function TagSection({
   );
 });
 
-// Context Badges component
+// Context Item type
 type ContextItem = {
   type: "conversation" | "folder";
   id: string;
@@ -166,13 +166,13 @@ type ContextItem = {
   status?: "loading" | "loaded";
 };
 
-
-
 interface GuestChatContentProps {
   onMenuClick?: () => void;
 }
 
-const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestChatContentProps = {}) {
+const GuestChatContent = memo(function GuestChatContent({
+  onMenuClick,
+}: GuestChatContentProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const chatId = searchParams.get("id") || undefined;
@@ -190,14 +190,15 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     folders,
     updateConversationTags,
     getAllTags,
-    statusPills,
-    searchResults,
     streamingMessageId: globalStreamingMessageId,
     loadingConversations,
     creditsRemaining,
     showUpgradeModal,
     setShowUpgradeModal,
   } = useGuestChatContext();
+
+  // Get streaming-specific values from separate context to avoid re-renders
+  const { statusPills, searchResults } = useGuestStreamingContext();
 
   // Use custom hooks for separated state management
   const messageState = useMessageState();
@@ -206,36 +207,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
   // Keyboard awareness for mobile
   const keyboardHeight = useKeyboardAwarePosition();
 
-  // Tags state
-  const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [allTags, setAllTags] = useState<string[]>([]);
-
-  const loadTags = useCallback(async () => {
-    try {
-      const tags = await getAllTags();
-      setAllTags(tags);
-    } catch (err) {
-      console.error("Failed to load tags:", err);
-    }
-  }, [getAllTags]);
-
-  const handleTagClick = () => {
-    setTagDialogOpen(true);
-  };
-
-  const currentTags = currentConversation?.tags || [];
-
-  // Load all tags when component mounts
-  useEffect(() => {
-    loadTags();
-  }, [loadTags]);
-
-  const handleSaveTags = async (tags: string[]) => {
-    if (!currentConversationId) return;
-    await updateConversationTags(currentConversationId, tags);
-    await loadTags();
-  };
-
+  // Destructure for convenience
   const {
     messages,
     setMessages,
@@ -244,6 +216,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     addMessages,
     replaceMessage,
     removeMessage,
+    updateMessage,
   } = messageState;
 
   const {
@@ -254,21 +227,48 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     finishStreaming,
   } = streamingState;
 
-  // Refs for statusPills and searchResults to avoid stale closures in handleSubmit
-  // Using useLatest instead of useRef + useEffect pattern
-  const statusPillsRef = useLatest(statusPills);
-  const searchResultsRef = useLatest(searchResults);
-
   // Local state
   const [isSending, setIsSending] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+
+  // Pagination state
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [messageCursor, setMessageCursor] = useState<string | null>(null);
+
+  // Quote state
   const [quotedMessage, setQuotedMessage] = useState<{
     messageId: string;
     quotedText: string;
     authorRole: "user" | "assistant";
   } | null>(null);
 
-  // Sub-chat hook - extracted for better separation of concerns
+  // Context state
+  const [localContext, setLocalContext] = useState<ContextItem[]>([]);
+  const activeContext = localContext;
+
+  // Refs
+  const virtuosoRef = useRef<VirtualizedMessageListRef>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
+
+  // Track conversation ID for detecting navigation
+  const lastChatIdRef = useRef(chatId);
+  const lastConversationIdRef = useRef(currentConversationId);
+
+  // Stable refs to avoid stale closures
+  const sendChatRequestRef = useLatest(sendChatRequest);
+  const messageStateRef = useLatest(messageState);
+  const startStreamingRef = useLatest(startStreaming);
+  const updateStreamContentRef = useLatest(updateStreamContent);
+  const finishStreamingRef = useLatest(finishStreaming);
+  const replaceMessageRef = useLatest(replaceMessage);
+  const removeMessageRef = useLatest(removeMessage);
+  const statusPillsRef = useLatest(statusPills);
+  const searchResultsRef = useLatest(searchResults);
+
+  // Sub-chat hook
   const {
     subChats,
     activeSubChat,
@@ -285,30 +285,56 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     handleSubChatSendMessage: handleSubChatMessage,
   } = useGuestSubChats(currentConversationId);
 
-  // Context state
-  const [localContext, setLocalContext] = useState<ContextItem[]>([]);
-  const activeContext = localContext;
+  // Load tags
+  const loadTags = useCallback(async () => {
+    try {
+      const tags = await getAllTags();
+      setAllTags(tags);
+    } catch (err) {
+      console.error("Failed to load tags:", err);
+    }
+  }, [getAllTags]);
 
-  // Refs
-  const virtuosoRef = useRef<VirtualizedMessageListRef>(null);
-  const inputContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+
+  const handleTagClick = () => {
+    setTagDialogOpen(true);
+  };
+
+  const handleSaveTags = async (tags: string[]) => {
+    if (!currentConversationId) return;
+    await updateConversationTags(currentConversationId, tags);
+    await loadTags();
+  };
+
+  const currentTags = currentConversation?.tags || [];
 
   // Handle URL-based conversation selection
   useEffect(() => {
-    if (chatId && chatId !== currentConversationId) {
-      selectConversation(chatId);
-    } else if (!chatId && currentConversationId) {
+    const prevChatId = lastChatIdRef.current;
+    lastChatIdRef.current = chatId;
+
+    if (chatId !== prevChatId && chatId !== currentConversationId) {
+      console.log("[GuestChat] Auto-selecting conversation from URL:", chatId);
+      selectConversation(chatId || null);
+    } else if (!chatId && currentConversationId && prevChatId) {
+      console.log("[GuestChat] Clearing conversation (new chat)");
       selectConversation(null);
     }
   }, [chatId, currentConversationId, selectConversation]);
 
   // Reset state for new chat
   useEffect(() => {
-    if (!currentConversationId && !chatId) {
-      setMessages([]);
-      setMessageVersions(new Map());
-      setQuotedMessage(null);
-      setLocalContext([]);
+    if (!currentConversationId) {
+      if (!chatId) {
+        console.log("[GuestChat] New chat - clearing state");
+        setMessages([]);
+        setMessageVersions(new Map());
+        setQuotedMessage(null);
+        setLocalContext([]);
+      }
     }
   }, [currentConversationId, chatId]);
 
@@ -320,99 +346,150 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     }
   }, [currentConversationId]);
 
-  // Load messages when conversation changes
-  useEffect(() => {
-    if (currentConversationId) {
-      (async () => {
-        try {
-          const result = await getMessages(currentConversationId);
-          if (result.messages) {
-            const loadedMessages = result.messages as any[];
-            const filteredMessages = filterActiveVersions(loadedMessages);
-            
-            // ✅ PRESERVE OPTIMISTIC MESSAGES & FIX RACE CONDITION
-            setMessages((prev) => {
-              // 1. Merge DB messages with local state to prevent overwriting fresh content with stale DB data
-              const mergedMessages = filteredMessages.map((serverMsg) => {
-                const localMsg = prev.find((m) => m.id === serverMsg.id);
-                // If local message has content and server message is empty (and is assistant), keep local content
-                // This handles the race condition where server hasn't finished writing to DB yet
-                if (
-                  localMsg &&
-                  localMsg.role === "assistant" &&
-                  localMsg.content &&
-                  !serverMsg.content
-                ) {
-                  return { ...serverMsg, content: localMsg.content };
-                }
-                return serverMsg;
-              });
+  // Reload messages function with race condition handling
+  const reloadMessages = useCallback(
+    async (conversationId?: string) => {
+      const targetConversationId = conversationId || currentConversationId;
 
-              // 2. Find optimistic messages (not in server response)
-              const serverIds = new Set(filteredMessages.map(m => m.id));
-              const optimistic = prev.filter((m) => !serverIds.has(m.id));
+      if (!targetConversationId) {
+        setMessages([]);
+        setMessageVersions(new Map());
+        setHasMoreMessages(true);
+        setMessageCursor(null);
+        return;
+      }
 
-              // 3. Deduplicate: Don't add optimistic messages if they likely exist in the loaded messages
-              const uniqueOptimistic = optimistic.filter((opt) => {
-                // ✅ CRITICAL FIX: Only keep optimistic messages that belong to the CURRENT conversation
-                // This prevents messages from the previous conversation from "leaking" into the new one
-                // when switching conversations (since they wouldn't be in the server response for the new conversation)
-                if (currentConversationId && opt.conversationId !== currentConversationId) {
-                  return false;
-                }
+      try {
+        const { messages: loadedMessages, nextCursor } =
+          await getMessages(targetConversationId);
+        
+        const filteredMessages = filterActiveVersions(loadedMessages);
 
-                const isDuplicate = mergedMessages.some((serverMsg) => {
-                  // Match by role
-                  if (serverMsg.role !== opt.role) return false;
-                  
-                  // For user messages, content must match (trimmed)
-                  if (opt.role === "user") {
-                     return serverMsg.content?.trim() === opt.content?.trim();
-                  }
-                  
-                  // For assistant messages, if the server message has content, assume it replaces the empty/partial optimistic one
-                  // OR if the content matches exactly
-                  if (opt.role === "assistant") {
-                    // precise match
-                    if (serverMsg.content === opt.content) return true;
-                    // server has content, optimistic is empty/loading -> duplicate (server has the real data)
-                    if (serverMsg.content && !opt.content) return true;
-                  }
+        setMessageCursor(nextCursor);
+        setHasMoreMessages(!!nextCursor);
 
-                  // Timestamp check (relaxed to 60 seconds to handle clock skew) as a fallback if content logic didn't catch it
-                  return Math.abs((serverMsg.timestamp || 0) - (opt.timestamp || 0)) < 60000;
-                });
-                return !isDuplicate;
-              });
+        // Preserve optimistic messages & fix race condition
+        setMessages((prev) => {
+          const mergedMessages = filteredMessages.map((serverMsg) => {
+            const localMsg = prev.find((m) => m.id === serverMsg.id);
+            if (
+              localMsg &&
+              localMsg.role === "assistant" &&
+              localMsg.content &&
+              !serverMsg.content
+            ) {
+              return { ...serverMsg, content: localMsg.content };
+            }
+            return serverMsg;
+          });
 
-              // 4. Combine and sort by timestamp
-              // FIX: Ensure optimistic messages are always strictly after the latest server message
-              // This handles cases where server clock is ahead of client clock
-              let maxServerTs = mergedMessages.reduce((max, m) => Math.max(max, m.timestamp || 0), 0);
-              
-              const adjustedOptimistic = uniqueOptimistic.map(opt => {
-                if ((opt.timestamp || 0) <= maxServerTs) {
-                  maxServerTs += 1; // Increment to ensure strict ordering
-                  return { ...opt, timestamp: maxServerTs };
-                }
-                return opt;
-              });
+          const serverIds = new Set(mergedMessages.map((m) => m.id));
+          const optimistic = prev.filter((m) => !serverIds.has(m.id));
 
-              const combined = [...mergedMessages, ...adjustedOptimistic];
-              return combined.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          const uniqueOptimistic = optimistic.filter((opt) => {
+            if (opt.conversationId !== targetConversationId) {
+              return false;
+            }
+
+            const isDuplicate = mergedMessages.some((serverMsg) => {
+              if (serverMsg.role !== opt.role) return false;
+
+              if (opt.role === "user") {
+                return serverMsg.content?.trim() === opt.content?.trim();
+              }
+
+              if (opt.role === "assistant") {
+                if (serverMsg.content === opt.content) return true;
+                if (serverMsg.content && !opt.content) return true;
+              }
+
+              return Math.abs((serverMsg.timestamp || 0) - (opt.timestamp || 0)) < 60000;
             });
-          }
-        } catch (err) {
-          console.error("Failed to load messages:", err);
-        }
-      })();
+
+            return !isDuplicate;
+          });
+
+          let maxServerTs = mergedMessages.reduce(
+            (max, m) => Math.max(max, m.timestamp || 0),
+            0
+          );
+
+          const adjustedOptimistic = uniqueOptimistic.map((opt) => {
+            if ((opt.timestamp || 0) <= maxServerTs) {
+              maxServerTs += 1;
+              return { ...opt, timestamp: maxServerTs };
+            }
+            return opt;
+          });
+
+          return [...mergedMessages, ...adjustedOptimistic];
+        });
+
+        setMessageVersions(new Map());
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+        setMessages([]);
+        setMessageVersions(new Map());
+      }
+    },
+    [currentConversationId, getMessages, setMessages, setMessageVersions]
+  );
+
+  // Load messages when conversation changes
+  const currentConversationIdRef = useRef(currentConversationId);
+
+  useEffect(() => {
+    currentConversationIdRef.current = currentConversationId;
+  }, [currentConversationId]);
+
+  useEffect(() => {
+    if (isSending) return;
+
+    const conversationId = currentConversationIdRef.current;
+    if (!conversationId) return;
+
+    if (messages.length > 0 && messages[0].conversationId !== conversationId) {
+      console.log("[GuestChat] Switching conversation, clearing state...");
+      setMessages([]);
+      setMessageVersions(new Map());
     }
-  }, [currentConversationId, getMessages, setMessages]);
+
+    console.log("[GuestChat] Loading messages for conversation:", conversationId);
+    reloadMessages(conversationId);
+  }, [currentConversationId, isSending]);
+
+  // Load more messages (pagination)
+  const loadMoreMessages = useCallback(async () => {
+    if (!currentConversationId || isLoadingMore || !hasMoreMessages) return;
+
+    setIsLoadingMore(true);
+    try {
+      const { messages: olderMessages, nextCursor } = await getMessages(
+        currentConversationId,
+        50,
+        messageCursor || undefined
+      );
+
+      if (olderMessages.length > 0) {
+        const filteredOlder = filterActiveVersions(olderMessages);
+        setMessages((prev) => [...filteredOlder, ...prev]);
+        setMessageCursor(nextCursor);
+        setHasMoreMessages(!!nextCursor);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (err) {
+      console.error("Failed to load more messages:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [currentConversationId, isLoadingMore, hasMoreMessages, messageCursor, getMessages, setMessages]);
 
   const handleContextChange = useCallback((newContext: ContextItem[]) => {
     setLocalContext(newContext);
   }, []);
 
+  // Quote handlers
   const handleQuote = useCallback(
     (text: string, messageId: string, role: "user" | "assistant") => {
       setQuotedMessage({ messageId, quotedText: text, authorRole: role });
@@ -428,15 +505,23 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
     setQuotedMessage(null);
   }, []);
 
+  // Handle empty state suggestion selection
+  const handleSelectSuggestion = useCallback((prompt: string) => {
+    const input = document.getElementById("main-chat-input") as HTMLTextAreaElement;
+    if (input) {
+      input.value = prompt;
+      input.focus();
+      // Trigger a change event to update React state
+      const event = new Event('input', { bubbles: true });
+      input.dispatchEvent(event);
+    }
+  }, []);
 
-
-  // NOTE: Sub-chat handlers are now provided by useGuestSubChats hook above
-
-  // Message submission
+  // Message submission handler
   const handleSubmit = useCallback(
     async (text: string, files: File[]) => {
       if (!text.trim()) return;
-      
+
       // Files not supported for guest
       if (files.length > 0) {
         toast.info("File uploads require signing in");
@@ -469,10 +554,10 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
         role: "user" as const,
         content: text,
         attachments: [],
-        timestamp,
-        versionNumber: 1,
         referencedConversations: referencedConversationsList,
         referencedFolders: referencedFoldersList,
+        timestamp,
+        versionNumber: 1,
       };
 
       const optimisticAssistantMessage = {
@@ -485,13 +570,16 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
         versionNumber: 1,
       };
 
-      addMessages([optimisticUserMessage as any, optimisticAssistantMessage as any]);
-      startStreaming(tempAssistantMessageId);
+      messageStateRef.current.addMessages([
+        optimisticUserMessage as any,
+        optimisticAssistantMessage as any,
+      ]);
+      startStreamingRef.current(tempAssistantMessageId);
       setLocalContext([]);
       setQuotedMessage(null);
 
       try {
-        const result = await sendChatRequest(
+        const result = await sendChatRequestRef.current(
           text,
           [],
           referencedConversationsList,
@@ -505,97 +593,91 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
           throw new Error("Failed to send message");
         }
 
-        const { streamReader, conversationId } = result;
+        const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
-        // Update URL if new conversation
+        // Navigate to new conversation
         if (!currentConversationId && conversationId) {
           router.replace(`/guest-chat?id=${conversationId}`, { scroll: false });
         }
 
-        // Stream response
-        let fullContent = "";
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await streamReader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value, { stream: true });
-          fullContent += chunk;
-          updateStreamContent(fullContent);
-          
-          replaceMessage(tempAssistantMessageId, {
-            id: tempAssistantMessageId,
+        // Replace optimistic message IDs with real ones
+        if (userMessageId && userMessageId !== tempUserMessageId) {
+          replaceMessageRef.current(tempUserMessageId, {
+            ...optimisticUserMessage,
+            id: userMessageId,
             conversationId,
-            role: "assistant",
-            content: fullContent,
-            attachments: [],
-            timestamp: timestamp + 1,
-            versionNumber: 1,
           } as any);
         }
-        // CRITICAL: Update message with final content AND reasoning_metadata BEFORE clearing streaming state
-        // This ensures sources appear immediately and content doesn't flicker
-        replaceMessage(tempAssistantMessageId, {
-          id: tempAssistantMessageId,
-          conversationId,
-          role: "assistant",
-          content: fullContent,
-          attachments: [],
-          timestamp: timestamp + 1,
-          versionNumber: 1,
-          // Persist reasoning metadata so sources display immediately after stream completes
-          // CRITICAL: Use refs to get current values, not stale closure values!
-          reasoning_metadata: {
-            statusPills: statusPillsRef.current,
-            searchResults: searchResultsRef.current,
-          },
-        } as any);
-        
-        // CRITICAL: Batch finishStreaming and setIsSending using requestAnimationFrame
-        // This prevents cascading re-renders that cause flicker
-        requestAnimationFrame(() => {
-          finishStreaming(fullContent);
-          setIsSending(false);
-        });
 
+        if (assistantMessageId && assistantMessageId !== tempAssistantMessageId) {
+          replaceMessageRef.current(tempAssistantMessageId, {
+            ...optimisticAssistantMessage,
+            id: assistantMessageId,
+            conversationId,
+          } as any);
+          startStreamingRef.current(assistantMessageId);
+        }
+
+        // Stream response
+        const decoder = new TextDecoder();
+        let fullContent = "";
+
+        try {
+          while (true) {
+            const { done, value } = await streamReader.read();
+            if (done) {
+              console.log("[GuestChat] Stream complete, length:", fullContent.length);
+              break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            fullContent += chunk;
+            updateStreamContentRef.current(fullContent);
+          }
+        } catch (err) {
+          console.error("[GuestChat] Error reading stream:", err);
+        } finally {
+          // Update message with final content and reasoning metadata
+          const finalAssistantId = assistantMessageId || tempAssistantMessageId;
+          messageStateRef.current.updateMessage(finalAssistantId, {
+            content: fullContent,
+            reasoning_metadata: {
+              statusPills: statusPillsRef.current,
+              searchResults: searchResultsRef.current,
+            },
+          });
+
+          // Batch state updates
+          requestAnimationFrame(() => {
+            finishStreamingRef.current(fullContent);
+            setIsSending(false);
+          });
+        }
       } catch (err: any) {
         console.error("Failed to send message:", err);
-        
+
         if (err.message?.includes("credit")) {
           setShowUpgradeModal(true);
         } else {
           toast.error("Failed to send message");
         }
-        
-        // Remove optimistic messages on error
-        removeMessage(tempUserMessageId);
-        removeMessage(tempAssistantMessageId);
-        finishStreaming();
+
+        removeMessageRef.current(tempUserMessageId);
+        removeMessageRef.current(tempAssistantMessageId);
+        finishStreamingRef.current();
         setIsSending(false);
       }
     },
     [
       currentConversationId,
       activeContext,
-      sendChatRequest,
-      startStreaming,
-      updateStreamContent,
-      finishStreaming,
-      replaceMessage,
-      removeMessage,
-      router,
       creditsRemaining,
       setShowUpgradeModal,
+      router,
     ]
   );
 
   const isLoading = isSending || contextIsLoading;
-
-  // Filtered messages for display
-  const filteredMessages = useMemo(() => {
-    return filterActiveVersions(messages);
-  }, [messages]);
 
   return (
     <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
@@ -612,33 +694,16 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
       <div className="flex flex-1 flex-col relative overflow-hidden">
         {/* Top Section: Messages & Title */}
         <div className="flex-1 overflow-y-auto w-full relative">
-          {/* Title for New Chat - Fades out when conversation starts */}
-          <div
-            className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-in-out pointer-events-none",
-              !currentConversationId
-                ? "opacity-100 translate-y-0 pb-24"
-                : "opacity-0 -translate-y-10 pb-24",
-            )}
-          >
-            <TextShimmer
-              spread={5}
-              duration={4}
-              className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
-            >
-              rynk.
-            </TextShimmer>
-          </div>
+          
 
-          {/* Messages Container - Fades in/Visible when conversation active */}
+          {/* Messages Container */}
           <div
             className={cn(
               "absolute inset-0 transition-opacity duration-500 ease-in-out",
-              currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10",
+              currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
             )}
           >
             <div className="relative h-full flex flex-col px-2 md:px-3 lg:px-4">
-              {/* Messages List - Virtuoso handles its own scrolling */}
               <div className="flex-1 relative">
                 {/* Tag Section */}
                 {currentConversationId && (
@@ -650,7 +715,7 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                 )}
                 <VirtualizedMessageList
                   ref={virtuosoRef}
-                  messages={filteredMessages}
+                  messages={messages}
                   isSending={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
                   streamingMessageId={globalStreamingMessageId || streamingMessageId}
                   streamingContent={streamingContent}
@@ -666,7 +731,11 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                   onOpenExistingSubChat={handleOpenExistingSubChat}
                   onDeleteSubChat={handleDeleteSubChat}
                   messageVersions={messageVersions}
-                  onSwitchVersion={async () => { toast.info("Message versions require signing in") }}
+                  onSwitchVersion={async () => {
+                    toast.info("Message versions require signing in");
+                  }}
+                  onLoadMore={loadMoreMessages}
+                  isLoadingMore={isLoadingMore}
                   statusPills={statusPills}
                   searchResults={searchResults}
                   onIsAtBottomChange={setIsScrolledUp}
@@ -689,8 +758,8 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
               {/* Scroll to Bottom Button */}
               {!isScrolledUp && messages.length > 0 ? (
                 <Button
-                  variant="outline"
-                  className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in"
+                  variant="ghost"
+                  className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border-border transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-in slide-in-from-bottom-8 fade-in border"
                   onClick={() => virtuosoRef.current?.scrollToBottom()}
                   title="Scroll to bottom"
                 >
@@ -699,7 +768,6 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                 </Button>
               ) : (
                 <Button
-                  variant="outline"
                   className="absolute bottom-[150px] left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm border-border/50 transition-all duration-300 px-4 py-2 flex items-center gap-2 animate-out slide-out-to-bottom-8 fade-out pointer-events-none"
                   style={{ opacity: 0 }}
                   onClick={() => {}}
@@ -710,16 +778,16 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                 </Button>
               )}
             </div>
-            <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[15]"></div>
+            <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100]"></div>
           </div>
         </div>
 
-        {/* Input Section - Always rendered, absolute positioned at bottom */}
+        {/* Input Section */}
         <div
           ref={inputContainerRef}
           className={cn(
             "absolute left-0 right-0 w-full transition-all duration-500 ease-in-out z-20",
-            !currentConversationId ? "bottom-1/3" : "bottom-0 mb-4",
+            !currentConversationId ? "bottom-1/3" : "bottom-0 mb-4"
           )}
           style={{
             transform: `translateY(-${
@@ -730,15 +798,12 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
                     keyboardHeight -
                       (typeof window !== "undefined"
                         ? window.innerHeight * 0.33
-                        : 200),
+                        : 200)
                   )
             }px)`,
           }}
         >
-          {/* Background for input section */}
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto px-4 pb-safe-bottom pt-4">
-
-
             <PromptInputWithFiles
               onSubmit={handleSubmit}
               isLoading={currentConversationId ? loadingConversations.has(currentConversationId) : false}
@@ -751,9 +816,11 @@ const GuestChatContent = memo(function GuestChatContent({ onMenuClick }: GuestCh
               folders={folders as any}
               quotedMessage={quotedMessage}
               onClearQuote={handleClearQuote}
-              className="bg-background rounded-3xl border border-border/60 shadow-lg pb-4"
-              // Hide only file upload button for guests (context picker still available)
               hideFileUpload={true}
+              className={cn(
+                "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
+                !currentConversationId ? "shadow-xl" : "shadow-sm hover:shadow-md"
+              )}
             />
           </div>
         </div>
@@ -785,13 +852,13 @@ const GuestChatHeader = memo(function GuestChatHeader() {
 
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
-      <div className="flex items-center gap-1 bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1">
-        <SidebarTrigger className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))]" />
-        <Separator orientation="vertical" className="h-4" />
+      <div className="flex items-center gap-1 bg-background border border-border shadow-sm rounded-full p-1 transition-all duration-300 hover:shadow-md">
+        <SidebarTrigger className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--surface-hover))]"
+          className="h-8 w-8 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
           onClick={handleNewChat}
           title="Start new chat"
         >
@@ -800,7 +867,7 @@ const GuestChatHeader = memo(function GuestChatHeader() {
       </div>
       {/* Credit indicator */}
       {creditsRemaining !== null && (
-        <div className="bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 rounded-xl px-3 py-1.5 text-xs text-muted-foreground">
+        <div className="bg-background border border-border rounded-full px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
           {creditsRemaining} messages left
         </div>
       )}
@@ -814,24 +881,20 @@ function GuestChatWithProvider() {
   const chatId = searchParams.get("id") || null;
   const [guestReady, setGuestReady] = useState(false);
 
-  // Initialize guest session before rendering
+  // Initialize guest session
   useEffect(() => {
     const initGuest = async () => {
-      // Check if guest ID already exists
-      const existingGuestId = getCookie("guest_id") || localStorage.getItem("guest_id");
-      
+      const existingGuestId =
+        getCookie("guest_id") || localStorage.getItem("guest_id");
+
       if (existingGuestId?.startsWith("guest_")) {
         setGuestReady(true);
         return;
       }
 
-      // Generate new guest ID
       const newGuestId = `guest_${crypto.randomUUID()}`;
-
-      // Store in localStorage
       localStorage.setItem("guest_id", newGuestId);
 
-      // Set cookie (expires in 30 days)
       const expires = new Date();
       expires.setDate(expires.getDate() + 30);
       document.cookie = `guest_id=${newGuestId}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
@@ -842,7 +905,6 @@ function GuestChatWithProvider() {
     initGuest();
   }, []);
 
-  // Show loading state until guest ID is ready
   if (!guestReady) {
     return (
       <SidebarProvider>

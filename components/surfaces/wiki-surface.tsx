@@ -80,7 +80,7 @@ export const WikiSurface = memo(function WikiSurface({
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
           {title}
         </h1>
-        <p className="text-lg text-muted-foreground leading-relaxed max-w-3xl">
+        <p className="text-lg text-muted-foreground leading-relaxed">
           {summary}
         </p>
       </div>
@@ -90,7 +90,7 @@ export const WikiSurface = memo(function WikiSurface({
         {/* Sticky Table of Contents - Desktop */}
         <aside className="hidden lg:block w-64 shrink-0">
           <div className="sticky top-24">
-            <div className="bg-card border border-border/40 rounded-xl p-4 shadow-sm">
+            <div className="border-border/40 rounded-xl p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                 <Hash className="h-4 w-4" />
                 Contents

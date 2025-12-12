@@ -32,7 +32,7 @@ export async function quickPatternDetection(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-120b',
         messages: [{
           role: 'system',
           content: `You are a query categorizer. Analyze the user's query and determine:
