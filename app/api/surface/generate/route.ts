@@ -85,10 +85,72 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Check if async processing via Durable Objects is enabled
+    // Set to true to use DO for all surface generation, false for sync fallback
+    const ASYNC_ENABLED = true // Quality prompts now ported to DO
+    
+    if (ASYNC_ENABLED) {
+      try {
+        // Try to use Durable Object for async processing
+        const { getCloudflareContext } = await import('@opennextjs/cloudflare')
+        const { env } = getCloudflareContext()
+        
+        if (env.TASK_PROCESSOR) {
+          console.log(`🚀 [surface/generate] Queuing async job for ${surfaceType}: "${query.substring(0, 50)}..."`)
+          
+          // Deduct credit immediately
+          await cloudDb.updateCredits(session.user.id, -1)
+          
+          // Get the Durable Object stub
+          const doId = env.TASK_PROCESSOR.idFromName('global')
+          const stub = env.TASK_PROCESSOR.get(doId)
+          
+          // Queue the job
+          const response = await stub.fetch('http://do/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'surface_generate',
+              params: {
+                query,
+                surfaceType,
+                messageId,
+                conversationId: body.conversationId
+              },
+              userId: session.user.id
+            })
+          })
+          
+          if (!response.ok) {
+            const errorData = await response.json() as { error?: string }
+            throw new Error(errorData.error || 'Failed to queue job')
+          }
+          
+          const { jobId } = await response.json() as { jobId: string }
+          
+          console.log(`✅ [surface/generate] Job queued: ${jobId}`)
+          
+          // Return async response with job ID for polling
+          return NextResponse.json({
+            success: true,
+            async: true,
+            jobId,
+            pollUrl: `/api/jobs/${jobId}`,
+            message: 'Surface generation started. Poll the jobId for completion.'
+          })
+        }
+      } catch (doError) {
+        console.warn('⚠️ [surface/generate] Durable Object not available, falling back to sync:', doError)
+        // Fall through to sync processing
+      }
+    }
+
+    // === SYNC FALLBACK ===
+    // Used when DO is not available or ASYNC_ENABLED is false
+    console.log(`🎯 [surface/generate] Starting SYNC ${surfaceType} generation for: "${query.substring(0, 50)}..."`)
+    
     // Deduct credit for surface generation
     await cloudDb.updateCredits(session.user.id, -1)
-
-    console.log(`🎯 [surface/generate] Starting ${surfaceType} generation for: "${query.substring(0, 50)}..."`)
 
     // Step 1: Analyze the query for better understanding
     const analysis = await analyzeSurfaceQuery(query, surfaceType)

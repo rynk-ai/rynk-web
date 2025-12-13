@@ -10,6 +10,48 @@
 import { useState, useCallback, useRef } from "react";
 import type { SurfaceType, SurfaceState, LearningMetadata, GuideMetadata } from "@/lib/services/domain-types";
 
+/**
+ * Poll for job completion from the Durable Object
+ * Used for async surface generation
+ */
+async function pollForJobCompletion(
+  jobId: string,
+  maxAttempts = 90,  // ~2.25 minutes with 1.5s intervals
+  intervalMs = 1500
+): Promise<{ surfaceState?: SurfaceState; error?: string }> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`);
+      const data = await response.json() as {
+        status: 'queued' | 'processing' | 'complete' | 'error';
+        result?: { surfaceState: SurfaceState };
+        error?: string;
+        progress?: { current: number; total: number; message: string };
+      };
+      
+      console.log(`[pollForJobCompletion] Attempt ${i + 1}: status=${data.status}`, data.progress);
+      
+      if (data.status === 'complete' && data.result?.surfaceState) {
+        return { surfaceState: data.result.surfaceState };
+      }
+      
+      if (data.status === 'error') {
+        return { error: data.error || 'Job failed' };
+      }
+      
+      // Still processing, wait and retry
+      await new Promise(r => setTimeout(r, intervalMs));
+      
+    } catch (error) {
+      console.error('[pollForJobCompletion] Error:', error);
+      // Continue polling on network errors
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+  }
+  
+  return { error: 'Job timed out' };
+}
+
 interface MessageSurfaceStates {
   [messageId: string]: {
     activeVersion: SurfaceType;
@@ -116,16 +158,48 @@ export function useSurface(): UseSurfaceReturn {
         throw new Error('Failed to generate surface');
       }
 
-      const data = await response.json() as { surfaceState: SurfaceState };
+      const data = await response.json() as { 
+        surfaceState?: SurfaceState 
+        async?: boolean
+        jobId?: string
+        pollUrl?: string
+      };
       
-      setMessageSurfaceStates(prev => ({
-        ...prev,
-        [messageId]: {
-          activeVersion: version,
-          surfaceState: data.surfaceState,
-          isGenerating: false,
+      // Handle async response (Durable Object)
+      if (data.async && data.jobId) {
+        console.log(`[useSurface] Async job started: ${data.jobId}, polling...`);
+        
+        // Poll for completion
+        const result = await pollForJobCompletion(data.jobId);
+        
+        const completedSurfaceState = result.surfaceState;
+        if (completedSurfaceState) {
+          setMessageSurfaceStates(prev => ({
+            ...prev,
+            [messageId]: {
+              activeVersion: version,
+              surfaceState: completedSurfaceState,
+              isGenerating: false,
+            }
+          }));
+        } else {
+          throw new Error(result.error || 'Job failed');
         }
-      }));
+        return;
+      }
+      
+      // Handle sync response (fallback)
+      const syncSurfaceState = data.surfaceState;
+      if (syncSurfaceState) {
+        setMessageSurfaceStates(prev => ({
+          ...prev,
+          [messageId]: {
+            activeVersion: version,
+            surfaceState: syncSurfaceState,
+            isGenerating: false,
+          }
+        }));
+      }
     } catch (error) {
       console.error('[useSurface] Error generating surface:', error);
       // Revert to chat on error

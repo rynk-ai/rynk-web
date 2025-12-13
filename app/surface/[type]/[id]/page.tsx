@@ -229,11 +229,58 @@ export default function SurfacePage() {
 
         if (!response.ok) throw new Error("Failed to generate surface");
         
-        const data = await response.json() as { surfaceState: SurfaceState };
-        setSurfaceState(data.surfaceState);
+        const data = await response.json() as { 
+          surfaceState?: SurfaceState;
+          async?: boolean;
+          jobId?: string;
+        };
         
-        // Save generated state immediately
-        await saveState(data.surfaceState);
+        // Handle async response (Durable Object)
+        if (data.async && data.jobId) {
+          console.log('[SurfacePage] Async job started:', data.jobId);
+          
+          // Poll for completion
+          let attempts = 0;
+          const maxAttempts = 90; // ~2.25 minutes
+          
+          while (attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 1500));
+            attempts++;
+            
+            try {
+              const jobResponse = await fetch(`/api/jobs/${data.jobId}`);
+              const jobData = await jobResponse.json() as {
+                status: string;
+                result?: { surfaceState: SurfaceState };
+                error?: string;
+                progress?: { current: number; total: number; message: string };
+              };
+              
+              console.log(`[SurfacePage] Poll ${attempts}: status=${jobData.status}`, jobData.progress);
+              
+              if (jobData.status === 'complete' && jobData.result?.surfaceState) {
+                setSurfaceState(jobData.result.surfaceState);
+                await saveState(jobData.result.surfaceState);
+                return;
+              }
+              
+              if (jobData.status === 'error') {
+                throw new Error(jobData.error || 'Job failed');
+              }
+            } catch (pollError) {
+              console.error('[SurfacePage] Poll error:', pollError);
+              // Continue polling on network errors
+            }
+          }
+          
+          throw new Error('Generation timed out');
+        }
+        
+        // Handle sync response (fallback)
+        if (data.surfaceState) {
+          setSurfaceState(data.surfaceState);
+          await saveState(data.surfaceState);
+        }
       } catch (err) {
         console.error('[SurfacePage] Error:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
