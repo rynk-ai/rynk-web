@@ -126,6 +126,17 @@ export interface SubChat {
   updatedAt: number
 }
 
+export interface SharedConversation {
+  id: string
+  conversationId: string
+  userId: string
+  title: string
+  isActive: boolean
+  viewCount: number
+  cloneCount: number
+  createdAt: string
+  expiresAt?: string
+}
 
 export const cloudDb = {
   async getUser(email: string) {
@@ -1628,5 +1639,187 @@ export const cloudDb = {
   async deleteSubChat(subChatId: string): Promise<void> {
     const db = getDB()
     await db.prepare('DELETE FROM sub_chats WHERE id = ?').bind(subChatId).run()
+  },
+
+  // --- Shared Conversations ---
+
+  async createShare(userId: string, conversationId: string, title: string): Promise<SharedConversation> {
+    const db = getDB()
+    // Generate a short, URL-friendly ID (8 chars)
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+    const now = new Date().toISOString()
+    
+    await db.prepare(
+      `INSERT INTO shared_conversations (id, conversationId, userId, title, isActive, viewCount, cloneCount, createdAt) 
+       VALUES (?, ?, ?, ?, 1, 0, 0, ?)`
+    ).bind(id, conversationId, userId, title, now).run()
+    
+    return {
+      id,
+      conversationId,
+      userId,
+      title,
+      isActive: true,
+      viewCount: 0,
+      cloneCount: 0,
+      createdAt: now
+    }
+  },
+
+  async getShare(shareId: string): Promise<SharedConversation | null> {
+    const db = getDB()
+    const result = await db.prepare(
+      'SELECT * FROM shared_conversations WHERE id = ?'
+    ).bind(shareId).first()
+    
+    if (!result) return null
+    return {
+      id: result.id as string,
+      conversationId: result.conversationId as string,
+      userId: result.userId as string,
+      title: result.title as string,
+      isActive: Boolean(result.isActive),
+      viewCount: result.viewCount as number,
+      cloneCount: result.cloneCount as number,
+      createdAt: result.createdAt as string,
+      expiresAt: result.expiresAt as string | undefined
+    }
+  },
+
+  async getSharesByUserId(userId: string): Promise<SharedConversation[]> {
+    const db = getDB()
+    const results = await db.prepare(
+      'SELECT * FROM shared_conversations WHERE userId = ? ORDER BY createdAt DESC'
+    ).bind(userId).all()
+    
+    return results.results.map((r: any) => ({
+      id: r.id,
+      conversationId: r.conversationId,
+      userId: r.userId,
+      title: r.title,
+      isActive: Boolean(r.isActive),
+      viewCount: r.viewCount,
+      cloneCount: r.cloneCount,
+      createdAt: r.createdAt,
+      expiresAt: r.expiresAt
+    }))
+  },
+
+  async getShareByConversationId(conversationId: string): Promise<SharedConversation | null> {
+    const db = getDB()
+    const result = await db.prepare(
+      'SELECT * FROM shared_conversations WHERE conversationId = ? AND isActive = 1'
+    ).bind(conversationId).first()
+    
+    if (!result) return null
+    return {
+      id: result.id as string,
+      conversationId: result.conversationId as string,
+      userId: result.userId as string,
+      title: result.title as string,
+      isActive: Boolean(result.isActive),
+      viewCount: result.viewCount as number,
+      cloneCount: result.cloneCount as number,
+      createdAt: result.createdAt as string,
+      expiresAt: result.expiresAt as string | undefined
+    }
+  },
+
+  async incrementShareViewCount(shareId: string): Promise<void> {
+    const db = getDB()
+    await db.prepare(
+      'UPDATE shared_conversations SET viewCount = viewCount + 1 WHERE id = ?'
+    ).bind(shareId).run()
+  },
+
+  async incrementShareCloneCount(shareId: string): Promise<void> {
+    const db = getDB()
+    await db.prepare(
+      'UPDATE shared_conversations SET cloneCount = cloneCount + 1 WHERE id = ?'
+    ).bind(shareId).run()
+  },
+
+  async deactivateShare(shareId: string, userId: string): Promise<boolean> {
+    const db = getDB()
+    const result = await db.prepare(
+      'UPDATE shared_conversations SET isActive = 0 WHERE id = ? AND userId = ?'
+    ).bind(shareId, userId).run()
+    return result.meta.changes > 0
+  },
+
+  async deleteShare(shareId: string, userId: string): Promise<boolean> {
+    const db = getDB()
+    const result = await db.prepare(
+      'DELETE FROM shared_conversations WHERE id = ? AND userId = ?'
+    ).bind(shareId, userId).run()
+    return result.meta.changes > 0
+  },
+
+  async cloneConversation(shareId: string, targetUserId: string): Promise<{ conversationId: string }> {
+    const db = getDB()
+    
+    // 1. Get the share
+    const share = await this.getShare(shareId)
+    if (!share || !share.isActive) {
+      throw new Error('Share not found or inactive')
+    }
+    
+    // 2. Get the original conversation
+    const originalConversation = await this.getConversation(share.conversationId)
+    if (!originalConversation) {
+      throw new Error('Original conversation not found')
+    }
+    
+    // 3. Get all messages from the original conversation
+    const { messages: originalMessages } = await this.getMessages(share.conversationId, 1000) // Get all messages
+    
+    // 4. Create new conversation for the target user
+    const newConversationId = crypto.randomUUID()
+    const now = Date.now()
+    const newTitle = `Copy of ${originalConversation.title || 'Shared Chat'}`
+    
+    await db.prepare(
+      'INSERT INTO conversations (id, userId, title, path, tags, isPinned, branches, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(newConversationId, targetUserId, newTitle, '[]', '[]', 0, '[]', now, now).run()
+    
+    // 5. Clone each message with new IDs
+    const newPath: string[] = []
+    const idMap = new Map<string, string>() // old ID -> new ID
+    
+    for (const msg of originalMessages) {
+      const newMessageId = crypto.randomUUID()
+      idMap.set(msg.id, newMessageId)
+      newPath.push(newMessageId)
+      
+      await db.prepare(
+        `INSERT INTO messages (id, conversationId, role, content, attachments, referencedConversations, referencedFolders, timestamp, createdAt, versionNumber, reasoning_content, reasoning_metadata, web_annotations, model_used) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        newMessageId,
+        newConversationId,
+        msg.role,
+        msg.content,
+        JSON.stringify(msg.attachments || []),
+        '[]', // Don't copy referenced conversations (they belong to original user)
+        '[]', // Don't copy referenced folders
+        now,
+        now,
+        1,
+        msg.reasoning_content || null,
+        msg.reasoning_metadata ? JSON.stringify(msg.reasoning_metadata) : null,
+        msg.web_annotations ? JSON.stringify(msg.web_annotations) : null,
+        msg.model_used || null
+      ).run()
+    }
+    
+    // 6. Update conversation path
+    await db.prepare(
+      'UPDATE conversations SET path = ? WHERE id = ?'
+    ).bind(JSON.stringify(newPath), newConversationId).run()
+    
+    // 7. Increment clone count
+    await this.incrementShareCloneCount(shareId)
+    
+    return { conversationId: newConversationId }
   }
 }

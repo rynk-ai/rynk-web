@@ -87,6 +87,7 @@ import {
   Plus,
   Bookmark,
   ChevronDown,
+  Share2,
 } from "lucide-react";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
@@ -95,6 +96,7 @@ import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
 import { Search, Command } from "lucide-react";
+import { ShareDialog } from "@/components/share-dialog";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -129,10 +131,12 @@ const TagSection = memo(function TagSection({
   conversationId,
   tags,
   onTagClick,
+  onShareClick,
 }: {
   conversationId: string;
   tags: string[];
   onTagClick: () => void;
+  onShareClick: () => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const displayTags = showAll ? tags : tags.slice(0, 3);
@@ -172,6 +176,17 @@ const TagSection = memo(function TagSection({
             )}
           </div>
         )}
+
+        {/* Share Button */}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 rounded-lg transition-all text-muted-foreground hover:text-foreground hover:bg-secondary"
+          onClick={onShareClick}
+          title="Share conversation"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+        </Button>
 
         {/* Add Tag Button */}
         <Button
@@ -292,6 +307,7 @@ const ChatContent = memo(
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [messageCursor, setMessageCursor] = useState<string | null>(null);
     const [tagDialogOpen, setTagDialogOpen] = useState(false);
+    const [shareDialogOpen, setShareDialogOpen] = useState(false);
     const [allTags, setAllTags] = useState<string[]>([]);
 
     // Quote state
@@ -335,6 +351,10 @@ const ChatContent = memo(
 
     const handleTagClick = () => {
       setTagDialogOpen(true);
+    };
+
+    const handleShareClick = () => {
+      setShareDialogOpen(true);
     };
 
     const handleSaveTags = async (tags: string[]) => {
@@ -1804,6 +1824,7 @@ const ChatContent = memo(
                       conversationId={currentConversationId}
                       tags={currentTags}
                       onTagClick={handleTagClick}
+                      onShareClick={handleShareClick}
                     />
                   )}
                   <VirtualizedMessageList
@@ -1847,6 +1868,16 @@ const ChatContent = memo(
                     onClose={() => {
                       setTagDialogOpen(false);
                     }}
+                  />
+                )}
+
+                {/* Share Dialog */}
+                {currentConversationId && (
+                  <ShareDialog
+                    open={shareDialogOpen}
+                    onOpenChange={setShareDialogOpen}
+                    conversationId={currentConversationId}
+                    conversationTitle={currentConversation?.title}
                   />
                 )}
 

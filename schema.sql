@@ -280,6 +280,20 @@ CREATE TABLE verification_tokens (
   UNIQUE(identifier, token)
 );
 
+CREATE TABLE shared_conversations (
+  id TEXT PRIMARY KEY,
+  conversationId TEXT NOT NULL,
+  userId TEXT NOT NULL,
+  title TEXT,
+  isActive INTEGER DEFAULT 1,
+  viewCount INTEGER DEFAULT 0,
+  cloneCount INTEGER DEFAULT 0,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expiresAt DATETIME,
+  FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE INDEX idx_attachments_message ON attachments_metadata(messageId);
 
 CREATE INDEX idx_conversation_sources_conversationId ON conversation_sources(conversationId);
