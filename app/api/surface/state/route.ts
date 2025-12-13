@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const conversationId = searchParams.get('conversationId')
     const surfaceType = searchParams.get('type') as SurfaceType | null
+    const surfaceId = searchParams.get('surfaceId') // Optional: load specific surface
 
     if (!conversationId || !surfaceType) {
       return NextResponse.json(
@@ -40,12 +41,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Get specific surface state
-    const surfaceState = conversation.surfaceStates?.[surfaceType] || null
+    // Get surface data for this type
+    const surfaceData = conversation.surfaceStates?.[surfaceType]
+    
+    let surfaceState = null
+    let allSurfaces: any[] = []
+    
+    if (Array.isArray(surfaceData)) {
+      // New array format
+      allSurfaces = surfaceData
+      if (surfaceId) {
+        // Load specific surface by ID
+        surfaceState = surfaceData.find((s: any) => s.id === surfaceId) || null
+      } else {
+        // Load the most recent one (last in array)
+        surfaceState = surfaceData[surfaceData.length - 1] || null
+      }
+    } else if (surfaceData && typeof surfaceData === 'object') {
+      // Legacy single-object format
+      surfaceState = surfaceData
+      allSurfaces = [surfaceData]
+    }
 
     return NextResponse.json({
       found: !!surfaceState,
       surfaceState,
+      allSurfaces, // Include all surfaces for this type
+      surfaceId: surfaceState?.id || null,
     })
   } catch (error) {
     console.error('[/api/surface/state] GET error:', error)
@@ -56,6 +78,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -64,10 +87,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { conversationId, surfaceType, surfaceState } = body as {
+    const { conversationId, surfaceType, surfaceState, surfaceId } = body as {
       conversationId: string
       surfaceType: SurfaceType
       surfaceState: SurfaceState
+      surfaceId?: string  // Optional: if updating existing surface
     }
 
     if (!conversationId || !surfaceType || !surfaceState) {
@@ -88,10 +112,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
+    // Get existing surface states (could be old format or new array format)
+    const existingStates = conversation.surfaceStates || {}
+    const existingForType = existingStates[surfaceType]
+    
+    // Generate unique ID for new surfaces
+    const newSurfaceId = surfaceId || `${surfaceType}-${Date.now()}`
+    
+    // Add ID and timestamp to the surface state
+    const enrichedState = {
+      ...surfaceState,
+      id: newSurfaceId,
+      savedAt: Date.now(),
+    }
+    
+    let updatedTypeArray: any[]
+    
+    if (Array.isArray(existingForType)) {
+      // Already new array format - check if updating existing or adding new
+      const existingIndex = existingForType.findIndex((s: any) => s.id === surfaceId)
+      if (existingIndex >= 0) {
+        // Update existing
+        updatedTypeArray = [...existingForType]
+        updatedTypeArray[existingIndex] = enrichedState
+      } else {
+        // Add new (limit to 10 per type for performance)
+        updatedTypeArray = [...existingForType, enrichedState].slice(-10)
+      }
+    } else if (existingForType && typeof existingForType === 'object') {
+      // Old single-object format - convert to array
+      const oldSurface = {
+        ...existingForType,
+        id: existingForType.id || `${surfaceType}-legacy`,
+        savedAt: existingForType.savedAt || Date.now() - 1000,
+      }
+      updatedTypeArray = [oldSurface, enrichedState]
+    } else {
+      // No existing - start new array
+      updatedTypeArray = [enrichedState]
+    }
+
     // Merge with existing surface states
     const updatedSurfaceStates = {
-      ...(conversation.surfaceStates || {}),
-      [surfaceType]: surfaceState,
+      ...existingStates,
+      [surfaceType]: updatedTypeArray,
     }
 
     // Update conversation
@@ -99,11 +163,12 @@ export async function POST(request: NextRequest) {
       surfaceStates: updatedSurfaceStates,
     })
 
-    console.log(`[/api/surface/state] Saved ${surfaceType} state for ${conversationId}`)
+    console.log(`[/api/surface/state] Saved ${surfaceType} (id: ${newSurfaceId}) for ${conversationId}`)
 
     return NextResponse.json({
       success: true,
       surfaceType,
+      surfaceId: newSurfaceId,
     })
   } catch (error) {
     console.error('[/api/surface/state] POST error:', error)
@@ -113,6 +178,7 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
 
 export async function DELETE(request: NextRequest) {
   try {

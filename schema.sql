@@ -268,7 +268,7 @@ CREATE TABLE users (
   email TEXT NOT NULL UNIQUE,
   emailVerified DATETIME,
   image TEXT,
-  credits INTEGER DEFAULT 10,
+  credits INTEGER DEFAULT 100,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 , subscriptionTier TEXT DEFAULT 'free', polarCustomerId TEXT, polarSubscriptionId TEXT, subscriptionStatus TEXT DEFAULT 'none', creditsResetAt DATETIME, carryoverCredits INTEGER DEFAULT 0);

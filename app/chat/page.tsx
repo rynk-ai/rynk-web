@@ -759,9 +759,27 @@ const ChatContent = memo(
               router.push(`/surface/${surfaceMode}/${conversationId}?q=${query}`);
               // Reset surface mode to chat for next interaction
               setSurfaceMode('chat');
+              return; // Exit early, surface page will handle generation
             } else {
               router.push(`/chat?id=${encodeURIComponent(conversationId)}`);
             }
+          }
+          
+          // Handle surface mode for EXISTING conversations
+          // If user selected a surface mode mid-conversation, navigate to surface page
+          if (surfaceMode !== 'chat' && currentConversationId) {
+            console.log(
+              `🎯 [handleSubmit] Surface mode "${surfaceMode}" selected mid-conversation, navigating to surface`,
+            );
+            const targetConversationId = conversationId || currentConversationId;
+            const query = encodeURIComponent(text.slice(0, 500));
+            router.push(`/surface/${surfaceMode}/${targetConversationId}?q=${query}`);
+            // Reset surface mode to chat for next interaction
+            setSurfaceMode('chat');
+            // Remove the optimistic messages since we're navigating away
+            removeMessageRef.current(tempUserMessageId);
+            removeMessageRef.current(tempAssistantMessageId);
+            return; // Exit early, surface page will handle generation
           }
 
           // Replace optimistic messages with real ones

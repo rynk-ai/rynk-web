@@ -28,7 +28,7 @@ interface UseSurfaceReturn {
     surfaceState: SurfaceState | null;
     isGenerating: boolean;
   };
-  switchSurfaceVersion: (messageId: string, version: SurfaceType, originalQuery: string) => Promise<void>;
+  switchSurfaceVersion: (messageId: string, version: SurfaceType, originalQuery: string, conversationId?: string) => Promise<void>;
   generateChapterContent: (messageId: string, chapterIndex: number, originalQuery: string) => Promise<void>;
   markChapterComplete: (messageId: string, chapterIndex: number) => void;
   generateStepContent: (messageId: string, stepIndex: number, originalQuery: string) => Promise<void>;
@@ -52,9 +52,10 @@ export function useSurface(): UseSurfaceReturn {
   const switchSurfaceVersion = useCallback(async (
     messageId: string,
     version: SurfaceType,
-    originalQuery: string
+    originalQuery: string,
+    conversationId?: string  // Optional: provides conversation context for personalization
   ) => {
-    console.log(`[useSurface] Switching message ${messageId} to ${version}`);
+    console.log(`[useSurface] Switching message ${messageId} to ${version}`, { conversationId });
     
     // If switching to chat, just update activeVersion
     if (version === 'chat') {
@@ -106,8 +107,10 @@ export function useSurface(): UseSurfaceReturn {
           query: originalQuery,
           surfaceType: version,
           messageId,
+          conversationId,  // Pass conversationId for context
         }),
       });
+
 
       if (!response.ok) {
         throw new Error('Failed to generate surface');

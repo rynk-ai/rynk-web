@@ -84,6 +84,8 @@ export default function SurfacePage() {
   const conversationId = params.id as string;
   // Get query from URL param (passed from SurfaceTrigger)
   const queryFromUrl = searchParams.get('q') || "";
+  // Get specific surface ID from URL param (passed from SavedSurfacesPill dropdown)
+  const surfaceIdFromUrl = searchParams.get('sid') || null;
 
   const [surfaceState, setSurfaceState] = useState<SurfaceState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,12 +95,22 @@ export default function SurfacePage() {
   const [isRestoredFromSaved, setIsRestoredFromSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Track the ID of the currently loaded surface
+  const [currentSurfaceId, setCurrentSurfaceId] = useState<string | null>(null);
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Track if we need to save (after state changes)
   const pendingSaveRef = useRef(false);
   // Abort controller for save requests
   const saveAbortControllerRef = useRef<AbortController | null>(null);
+  // Track current surface ID in a ref to avoid stale closures in callbacks
+  const currentSurfaceIdRef = useRef<string | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentSurfaceIdRef.current = currentSurfaceId;
+  }, [currentSurfaceId]);
 
   // Save surface state to API
   const saveState = useCallback(async (stateToSave: SurfaceState) => {
@@ -115,21 +127,35 @@ export default function SurfacePage() {
 
     setIsSaving(true);
     try {
-      await fetch('/api/surface/state', {
+      // Use ref to get current value, avoiding stale closure
+      const surfaceIdToUse = currentSurfaceIdRef.current;
+      
+      const response = await fetch('/api/surface/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId,
           surfaceType,
           surfaceState: stateToSave,
+          surfaceId: surfaceIdToUse, // Pass ID to update existing instead of creating new
         }),
         signal: controller.signal,
       });
+      
+      // Track the surface ID from response (for new surfaces)
+      if (response.ok) {
+        const data = await response.json() as { surfaceId?: string };
+        if (data.surfaceId && !currentSurfaceIdRef.current) {
+          setCurrentSurfaceId(data.surfaceId);
+          currentSurfaceIdRef.current = data.surfaceId; // Update ref immediately
+        }
+      }
       
       // Only update UI if this is the active request
       if (!controller.signal.aborted) {
         setTimeout(() => setIsSaving(false), 800);
       }
+
     } catch (err) {
       // Ignore abort errors
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -145,6 +171,7 @@ export default function SurfacePage() {
     }
   }, [conversationId, surfaceType]);
 
+
   // Load or generate surface on mount
   useEffect(() => {
     async function loadSurface() {
@@ -152,25 +179,40 @@ export default function SurfacePage() {
       setError(null);
 
       try {
-        // Step 1: Try to load persisted state first
-        const stateResponse = await fetch(
-          `/api/surface/state?conversationId=${conversationId}&type=${surfaceType}`
-        );
+        // Determine intent:
+        // - If surfaceIdFromUrl: Load that specific surface
+        // - If queryFromUrl: Generate new surface (user is creating new)
+        // - If neither: Load most recent saved surface
+        const shouldLoadExisting = surfaceIdFromUrl || !queryFromUrl;
         
-        if (stateResponse.ok) {
-          const { found, surfaceState: savedState } = await stateResponse.json() as { found: boolean; surfaceState: SurfaceState | null };
+        if (shouldLoadExisting) {
+          // Step 1: Try to load persisted state
+          const surfaceIdParam = surfaceIdFromUrl ? `&surfaceId=${surfaceIdFromUrl}` : '';
+          const stateResponse = await fetch(
+            `/api/surface/state?conversationId=${conversationId}&type=${surfaceType}${surfaceIdParam}`
+          );
           
-          if (found && savedState) {
-            console.log('[SurfacePage] Loaded persisted state');
-            setSurfaceState(savedState);
-            setOriginalQuery(queryFromUrl || "Restored session");
-            setIsRestoredFromSaved(true);
-            setIsLoading(false);
-            return;
+          if (stateResponse.ok) {
+            const { found, surfaceState: savedState, surfaceId: loadedSurfaceId } = await stateResponse.json() as { 
+              found: boolean; 
+              surfaceState: SurfaceState | null;
+              surfaceId: string | null;
+            };
+            
+            if (found && savedState) {
+              console.log('[SurfacePage] Loaded persisted state, id:', loadedSurfaceId);
+              setSurfaceState(savedState);
+              setOriginalQuery(queryFromUrl || "Restored session");
+              setIsRestoredFromSaved(true);
+              setCurrentSurfaceId(loadedSurfaceId);
+              setIsLoading(false);
+              return;
+            }
           }
         }
 
-        // Step 2: No saved state, generate new
+        // Step 2: Generate new surface (either no saved state, or user wants new)
+
         const query = queryFromUrl || "General topic";
         setOriginalQuery(query);
 
@@ -181,6 +223,7 @@ export default function SurfacePage() {
             query,
             surfaceType,
             messageId: conversationId,
+            conversationId,  // Pass for context personalization
           }),
         });
 
@@ -202,7 +245,7 @@ export default function SurfacePage() {
     if (conversationId && surfaceType) {
       loadSurface();
     }
-  }, [conversationId, surfaceType, queryFromUrl, saveState]);
+  }, [conversationId, surfaceType, queryFromUrl, surfaceIdFromUrl, saveState]);
 
   // Back to chat - invalidate conversations cache to refresh surface states
   const handleBackToChat = useCallback(async () => {

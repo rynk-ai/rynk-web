@@ -7,11 +7,13 @@
  * Enhanced with:
  * - Intent analysis for better query understanding
  * - Web search integration for Wiki and Guide surfaces
+ * - Conversation context integration for personalized surfaces
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getAIProvider } from '@/lib/services/ai-factory'
+import { cloudDb } from '@/lib/services/cloud-db'
 import type { SurfaceType, SurfaceState, LearningMetadata, GuideMetadata, QuizMetadata, ComparisonMetadata, FlashcardMetadata, TimelineMetadata, WikiMetadata } from '@/lib/services/domain-types'
 import { analyzeSurfaceQuery, SurfaceAnalysis } from '@/lib/services/surfaces/surface-intent-analyzer'
 import { SourceOrchestrator } from '@/lib/services/agentic/source-orchestrator'
@@ -21,7 +23,16 @@ interface GenerateRequest {
   query: string           // Original user question
   surfaceType: SurfaceType
   messageId: string       // Message to attach surface to
+  conversationId?: string // Optional - provides conversation context for personalization
 }
+
+interface ConversationContext {
+  summary: string         // Synthesized context from conversation
+  keyTopics: string[]     // Main topics discussed
+  userPreferences: string // Any stated preferences
+  referencedContent: string // Context from referenced convos/folders
+}
+
 
 interface WebContext {
   summary: string           // Synthesized key information
@@ -76,7 +87,25 @@ export async function POST(request: NextRequest) {
       depth: analysis.depth
     })
 
-    // Step 2: Fetch web data for wiki/guide surfaces if beneficial
+    // Step 2: Build conversation context (if conversationId provided)
+    let conversationContext: ConversationContext | undefined
+    const { conversationId } = body
+    if (conversationId) {
+      try {
+        console.log(`📚 [surface/generate] Building conversation context from: ${conversationId}`)
+        conversationContext = await buildSurfaceContext(conversationId)
+        console.log(`✅ [surface/generate] Context built:`, {
+          keyTopics: conversationContext.keyTopics.length,
+          hasPreferences: !!conversationContext.userPreferences,
+          hasReferencedContent: !!conversationContext.referencedContent
+        })
+      } catch (contextError) {
+        console.warn('⚠️ [surface/generate] Failed to build context, continuing without:', contextError)
+        // Continue without context - graceful degradation
+      }
+    }
+
+    // Step 3: Fetch web data for wiki/guide surfaces if beneficial
     let webContext: WebContext | undefined
     if (analysis.needsWebSearch && (surfaceType === 'wiki' || surfaceType === 'guide')) {
       try {
@@ -103,19 +132,20 @@ export async function POST(request: NextRequest) {
     let surfaceState: SurfaceState
 
     if (surfaceType === 'learning') {
-      surfaceState = await generateLearningStructure(aiProvider, query, analysis)
+      surfaceState = await generateLearningStructure(aiProvider, query, analysis, conversationContext)
     } else if (surfaceType === 'guide') {
-      surfaceState = await generateGuideStructure(aiProvider, query, analysis, webContext)
+      surfaceState = await generateGuideStructure(aiProvider, query, analysis, webContext, conversationContext)
     } else if (surfaceType === 'quiz') {
-      surfaceState = await generateQuizStructure(aiProvider, query, analysis)
+      surfaceState = await generateQuizStructure(aiProvider, query, analysis, conversationContext)
     } else if (surfaceType === 'comparison') {
-      surfaceState = await generateComparisonStructure(aiProvider, query, analysis)
+      surfaceState = await generateComparisonStructure(aiProvider, query, analysis, conversationContext)
     } else if (surfaceType === 'flashcard') {
-      surfaceState = await generateFlashcardStructure(aiProvider, query, analysis)
+      surfaceState = await generateFlashcardStructure(aiProvider, query, analysis, conversationContext)
     } else if (surfaceType === 'timeline') {
-      surfaceState = await generateTimelineStructure(aiProvider, query, analysis)
+      surfaceState = await generateTimelineStructure(aiProvider, query, analysis, conversationContext)
     } else if (surfaceType === 'wiki') {
-      surfaceState = await generateWikiStructure(aiProvider, query, analysis, webContext)
+      surfaceState = await generateWikiStructure(aiProvider, query, analysis, webContext, conversationContext)
+
     } else {
       return NextResponse.json(
         { error: `Unsupported surface type: ${surfaceType}` },
@@ -181,15 +211,187 @@ function synthesizeWebResults(results: SourceResult[]): WebContext {
   }
 }
 
+/**
+ * Build context from an existing conversation to personalize surface generation.
+ * Extracts key topics, user preferences, and referenced content.
+ */
+async function buildSurfaceContext(conversationId: string): Promise<ConversationContext> {
+  // Fetch recent messages from the conversation
+  const { messages } = await cloudDb.getMessages(conversationId, 20)
+  
+  if (!messages || messages.length === 0) {
+    return {
+      summary: '',
+      keyTopics: [],
+      userPreferences: '',
+      referencedContent: ''
+    }
+  }
+  
+  // Extract user queries and assistant responses
+  const userQueries: string[] = []
+  const assistantPoints: string[] = []
+  let referencedConversations: any[] = []
+  let referencedFolders: any[] = []
+  
+  for (const msg of messages) {
+    if (msg.role === 'user') {
+      userQueries.push(msg.content.slice(0, 300))
+      // Get referenced content from user messages
+      if (msg.referencedConversations?.length) {
+        referencedConversations = msg.referencedConversations
+      }
+      if (msg.referencedFolders?.length) {
+        referencedFolders = msg.referencedFolders
+      }
+    } else if (msg.role === 'assistant') {
+      // Extract key points from assistant responses (first 200 chars as summary)
+      assistantPoints.push(msg.content.slice(0, 200))
+    }
+  }
+  
+  // Build referenced content context
+  let referencedContent = ''
+  
+  // Fetch context from referenced conversations
+  if (referencedConversations.length > 0) {
+    for (const ref of referencedConversations.slice(0, 3)) {
+      try {
+        const { messages: refMsgs } = await cloudDb.getMessages(ref.id, 5)
+        if (refMsgs?.length > 0) {
+          referencedContent += `\n--- From conversation "${ref.title}" ---\n`
+          for (const m of refMsgs.slice(0, 3)) {
+            if (m.role === 'user' || m.role === 'assistant') {
+              referencedContent += `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 150)}\n`
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch referenced conversation ${ref.id}:`, e)
+      }
+    }
+  }
+  
+  // Fetch context from referenced folders
+  if (referencedFolders.length > 0) {
+    for (const folderRef of referencedFolders.slice(0, 2)) {
+      try {
+        const folder = await cloudDb.getFolder(folderRef.id)
+        if (folder && folder.conversationIds && folder.conversationIds.length > 0) {
+          referencedContent += `\n--- From folder "${folder.name}" ---\n`
+          // Get messages from first 2 conversations in folder
+          for (const convId of folder.conversationIds.slice(0, 2)) {
+            const { messages: folderMsgs } = await cloudDb.getMessages(convId, 3)
+            for (const m of folderMsgs?.slice(0, 2) || []) {
+              if (m.role === 'user' || m.role === 'assistant') {
+                referencedContent += `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 100)}\n`
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch folder ${folderRef.id}:`, e)
+      }
+    }
+  }
+  
+  // Extract user preferences (look for patterns like "I prefer", "I want", "I like")
+  const preferencePatterns = /\b(i prefer|i want|i like|i need|focus on|emphasize|don't include|skip|avoid)\b[^.!?]*/gi
+  const preferences: string[] = []
+  for (const query of userQueries) {
+    const matches = query.match(preferencePatterns)
+    if (matches) {
+      preferences.push(...matches)
+    }
+  }
+  
+  // Build summary from conversation
+  const summary = [
+    userQueries.length > 0 ? `User discussed: ${userQueries.slice(0, 5).join(' | ')}` : '',
+    assistantPoints.length > 0 ? `Key points covered: ${assistantPoints.slice(0, 3).join(' | ')}` : ''
+  ].filter(Boolean).join('\n')
+  
+  // Extract key topics from user queries
+  const keyTopics = extractKeyTopics(userQueries)
+  
+  return {
+    summary,
+    keyTopics,
+    userPreferences: preferences.join('. '),
+    referencedContent
+  }
+}
+
+/**
+ * Extract key topics from user queries using simple heuristics
+ */
+function extractKeyTopics(queries: string[]): string[] {
+  const topics = new Set<string>()
+  
+  // Common topic indicators
+  const topicPatterns = [
+    /(?:about|regarding|on|learn|understand|explain)\s+([a-zA-Z0-9\s]{3,30})/gi,
+    /(?:how to|what is|what are)\s+([a-zA-Z0-9\s]{3,30})/gi
+  ]
+  
+  for (const query of queries) {
+    for (const pattern of topicPatterns) {
+      const matches = [...query.matchAll(pattern)]
+      for (const match of matches) {
+        if (match[1]) {
+          topics.add(match[1].trim().toLowerCase())
+        }
+      }
+    }
+  }
+  
+  return Array.from(topics).slice(0, 5)
+}
+
+/**
+ * Format conversation context for injection into AI prompts
+ */
+function formatContextForPrompt(context: ConversationContext | undefined): string {
+  if (!context || (!context.summary && !context.userPreferences && !context.referencedContent)) {
+    return ''
+  }
+  
+  let formatted = '\n\nCONVERSATION CONTEXT (use this to personalize the content):\n'
+  
+  if (context.summary) {
+    formatted += `\nConversation Background:\n${context.summary}\n`
+  }
+  
+  if (context.keyTopics.length > 0) {
+    formatted += `\nKey Topics Discussed: ${context.keyTopics.join(', ')}\n`
+  }
+  
+  if (context.userPreferences) {
+    formatted += `\nUser Preferences: ${context.userPreferences}\n`
+  }
+  
+  if (context.referencedContent) {
+    formatted += `\nReferenced Context:\n${context.referencedContent.slice(0, 1500)}\n`
+  }
+  
+  formatted += '\nUse this context to make the content more relevant and tailored to the user\'s needs.\n'
+  
+  return formatted
+}
+
 async function generateLearningStructure(
   aiProvider: any,
   query: string,
-  analysis?: SurfaceAnalysis
+  analysis?: SurfaceAnalysis,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+  
   const prompt = `You are a world-renowned professor creating a university-level course curriculum.
 
 SUBJECT: "${query}"
-
+${contextSection}
 Create an EXHAUSTIVE, COMPREHENSIVE course that would satisfy a serious student wanting to master this topic. Think: What would a $2000 online course or a university semester cover?
 
 Generate the course structure as JSON:
@@ -275,6 +477,7 @@ Return ONLY valid JSON, no markdown or explanation.`
     ]
   })
 
+
   let content = ''
   for await (const chunk of response) {
     content += chunk
@@ -345,8 +548,12 @@ async function generateGuideStructure(
   aiProvider: any,
   query: string,
   analysis?: SurfaceAnalysis,
-  webContext?: WebContext
+  webContext?: WebContext,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format conversation context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+  
   // Build context from web search if available
   let webResearchContext = ''
   if (webContext && webContext.keyFacts.length > 0) {
@@ -374,6 +581,7 @@ TOPIC ANALYSIS:
 TASK: "${query}"
 ${topicContext}
 ${webResearchContext}
+${contextSection}
 Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow to achieve success. Think: What would a professional documentation writer at a top tech company create?
 
 Generate a guide structure as JSON:
@@ -528,12 +736,16 @@ Return ONLY valid JSON, no markdown or explanation.`
 async function generateQuizStructure(
   aiProvider: any,
   query: string,
-  analysis?: SurfaceAnalysis
+  analysis?: SurfaceAnalysis,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format conversation context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+
   const prompt = `You are an expert assessment designer creating a comprehensive knowledge test.
 
 TOPIC: "${query}"
-
+${contextSection}
 Create a RIGOROUS, COMPREHENSIVE quiz that thoroughly assesses understanding. This should feel like a professional certification exam or university final - not a trivial quiz.
 
 Generate a quiz as JSON:
@@ -688,12 +900,16 @@ Return ONLY valid JSON, no markdown or explanation.`
 async function generateComparisonStructure(
   aiProvider: any,
   query: string,
-  analysis?: SurfaceAnalysis
+  analysis?: SurfaceAnalysis,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format conversation context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+
   const prompt = `You are a senior research analyst creating a definitive comparison report.
 
 TOPIC: "${query}"
-
+${contextSection}
 Create an EXHAUSTIVE, OBJECTIVE comparison that would help someone make a confident, well-informed decision. This should feel like a professional analyst's report.
 
 Generate a comparison as JSON:
@@ -847,12 +1063,16 @@ Return ONLY valid JSON, no markdown or explanation.`
 async function generateFlashcardStructure(
   aiProvider: any,
   query: string,
-  analysis?: SurfaceAnalysis
+  analysis?: SurfaceAnalysis,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format conversation context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+
   const prompt = `You are a cognitive scientist and expert educator creating a comprehensive flashcard deck.
 
 TOPIC: "${query}"
-
+${contextSection}
 Create a THOROUGH flashcard deck that would help someone truly master this topic. This should feel like a professional study set - comprehensive enough for exam preparation.
 
 Generate flashcards as JSON:
@@ -985,12 +1205,16 @@ Return ONLY valid JSON, no markdown or explanation.`
 async function generateTimelineStructure(
   aiProvider: any,
   query: string,
-  analysis?: SurfaceAnalysis
+  analysis?: SurfaceAnalysis,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format conversation context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+
   const prompt = `You are a historian creating an educational timeline.
 
 TOPIC: "${query}"
-
+${contextSection}
 Create a timeline that tells a story, not just lists dates. Show how events connect and lead to each other.
 
 Generate a timeline as JSON:
@@ -1090,8 +1314,12 @@ async function generateWikiStructure(
   aiProvider: any,
   query: string,
   analysis?: SurfaceAnalysis,
-  webContext?: WebContext
+  webContext?: WebContext,
+  conversationContext?: ConversationContext
 ): Promise<SurfaceState> {
+  // Format conversation context for injection
+  const contextSection = formatContextForPrompt(conversationContext)
+  
   // Build context from web search if available
   let webResearchContext = ''
   let realReferences = ''
@@ -1123,6 +1351,7 @@ TOPIC: "${query}"
 ${topicContext}
 ${webResearchContext}
 ${realReferences}
+${contextSection}
 Create an AUTHORITATIVE, WELL-STRUCTURED knowledge article that would serve as the definitive reference on this topic. This should read like a high-quality Wikipedia article - neutral, comprehensive, and well-organized.
 
 Generate the article as JSON:
