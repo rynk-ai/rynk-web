@@ -24,6 +24,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       }),
     ],
+    events: {
+      async createUser({ user }) {
+        // Fix: The remote D1 database has DEFAULT 10 for credits, but we want 100
+        // Update credits to 100 immediately after user creation
+        if (db && user.id) {
+          try {
+            await db.prepare('UPDATE users SET credits = 100 WHERE id = ?').bind(user.id).run()
+            console.log('✅ Set initial credits to 100 for new user:', user.id)
+          } catch (error) {
+            console.error('Failed to set initial credits for user:', error)
+          }
+        }
+      },
+    },
     callbacks: {
       async session({ session, user, token }) {
         if (session.user) {
