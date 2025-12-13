@@ -53,6 +53,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Credit check
+    const credits = await cloudDb.getUserCredits(session.user.id)
+    if (credits <= 0) {
+      return NextResponse.json(
+        { error: 'Insufficient credits', message: 'Please subscribe to continue using surfaces.' },
+        { status: 402 }
+      )
+    }
+
     const body = await request.json() as GenerateRequest
     const { query, surfaceType, messageId } = body
 
@@ -63,7 +72,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Skip generation for chat (it's the default)
+    // Skip generation for chat (it's the default) - no credit deduction
     if (surfaceType === 'chat') {
       return NextResponse.json({
         success: true,
@@ -75,6 +84,9 @@ export async function POST(request: NextRequest) {
         }
       })
     }
+
+    // Deduct credit for surface generation
+    await cloudDb.updateCredits(session.user.id, -1)
 
     console.log(`🎯 [surface/generate] Starting ${surfaceType} generation for: "${query.substring(0, 50)}..."`)
 

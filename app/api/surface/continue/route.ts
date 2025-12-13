@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getAIProvider } from '@/lib/services/ai-factory'
+import { cloudDb } from '@/lib/services/cloud-db'
 import type { SurfaceType, SurfaceState, LearningMetadata, GuideMetadata } from '@/lib/services/domain-types'
 
 interface ContinueRequest {
@@ -26,6 +27,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Credit check
+    const credits = await cloudDb.getUserCredits(session.user.id)
+    if (credits <= 0) {
+      return NextResponse.json(
+        { error: 'Insufficient credits', message: 'Please subscribe to continue using surfaces.' },
+        { status: 402 }
+      )
+    }
+
     const body = await request.json() as ContinueRequest
     const { surfaceType, action, targetIndex, surfaceState, originalQuery } = body
 
@@ -35,6 +45,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Deduct credit for surface content generation
+    await cloudDb.updateCredits(session.user.id, -1)
 
     const aiProvider = getAIProvider(false)
     let content: string

@@ -33,6 +33,8 @@ interface VirtualizedMessageListProps {
   // Surface trigger - needs conversationId and saved surface states
   conversationId?: string | null
   savedSurfaces?: Record<string, any>
+  // Credit indicator
+  userCredits?: number | null
 }
 
 export interface VirtualizedMessageListRef {
@@ -66,6 +68,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   // Surface trigger props
   conversationId,
   savedSurfaces,
+  // Credit indicator
+  userCredits,
 }, ref) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
@@ -154,6 +158,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
           // Surface trigger props
           conversationId={conversationId}
           savedSurfaces={savedSurfaces}
+          // Credit indicator
+          userCredits={userCredits}
         />
       )
     }
@@ -181,6 +187,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     // Surface trigger props
     conversationId,
     savedSurfaces,
+    // Credit indicator
+    userCredits,
   ])
   
   const Header = () => {

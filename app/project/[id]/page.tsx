@@ -51,6 +51,7 @@ import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
+import { NoCreditsOverlay } from "@/components/credit-warning";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -188,6 +189,8 @@ const ChatContent = memo(
       reasoningMode,
       toggleReasoningMode,
       streamingMessageId: globalStreamingMessageId,
+      // Credits
+      userCredits,
     } = useChatContext();
 
     // Get streaming-specific values from separate context to avoid re-renders
@@ -1679,6 +1682,8 @@ const ChatContent = memo(
                     searchResults={searchResults}
                     contextCards={contextCards}
                     onIsAtBottomChange={setIsScrolledUp}
+                    // Credit indicator
+                    userCredits={userCredits}
                   />
 
                   {/* Scroll to Bottom Button */}
@@ -1731,39 +1736,47 @@ const ChatContent = memo(
             <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
               {/* Show editContext when editing, activeContext otherwise */}
 
-
-              <PromptInputWithFiles
-                onSubmit={handleSubmit}
-                isLoading={isLoading}
-                placeholder="Ask anything..."
-                disabled={isLoading}
-                context={activeContext}
-                onContextChange={handleContextChange}
-                currentConversationId={currentConversationId}
-                conversations={conversations}
-                folders={folders}
-                // Edit mode props
-                editMode={isEditing}
-                initialValue={editContent}
-                initialAttachments={editAttachments}
-                onCancelEdit={cancelEdit}
-                onSaveEdit={handleSaveEdit}
-                isSubmittingEdit={isSavingEdit}
-                // State sync
-                onValueChange={isEditing ? setEditContent : undefined}
-                onFilesChange={isEditing ? setEditAttachments : undefined}
-                // Quote props
-                quotedMessage={quotedMessage}
-                onClearQuote={handleClearQuote}
-                reasoningMode={reasoningMode}
-                onToggleReasoningMode={toggleReasoningMode}
-                className={cn(
-                  "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
-                  !currentConversationId
-                    ? "shadow-xl"
-                    : "shadow-sm hover:shadow-md",
+              {/* Input container with optional no-credits overlay */}
+              <div className="relative">
+                {/* No Credits Overlay - shows when 0 credits */}
+                {userCredits !== null && userCredits <= 0 && (
+                  <NoCreditsOverlay />
                 )}
-              />
+
+                <PromptInputWithFiles
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  placeholder="Ask anything..."
+                  disabled={isLoading || (userCredits !== null && userCredits <= 0)}
+                  context={activeContext}
+                  onContextChange={handleContextChange}
+                  currentConversationId={currentConversationId}
+                  conversations={conversations}
+                  folders={folders}
+                  // Edit mode props
+                  editMode={isEditing}
+                  initialValue={editContent}
+                  initialAttachments={editAttachments}
+                  onCancelEdit={cancelEdit}
+                  onSaveEdit={handleSaveEdit}
+                  isSubmittingEdit={isSavingEdit}
+                  // State sync
+                  onValueChange={isEditing ? setEditContent : undefined}
+                  onFilesChange={isEditing ? setEditAttachments : undefined}
+                  // Quote props
+                  quotedMessage={quotedMessage}
+                  onClearQuote={handleClearQuote}
+                  reasoningMode={reasoningMode}
+                  onToggleReasoningMode={toggleReasoningMode}
+                  className={cn(
+                    "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
+                    !currentConversationId
+                      ? "shadow-xl"
+                      : "shadow-sm hover:shadow-md",
+                    userCredits !== null && userCredits <= 0 && "opacity-50 pointer-events-none"
+                  )}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -49,6 +49,7 @@ import { ContextCardList, type ContextCardData } from "@/components/chat/context
 import { SurfaceTrigger } from "@/components/surfaces/surface-trigger";
 
 import { VersionIndicator } from "@/components/ui/version-indicator";
+import { InlineCreditIndicator } from "@/components/credit-warning";
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -85,6 +86,8 @@ interface ChatMessageItemProps {
   // Surface trigger - needs conversationId and saved surfaces
   conversationId?: string | null;
   savedSurfaces?: Record<string, any>;
+  // Credit indicator
+  userCredits?: number | null;
 }
 
 /**
@@ -120,6 +123,8 @@ export const ChatMessageItem = memo(
     // Surface trigger - needs conversationId and saved surfaces
     conversationId,
     savedSurfaces,
+    // Credit indicator
+    userCredits,
   }: ChatMessageItemProps) {
     const isAssistant = message.role === "assistant";
 
@@ -700,6 +705,11 @@ export const ChatMessageItem = memo(
                     <GitBranch className="h-3.5 w-3.5" />
                   </Button>
                 </MessageAction>
+
+                {/* Inline Credit Indicator - shows beside actions for last message */}
+                {isLastMessage && !isStreaming && (
+                  <InlineCreditIndicator credits={userCredits ?? null} className="ml-2" />
+                )}
               </MessageActions>
             </div>
           </Message>

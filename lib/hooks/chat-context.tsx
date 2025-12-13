@@ -92,6 +92,9 @@ interface ChatContextValue {
   }>
   searchResults: any
   streamingMessageId: string | null
+  // Credits
+  userCredits: number | null
+  refetchCredits: () => void
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -139,6 +142,7 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
     chatHook.activeProjectId,
     chatHook.reasoningMode,
     chatHook.streamingMessageId,
+    chatHook.userCredits,
     // NOTE: statusPills and searchResults are intentionally NOT included here
     // They change frequently during streaming and should be accessed via useStreamingContext()
     // This prevents sidebar and other consumers from re-rendering during streaming

@@ -30,7 +30,8 @@ import {
   switchToMessageVersion as switchToMessageVersionAction,
   setConversationContext as setConversationContextAction,
   clearConversationContext as clearConversationContextAction,
-  generateTitleAction
+  generateTitleAction,
+  getUserCredits as getUserCreditsAction
 } from "@/app/actions"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -140,6 +141,14 @@ export function useChat(initialConversationId?: string | null) {
     queryKey: ['projects'],
     queryFn: () => getProjectsAction(),
     staleTime: 1000 * 60 * 60, // 1 hour
+  })
+
+  // User credits - fetch on mount and refresh after each message
+  const { data: userCredits = null, refetch: refetchCredits } = useQuery({
+    queryKey: ['userCredits'],
+    queryFn: () => getUserCreditsAction().catch(() => null),
+    staleTime: 1000 * 30, // 30 seconds (refresh frequently)
+    refetchOnWindowFocus: true,
   })
 
   // --- Mutations ---
@@ -658,8 +667,10 @@ export function useChat(initialConversationId?: string | null) {
           return newSet
         })
       }
+      // Refresh credits after sending message (decrement happens server-side)
+      refetchCredits()
     }
-  }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId, reasoningMode])
+  }, [currentConversationId, currentConversation, generateTitle, setConversationContext, activeProjectId, reasoningMode, refetchCredits])
 
   // Legacy wrapper for backward compatibility (if needed)
   const sendMessage = useCallback(async (
@@ -1049,5 +1060,8 @@ export function useChat(initialConversationId?: string | null) {
     setStatusPills,
     setSearchResults,
     setContextCards,
+    // Credits
+    userCredits,
+    refetchCredits,
   }
 }
