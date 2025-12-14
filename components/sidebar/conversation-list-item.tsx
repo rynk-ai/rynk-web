@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { PinIcon, MoreHorizontal, Hash, BookOpen, ListChecks, Target, Scale, Layers, Calendar } from "lucide-react";
+import { PinIcon, MoreHorizontal, Hash, BookOpen, ListChecks, Target, Scale, Layers, Calendar, TrendingUp } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -83,6 +83,7 @@ export const ConversationListItem = memo(
                     flashcard: { icon: Layers, color: "text-teal-500", label: "Has Flashcards" },
                     timeline: { icon: Calendar, color: "text-amber-500", label: "Has Timeline" },
                     wiki: { icon: BookOpen, color: "text-orange-500", label: "Has Wiki" },
+                    finance: { icon: TrendingUp, color: "text-emerald-500", label: "Has Finance" },
                   }).map(([type, config]) => {
                     if (!(conversation as any).surfaceStates[type]) return null;
                     const Icon = config.icon;
