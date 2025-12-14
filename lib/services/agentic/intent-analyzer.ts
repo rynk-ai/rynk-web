@@ -1,5 +1,6 @@
 
 import { QuickAnalysis, SourcePlan } from './types'
+import { sanitize, escapeDelimiters } from '@/lib/security/prompt-sanitizer'
 
 /**
  * Step 1: Quick Pattern Detection using Groq Llama 3.1 8B (ultra-fast)
@@ -55,7 +56,7 @@ Examples:
 - "Compare React vs Vue for 2024" → complex, needsWebSearch: true`
         }, {
           role: 'user',
-          content: `${context}User query: "${query}"`
+          content: `${context}User query: <user_input>${escapeDelimiters(query)}</user_input>`
         }],
         response_format: { type: 'json_object' },
         temperature: 0,
@@ -154,7 +155,7 @@ Create optimized search queries for each source. Be specific and targeted.
 Respond ONLY with valid JSON. Do not include any conversational text.`
         }, {
           role: 'user',
-          content: `${context}Original query: "${query}"
+          content: `${context}Original query: <user_input>${escapeDelimiters(query)}</user_input>
 
 Quick analysis results:
 - Category: ${quickAnalysis.category}

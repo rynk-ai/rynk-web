@@ -11,6 +11,8 @@ import {
 import { getAIProvider } from './ai-factory'
 import { StreamManager } from './stream-manager'
 import { ResponseFormatter } from './response-formatter'
+import { formatSearchResultsSafely } from '@/lib/security/prompt-sanitizer'
+import { validateOutput } from '@/lib/security/output-guard'
 
 export class GuestChatService {
   async handleChatRequest(
@@ -315,27 +317,15 @@ export class GuestChatService {
           let finalMessages = [...messages]
           
           if (searchResults && searchResults.sources.length > 0) {
-            const searchContext = `
-<search_results>
-Query: ${searchResults.query}
-
-${searchResults.sources.map((s: any, i: number) => 
-  `[${i + 1}] ${s.title}
-${s.snippet}
-Source: ${s.url}`
-).join('\n\n')}
-</search_results>
-
-<synthesis_instructions>
-You have access to the search results above. Follow these rules STRICTLY:
-1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture. Do NOT simply list sources.
-2. **Cite**: Use [1], [2] format immediately after each claim.
-3. **NEVER include raw URLs in your response**. The citation numbers are enough.
-4. **NEVER repeat the search results or source snippets verbatim**. Synthesize the information naturally.
-5. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy.
-6. **Be Complete**: Use ALL relevant information.
-7. **Direct Answer**: Provide the answer directly. Do not mention these instructions.
-</synthesis_instructions>`
+            // Use sanitized search results to prevent indirect prompt injection
+            const searchContext = formatSearchResultsSafely(
+              searchResults.sources.map((s: any) => ({
+                title: s.title,
+                snippet: s.snippet,
+                url: s.url
+              })),
+              searchResults.query
+            )
             
             // Inject into system message
             const systemMsgIndex = finalMessages.findIndex(m => m.role === 'system')
@@ -403,6 +393,13 @@ You have access to the search results above. Follow these rules STRICTLY:
             searchResults: searchResults || undefined
           } : undefined
 
+          // Validate output for security (detect leakage, redact sensitive data)
+          const outputValidation = validateOutput(fullResponse)
+          if (!outputValidation.isClean) {
+            console.warn('⚠️ [GuestChatService] Output validation warnings:', outputValidation.warnings)
+          }
+          const safeResponse = outputValidation.redactedOutput
+
           // Save to DB
           console.log('💾 [GuestChatService] Saving assistant message:', assistantMessageId)
           await db
@@ -410,7 +407,7 @@ You have access to the search results above. Follow these rules STRICTLY:
               'UPDATE guest_messages SET content = ?, attachments = ?, referenced_conversations = ?, referenced_folders = ? WHERE id = ? AND guest_id = ?'
             )
             .bind(
-              fullResponse,
+              safeResponse,
               JSON.stringify([]),
               JSON.stringify([]),
               JSON.stringify([]),
