@@ -1,4 +1,5 @@
 import { SourceResult, SourcePlan } from './types'
+import { financialOrchestrator } from './financial-orchestrator'
 
 /**
  * SourceOrchestrator - Manages parallel fetching from multiple information sources
@@ -168,6 +169,31 @@ export class SourceOrchestrator {
       }
     }
   }
+
+  /**
+   * Fetch from Financial APIs - Stock and crypto data
+   */
+  async fetchFromFinancial(
+    type: 'stock' | 'crypto',
+    symbols: string[]
+  ): Promise<SourceResult> {
+    try {
+      console.log('[SourceOrchestrator] Fetching financial data:', { type, symbols })
+      const results = await financialOrchestrator.fetchMarketData(symbols, type)
+      return {
+        source: 'financial',
+        data: results,
+        citations: []
+      }
+    } catch (error) {
+      console.error('[Financial] Error:', error)
+      return {
+        source: 'financial',
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
   
   /**
    * Execute the source plan - fetch from all sources in parallel
@@ -192,6 +218,16 @@ export class SourceOrchestrator {
     if (plan.sources.includes('wikipedia') && plan.searchQueries.wikipedia) {
       promises.push(this.fetchFromWikipedia(plan.searchQueries.wikipedia))
     }
+
+    // Financial data source
+    if (plan.sources.includes('financial') && plan.searchQueries.financial) {
+      promises.push(
+        this.fetchFromFinancial(
+          plan.searchQueries.financial.type,
+          plan.searchQueries.financial.symbols
+        )
+      )
+    }
     
     // Grok disabled for now
     
@@ -206,3 +242,4 @@ export class SourceOrchestrator {
     return results
   }
 }
+

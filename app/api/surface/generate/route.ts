@@ -85,6 +85,49 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Finance surface doesn't need LLM generation - it fetches live API data client-side
+    if (surfaceType === 'finance') {
+      console.log(`🎯 [surface/generate] Finance surface - generating comprehensive analysis`)
+      
+      // Deduct credit for finance surface
+      await cloudDb.updateCredits(session.user.id, -1)
+      
+      try {
+        const { generateFinanceSurface } = await import('@/lib/services/finance/generator')
+        const surfaceState = await generateFinanceSurface(query, body.conversationId)
+        
+        return NextResponse.json({
+          success: true,
+          surfaceState,
+        })
+      } catch (financeError) {
+        console.error('[surface/generate] Finance generation failed:', financeError)
+        // Fallback to basic state
+        return NextResponse.json({
+          success: true,
+          surfaceState: {
+            surfaceType: 'finance',
+            metadata: { 
+              type: 'finance',
+              query,
+              generatedAt: Date.now(),
+              asset: { symbol: 'MARKET', name: 'Market Overview', type: 'index' },
+              liveData: { price: 0, change24h: 0, changePercent24h: 0, high24h: 0, low24h: 0, volume: 0, marketCap: 0, lastUpdated: new Date().toISOString() },
+              summary: { headline: 'Analysis unavailable', analysis: 'Please try again.', sentiment: 'neutral' },
+              fundamentals: { available: false, verdict: 'fairly-valued', metrics: [], analysis: '' },
+              technicals: { trend: 'sideways', support: [], resistance: [], indicators: [], patterns: [], analysis: '' },
+              cycles: { phase: 'accumulation', sentiment: 50, sentimentLabel: 'Neutral', macroContext: '' },
+              research: { thesis: { bull: [], bear: [] }, risks: [], catalysts: [], comparables: [] },
+              news: { headlines: [], summary: '' },
+              isGeneric: true,
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          }
+        })
+      }
+    }
+
     // Check if async processing via Durable Objects is enabled
     // Set to true to use DO for all surface generation, false for sync fallback
     const ASYNC_ENABLED = true // Full sync route prompts ported to DO

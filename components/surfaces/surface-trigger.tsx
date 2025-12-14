@@ -18,7 +18,8 @@ import {
   Scale, 
   Layers, 
   Calendar,
-  Zap
+  Zap,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,14 @@ const SURFACE_CONFIG: Record<string, {
     color: "text-orange-500",
     bgColor: "bg-orange-500/5 hover:bg-orange-500/10",
     borderColor: "border-orange-500/20 hover:border-orange-500/30",
+  },
+  finance: {
+    label: "Finance",
+    description: "View charts and market data",
+    icon: TrendingUp,
+    color: "text-emerald-500",
+    bgColor: "bg-emerald-500/5 hover:bg-emerald-500/10",
+    borderColor: "border-emerald-500/20 hover:border-emerald-500/30",
   },
 };
 
@@ -221,6 +230,20 @@ function detectSurfaceRecommendations(content: string): SurfaceType[] {
   // Learning: General fallback for long informational text
   if (text.length > 500 && types.length === 0) {
     types.push("learning");
+  }
+  
+  // Finance: stock, crypto, price, market, investment
+  if (
+    text.includes("stock") || 
+    text.includes("crypto") || 
+    text.includes("price") || 
+    text.includes("market") ||
+    text.includes("bitcoin") ||
+    text.includes("ethereum") ||
+    text.includes("invest") ||
+    text.match(/\$[A-Z]{2,5}/) // Stock ticker pattern
+  ) {
+    types.push("finance");
   }
   
   // Limit to max 2 recommendations to avoid clutter

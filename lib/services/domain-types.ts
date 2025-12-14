@@ -317,6 +317,7 @@ export type SurfaceType =
   | 'events'       // 📰 News cards
   | 'professional' // 💼 Executive summary, data viz
   | 'creative'     // ✨ Canvas, variations
+  | 'finance'      // 📈 Financial dashboard, charts
 
 /**
  * Metadata for Learning surface (course structure)
@@ -474,6 +475,109 @@ export interface WikiMetadata {
 }
 
 /**
+ * Metadata for Finance surface (comprehensive financial analysis)
+ */
+export interface FinanceMetadata {
+  type: 'finance'
+  query: string
+  generatedAt: number
+  
+  // Asset Info
+  asset: {
+    symbol: string
+    name: string
+    type: 'stock' | 'crypto' | 'index' | 'etf' | 'commodity'
+    logo?: string
+    sector?: string
+    industry?: string
+  }
+  
+  // Live Data (cached from APIs)
+  liveData: {
+    price: number
+    change24h: number
+    changePercent24h: number
+    high24h: number
+    low24h: number
+    volume: number
+    marketCap: number
+    lastUpdated: string
+  }
+  
+  // LLM Executive Summary
+  summary: {
+    headline: string
+    analysis: string
+    sentiment: 'bullish' | 'neutral' | 'bearish'
+  }
+  
+  // Fundamentals
+  fundamentals: {
+    available: boolean
+    verdict: 'undervalued' | 'fairly-valued' | 'overvalued'
+    metrics: {
+      name: string
+      value: string
+      benchmark?: string
+      signal: 'positive' | 'neutral' | 'negative'
+      explanation: string
+    }[]
+    analysis: string
+  }
+  
+  // Technicals
+  technicals: {
+    trend: 'strong-uptrend' | 'uptrend' | 'sideways' | 'downtrend' | 'strong-downtrend'
+    support: { level: number; strength: 'weak' | 'moderate' | 'strong' }[]
+    resistance: { level: number; strength: 'weak' | 'moderate' | 'strong' }[]
+    indicators: {
+      name: string
+      value: string
+      signal: 'buy' | 'neutral' | 'sell'
+      explanation: string
+    }[]
+    patterns: { name: string; implication: string }[]
+    analysis: string
+  }
+  
+  // Market Cycles
+  cycles: {
+    phase: 'accumulation' | 'markup' | 'distribution' | 'decline'
+    sentiment: number  // 0-100
+    sentimentLabel: string
+    macroContext: string
+    seasonality?: string
+  }
+  
+  // Research
+  research: {
+    thesis: {
+      bull: string[]
+      bear: string[]
+    }
+    risks: { risk: string; severity: 'low' | 'medium' | 'high' }[]
+    catalysts: { event: string; date?: string; impact: string }[]
+    comparables: { symbol: string; name: string; note: string }[]
+  }
+  
+  // News (from web search)
+  news: {
+    headlines: { title: string; source: string; url: string; date: string }[]
+    summary: string
+  }
+  
+  // Generic Dashboard fallback
+  isGeneric: boolean
+  genericData?: {
+    indices: { name: string; symbol: string; value: number; change: number }[]
+    topGainers: { symbol: string; name: string; change: number }[]
+    topLosers: { symbol: string; name: string; change: number }[]
+    topCryptos: { symbol: string; name: string; price: number; change: number }[]
+    trending: string[]
+  }
+}
+
+/**
  * Union type for all surface metadata
  */
 export type SurfaceMetadata = 
@@ -484,6 +588,7 @@ export type SurfaceMetadata =
   | FlashcardMetadata
   | TimelineMetadata
   | WikiMetadata
+  | FinanceMetadata
   | ChatMetadata
 
 /**

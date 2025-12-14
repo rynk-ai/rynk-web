@@ -117,6 +117,7 @@ Available sources:
 - exa: Semantic web search, excellent for finding specific articles, technical content, recent information
 - perplexity: AI-powered search with real-time web data and automatic citations
 - wikipedia: Encyclopedic knowledge, definitions, historical facts, established information
+- financial: Real-time stock and cryptocurrency data (prices, charts, market data)
 
 Guidelines:
 - For current events (2024-2025): Use exa + perplexity
@@ -124,17 +125,29 @@ Guidelines:
 - For technical deep-dives: Use exa
 - For comparisons: Use all sources
 - For simple facts: Use wikipedia
+- For stock prices/analysis: Use financial (extract ticker symbols like AAPL, MSFT, GOOGL)
+- For crypto prices: Use financial (use coin IDs like bitcoin, ethereum, solana)
+- For market questions: Combine financial + perplexity for context
+
+IMPORTANT: For financial queries:
+- Extract ticker symbols (e.g., "Apple stock" → AAPL, "Tesla" → TSLA)
+- For crypto, use lowercase coin IDs (bitcoin, ethereum, solana, dogecoin)
+- Indian stocks use .NS suffix (e.g., RELIANCE.NS, TCS.NS)
 
 You must respond with a JSON object following this schema:
 {
-  "sources": ["exa", "perplexity", "wikipedia"], // Array of selected sources
+  "sources": ["exa", "perplexity", "wikipedia", "financial"], // Array of selected sources
   "reasoning": "string", // Explanation of why these sources were chosen
   "searchQueries": {
     "exa": "string", // Query for Exa (optional)
     "perplexity": "string", // Query for Perplexity (optional)
-    "wikipedia": ["string"] // Array of Wikipedia titles (optional)
+    "wikipedia": ["string"], // Array of Wikipedia titles (optional)
+    "financial": { // For stock/crypto data (optional)
+      "type": "stock" | "crypto",
+      "symbols": ["string"] // Ticker symbols or coin IDs
+    }
   },
-  "expectedType": "quick_fact" | "deep_research" | "current_event" | "comparison"
+  "expectedType": "quick_fact" | "deep_research" | "current_event" | "comparison" | "market_data"
 }
 
 Create optimized search queries for each source. Be specific and targeted.

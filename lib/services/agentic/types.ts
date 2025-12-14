@@ -7,18 +7,22 @@ export interface QuickAnalysis {
 }
 
 export interface SourcePlan {
-  sources: Array<'exa' | 'perplexity' | 'wikipedia' | 'grok'>
+  sources: Array<'exa' | 'perplexity' | 'wikipedia' | 'grok' | 'financial'>
   reasoning: string
   searchQueries: {
     exa?: string
     perplexity?: string
     wikipedia?: string[]
+    financial?: {
+      type: 'stock' | 'crypto'
+      symbols: string[]
+    }
   }
-  expectedType: 'quick_fact' | 'deep_research' | 'current_event' | 'comparison'
+  expectedType: 'quick_fact' | 'deep_research' | 'current_event' | 'comparison' | 'market_data'
 }
 
 export interface SourceResult {
-  source: 'exa' | 'perplexity' | 'wikipedia' | 'grok'
+  source: 'exa' | 'perplexity' | 'wikipedia' | 'grok' | 'financial'
   data: any
   citations?: Array<{
     url: string

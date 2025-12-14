@@ -23,7 +23,8 @@ import {
   Layers, 
   Calendar,
   Cloud,
-  CheckCircle2
+  CheckCircle2,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,7 @@ import { ComparisonSurface } from "@/components/surfaces/comparison-surface";
 import { FlashcardSurface } from "@/components/surfaces/flashcard-surface";
 import { TimelineSurface } from "@/components/surfaces/timeline-surface";
 import { WikiSurface } from "@/components/surfaces/wiki-surface";
+import { FinanceSurface } from "@/components/surfaces/finance-surface";
 import { cn } from "@/lib/utils";
 import type { 
   SurfaceState, 
@@ -70,6 +72,7 @@ const getSurfaceInfo = (type: string) => {
     case 'flashcard': return { icon: Layers, label: 'Flashcards', color: 'text-teal-500' };
     case 'timeline': return { icon: Calendar, label: 'Timeline', color: 'text-amber-500' };
     case 'wiki': return { icon: BookOpen, label: 'Wiki', color: 'text-orange-500' };
+    case 'finance': return { icon: TrendingUp, label: 'Finance', color: 'text-emerald-500' };
     default: return { icon: BookOpen, label: 'Surface', color: 'text-primary' };
   }
 };
@@ -868,6 +871,11 @@ export default function SurfacePage() {
         ) : surfaceType === 'wiki' && surfaceState.metadata?.type === 'wiki' ? (
           <WikiSurface
             metadata={surfaceState.metadata as WikiMetadata}
+          />
+        ) : surfaceType === 'finance' && surfaceState.metadata?.type === 'finance' ? (
+          <FinanceSurface
+            metadata={surfaceState.metadata as any}
+            surfaceState={surfaceState}
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
