@@ -10,7 +10,7 @@
 
 import { memo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ListChecks, ChevronRight, Target, Scale, Layers, Calendar, ChevronDown } from "lucide-react";
+import { BookOpen, ListChecks, ChevronRight, Target, Scale, Layers, Calendar, ChevronDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SavedSurfacesPillProps {
@@ -77,6 +77,13 @@ const SURFACE_CONFIG = {
     color: "text-orange-500",
     bgColor: "bg-orange-500/10",
     hoverBg: "hover:bg-orange-500/20",
+  },
+  finance: {
+    icon: TrendingUp,
+    label: "Finance",
+    color: "text-emerald-500",
+    bgColor: "bg-emerald-500/10",
+    hoverBg: "hover:bg-emerald-500/20",
   },
 } as const;
 

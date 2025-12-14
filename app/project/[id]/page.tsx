@@ -52,6 +52,7 @@ import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
 import { NoCreditsOverlay } from "@/components/credit-warning";
+import { SavedSurfacesPill } from "@/components/surfaces";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -1644,6 +1645,14 @@ const ChatContent = memo(
                 {/* Sticky content at top */}
                 <div className="flex-shrink-0 space-y-4">
                   {/* Indexing Progress Badge */}
+
+                  {/* Saved Surfaces Pill - Finance, Learning, etc. */}
+                  {currentConversationId && (
+                    <SavedSurfacesPill
+                      conversationId={currentConversationId}
+                      surfaceStates={currentConversation?.surfaceStates}
+                    />
+                  )}
 
                   {/* Tags Section - Fixed Top Right */}
                   {currentConversationId && (
