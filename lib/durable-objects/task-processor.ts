@@ -1833,22 +1833,36 @@ Respond with JSON only.`
       const data: any = await response.json()
       const content = data.choices?.[0]?.message?.content || '{}'
       
+      
       // Parse JSON from response
       let result: any
       try {
         // Try to find JSON in the response
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          result = JSON.parse(jsonMatch[0])
+          let jsonStr = jsonMatch[0]
+          
+          // Fix common LLM JSON issues: unquoted values like informationType: current_events
+          // This regex finds property: value pairs where value is not quoted and fixes them
+          jsonStr = jsonStr.replace(
+            /:\s*(current_events|market_data|factual|conceptual|procedural|analytical|mathematical|research|creative|diagnostic)(\s*[,}])/g,
+            ': "$1"$2'
+          )
+          
+          result = JSON.parse(jsonStr)
         } else {
           throw new Error('No JSON found in response')
         }
       } catch (parseError) {
         console.error('[TaskProcessor] Failed to parse detection result:', content)
-        return Response.json(
-          { success: false, error: 'Failed to parse LLM response' },
-          { status: 500 }
-        )
+        // Return a fallback result instead of failing
+        result = {
+          needsReasoning: true,
+          needsWebSearch: true,
+          domain: 'general',
+          informationType: 'factual',
+          confidence: 0.7
+        }
       }
 
       // Build normalized detection result

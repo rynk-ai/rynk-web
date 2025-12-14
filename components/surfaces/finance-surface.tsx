@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
+import { StockChart } from "@/components/charts/stock-chart";
 
 interface FinanceSurfaceProps {
   metadata: FinanceMetadata;
@@ -578,6 +579,15 @@ export const FinanceSurface = memo(function FinanceSurface({
     <div className={cn("max-w-6xl mx-auto space-y-6", className)}>
       {/* Price Header */}
       <PriceHeader asset={metadata.asset} liveData={metadata.liveData} />
+      
+      {/* Price Chart */}
+      <div className="bg-card border border-border/40 rounded-xl overflow-hidden">
+        <StockChart 
+          symbol={metadata.asset.symbol}
+          type={metadata.asset.type === 'crypto' ? 'crypto' : 'stock'}
+          height={350}
+        />
+      </div>
       
       {/* Summary */}
       <div className="bg-card border border-border/40 rounded-xl p-6">

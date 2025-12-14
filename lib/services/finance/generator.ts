@@ -256,21 +256,25 @@ async function fetchLiveData(symbol: string, isStock: boolean): Promise<{
 }
 
 /**
- * Fetch news via web search
+ * Fetch news and research via web search (Exa + Perplexity)
  */
 async function fetchNews(symbol: string, name: string): Promise<FinanceMetadata['news']> {
   try {
     const orchestrator = new SourceOrchestrator()
+    
+    // Use both Exa and Perplexity for comprehensive research
     const results = await orchestrator.executeSourcePlan({
-      sources: ['exa'],
-      reasoning: `Fetching latest news for ${name} (${symbol})`,
+      sources: ['exa', 'perplexity'],
+      reasoning: `Fetching latest news, analysis and research for ${name} (${symbol})`,
       searchQueries: {
-        exa: `${name} ${symbol} stock news latest`,
+        exa: `${name} ${symbol} stock news analysis latest 2024`,
+        perplexity: `Latest news and analysis for ${name} ${symbol} stock. What are analysts saying?`,
       },
-      expectedType: 'quick_fact',
+      expectedType: 'current_event',
     })
     
     const headlines: FinanceMetadata['news']['headlines'] = []
+    let webSummary = ''
     
     for (const result of results) {
       if (result.source === 'exa' && Array.isArray(result.data)) {
@@ -283,13 +287,22 @@ async function fetchNews(symbol: string, name: string): Promise<FinanceMetadata[
           })
         }
       }
+      
+      // Get Perplexity summary for additional context
+      if (result.source === 'perplexity' && result.data) {
+        webSummary = typeof result.data === 'string' ? result.data : JSON.stringify(result.data)
+      }
     }
+    
+    const summary = webSummary 
+      ? webSummary.substring(0, 500) + '...'
+      : headlines.length > 0 
+        ? `Found ${headlines.length} recent news articles about ${name}.`
+        : `No recent news found for ${name}.`
     
     return {
       headlines: headlines.slice(0, 5),
-      summary: headlines.length > 0 
-        ? `Found ${headlines.length} recent news articles about ${name}.`
-        : `No recent news found for ${name}.`,
+      summary,
     }
   } catch (error) {
     console.error('[FinanceGenerator] Error fetching news:', error)
