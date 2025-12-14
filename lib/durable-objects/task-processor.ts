@@ -538,7 +538,7 @@ class TaskProcessor implements DurableObject {
     // Get surface-specific prompts
     const { systemPrompt, userPrompt } = this.getSurfacePrompts(surfaceType, query, analysis, webContext)
     
-    // Use Groq for generation
+    // Use Groq for generation - same model as sync route's GroqProvider
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -546,13 +546,12 @@ class TaskProcessor implements DurableObject {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'moonshotai/kimi-k2-instruct-0905', // Must match GroqProvider
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 8000 // Increased for comprehensive content
+        stream: false // Non-streaming for DO
       })
     })
     
@@ -569,10 +568,65 @@ class TaskProcessor implements DurableObject {
       throw new Error('No JSON found in LLM response')
     }
     
-    const structure = JSON.parse(jsonMatch[0])
+    // Sanitize JSON to escape control characters in strings
+    const sanitizedJson = this.sanitizeJsonString(jsonMatch[0])
+    const structure = JSON.parse(sanitizedJson)
     
     // Build surface state
     return this.buildSurfaceState(surfaceType, structure)
+  }
+
+  /**
+   * Sanitize JSON string by escaping unescaped control characters in string literals
+   */
+  private sanitizeJsonString(jsonStr: string): string {
+    // Replace actual newlines/tabs inside strings with escaped versions
+    // This regex finds strings and escapes control characters within them
+    let result = ''
+    let inString = false
+    let escaped = false
+    
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i]
+      
+      if (escaped) {
+        result += char
+        escaped = false
+        continue
+      }
+      
+      if (char === '\\') {
+        result += char
+        escaped = true
+        continue
+      }
+      
+      if (char === '"') {
+        inString = !inString
+        result += char
+        continue
+      }
+      
+      if (inString) {
+        // Escape control characters
+        if (char === '\n') {
+          result += '\\n'
+        } else if (char === '\r') {
+          result += '\\r'
+        } else if (char === '\t') {
+          result += '\\t'
+        } else if (char.charCodeAt(0) < 32) {
+          // Escape other control characters
+          result += '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0')
+        } else {
+          result += char
+        }
+      } else {
+        result += char
+      }
+    }
+    
+    return result
   }
 
   /**
@@ -584,9 +638,31 @@ class TaskProcessor implements DurableObject {
     analysis: any,
     webContext: any
   ): { systemPrompt: string; userPrompt: string } {
-    const webInfo = webContext 
-      ? `\n\nCURRENT RESEARCH DATA (use this for accuracy):\n${webContext.summary?.substring(0, 3000) || ''}\n\nAVAILABLE SOURCES:\n${webContext.citations?.map((c: any, i: number) => `${i + 1}. ${c.title} - ${c.url}`).join('\n') || 'none'}`
-      : ''
+    // Build topic analysis context (matching sync route exactly)
+    const topicContext = analysis ? `
+TOPIC ANALYSIS:
+- Main topic: ${analysis.topic || query}
+- Subtopics to cover: ${analysis.subtopics?.join(', ') || 'general coverage'}
+- Target audience: ${analysis.audience || 'general audience'}
+- Depth level: ${analysis.depth || 'intermediate'}
+` : ''
+
+    // Build web research context (matching sync route exactly)
+    let webResearchContext = ''
+    let realReferences = ''
+    if (webContext && webContext.keyFacts?.length > 0) {
+      webResearchContext = `
+
+CURRENT RESEARCH DATA (use this information to enhance accuracy):
+${webContext.summary?.substring(0, 3000) || ''}
+`
+      if (webContext.citations?.length > 0) {
+        realReferences = `
+USE THESE REAL SOURCES for the references section:
+${webContext.citations.map((c: any) => `- "${c.title}" - ${c.url}`).join('\n')}
+`
+      }
+    }
     
     switch (surfaceType) {
       case 'learning':
@@ -594,220 +670,445 @@ class TaskProcessor implements DurableObject {
           systemPrompt: 'You are a master educator who has taught at top universities and created bestselling courses. Your curricula are known for their depth, clarity, and transformative impact. You never create superficial content - every course you design would be worth paying thousands for. You think like an expert who remembers what it was like to be a beginner.',
           userPrompt: `You are a world-renowned professor creating a university-level course curriculum.
 
-SUBJECT: "${query}"${webInfo}
-
+SUBJECT: "${query}"
+${topicContext}
+${webResearchContext}
 Create an EXHAUSTIVE, COMPREHENSIVE course that would satisfy a serious student wanting to master this topic. Think: What would a $2000 online course or a university semester cover?
 
 Generate the course structure as JSON:
 {
   "title": "Professional, compelling course title",
+  "subtitle": "Clarifying subtitle that sets expectations",
   "description": "2-3 sentences: What mastery looks like after completion. Be specific about skills gained.",
   "depth": "basic|intermediate|advanced|expert",
   "estimatedTime": <total minutes - be generous, real learning takes time>,
-  "prerequisites": ["Specific prior knowledge required"],
-  "targetAudience": "Detailed description of ideal learner",
-  "learningOutcomes": ["Specific, measurable outcome 1", "Outcome 2", "Outcome 3"],
+  "prerequisites": ["Specific prior knowledge required - be honest about requirements"],
+  "targetAudience": "Detailed description of ideal learner and their goals",
+  "learningOutcomes": [
+    "Specific, measurable outcome 1 (use action verbs: build, analyze, create, evaluate)",
+    "Specific, measurable outcome 2",
+    "Specific, measurable outcome 3",
+    "Specific, measurable outcome 4",
+    "Specific, measurable outcome 5"
+  ],
+  "courseHighlights": [
+    "What makes this course valuable/unique"
+  ],
   "chapters": [
     {
       "id": "ch1",
-      "title": "Chapter title - be specific",
-      "description": "2-3 sentences explaining what this chapter covers",
+      "title": "Chapter title - be specific and descriptive",
+      "description": "2-3 sentences explaining what this chapter covers and why it's essential",
       "estimatedTime": <minutes>,
-      "chapterType": "foundation|concept|practical|deep-dive|synthesis",
-      "objectives": ["By the end, you will..."],
-      "topics": ["Key topic 1", "Key topic 2"]
+      "chapterType": "foundation|concept|practical|deep-dive|synthesis|assessment",
+      "objectives": [
+        "By the end of this chapter, you will be able to...",
+        "Second specific objective"
+      ],
+      "topics": [
+        "Key topic 1 covered in this chapter",
+        "Key topic 2",
+        "Key topic 3"
+      ],
+      "keyTakeaways": [
+        "Most important insight 1",
+        "Most important insight 2"
+      ],
+      "practiceElements": "Brief description of exercises, examples, or hands-on work in this chapter"
     }
   ]
 }
 
 CRITICAL REQUIREMENTS:
-1. CHAPTER COUNT: Create 8-12 chapters minimum. Comprehensive, not overview.
-2. Include: 1-2 FOUNDATION, 3-4 CONCEPT, 2-3 PRACTICAL, 1-2 DEEP-DIVE, 1 SYNTHESIS chapters
-3. Each chapter should feel like a full lesson with specific topics
-4. Progressive complexity: each chapter builds on previous
-5. TIME: Foundation 15-25min, Concept 20-40min, Practical 30-45min
 
-Return ONLY valid JSON.`
+1. CHAPTER COUNT: Create 8-12 chapters minimum. This is a COMPREHENSIVE course, not a quick overview.
+
+2. CHAPTER STRUCTURE - Include these types:
+   - 1-2 FOUNDATION chapters (context, motivation, fundamentals)
+   - 3-4 CONCEPT chapters (core theoretical knowledge)
+   - 2-3 PRACTICAL chapters (hands-on application, real examples)
+   - 1-2 DEEP-DIVE chapters (advanced topics, edge cases)
+   - 1 SYNTHESIS chapter (bringing it all together)
+
+3. CONTENT DEPTH:
+   - Each chapter should feel like a full lesson, not a bullet point
+   - Topics should be specific (not "basics" but "The three fundamental principles of X")
+   - Include real-world context and practical applications
+   - Reference specific techniques, tools, or methodologies
+
+4. LEARNING DESIGN:
+   - Progressive complexity: each chapter builds on the previous
+   - Include practice elements: exercises, examples, thought experiments
+   - Balance theory and application
+
+5. TIME ESTIMATES:
+   - Foundation chapters: 15-25 minutes
+   - Concept chapters: 20-40 minutes  
+   - Practical chapters: 30-45 minutes
+   - Deep-dive: 25-40 minutes
+   - Synthesis: 15-25 minutes
+   - Total should feel substantial (2-5 hours for a real course)
+
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       case 'guide':
         return {
           systemPrompt: webContext 
-            ? 'You are a world-class technical documentation writer with access to current research data. Use the provided web search results for accuracy. Your guides are famous for being so clear anyone can follow them on the first try. You never skip steps or assume prior knowledge.'
-            : 'You are a world-class technical documentation writer who has created guides for Google, Apple, and Stripe. Your guides are so clear anyone can follow them successfully on the first try. You anticipate every confusion and address it proactively.',
-          userPrompt: `You are a senior technical documentation expert creating the definitive guide.
+            ? 'You are a world-class technical documentation writer with access to current research data. Use the provided web search results to ensure your guide is accurate and up-to-date. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.'
+            : 'You are a world-class technical documentation writer who has created guides for companies like Google, Apple, and Stripe. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.',
+          userPrompt: `You are a senior technical documentation expert creating the definitive guide for this task.
 
-TASK: "${query}"${webInfo}
+TASK: "${query}"
+${topicContext}
+${webResearchContext}
+Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow to achieve success. Think: What would a professional documentation writer at a top tech company create?
 
-Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow. Think: professional documentation at a top tech company.
-
-Generate JSON:
+Generate a guide structure as JSON:
 {
-  "title": "Professional title (e.g., 'Complete Guide to...', 'How to... From Start to Finish')",
-  "description": "2-3 sentences explaining scope and success criteria",
+  "title": "Professional, clear title (e.g., 'Complete Guide to...', 'How to... From Start to Finish')",
+  "subtitle": "Clarifying subtitle with scope",
+  "description": "2-3 sentences explaining what this guide covers and what success looks like",
   "difficulty": "beginner|intermediate|advanced",
-  "estimatedTime": <total minutes including troubleshooting>,
-  "prerequisites": ["Hardware/software requirement", "Prior knowledge", "Account requirements"],
-  "toolsRequired": ["Specific tool 1", "Tool 2"],
-  "outcomes": ["What will be working/completed"],
-  "safetyWarnings": ["Data loss risks or irreversible actions"],
+  "estimatedTime": <total minutes - be realistic, include potential troubleshooting time>,
+  "prerequisites": [
+    "Specific hardware/software requirement 1",
+    "Prior knowledge requirement",
+    "Account/access requirement"
+  ],
+  "toolsRequired": [
+    "Specific tool 1",
+    "Specific tool 2"
+  ],
+  "outcomes": [
+    "Specific outcome 1 - what will be working/completed",
+    "Specific outcome 2",
+    "Specific outcome 3"
+  ],
+  "safetyWarnings": ["Any data loss risks or irreversible actions to be aware of"],
   "steps": [
     {
       "index": 0,
-      "title": "Action verb step title",
-      "description": "What this accomplishes",
+      "title": "Clear, specific step title (start with strong action verb)",
+      "description": "1-2 sentences explaining what this step accomplishes",
       "estimatedTime": <minutes>,
-      "category": "preparation|setup|configuration|action|verification|cleanup",
-      "substeps": ["Specific substep 1", "Substep 2"],
-      "criticalNotes": ["Important warnings"],
-      "successCriteria": "How to know step completed correctly"
+      "category": "preparation|setup|configuration|action|verification|cleanup|optional",
+      "substeps": [
+        "Specific substep 1",
+        "Specific substep 2"
+      ],
+      "criticalNotes": ["Important warnings or tips for this step"],
+      "successCriteria": "How to know this step was completed correctly"
     }
   ],
-  "troubleshooting": [{"problem": "Common issue", "solution": "Fix"}],
-  "nextSteps": ["What to do after"]
+  "troubleshooting": [
+    {
+      "problem": "Common problem description",
+      "solution": "How to fix it"
+    }
+  ],
+  "nextSteps": ["What to do after completing this guide"]
 }
 
-CRITICAL: Create 10-15 steps. Include:
-- 1-2 PREPARATION steps
-- 2-3 SETUP steps  
-- 5-8 ACTION steps (main work)
-- 2-3 VERIFICATION steps
-- 1 CLEANUP step
-Each step needs 2-5 substeps. Include safety warnings.
+CRITICAL REQUIREMENTS:
 
-Return ONLY valid JSON.`
+1. STEP COUNT: Create 10-15 steps. This is a COMPLETE guide, not a quick overview.
+
+2. STEP STRUCTURE - Include these types:
+   - 1-2 PREPARATION steps (prerequisites check, environment setup)
+   - 2-3 SETUP steps (installations, configurations)
+   - 5-8 ACTION steps (the main work, broken into manageable chunks)
+   - 2-3 VERIFICATION steps (confirm things are working)
+   - 1 CLEANUP/FINALIZATION step
+
+3. SUBSTEPS: Each main step should have 2-5 specific substeps that break down the action.
+
+4. SAFETY: Always include warnings for:
+   - Data loss risks
+   - Breaking changes
+   - Irreversible actions
+   - Admin/sudo requirements
+
+5. VERIFICATION: After major milestones, include a verification step to confirm progress.
+
+6. TIME ESTIMATES:
+   - Preparation: 5-10 minutes
+   - Setup: 10-20 minutes per step
+   - Action: 5-15 minutes per step
+   - Verification: 2-5 minutes
+${webContext ? '\n7. USE THE RESEARCH DATA: Incorporate the current information provided above for accuracy.' : ''}
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       case 'quiz':
         return {
-          systemPrompt: 'You are a world-class assessment designer who has created certification exams for major organizations. Your quizzes are fair yet rigorous - they truly measure understanding, not memorization. Every question has educational value, and your explanations are so good that even failing teaches something valuable.',
+          systemPrompt: 'You are a world-class assessment designer who has created certification exams for major organizations. Your quizzes are famous for being fair yet rigorous - they truly measure understanding, not just memorization. Every question you write has educational value, and your explanations are so good that even failing the quiz teaches something valuable.',
           userPrompt: `You are an expert assessment designer creating a comprehensive knowledge test.
 
-TOPIC: "${query}"${webInfo}
+TOPIC: "${query}"
+${topicContext}
+Create a RIGOROUS, COMPREHENSIVE quiz that thoroughly assesses understanding. This should feel like a professional certification exam or university final - not a trivial quiz.
 
-Create a RIGOROUS quiz that thoroughly assesses understanding. This should feel like a professional certification exam - not trivial.
-
-Generate JSON:
+Generate a quiz as JSON:
 {
-  "topic": "Professional quiz title",
-  "description": "What this assesses and what passing indicates",
+  "topic": "Professional, clear quiz title",
+  "description": "What this quiz assesses and what a passing score indicates",
   "difficulty": "easy|medium|hard",
   "format": "multiple-choice",
+  "totalPoints": <total points>,
+  "passingScore": <minimum to pass - typically 70%>,
+  "timeLimit": <suggested minutes>,
+  "sections": [
+    {
+      "name": "Section name (e.g., 'Fundamentals', 'Applied Knowledge')",
+      "description": "What this section tests"
+    }
+  ],
   "questions": [
     {
       "id": "q1",
-      "question": "Clear, specific question with context if scenario-based",
+      "section": "Which section this belongs to",
+      "question": "Clear, specific question. For scenario questions, provide detailed context.",
       "questionType": "knowledge|comprehension|application|analysis|evaluation",
-      "options": ["Plausible option A", "Option B", "Option C", "Option D"],
+      "scenario": "Optional: A real-world scenario or code snippet that sets up the question",
+      "options": [
+        "Option A - specific, plausible choice",
+        "Option B - another plausible choice",
+        "Option C - a third option",
+        "Option D - fourth option"
+      ],
       "correctAnswer": 0,
-      "explanation": "THOROUGH explanation: why correct, what principle, how to think about similar problems",
-      "hint": "Helpful hint without giving away answer",
+      "explanation": "THOROUGH explanation: Why this is correct, what principle it demonstrates, and how to think about similar problems",
+      "whyOthersWrong": [
+        "Why A is wrong (if not correct)",
+        "Why B is wrong (if not correct)",
+        "Why C is wrong (if not correct)",
+        "Why D is wrong (if not correct)"
+      ],
+      "points": 1,
+      "hint": "Helpful hint that guides thinking without giving away the answer",
       "difficulty": "easy|medium|hard",
-      "conceptTested": "The specific concept tested"
+      "conceptTested": "The specific concept this question tests"
     }
   ]
 }
 
-CRITICAL: Create 15-20 questions.
-Distribution:
-- 3-4 Knowledge (recall, define)
-- 4-5 Comprehension (explain, interpret)
-- 4-5 Application (apply, demonstrate)
-- 3-4 Analysis (compare, contrast)
-- 2-3 Evaluation (judge, recommend)
+CRITICAL REQUIREMENTS:
 
-Difficulty progression: First 4-5 easy, middle 8-10 medium, final 4-5 hard.
-Use SCENARIOS, not just "What is...". All distractors must be PLAUSIBLE.
+1. QUESTION COUNT: Create 15-20 questions minimum. This is a THOROUGH assessment.
 
-Return ONLY valid JSON.`
+2. QUESTION DISTRIBUTION (follow Bloom's Taxonomy):
+   - 3-4 Knowledge questions (recall, define, list)
+   - 4-5 Comprehension questions (explain, describe, interpret)
+   - 4-5 Application questions (apply, demonstrate, use)
+   - 3-4 Analysis questions (compare, contrast, analyze)
+   - 2-3 Evaluation questions (judge, evaluate, recommend)
+
+3. DIFFICULTY PROGRESSION:
+   - First 4-5 questions: Easy (build confidence)
+   - Middle 8-10 questions: Medium (core assessment)
+   - Final 4-5 questions: Hard (separate masters from learners)
+
+4. QUESTION QUALITY:
+   - Use SCENARIOS: "A developer is building..." not just "What is..."
+   - Include CODE SNIPPETS for technical topics (use markdown code blocks in the scenario)
+   - ALL distractors must be PLAUSIBLE (no joke answers)
+   - Each wrong answer should represent a COMMON MISCONCEPTION
+   - Explanations should TEACH - if someone gets it wrong, they should learn why
+
+5. AVOID:
+   - "All of the above" / "None of the above"
+   - Trick questions or gotchas
+   - Vague or ambiguous wording
+   - Questions that test memorization of trivia
+
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       case 'comparison':
         return {
-          systemPrompt: 'You are a senior industry analyst known for creating definitive comparisons. Your analysis is so thorough and fair that both vendors and buyers trust it. You never oversimplify or show bias, and always provide actionable recommendations with clear reasoning.',
+          systemPrompt: 'You are a senior industry analyst known for creating the definitive comparisons in your field. Your analysis is so thorough and fair that both vendors and buyers trust it. You never oversimplify, never show bias, and always provide actionable recommendations with clear reasoning. Your comparisons help people make decisions they won\'t regret.',
           userPrompt: `You are a senior research analyst creating a definitive comparison report.
 
-TOPIC: "${query}"${webInfo}
+TOPIC: "${query}"
+${topicContext}
+Create an EXHAUSTIVE, OBJECTIVE comparison that would help someone make a confident, well-informed decision. This should feel like a professional analyst's report.
 
-Create an EXHAUSTIVE, OBJECTIVE comparison that helps someone make a confident, well-informed decision. Think: professional analyst's report.
-
-Generate JSON:
+Generate a comparison as JSON:
 {
   "title": "Professional comparison title (e.g., 'X vs Y: Complete 2024 Comparison')",
-  "description": "2-3 sentences on scope and methodology",
+  "subtitle": "What decision this helps with",
+  "description": "2-3 sentences explaining the scope and methodology of this comparison",
+  "lastUpdated": "When this comparison would be most accurate",
+  "targetAudience": "Who this comparison is for",
   "items": [
     {
       "id": "item1",
-      "name": "Full accurate name",
-      "tagline": "What it's known for",
-      "description": "3-4 sentence comprehensive description",
-      "idealFor": ["Use case 1", "Use case 2", "Use case 3"],
+      "name": "Full, accurate name",
+      "tagline": "What it's known for in one line",
+      "description": "3-4 sentences comprehensive description",
+      "idealFor": ["Specific use case 1", "Specific use case 2", "Specific use case 3"],
       "notIdealFor": ["When NOT to choose this"],
-      "pros": ["Specific advantage 1", "Advantage 2", "Advantage 3", "Advantage 4", "Advantage 5"],
-      "cons": ["Specific disadvantage 1", "Disadvantage 2", "Disadvantage 3"],
-      "uniqueFeatures": ["What sets this apart"],
-      "pricing": "Pricing structure or range",
-      "attributes": {"Metric 1": "value", "Feature X": true}
+      "pros": [
+        "Specific, data-backed advantage 1",
+        "Specific advantage 2",
+        "Specific advantage 3",
+        "Specific advantage 4",
+        "Specific advantage 5"
+      ],
+      "cons": [
+        "Specific, honest disadvantage 1",
+        "Specific disadvantage 2",
+        "Specific disadvantage 3"
+      ],
+      "uniqueFeatures": ["What sets this apart from alternatives"],
+      "pricing": "Pricing structure or cost range",
+      "attributes": {
+        "Specific Metric 1": "Quantified value",
+        "Specific Metric 2": "Quantified value",
+        "Specific Feature": true
+      }
     }
   ],
   "criteria": [
-    {"name": "Criterion", "weight": 0.0-1.0, "description": "Why this matters", "howMeasured": "How evaluated"}
+    {
+      "name": "Criteria name",
+      "weight": 0.0-1.0,
+      "description": "Why this matters for the decision",
+      "howMeasured": "How we evaluate this criterion"
+    }
+  ],
+  "detailedComparison": [
+    {
+      "criterion": "Criterion name",
+      "analysis": "2-3 sentences comparing all items on this criterion",
+      "winner": "item_id or 'tie'"
+    }
   ],
   "recommendation": {
     "overallWinner": "item_id for most users",
-    "reason": "3-4 sentences why",
-    "caveats": "Limitations of recommendation"
+    "reason": "3-4 sentences explaining why",
+    "caveats": "Important limitations of this recommendation"
   },
-  "bottomLine": "1-2 sentence definitive summary"
+  "scenarioGuide": [
+    {
+      "scenario": "If you are a [specific user type/need]...",
+      "recommendation": "item_id",
+      "reason": "Why this is best for this scenario"
+    }
+  ],
+  "bottomLine": "1-2 sentence definitive summary for someone who just wants the answer"
 }
 
-CRITICAL: Each item needs 5+ pros, 3+ cons. Include 8-10 criteria covering:
-functionality, performance, ease of use, pricing, support, scalability, integration, domain requirements.
-Be OBJECTIVE - present facts, acknowledge trade-offs.
+CRITICAL REQUIREMENTS:
 
-Return ONLY valid JSON.`
+1. ITEM DEPTH: Each item should have 5+ pros and 3+ cons. Be SPECIFIC and HONEST.
+
+2. CRITERIA: Include 8-10 comparison criteria covering:
+   - Core functionality/features
+   - Performance/speed/quality
+   - Ease of use/learning curve
+   - Pricing/value
+   - Support/community
+   - Scalability/future-proofing
+   - Integration/compatibility
+   - Specific domain requirements
+
+3. OBJECTIVITY:
+   - Present facts, not opinions
+   - Acknowledge trade-offs honestly
+   - Note where each option genuinely excels
+   - Don't artificially favor any option
+
+4. ACTIONABILITY:
+   - Provide clear scenarios for different user needs
+   - Make the "winner" conditional on use case
+   - Include a bottom-line summary
+
+5. DATA:
+   - Include specific metrics where possible
+   - Use real pricing (or realistic estimates)
+   - Reference specific features, not vague claims
+
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       case 'flashcard':
         return {
-          systemPrompt: 'You are a learning scientist who has studied memory and retention for decades. Your flashcard decks are famous for 90%+ retention after one week. You apply cognitive psychology: elaborative interrogation, dual coding, interleaving. Each card optimizes for long-term retention, not short-term recognition.',
-          userPrompt: `You are a cognitive scientist creating a comprehensive flashcard deck.
+          systemPrompt: 'You are a learning scientist who has studied memory and retention for decades. Your flashcard decks are famous for being so well-designed that students retain 90%+ after one week. You apply cognitive psychology principles like elaborative interrogation, dual coding, and interleaving. Each card you create optimizes for long-term retention, not just short-term recognition.',
+          userPrompt: `You are a cognitive scientist and expert educator creating a comprehensive flashcard deck.
 
-TOPIC: "${query}"${webInfo}
+TOPIC: "${query}"
+${topicContext}
+Create a THOROUGH flashcard deck that would help someone truly master this topic. This should feel like a professional study set - comprehensive enough for exam preparation.
 
-Create a THOROUGH deck for true mastery. This should feel like a professional study set for exam preparation.
-
-Generate JSON:
+Generate flashcards as JSON:
 {
-  "topic": "Professional deck title",
-  "description": "What mastering this enables",
-  "studyStrategy": "Recommended approach",
+  "topic": "Professional, clear deck title",
+  "description": "What mastering this deck enables you to do",
+  "studyStrategy": "Recommended approach for studying these cards (e.g., daily sessions, topic grouping)",
+  "estimatedMasteryTime": "<hours to master the full deck>",
+  "studyTips": [
+    "Tip 1 for effective learning",
+    "Tip 2 for retention"
+  ],
+  "categories": [
+    {
+      "name": "Category name",
+      "description": "What this category covers",
+      "cardCount": <number of cards in this category>
+    }
+  ],
   "cards": [
     {
       "id": "card1",
-      "front": "Specific question or term - not vague",
-      "back": "Clear answer with:\\n- Key definition\\n- Why it matters\\n- Example if applicable",
+      "front": "Specific question or term - not vague or overly broad",
+      "back": "Clear, comprehensive answer with:\\n- Key definition or explanation\\n- Why it matters\\n- Example if applicable",
       "category": "Category name",
       "cardType": "definition|concept|application|comparison|process|example",
-      "hints": ["Memory hook", "Partial answer hint"],
+      "hints": ["Memory hook 1", "Partial answer hint"],
       "difficulty": "beginner|intermediate|advanced",
+      "mnemonic": "Memory device or association (if applicable)",
+      "relatedCards": ["IDs of conceptually related cards"],
       "whyImportant": "Why knowing this matters"
     }
   ]
 }
 
-CRITICAL: Create 25-35 cards across 4-6 categories.
-Distribution:
-- 6-8 Definition cards
-- 6-8 Concept cards
-- 4-6 Application cards
-- 4-6 Comparison cards
-- 3-4 Process cards
-- 2-3 Example cards
+CRITICAL REQUIREMENTS:
 
-Backs should be comprehensive but scannable (max 100 words). Include mnemonics. Progress simple→complex.
+1. CARD COUNT: Create 25-35 cards minimum. This is a COMPREHENSIVE study deck.
 
-Return ONLY valid JSON.`
+2. CATEGORY COVERAGE: Divide cards into 4-6 logical categories that progress from foundational to advanced.
+
+3. CARD TYPE DISTRIBUTION:
+   - 6-8 Definition cards (What is X?)
+   - 6-8 Concept cards (Explain why/how X works)
+   - 4-6 Application cards (When/how would you use X?)
+   - 4-6 Comparison cards (X vs Y, differences between...)
+   - 3-4 Process cards (Steps to do X)
+   - 2-3 Example cards (Give an example of X)
+
+4. ANSWER QUALITY:
+   - Backs should be COMPREHENSIVE but SCANNABLE
+   - Use bullet points for multi-part answers
+   - Include the "why it matters" context
+   - For technical topics, include code snippets or formulas
+   - Maximum 100 words per back
+
+5. LEARNING SCIENCE:
+   - Include mnemonics for difficult concepts
+   - Link related cards together
+   - Progress from simple to complex within each category
+   - Front should prompt ACTIVE RECALL (not recognition)
+
+6. AVOID:
+   - Yes/No questions
+   - Overly vague fronts like "Explain X"
+   - Backs that are just single words
+   - Duplicate concepts
+
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       case 'timeline':
@@ -815,99 +1116,175 @@ Return ONLY valid JSON.`
           systemPrompt: 'You are a master historian who makes history come alive. You show how events connect, explain why things matter, and help readers see the bigger picture. Your timelines tell compelling stories that illuminate the present.',
           userPrompt: `You are a historian creating an educational timeline.
 
-TOPIC: "${query}"${webInfo}
+TOPIC: "${query}"
+${topicContext}
+Create a timeline that tells a story, not just lists dates. Show how events connect and lead to each other.
 
-Create a timeline that TELLS A STORY, not just lists dates. Show how events connect and lead to each other.
-
-Generate JSON:
+Generate a timeline as JSON:
 {
   "title": "Descriptive timeline title",
-  "description": "What story this tells",
+  "description": "What story this timeline tells",
+  "era": "Historical period or context",
   "startDate": "When it begins",
   "endDate": "When it ends (or 'Present')",
+  "themes": ["Key themes that run through this timeline"],
   "events": [
     {
       "id": "event1",
       "date": "Specific date or period",
       "title": "Event title",
       "description": "What happened (2-3 sentences)",
-      "significance": "Why this matters in the larger story",
-      "category": "Political|Scientific|Cultural|etc",
+      "significance": "Why this event matters in the larger story",
+      "category": "Category (e.g., 'Political', 'Scientific', 'Cultural')",
       "importance": "minor|moderate|major",
-      "keyFigures": ["Important people"],
+      "keyFigures": ["Important people involved"],
       "consequences": ["What this led to"]
     }
-  ]
+  ],
+  "summary": {
+    "keyTakeaway": "Main lesson or insight from this timeline",
+    "currentRelevance": "How this connects to today (if applicable)"
+  }
 }
 
-CRITICAL: Create 8-15 chronological events.
-- Mark 3-4 as 'major' (turning points)
-- Show cause-effect: how events connect
-- Include diverse categories
+REQUIREMENTS:
+- Create 8-15 chronological events
+- Mark 3-4 as 'major' importance (turning points)
+- Show cause-effect: how events connect to each other
+- Include diverse categories (political, cultural, technological, etc.)
 - Explain significance, not just what happened
+- Focus on key figures and their impact
+- Make the timeline tell a coherent story
 
-Return ONLY valid JSON.`
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       case 'wiki':
         return {
-          systemPrompt: 'You are a Wikipedia editor creating authoritative, encyclopedic articles. Your writing is neutral, comprehensive, and well-organized. You balance depth with accessibility, using clear language while maintaining scholarly rigor.',
+          systemPrompt: webContext 
+            ? 'You are a senior Wikipedia editor with access to current research data. Use the provided web search results to ensure your article contains accurate, up-to-date information with real citations. Your writing is neutral, factual, and organized for easy comprehension. You include specific facts from the research provided and cite the real sources given to you.'
+            : 'You are a senior Wikipedia editor with expertise across multiple domains. You write comprehensive, well-researched articles that serve as authoritative references. Your writing is neutral, factual, and organized for easy comprehension. You include specific facts and cite authoritative sources. Your articles are used by students, researchers, and professionals as trusted references.',
           userPrompt: `You are a Wikipedia editor creating a comprehensive, encyclopedic article.
 
-TOPIC: "${query}"${webInfo}
+TOPIC: "${query}"
+${topicContext}
+${webResearchContext}
+${realReferences}
+Create an AUTHORITATIVE, WELL-STRUCTURED knowledge article that would serve as the definitive reference on this topic. This should read like a high-quality Wikipedia article - neutral, comprehensive, and well-organized.
 
-Create an AUTHORITATIVE, WELL-STRUCTURED article that would serve as the definitive reference. This should read like a high-quality Wikipedia article - neutral, comprehensive, well-organized.
-
-Generate JSON:
+Generate the article as JSON:
 {
   "title": "Proper encyclopedic title (e.g., 'Quantum Computing' not 'What is Quantum Computing')",
-  "summary": "1-2 sentence overview (like Wikipedia's opening paragraph)",
+  "summary": "1-2 sentence overview that captures the essence (like Wikipedia's opening paragraph)",
   "infobox": {
     "facts": [
-      {"label": "Key Attribute 1", "value": "Specific value"},
-      {"label": "Key Attribute 2", "value": "Value"},
-      {"label": "Key Attribute 3", "value": "Value"},
-      {"label": "Key Attribute 4", "value": "Value"},
-      {"label": "Key Attribute 5", "value": "Value"}
+      { "label": "Key Attribute 1", "value": "Specific value" },
+      { "label": "Key Attribute 2", "value": "Specific value" },
+      { "label": "Key Attribute 3", "value": "Specific value" },
+      { "label": "Key Attribute 4", "value": "Specific value" },
+      { "label": "Key Attribute 5", "value": "Specific value" }
     ]
   },
   "sections": [
     {
       "id": "section1",
       "heading": "Overview",
-      "content": "Comprehensive opening (3-4 paragraphs in markdown)",
-      "subsections": [{"id": "sub1", "heading": "Key Concepts", "content": "Detailed exploration"}]
+      "content": "Comprehensive opening section with background context (3-4 paragraphs in markdown)",
+      "subsections": [
+        {
+          "id": "sub1-1",
+          "heading": "Key Concepts",
+          "content": "Detailed exploration of fundamental concepts"
+        }
+      ]
     },
-    {"id": "section2", "heading": "History", "content": "Development and milestones"},
-    {"id": "section3", "heading": "Core Principles", "content": "Main ideas explained in detail"},
-    {"id": "section4", "heading": "Applications", "content": "Real-world uses and examples"},
-    {"id": "section5", "heading": "Challenges & Limitations", "content": "Current limitations, debates"},
-    {"id": "section6", "heading": "Future Outlook", "content": "Emerging trends"}
+    {
+      "id": "section2",
+      "heading": "History",
+      "content": "Historical development and key milestones"
+    },
+    {
+      "id": "section3",
+      "heading": "Core Principles",
+      "content": "Main ideas, mechanisms, or components explained in detail"
+    },
+    {
+      "id": "section4",
+      "heading": "Applications",
+      "content": "Real-world uses and practical examples"
+    },
+    {
+      "id": "section5",
+      "heading": "Challenges & Limitations",
+      "content": "Current limitations, criticisms, or debates"
+    },
+    {
+      "id": "section6",
+      "heading": "Future Outlook",
+      "content": "Emerging trends and what's next"
+    }
   ],
-  "relatedTopics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5"],
+  "relatedTopics": [
+    "Related topic 1",
+    "Related topic 2",
+    "Related topic 3",
+    "Related topic 4",
+    "Related topic 5"
+  ],
   "references": [
-    {"id": "ref1", "title": "Authoritative source", "url": "https://..."},
-    {"id": "ref2", "title": "Source 2", "url": "https://..."},
-    {"id": "ref3", "title": "Source 3", "url": "https://..."}
+    { "id": "ref1", "title": "Authoritative source 1", "url": "https://..." },
+    { "id": "ref2", "title": "Authoritative source 2", "url": "https://..." },
+    { "id": "ref3", "title": "Authoritative source 3", "url": "https://..." }
   ],
-  "categories": ["Primary category", "Secondary category"]
+  "categories": [
+    "Primary category",
+    "Secondary category"
+  ]
 }
 
-CRITICAL: 
-- 6-8 substantial sections, each 2-4 paragraphs (150-300 words)
-- Use markdown: **bold** for key terms, bullet lists
-- 5-8 infobox facts with specific values
-- 5-8 related topics (specific, not vague)
-- Neutral encyclopedic tone, avoid "you"
-${webContext ? '- USE PROVIDED SOURCES for accurate references' : ''}
+CRITICAL REQUIREMENTS:
 
-Return ONLY valid JSON.`
+1. SECTION COUNT: Create 6-8 substantial sections. Each section should be 2-4 paragraphs of quality content.
+
+2. CONTENT DEPTH:
+   - Each section should contain 150-300 words of actual content
+   - Use markdown formatting: **bold** for key terms, bullet lists for enumerations
+   - Include specific facts, figures, and examples
+   - Maintain encyclopedic neutral tone (avoid promotional language)
+
+3. STRUCTURE:
+   - Start with Overview/Introduction (no "Introduction" heading - just start with context)
+   - Include History/Background section
+   - Core technical/conceptual content in the middle
+   - End with future outlook or conclusion
+
+4. INFOBOX:
+   - Include 5-8 key facts that someone would want at a glance
+   - Use specific values (numbers, dates, categories)
+   - Think: What would be in a Wikipedia infobox?
+
+5. RELATED TOPICS:
+   - Include 5-8 genuinely related topics that readers might want to explore
+   - Should be specific enough to be useful (not "Science" but "Machine Learning")
+
+6. REFERENCES:
+   - List 3-5 authoritative sources with real URLs
+   - ${webContext ? 'Use the PROVIDED REAL SOURCES above for accurate references' : 'Include credible sources (books, papers, organizations)'}
+
+7. TONE:
+   - Neutral, encyclopedic voice
+   - Avoid "you" - use passive voice or third person
+   - No promotional or sensational language
+   - Acknowledge multiple perspectives where relevant
+
+Return ONLY valid JSON, no markdown or explanation.`
         }
 
       default:
         return {
           systemPrompt: 'You are an expert content creator who produces comprehensive, well-structured educational content.',
-          userPrompt: `Create structured content for: "${query}"${webInfo}
+          userPrompt: `Create structured content for: "${query}"
+${topicContext}
 
 Return JSON with appropriate structure for the topic.`
         }

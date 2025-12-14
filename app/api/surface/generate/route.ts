@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     // Check if async processing via Durable Objects is enabled
     // Set to true to use DO for all surface generation, false for sync fallback
-    const ASYNC_ENABLED = true // Quality prompts now ported to DO
+    const ASYNC_ENABLED = true // Full sync route prompts ported to DO
     
     if (ASYNC_ENABLED) {
       try {
