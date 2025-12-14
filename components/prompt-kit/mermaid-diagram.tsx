@@ -71,31 +71,9 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Error state
+  // Error state - hide errors completely
   if (error) {
-    return (
-      <div className={cn("my-4 rounded-lg border border-red-500/30 bg-red-950/20 overflow-hidden", className)}>
-        <div className="flex items-center justify-between px-4 py-2 bg-red-950/40 border-b border-red-500/30">
-          <span className="text-xs font-medium text-red-400 uppercase tracking-wide flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            Diagram Error
-          </span>
-          <button
-            className="h-8 w-8 p-0 flex items-center justify-center rounded-md bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
-            onClick={handleCopy}
-            aria-label="Copy code"
-          >
-            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-          </button>
-        </div>
-        <div className="p-4">
-          <p className="text-sm text-red-400 mb-2">{error}</p>
-          <pre className="text-xs text-zinc-400 overflow-x-auto bg-zinc-900/50 p-2 rounded">
-            <code>{code}</code>
-          </pre>
-        </div>
-      </div>
-    )
+    return null
   }
 
   // Loading state
