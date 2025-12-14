@@ -574,6 +574,10 @@ export interface FinanceMetadata {
     topLosers: { symbol: string; name: string; change: number }[]
     topCryptos: { symbol: string; name: string; price: number; change: number }[]
     trending: string[]
+    // Enhanced fallback context
+    searchedTerms?: string[]
+    partialMatches?: { symbol: string; name: string; type: string }[]
+    failureReason?: string
   }
 }
 

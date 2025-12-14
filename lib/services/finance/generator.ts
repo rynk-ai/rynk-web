@@ -32,9 +32,9 @@ export async function generateFinanceSurface(
     intent: analysis.intent
   })
   
-  // Step 2: If not finance-related or no symbols, return generic dashboard
+  // Step 2: If not finance-related or no symbols, return generic dashboard with context
   if (!analysis.isFinanceRelated || analysis.symbols.length === 0) {
-    return await generateGenericDashboard(query)
+    return await generateGenericDashboard(query, analysis)
   }
   
   // Step 3: Get the primary symbol to analyze
@@ -45,7 +45,10 @@ export async function generateFinanceSurface(
   const liveData = await fetchLiveData(primarySymbol.symbol, isStock)
   if (!liveData) {
     console.log(`[FinanceGenerator] Failed to fetch live data, returning generic`)
-    return await generateGenericDashboard(query)
+    return await generateGenericDashboard(query, {
+      ...analysis,
+      failureReason: `Could not fetch live data for ${primarySymbol.symbol}`
+    })
   }
   
   // Step 5: Fetch historical data for technical context
@@ -110,13 +113,19 @@ export async function generateFinanceSurface(
 }
 
 /**
- * Generate generic market dashboard
+ * Generate generic market dashboard with enhanced fallback context
  */
-async function generateGenericDashboard(query: string): Promise<SurfaceState> {
-  console.log(`[FinanceGenerator] Generating generic dashboard`)
+async function generateGenericDashboard(
+  query: string, 
+  analysis?: FinanceAnalysis
+): Promise<SurfaceState> {
+  console.log(`[FinanceGenerator] Generating generic dashboard`, { 
+    reason: analysis?.failureReason,
+    searched: analysis?.searchedTerms 
+  })
   
   // Fetch top cryptos as a sample
-  const topCryptos = await getTopCryptos(5)
+  const topCryptos = await getTopCryptos(5).catch(() => [])
   
   const metadata: FinanceMetadata = {
     type: 'finance',
@@ -141,8 +150,12 @@ async function generateGenericDashboard(query: string): Promise<SurfaceState> {
     },
     
     summary: {
-      headline: 'Welcome to your Financial Dashboard',
-      analysis: 'Select a specific stock or cryptocurrency to see detailed analysis. You can ask about any asset like "Analyze AAPL" or "Bitcoin outlook".',
+      headline: analysis?.failureReason 
+        ? 'Could Not Load Asset Data'
+        : 'Financial Market Overview',
+      analysis: analysis?.failureReason
+        ? `${analysis.failureReason}. ${analysis.searchedTerms?.length ? `We searched for: ${analysis.searchedTerms.join(', ')}.` : ''} Try searching with a specific stock ticker (like AAPL, MSFT) or cryptocurrency name (like bitcoin, ethereum).`
+        : 'Ask about a specific stock or cryptocurrency to see detailed analysis. Examples: "Analyze AAPL", "Bitcoin outlook", "RELIANCE.NS analysis" (for Indian stocks).',
       sentiment: 'neutral',
     },
     
@@ -197,6 +210,14 @@ async function generateGenericDashboard(query: string): Promise<SurfaceState> {
         change: c.priceChangePercent24h,
       })),
       trending: ['Bitcoin', 'Ethereum', 'NVIDIA', 'Apple', 'Tesla'],
+      // Pass analysis context for enhanced fallback UI
+      searchedTerms: analysis?.searchedTerms,
+      partialMatches: analysis?.partialMatches?.map(m => ({ 
+        symbol: m.symbol, 
+        name: m.name, 
+        type: m.type 
+      })),
+      failureReason: analysis?.failureReason,
     },
   }
   

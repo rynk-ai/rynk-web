@@ -1,14 +1,15 @@
 /**
- * Finance Query Analyzer - Chat Service Pattern
+ * Finance Query Analyzer - Search-First Approach
  * 
- * Uses the same pattern as chat-service:
- * 1. Quick pattern detection (Groq) - 50ms
- * 2. Deep analysis with web search (Perplexity) - ticker identification
- * 3. Symbol validation (Yahoo/CoinGecko API)
+ * New architecture (Option A from redesign):
+ * 1. Quick classification (Groq) - is this finance-related?
+ * 2. Direct API search (Yahoo + CoinGecko) - get real matches
+ * 3. LLM selection (optional) - pick best match from real results
+ * 
+ * This eliminates the fragile Perplexity-based ticker ID that often failed.
  */
 
 import { getAIProvider } from '@/lib/services/ai-factory'
-import { SourceOrchestrator } from '@/lib/services/agentic/source-orchestrator'
 import { searchSymbol, searchCrypto } from '@/lib/services/agentic/financial-orchestrator'
 
 export interface FinanceAnalysis {
@@ -26,25 +27,28 @@ export interface FinanceAnalysis {
   topics: string[]
   query: string
   
-  // Context from web search
-  webContext?: string
+  // Search context for fallback UI
+  searchedTerms?: string[]
+  partialMatches?: { symbol: string; name: string; type: string; score: number }[]
+  failureReason?: string
 }
 
 interface QuickFinanceCheck {
   isFinance: boolean
   category: 'stock' | 'crypto' | 'index' | 'general'
   confidence: number
+  searchTerms: string[]  // Keywords to search for
 }
 
 /**
- * Step 1: Quick pattern detection using Groq (50-100ms)
+ * Step 1: Quick classification + keyword extraction using Groq
  */
 async function quickFinanceCheck(query: string): Promise<QuickFinanceCheck> {
   const apiKey = process.env.GROQ_API_KEY
   
   if (!apiKey) {
     console.warn('[FinanceAnalyzer] No GROQ_API_KEY, using fallback')
-    return { isFinance: hasFinanceSignals(query), category: 'general', confidence: 0.5 }
+    return fallbackClassification(query)
   }
   
   try {
@@ -58,27 +62,34 @@ async function quickFinanceCheck(query: string): Promise<QuickFinanceCheck> {
         model: 'llama-3.1-8b-instant',
         messages: [{
           role: 'system',
-          content: `You are a query classifier. Determine if this is a finance-related query.
+          content: `You classify finance queries and extract search keywords.
 
 Respond ONLY with JSON:
 {
   "isFinance": true/false,
   "category": "stock" | "crypto" | "index" | "general",
-  "confidence": 0.0 to 1.0
+  "confidence": 0.0 to 1.0,
+  "searchTerms": ["keyword1", "keyword2"]
 }
 
+searchTerms should be:
+- The company/asset name mentioned (e.g., "netflix", "apple", "nvidia")
+- Known ticker symbols (e.g., "NFLX", "AAPL", "BTC")
+- Both if available (e.g., ["netflix", "NFLX"])
+
 Examples:
-- "analyse netflix" → isFinance: true, category: "stock"
-- "bitcoin price" → isFinance: true, category: "crypto"
-- "s&p 500 outlook" → isFinance: true, category: "index"
-- "how to bake a cake" → isFinance: false, category: "general"`
+- "analyse netflix" → isFinance:true, category:"stock", searchTerms:["netflix","NFLX"]
+- "bitcoin price" → isFinance:true, category:"crypto", searchTerms:["bitcoin","btc"]
+- "s&p 500 outlook" → isFinance:true, category:"index", searchTerms:["s&p 500","SPY"]
+- "compare MSFT and GOOGL" → isFinance:true, category:"stock", searchTerms:["MSFT","GOOGL","microsoft","google"]
+- "how to bake a cake" → isFinance:false, category:"general", searchTerms:[]`
         }, {
           role: 'user',
           content: query
         }],
         response_format: { type: 'json_object' },
         temperature: 0,
-        max_tokens: 100
+        max_tokens: 150
       })
     })
     
@@ -90,156 +101,249 @@ Examples:
     const result = JSON.parse(data.choices[0].message.content || '{}')
     
     console.log(`[FinanceAnalyzer] Quick check:`, result)
-    return result as QuickFinanceCheck
+    return {
+      isFinance: result.isFinance ?? false,
+      category: result.category ?? 'general',
+      confidence: result.confidence ?? 0.5,
+      searchTerms: result.searchTerms ?? extractKeywords(query)
+    }
     
   } catch (error) {
     console.error('[FinanceAnalyzer] Quick check failed:', error)
-    return { isFinance: hasFinanceSignals(query), category: 'general', confidence: 0.5 }
+    return fallbackClassification(query)
   }
 }
 
 /**
- * Step 2: Web search to identify exact ticker (Perplexity)
+ * Fallback classification using patterns
  */
-async function identifyTicker(query: string, category: string): Promise<{
-  symbol: string
-  name: string
-  type: 'stock' | 'crypto' | 'index' | 'etf'
-  webContext: string
-} | null> {
-  try {
-    const orchestrator = new SourceOrchestrator()
-    
-    const searchQuery = category === 'crypto'
-      ? `What is the CoinGecko ID for the cryptocurrency mentioned in "${query}"? Provide the exact ID like "bitcoin", "ethereum", "solana".`
-      : `What is the stock ticker symbol for the company or asset mentioned in "${query}"? Provide the exact NYSE/NASDAQ ticker like "NFLX", "AAPL", "TSLA".`
-    
-    const results = await orchestrator.executeSourcePlan({
-      sources: ['perplexity'],
-      reasoning: `Identifying ticker for: "${query}"`,
-      searchQueries: {
-        perplexity: searchQuery,
-      },
-      expectedType: 'quick_fact',
-    })
-    
-    let webContext = ''
-    for (const result of results) {
-      if (result.source === 'perplexity' && result.data) {
-        webContext = typeof result.data === 'string' 
-          ? result.data 
-          : JSON.stringify(result.data)
-      }
+function fallbackClassification(query: string): QuickFinanceCheck {
+  const lowerQuery = query.toLowerCase()
+  
+  // Finance signals
+  const financeSignals = [
+    'stock', 'share', 'price', 'market', 'invest', 'crypto', 'bitcoin', 
+    'ethereum', 'analyse', 'analyze', 'trading', 'buy', 'sell', 'nasdaq',
+    'dow', 's&p', 'portfolio', 'dividend', 'earnings', 'etf', 'index'
+  ]
+  
+  const isFinance = financeSignals.some(s => lowerQuery.includes(s))
+  
+  // Detect category
+  const cryptoSignals = ['bitcoin', 'ethereum', 'crypto', 'btc', 'eth', 'solana', 'doge', 'coin']
+  const indexSignals = ['s&p', 'dow', 'nasdaq', 'index', 'sp500']
+  
+  let category: 'stock' | 'crypto' | 'index' | 'general' = 'general'
+  if (cryptoSignals.some(s => lowerQuery.includes(s))) category = 'crypto'
+  else if (indexSignals.some(s => lowerQuery.includes(s))) category = 'index'
+  else if (isFinance) category = 'stock'
+  
+  return {
+    isFinance,
+    category,
+    confidence: 0.5,
+    searchTerms: extractKeywords(query)
+  }
+}
+
+/**
+ * Extract potential asset names/ticker from query
+ */
+function extractKeywords(query: string): string[] {
+  // Remove common words
+  const stopWords = new Set([
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'and', 'or', 'but', 'in', 'on', 
+    'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'into', 'through',
+    'stock', 'share', 'price', 'market', 'analyse', 'analyze', 'analysis',
+    'show', 'tell', 'give', 'what', 'how', 'why', 'when', 'where', 'which',
+    'me', 'i', 'you', 'we', 'they', 'it', 'about', 'please', 'want', 'need'
+  ])
+  
+  const words = query
+    .replace(/[^\w\s&$-]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !stopWords.has(w.toLowerCase()))
+  
+  // Include original case (for tickers like AAPL) and lowercase
+  const keywords: string[] = []
+  for (const word of words) {
+    if (word === word.toUpperCase() && word.length <= 5) {
+      // Likely a ticker
+      keywords.push(word)
+    } else {
+      keywords.push(word.toLowerCase())
+    }
+  }
+  
+  return [...new Set(keywords)].slice(0, 5)
+}
+
+/**
+ * Step 2: Search directly using Yahoo Finance + CoinGecko APIs
+ */
+async function searchAssets(
+  searchTerms: string[], 
+  category: 'stock' | 'crypto' | 'index' | 'general'
+): Promise<{
+  matches: { symbol: string; name: string; type: 'stock' | 'crypto' | 'index' | 'etf'; score: number }[]
+  searchedTerms: string[]
+}> {
+  const allMatches: { symbol: string; name: string; type: 'stock' | 'crypto' | 'index' | 'etf'; score: number }[] = []
+  
+  // Search both stocks and crypto unless category is specific
+  const searchStocks = category !== 'crypto'
+  const searchCryptos = category === 'crypto' || category === 'general'
+  
+  const searchPromises: Promise<void>[] = []
+  
+  for (const term of searchTerms) {
+    if (searchStocks) {
+      searchPromises.push(
+        searchSymbol(term).then(results => {
+          for (const r of results.slice(0, 3)) {
+            // Score based on match quality
+            const exactMatch = r.symbol.toLowerCase() === term.toLowerCase() || 
+                               r.name.toLowerCase() === term.toLowerCase()
+            const score = exactMatch ? 1.0 : 0.7
+            
+            allMatches.push({
+              symbol: r.symbol,
+              name: r.name,
+              type: r.type === 'etf' ? 'etf' : 'stock',
+              score
+            })
+          }
+        }).catch(() => {})
+      )
     }
     
-    if (!webContext) return null
-    
-    // Use LLM to extract ticker from web context
+    if (searchCryptos) {
+      searchPromises.push(
+        searchCrypto(term).then(results => {
+          for (const r of results.slice(0, 3)) {
+            const exactMatch = r.symbol.toLowerCase() === term.toLowerCase() || 
+                               r.name.toLowerCase() === term.toLowerCase() ||
+                               r.id.toLowerCase() === term.toLowerCase()
+            const score = exactMatch ? 1.0 : 0.6
+            
+            allMatches.push({
+              symbol: r.id,  // CoinGecko uses id as symbol for API calls
+              name: r.name,
+              type: 'crypto',
+              score
+            })
+          }
+        }).catch(() => {})
+      )
+    }
+  }
+  
+  await Promise.all(searchPromises)
+  
+  // Dedupe by symbol and sort by score
+  const seen = new Set<string>()
+  const uniqueMatches = allMatches
+    .sort((a, b) => b.score - a.score)
+    .filter(m => {
+      const key = `${m.type}:${m.symbol.toLowerCase()}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  
+  console.log(`[FinanceAnalyzer] Search found ${uniqueMatches.length} matches for:`, searchTerms)
+  
+  return {
+    matches: uniqueMatches,
+    searchedTerms: searchTerms
+  }
+}
+
+/**
+ * Step 3: LLM picks the best match (if multiple found)
+ */
+async function selectBestMatch(
+  query: string,
+  matches: { symbol: string; name: string; type: string; score: number }[]
+): Promise<{ symbol: string; name: string; type: 'stock' | 'crypto' | 'index' | 'etf' } | null> {
+  if (matches.length === 0) return null
+  
+  // If only one high-confidence match, use it directly
+  if (matches.length === 1 || (matches[0].score >= 0.9 && matches[0].score > (matches[1]?.score ?? 0) + 0.2)) {
+    const m = matches[0]
+    return { symbol: m.symbol, name: m.name, type: m.type as any }
+  }
+  
+  // Use LLM to pick the right one
+  try {
     const aiProvider = getAIProvider(false)
-    const extractResponse = await aiProvider.sendMessage({
+    
+    const options = matches.slice(0, 5).map((m, i) => 
+      `${i + 1}. ${m.symbol} - ${m.name} (${m.type})`
+    ).join('\n')
+    
+    const response = await aiProvider.sendMessage({
       messages: [{
         role: 'system',
-        content: 'Extract the exact ticker symbol from the text. Respond with JSON only: {"symbol": "TICKER", "name": "Full Name", "type": "stock|crypto|index|etf"}'
+        content: `You help select the correct financial asset. Respond with JSON only: {"choice": 1}`
       }, {
         role: 'user',
-        content: `Query: "${query}"\nWeb result: ${webContext}`
+        content: `Query: "${query}"\n\nOptions:\n${options}\n\nWhich option best matches the query? Pick the number.`
       }]
     })
     
     let content = ''
-    for await (const chunk of extractResponse) {
+    for await (const chunk of response) {
       content += chunk
     }
     
     const jsonMatch = content.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
-      const extracted = JSON.parse(jsonMatch[0])
-      console.log(`[FinanceAnalyzer] Extracted:`, extracted)
-      return { ...extracted, webContext }
-    }
-    
-  } catch (error) {
-    console.error('[FinanceAnalyzer] Ticker identification failed:', error)
-  }
-  
-  return null
-}
-
-/**
- * Step 3: Validate symbol with Yahoo/CoinGecko
- */
-async function validateSymbol(
-  symbol: string, 
-  type: 'stock' | 'crypto' | 'index' | 'etf'
-): Promise<{ symbol: string; name: string; type: typeof type } | null> {
-  try {
-    if (type === 'crypto') {
-      const results = await searchCrypto(symbol)
-      if (results.length > 0) {
-        return {
-          symbol: results[0].id,
-          name: results[0].name,
-          type: 'crypto'
-        }
-      }
-    } else {
-      const results = await searchSymbol(symbol)
-      if (results.length > 0) {
-        return {
-          symbol: results[0].symbol,
-          name: results[0].name,
-          type: (results[0].type === 'etf' ? 'etf' : 'stock')
-        }
-      }
+      const { choice } = JSON.parse(jsonMatch[0])
+      const selected = matches[Math.min(choice - 1, matches.length - 1)]
+      console.log(`[FinanceAnalyzer] LLM selected:`, selected)
+      return { symbol: selected.symbol, name: selected.name, type: selected.type as any }
     }
   } catch (error) {
-    console.error('[FinanceAnalyzer] Validation failed:', error)
+    console.error('[FinanceAnalyzer] LLM selection failed:', error)
   }
   
-  // Trust the extracted symbol
-  return { symbol, name: symbol, type }
+  // Fallback to highest score
+  const best = matches[0]
+  return { symbol: best.symbol, name: best.name, type: best.type as any }
 }
 
 /**
- * Fallback signal detection
- */
-function hasFinanceSignals(query: string): boolean {
-  const lowerQuery = query.toLowerCase()
-  const signals = [
-    'stock', 'share', 'price', 'market', 'invest', 'crypto', 'bitcoin', 
-    'ethereum', 'analyse', 'analyze', 'trading', 'buy', 'sell', 'nasdaq',
-    'dow', 's&p', 'portfolio', 'dividend', 'earnings'
-  ]
-  return signals.some(s => lowerQuery.includes(s))
-}
-
-/**
- * Main entry point - analyzes query using chat service pattern
+ * Main entry point - Search-First approach
  */
 export async function analyzeFinanceQuery(query: string): Promise<FinanceAnalysis> {
   console.log(`[FinanceAnalyzer] Starting: "${query.substring(0, 50)}..."`)
   
-  // Step 1: Quick classification (Groq - 50ms)
+  // Step 1: Quick classification + keyword extraction
   const quickCheck = await quickFinanceCheck(query)
   
-  if (!quickCheck.isFinance) {
-    console.log(`[FinanceAnalyzer] Not finance-related`)
+  if (!quickCheck.isFinance || quickCheck.searchTerms.length === 0) {
+    console.log(`[FinanceAnalyzer] Not finance-related or no search terms`)
     return {
-      isFinanceRelated: false,
+      isFinanceRelated: quickCheck.isFinance,
       confidence: quickCheck.confidence,
       symbols: [],
       intent: 'general',
       depth: 'standard',
       topics: [],
-      query
+      query,
+      searchedTerms: quickCheck.searchTerms,
+      failureReason: quickCheck.isFinance 
+        ? 'Could not extract search terms from query'
+        : 'Query does not appear to be finance-related'
     }
   }
   
-  // Step 2: Web search for ticker (Perplexity)
-  const ticker = await identifyTicker(query, quickCheck.category)
+  // Step 2: Direct API search
+  const { matches, searchedTerms } = await searchAssets(quickCheck.searchTerms, quickCheck.category)
   
-  if (!ticker) {
-    console.log(`[FinanceAnalyzer] Could not identify ticker`)
+  if (matches.length === 0) {
+    console.log(`[FinanceAnalyzer] No matches found for:`, searchedTerms)
     return {
       isFinanceRelated: true,
       confidence: quickCheck.confidence,
@@ -247,33 +351,42 @@ export async function analyzeFinanceQuery(query: string): Promise<FinanceAnalysi
       intent: 'general',
       depth: 'standard',
       topics: [],
-      query
+      query,
+      searchedTerms,
+      failureReason: `No matching assets found for: ${searchedTerms.join(', ')}`
     }
   }
   
-  // Step 3: Validate with API
-  const validatedSymbol = await validateSymbol(ticker.symbol, ticker.type)
+  // Step 3: Select best match
+  const selected = await selectBestMatch(query, matches)
   
-  if (!validatedSymbol) {
-    console.log(`[FinanceAnalyzer] Validation failed, using extracted symbol`)
+  if (!selected) {
+    console.log(`[FinanceAnalyzer] Could not select from matches`)
+    return {
+      isFinanceRelated: true,
+      confidence: quickCheck.confidence,
+      symbols: [],
+      intent: 'general',
+      depth: 'standard',
+      topics: [],
+      query,
+      searchedTerms,
+      partialMatches: matches.slice(0, 5),
+      failureReason: 'Found matches but could not determine the best one'
+    }
   }
   
-  const finalSymbol = validatedSymbol || {
-    symbol: ticker.symbol,
-    name: ticker.name,
-    type: ticker.type
-  }
-  
-  console.log(`[FinanceAnalyzer] Final symbol:`, finalSymbol)
+  console.log(`[FinanceAnalyzer] Final selection:`, selected)
   
   return {
     isFinanceRelated: true,
     confidence: quickCheck.confidence,
-    symbols: [finalSymbol],
+    symbols: [selected],
     intent: 'analysis',
     depth: 'comprehensive',
     topics: ['fundamentals', 'technicals', 'news'],
     query,
-    webContext: ticker.webContext
+    searchedTerms,
+    partialMatches: matches.filter(m => m.symbol !== selected.symbol).slice(0, 3)
   }
 }

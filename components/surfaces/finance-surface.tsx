@@ -509,21 +509,102 @@ function NewsPanel({ news }: { news: FinanceMetadata['news'] }) {
   )
 }
 
-// Generic dashboard
+// Generic dashboard with enhanced fallback UI
 function GenericDashboard({ genericData }: { genericData: FinanceMetadata['genericData'] }) {
   if (!genericData) return null
   
+  const hasFailed = !!genericData.failureReason
+  const hasPartialMatches = genericData.partialMatches && genericData.partialMatches.length > 0
+  
   return (
     <div className="space-y-6">
-      <div className="text-center py-8">
-        <h2 className="text-2xl font-bold mb-2">Financial Market Overview</h2>
-        <p className="text-muted-foreground">
-          Ask about a specific stock or cryptocurrency for detailed analysis
-        </p>
+      {/* Header - contextual based on failure */}
+      <div className="text-center py-6">
+        {hasFailed ? (
+          <>
+            <div className="inline-flex items-center justify-center p-3 rounded-full bg-amber-500/10 mb-4">
+              <AlertTriangle className="h-6 w-6 text-amber-500" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Could Not Load Asset Data</h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              {genericData.failureReason}
+            </p>
+            {genericData.searchedTerms && genericData.searchedTerms.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Searched for: <span className="font-medium">{genericData.searchedTerms.join(', ')}</span>
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4">
+              <BarChart3 className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Financial Market Overview</h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              Ask about a specific stock or cryptocurrency for detailed analysis
+            </p>
+          </>
+        )}
       </div>
       
-      {/* Top Cryptos */}
-      {genericData.topCryptos.length > 0 && (
+      {/* Partial Matches - If we found some results but couldn't pick one */}
+      {hasPartialMatches && (
+        <div className="bg-card border border-border/40 rounded-xl p-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <Info className="h-5 w-5 text-blue-500" />
+            Did you mean one of these?
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {genericData.partialMatches!.map((match, idx) => (
+              <div 
+                key={idx} 
+                className="p-4 bg-muted/30 rounded-lg border border-border/30 hover:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold">{match.symbol}</div>
+                    <div className="text-sm text-muted-foreground">{match.name}</div>
+                  </div>
+                  <span className={cn(
+                    "text-xs px-2 py-1 rounded-full capitalize",
+                    match.type === 'crypto' ? "bg-purple-500/10 text-purple-600" :
+                    match.type === 'etf' ? "bg-blue-500/10 text-blue-600" :
+                    "bg-green-500/10 text-green-600"
+                  )}>
+                    {match.type}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground mt-4">
+            Try asking specifically: &quot;Analyze {genericData.partialMatches![0]?.symbol}&quot;
+          </p>
+        </div>
+      )}
+      
+      {/* Quick examples */}
+      <div className="bg-card border border-border/40 rounded-xl p-6">
+        <h3 className="font-semibold mb-4">Try These Examples</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { query: 'AAPL', label: 'Apple Inc.', type: 'Stock' },
+            { query: 'bitcoin', label: 'Bitcoin', type: 'Crypto' },
+            { query: 'RELIANCE.NS', label: 'Reliance (India)', type: 'Stock' },
+            { query: 'TSLA', label: 'Tesla', type: 'Stock' },
+          ].map((example, idx) => (
+            <div key={idx} className="p-3 bg-muted/30 rounded-lg text-center">
+              <div className="font-mono text-sm font-semibold text-primary">{example.query}</div>
+              <div className="text-xs text-muted-foreground">{example.label}</div>
+              <div className="text-xs text-muted-foreground/60">{example.type}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Top Cryptos - only show if available and no failure */}
+      {!hasFailed && genericData.topCryptos && genericData.topCryptos.length > 0 && (
         <div>
           <h3 className="font-semibold mb-4">Top Cryptocurrencies</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -543,22 +624,19 @@ function GenericDashboard({ genericData }: { genericData: FinanceMetadata['gener
         </div>
       )}
       
-      {/* Trending */}
-      {genericData.trending.length > 0 && (
-        <div>
-          <h3 className="font-semibold mb-4">Trending</h3>
-          <div className="flex flex-wrap gap-2">
-            {genericData.trending.map((item, idx) => (
-              <span key={idx} className="px-4 py-2 bg-muted rounded-full text-sm font-medium">
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Supported Markets Info */}
+      <div className="bg-muted/30 rounded-xl p-4 text-center">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium">Supported Markets:</span> US Stocks (NYSE, NASDAQ) • International Stocks (LSE, TSX, NSE, etc.) • ETFs • Cryptocurrencies
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          For international stocks, use the exchange suffix (e.g., RELIANCE.NS for NSE India, BP.L for London)
+        </p>
+      </div>
     </div>
   )
 }
+
 
 // Main component
 export const FinanceSurface = memo(function FinanceSurface({
