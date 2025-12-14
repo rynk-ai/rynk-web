@@ -248,84 +248,132 @@ export class ChatService {
              })
           }
 
-          // Reasoning Detection
+          // Reasoning Detection & Web Search
+          // Try LLM-based detection via DO (Kimi K2), fallback to fast heuristics
           let shouldUseReasoning = false
           let shouldUseWebSearch = false
           let searchResults: any = null
           let detectionResult: any = null
+          
+          // Flag to enable LLM detection via DO
+          const USE_LLM_DETECTION = true
 
           if (messageContent && useReasoning !== 'off') {
-            // Use enhanced domain-aware detection (static import)
+            let usedDO = false
             
-            detectionResult = await detectEnhanced(messageContent)
+            if (USE_LLM_DETECTION) {
+              try {
+                console.log('🔄 [chatService] Trying LLM intent detection via DO...')
+                
+                const { env } = getCloudflareContext()
+                const doId = env.TASK_PROCESSOR.idFromName('intent-detect')
+                const doStub = env.TASK_PROCESSOR.get(doId)
+                
+                // Call DO with 2 second timeout
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 2000)
+                
+                const detectResponse = await doStub.fetch('https://do/intent-detect', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ query: messageContent }),
+                  signal: controller.signal
+                })
+                
+                clearTimeout(timeoutId)
+                
+                if (detectResponse.ok) {
+                  const data = await detectResponse.json() as any
+                  if (data.success && data.detectionResult) {
+                    detectionResult = data.detectionResult
+                    usedDO = true
+                    console.log(`✅ [chatService] LLM detection via DO (${data.processingTimeMs}ms):`, {
+                      needsReasoning: detectionResult.needsReasoning,
+                      needsWebSearch: detectionResult.needsWebSearch,
+                      domain: detectionResult.domain
+                    })
+                  }
+                }
+              } catch (doError) {
+                console.warn('⚠️ [chatService] DO intent detection failed, using heuristics:', doError)
+              }
+            }
+            
+            // Fallback to fast heuristics if DO wasn't used or failed
+            if (!usedDO) {
+              console.log('⚡ [chatService] Using fast heuristics for detection')
+              detectionResult = await detectEnhanced(messageContent)
+            }
+            
+            // Resolve reasoning mode with detection result
             const resolved = resolveReasoningMode(useReasoning, detectionResult)
             shouldUseReasoning = resolved.useReasoning
             shouldUseWebSearch = resolved.useWebSearch
             selectedModel = getReasoningModel(shouldUseReasoning, false)
             
-            console.log('🎯 [chatService] Enhanced detection result:', {
+            console.log('🎯 [chatService] Detection result:', {
+              usedDO,
               domain: detectionResult.domain,
-              subDomain: detectionResult.subDomain,
-              informationType: detectionResult.informationType,
-              needsDisclaimer: detectionResult.responseRequirements?.needsDisclaimer
+              needsWebSearch: shouldUseWebSearch,
+              needsReasoning: shouldUseReasoning
             })
           }
 
-            if (shouldUseWebSearch) {
-              streamManager.sendStatus('searching', 'Analyzing search intent...')
-              
-              // 1. Analyze Intent & Plan (static import)
-              const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
-              
-              streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
-              
-              // 2. Execute Plan (static import)
-              const orchestrator = new SourceOrchestrator()
-              const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
-              
-              // 3. Map to Legacy Format for Frontend Compatibility
-              const allSources: any[] = []
-              
-              sourceResults.forEach(res => {
-                if (res.citations) {
-                  res.citations.forEach(cit => {
-                    allSources.push({
-                      type: res.source,
-                      url: cit.url,
-                      title: cit.title,
-                      snippet: cit.snippet || ''
-                    })
+          if (shouldUseWebSearch) {
+            streamManager.sendStatus('searching', 'Analyzing search intent...')
+            
+            // 1. Analyze Intent & Plan (static import)
+            const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
+            
+            streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
+            
+            // 2. Execute Plan (static import)
+            const orchestrator = new SourceOrchestrator()
+            const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
+            
+            // 3. Map to Legacy Format for Frontend Compatibility
+            const allSources: any[] = []
+            
+            sourceResults.forEach(res => {
+              if (res.citations) {
+                res.citations.forEach(cit => {
+                  allSources.push({
+                    type: res.source,
+                    url: cit.url,
+                    title: cit.title,
+                    snippet: cit.snippet || ''
                   })
-                }
-              })
-              
-              // Deduplicate sources
-              const uniqueSources = Array.from(
-                new Map(allSources.map(s => [s.url, s])).values()
-              )
-
-              searchResults = {
-                query: sourcePlan.searchQueries.exa || sourcePlan.searchQueries.perplexity || messageContent,
-                sources: uniqueSources,
-                searchStrategy: sourcePlan.sources,
-                totalResults: uniqueSources.length
-              }
-              
-              if (searchResults) {
-                streamManager.sendSearchResults({
-                  query: searchResults.query,
-                  sources: searchResults.sources,
-                  strategy: searchResults.searchStrategy,
-                  totalResults: searchResults.totalResults
                 })
-
-                // Update status to show what we found
-                const domains = searchResults.sources.slice(0, 3).map((s: any) => getDomainName(s.url))
-                const uniqueDomains = [...new Set(domains)]
-                const searchMessage = `Reading ${uniqueDomains.join(', ')}${searchResults.sources.length > 3 ? ' and more...' : '...'}`
-                streamManager.sendStatus('searching', searchMessage)
               }
+            })
+            
+            // Deduplicate sources
+            const uniqueSources = Array.from(
+              new Map(allSources.map(s => [s.url, s])).values()
+            )
+
+            searchResults = {
+              query: sourcePlan.searchQueries.exa || sourcePlan.searchQueries.perplexity || messageContent,
+              sources: uniqueSources,
+              searchStrategy: sourcePlan.sources,
+              totalResults: uniqueSources.length
             }
+            
+            if (searchResults) {
+              streamManager.sendSearchResults({
+                query: searchResults.query,
+                sources: searchResults.sources,
+                strategy: searchResults.searchStrategy,
+                totalResults: searchResults.totalResults
+              })
+
+              // Update status to show what we found
+              const domains = searchResults.sources.slice(0, 3).map((s: any) => getDomainName(s.url))
+              const uniqueDomains = [...new Set(domains)]
+              const searchMessage = `Reading ${uniqueDomains.join(', ')}${searchResults.sources.length > 3 ? ' and more...' : '...'}`
+              streamManager.sendStatus('searching', searchMessage)
+            }
+          }
 
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')

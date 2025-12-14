@@ -62,3 +62,48 @@ export interface JobStatusResponse {
   createdAt: number
   completedAt?: number
 }
+
+/**
+ * Chat Preprocessing Types
+ * Used by the hybrid DO approach where DO handles heavy preprocessing
+ * and the worker handles streaming AI responses.
+ */
+export interface ChatPreprocessParams {
+  userId: string
+  conversationId: string
+  query: string
+  referencedConversations: any[]
+  referencedFolders: any[]
+  projectId?: string
+  useReasoning: 'auto' | 'on' | 'online' | 'off'
+}
+
+export interface ChatPreprocessResponse {
+  success: boolean
+  // Context data
+  contextText: string
+  retrievedChunks: Array<{
+    content: string
+    source: string
+    score: number
+  }>
+  // Reasoning detection
+  shouldUseReasoning: boolean
+  shouldUseWebSearch: boolean
+  selectedModel: string
+  detectionResult?: {
+    domain: string
+    subDomain: string
+    informationType: string
+    needsDisclaimer: boolean
+  }
+  // Web search results (if applicable)
+  searchResults?: {
+    query: string
+    sources: any[]
+    searchStrategy: string[]
+    totalResults: number
+  }
+  // Timing info
+  preprocessingTimeMs: number
+}
