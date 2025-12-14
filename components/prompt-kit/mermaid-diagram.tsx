@@ -31,6 +31,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
         // Initialize mermaid with dark theme
         mermaid.initialize({
           startOnLoad: false,
+          suppressErrorRendering: true, // Prevent mermaid from inserting error messages into DOM
           theme: 'dark',
           securityLevel: 'loose',
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
