@@ -137,7 +137,7 @@ export function ConversationList({
           <div className="mb-2 px-2 text-xs font-medium text-muted-foreground">
             {group.period}
           </div>
-          <div className="space-y-2 ">
+          <div className="space-y-1 ">
             {group.conversations.map((conversation) => (
               <ConversationListItem
                 key={conversation.id}

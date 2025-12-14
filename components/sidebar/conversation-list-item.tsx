@@ -54,9 +54,9 @@ export const ConversationListItem = memo(
       <div className="group/conversation relative">
         <button
           className={cn(
-            "flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-150 pr-10",
+            "flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-all duration-150 pr-10",
             isActive 
-              ? "bg-[hsl(var(--surface))] text-foreground shadow-sm border border-border/40" 
+              ? "bg-[hsl(var(--surface))] text-foreground shadow-sm " 
               : "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]",
           )}
           onClick={() => onSelect(conversation.id)}
@@ -139,7 +139,7 @@ export const ConversationListItem = memo(
             variant="ghost"
             size="icon"
             className={cn(
-              "absolute right-9 top-3 h-6 w-6 transition-opacity rounded-md",
+              "absolute right-9 top-1.5 h-6 w-6 transition-opacity rounded-md",
               conversation.isPinned
                 ? "opacity-100 group-hover/conversation:opacity-100"
                 : "opacity-0 group-hover/conversation:opacity-100",
@@ -164,7 +164,7 @@ export const ConversationListItem = memo(
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-3 h-6 w-6 opacity-0 group-hover/conversation:opacity-100 transition-opacity rounded-md"
+                className="absolute right-2 top-1.5 h-6 w-6 opacity-0 group-hover/conversation:opacity-100 transition-opacity rounded-md"
               >
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
