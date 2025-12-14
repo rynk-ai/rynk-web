@@ -468,7 +468,7 @@ export const FinanceSurface = memo(function FinanceSurface({
             <StockChart 
               symbol={metadata.asset.symbol}
               type={metadata.asset.type === 'crypto' ? 'crypto' : 'stock'}
-              height={300}
+              height={400}
             />
           </div>
         </div>

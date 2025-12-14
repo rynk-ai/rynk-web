@@ -99,10 +99,10 @@ export function ConversationList({
       <div className="px-4 space-y-4">
         {[...Array(2)].map((_, groupIdx) => (
           <div key={groupIdx} className="space-y-2">
-            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-20 bg-muted dark:bg-muted/50" />
             <div className="space-y-1.5">
               {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-8 w-full rounded-md" />
+                <Skeleton key={i} className="h-8 w-full rounded-md bg-muted dark:bg-muted/50" />
               ))}
             </div>
           </div>

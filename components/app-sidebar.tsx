@@ -413,11 +413,11 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
               {isLoadingProjects ? (
                 <div className="px-4 py-2 space-y-2">
                   <div className="flex items-center justify-between mb-1">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-4 rounded-full" />
+                    <Skeleton className="h-4 w-16 bg-muted dark:bg-muted/50" />
+                    <Skeleton className="h-4 w-4 rounded-full bg-muted dark:bg-muted/50" />
                   </div>
                   {[...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-8 w-full rounded-md" />
+                    <Skeleton key={i} className="h-8 w-full rounded-md bg-muted dark:bg-muted/50" />
                   ))}
                 </div>
               ) : (
@@ -475,10 +475,10 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                 <div className="px-5 space-y-3 mb-5">
                   {[...Array(2)].map((_, i) => (
                     <div key={i} className="space-y-2">
-                      <Skeleton className="h-6 w-32" />
+                      <Skeleton className="h-6 w-32 bg-muted dark:bg-muted/50" />
                       <div className="pl-6 space-y-1.5">
-                        <Skeleton className="h-6 w-full" />
-                        <Skeleton className="h-6 w-4/5" />
+                        <Skeleton className="h-6 w-full bg-muted dark:bg-muted/50" />
+                        <Skeleton className="h-6 w-4/5 bg-muted dark:bg-muted/50" />
                       </div>
                     </div>
                   ))}

@@ -30,6 +30,7 @@ import { getUserCredits } from "@/app/actions";
 import { useTheme } from "next-themes";
 import { useFont } from "@/components/providers/font-provider";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const tierIcons = {
   free: Sparkles,
@@ -49,8 +50,23 @@ const tierNames = {
   standard_plus: "Standard+",
 };
 
+function UserProfileSkeleton() {
+  return (
+    <div className="flex items-center gap-3 w-full p-3">
+      {/* Avatar skeleton */}
+      <Skeleton className="h-9 w-9 rounded-full bg-muted dark:bg-muted/50" />
+      <div className="flex-1 overflow-hidden space-y-2">
+        {/* Name skeleton */}
+        <Skeleton className="h-4 w-24 bg-muted dark:bg-muted/50" />
+        {/* Email skeleton */}
+        <Skeleton className="h-3 w-32 bg-muted/70 dark:bg-muted/30" />
+      </div>
+    </div>
+  );
+}
+
 export function UserProfileDropdown() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { setTheme } = useTheme();
   const { font, setFont, options } = useFont();
   const router = useRouter();
@@ -63,6 +79,11 @@ export function UserProfileDropdown() {
         .catch(() => setCredits(null));
     }
   }, [session?.user?.id]);
+
+  // Show skeleton while loading
+  if (status === "loading") {
+    return <UserProfileSkeleton />;
+  }
 
   if (!session?.user) return null;
 

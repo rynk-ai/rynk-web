@@ -143,8 +143,8 @@ export function StockChart({
               </span>
             </div>
           </div>
-          {hoveredData && (
-            <div className="text-xs text-muted-foreground mt-1">
+          {hoveredData? (
+            <div className="text-xs text-muted-foreground mt-1 h-10">
               {new Date(hoveredData.date).toLocaleDateString(undefined, {
                 month: 'short',
                 day: 'numeric',
@@ -153,7 +153,7 @@ export function StockChart({
                 minute: type === 'stock' && range === '1d' ? 'numeric' : undefined
               })}
             </div>
-          )}
+          ):<div className='h-10 text-xs mt-1 italic text-muted-foreground'>Hover on the chart</div>}
         </div>
         
         {/* Time Range Selector */}
