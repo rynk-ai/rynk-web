@@ -264,6 +264,8 @@ export default function SurfacePage() {
               if (jobData.status === 'complete' && jobData.result?.surfaceState) {
                 setSurfaceState(jobData.result.surfaceState);
                 await saveState(jobData.result.surfaceState);
+                // Clear URL param to prevent re-generation on refresh
+                router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
                 return;
               }
               
@@ -283,6 +285,8 @@ export default function SurfacePage() {
         if (data.surfaceState) {
           setSurfaceState(data.surfaceState);
           await saveState(data.surfaceState);
+          // Clear URL param to prevent re-generation on refresh
+          router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
         }
       } catch (err) {
         console.error('[SurfacePage] Error:', err);
