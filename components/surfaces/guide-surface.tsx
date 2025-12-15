@@ -54,6 +54,7 @@ export const GuideSurface = memo(function GuideSurface({
   const completedSteps = surfaceState?.guide?.completedSteps || [];
   const skippedSteps = surfaceState?.guide?.skippedSteps || [];
   const stepsContent = surfaceState?.guide?.stepsContent || {};
+  const availableImages = surfaceState?.availableImages || [];
   
   const totalComplete = completedSteps.length + skippedSteps.length;
   const progress = steps.length > 0 
@@ -100,6 +101,28 @@ export const GuideSurface = memo(function GuideSurface({
 
   return (
     <div className={cn("max-w-3xl mx-auto", className)}>
+      {/* Hero Images */}
+      {availableImages.length > 0 && (
+        <div className="mb-6 grid grid-cols-3 gap-2">
+          {availableImages.slice(0, 3).map((img, idx) => (
+            <a
+              key={idx}
+              href={img.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative aspect-video rounded-lg overflow-hidden bg-secondary/50"
+            >
+              <img
+                src={img.url}
+                alt={img.title}
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                loading="lazy"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Clean Hero Header */}
       <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8">
         <div className="p-6 md:p-8">

@@ -33,8 +33,10 @@ interface WikiSurfaceProps {
 
 export const WikiSurface = memo(function WikiSurface({
   metadata,
+  surfaceState,
 }: WikiSurfaceProps) {
   const { title, summary, infobox, sections, relatedTopics, references, categories } = metadata;
+  const availableImages = surfaceState?.availableImages || [];
   
   const [activeSection, setActiveSection] = useState<string | null>(sections[0]?.id || null);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -65,6 +67,29 @@ export const WikiSurface = memo(function WikiSurface({
 
   return (
     <div className="max-w-6xl mx-auto pb-16">
+      {/* Hero Images */}
+      {availableImages.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+          {availableImages.slice(0, 4).map((img, idx) => (
+            <a
+              key={idx}
+              href={img.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative aspect-video rounded-lg overflow-hidden bg-secondary/50"
+            >
+              <img
+                src={img.url}
+                alt={img.title}
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-3">

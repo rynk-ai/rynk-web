@@ -93,6 +93,7 @@ export const LearningSurface = memo(function LearningSurface({
   const completedChapters = surfaceState?.learning?.completedChapters || [];
   const chaptersContent = surfaceState?.learning?.chaptersContent || {};
   const activeChapterContent = chaptersContent[activeChapterIndex] || null;
+  const availableImages = surfaceState?.availableImages || [];
   
   const progress = chapters.length > 0 
     ? Math.round((completedChapters.length / chapters.length) * 100) 
@@ -134,6 +135,28 @@ export const LearningSurface = memo(function LearningSurface({
 
   return (
     <div className={cn("max-w-6xl mx-auto", className)}>
+      {/* Hero Images */}
+      {availableImages.length > 0 && (
+        <div className="mb-6 grid grid-cols-3 md:grid-cols-4 gap-2">
+          {availableImages.slice(0, 4).map((img, idx) => (
+            <a
+              key={idx}
+              href={img.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative aspect-video rounded-lg overflow-hidden bg-secondary/50"
+            >
+              <img
+                src={img.url}
+                alt={img.title}
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                loading="lazy"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Clean Hero Header */}
       <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8">
         <div className="p-6 md:p-8">

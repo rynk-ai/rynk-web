@@ -115,6 +115,19 @@ async function generateChapterContent(
     .map((ch, i) => `Chapter ${i + 1}: ${ch.title}`)
     .join('\n')
 
+  // Build available images context
+  const availableImages = state.availableImages || []
+  const imageContext = availableImages.length > 0
+    ? `\nAVAILABLE IMAGES (embed 1-2 relevant ones inline):
+${availableImages.slice(0, 4).map((img, i) => `[Image ${i + 1}] "${img.title}": ${img.url}`).join('\n')}
+
+IMAGE INSTRUCTIONS:
+- Embed 1-2 images where they enhance understanding
+- Use markdown format: ![Brief description](image_url)
+- Place after introducing a concept the image illustrates
+- Do NOT use all images - only the most relevant\n`
+    : ''
+
   const prompt = action === 'simplify' 
     ? `Simplify this chapter content for easier understanding. Use simpler vocabulary, shorter sentences, and more analogies:\n\n${state.learning?.chaptersContent[chapterIndex] || ''}\n\nRewrite to be accessible for beginners while keeping all the valuable information.`
     : action === 'expand'
@@ -127,7 +140,7 @@ CHAPTER: ${chapter.title}
 CHAPTER DESCRIPTION: ${chapter.description}
 COURSE DEPTH: ${metadata.depth}
 
-${previousChapters ? `CHAPTERS ALREADY COVERED:\n${previousChapters}\n\nIMPORTANT: Build on this foundation. Reference previous concepts when relevant. Don't repeat what was covered.\n` : 'This is the opening chapter. Establish strong context and motivation. Make the learner excited to continue.\n'}
+${previousChapters ? `CHAPTERS ALREADY COVERED:\n${previousChapters}\n\nIMPORTANT: Build on this foundation. Reference previous concepts when relevant. Don't repeat what was covered.\n` : 'This is the opening chapter. Establish strong context and motivation. Make the learner excited to continue.\n'}${imageContext}
 
 Write COMPREHENSIVE, IN-DEPTH educational content that would be worthy of a paid course.
 
@@ -248,6 +261,16 @@ async function generateStepContent(
     .map((s) => `Step ${s.index + 1}: ${s.title}`)
     .join('\n')
 
+  // Build available images context
+  const availableImages = state.availableImages || []
+  const imageContext = availableImages.length > 0
+    ? `\nAVAILABLE IMAGES (embed if relevant to this step):
+${availableImages.slice(0, 3).map((img, i) => `[Image ${i + 1}] "${img.title}": ${img.url}`).join('\n')}
+
+- If an image illustrates this step, embed it using: ![description](url)
+- Only use images that directly help understand the instructions\n`
+    : ''
+
   const prompt = action === 'simplify'
     ? `Simplify these instructions. Use clearer language, add visual cues, and break down complex actions:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nMake it foolproof for complete beginners.`
     : action === 'expand'
@@ -259,7 +282,7 @@ GOAL: ${originalQuery}
 STEP: ${step.title}
 DIFFICULTY: ${metadata.difficulty}
 
-${previousSteps ? `COMPLETED STEPS:\n${previousSteps}\n\nAssume these are done. Reference them if needed.\n` : 'This is the first step. Set the context clearly.\n'}
+${previousSteps ? `COMPLETED STEPS:\n${previousSteps}\n\nAssume these are done. Reference them if needed.\n` : 'This is the first step. Set the context clearly.\n'}${imageContext}
 
 Write clear, actionable instructions that ANYONE can follow.
 

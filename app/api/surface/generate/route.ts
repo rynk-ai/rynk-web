@@ -270,6 +270,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Store available images from web context for hero display and inline embedding
+    if (webContext && webContext.citations.length > 0) {
+      const availableImages = webContext.citations
+        .filter((c: any) => c.image)
+        .slice(0, 6)  // Limit to 6 images
+        .map((c: any) => ({
+          url: c.image,
+          title: c.title,
+          sourceUrl: c.url
+        }))
+      
+      if (availableImages.length > 0) {
+        surfaceState.availableImages = availableImages
+      }
+    }
+
     return NextResponse.json({
       success: true,
       surfaceState,

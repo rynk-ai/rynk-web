@@ -636,6 +636,12 @@ export interface SurfaceState {
     completed: boolean
     shuffleOrder?: number[]  // Custom order if shuffled
   }
+  // Available images from web search (for hero display and inline embedding)
+  availableImages?: Array<{
+    url: string
+    title: string
+    sourceUrl?: string
+  }>
 }
 
 /**
