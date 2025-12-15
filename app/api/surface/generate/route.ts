@@ -1440,6 +1440,7 @@ async function generateWikiStructure(
   // Build context from web search if available
   let webResearchContext = ''
   let realReferences = ''
+  let availableImages = ''
   if (webContext && webContext.keyFacts.length > 0) {
     webResearchContext = `
 
@@ -1452,6 +1453,24 @@ ${webContext.summary.substring(0, 3000)}
 USE THESE REAL SOURCES for the references section:
 ${webContext.citations.map((c, i) => `- "${c.title}" - ${c.url}`).join('\n')}
 ` : ''
+
+    // Available images from web search for section content
+    const imagesFromCitations = webContext.citations
+      .filter((c: any) => c.image)
+      .slice(0, 6)  // Limit to 6 images
+    if (imagesFromCitations.length > 0) {
+      availableImages = `
+AVAILABLE IMAGES (embed relevant ones in section content using markdown):
+${imagesFromCitations.map((c: any) => `- "${c.title}": ${c.image}`).join('\n')}
+
+IMAGE INSTRUCTIONS:
+- Only embed images that are DIRECTLY relevant to the section content
+- Use markdown format: ![Brief description](image_url)
+- Place images after the first paragraph of relevant sections
+- Maximum 2-3 images across the entire article
+- Do NOT embed images in every section - only where truly helpful
+`
+    }
   }
 
   // Use analysis for better topic understanding
@@ -1468,6 +1487,7 @@ TOPIC: "${query}"
 ${topicContext}
 ${webResearchContext}
 ${realReferences}
+${availableImages}
 ${contextSection}
 Create an AUTHORITATIVE, WELL-STRUCTURED knowledge article that would serve as the definitive reference on this topic. This should read like a high-quality Wikipedia article - neutral, comprehensive, and well-organized.
 

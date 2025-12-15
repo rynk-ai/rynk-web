@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { Loader } from "@/components/ui/loader";
@@ -50,11 +51,14 @@ export default function SharePage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const [shareId, setShareId] = useState<string | null>(null);
   const [data, setData] = useState<ShareData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cloning, setCloning] = useState(false);
+  const autoCloneTriggered = useRef(false);
 
   // Resolve params
   useEffect(() => {
@@ -98,27 +102,40 @@ export default function SharePage({
 
       if (!res.ok) {
         if (res.status === 401) {
-          // Not authenticated - redirect to login
+          // Not authenticated - redirect to login with action=clone to auto-trigger after auth
           toast.info("Please sign in to clone this conversation");
-          router.push(`/login?callbackUrl=/share/${shareId}`);
+          router.push(`/login?callbackUrl=${encodeURIComponent(`/share/${shareId}?action=clone`)}`);
           return;
         }
         throw new Error(json.error || "Failed to clone conversation");
       }
 
       toast.success("Conversation cloned to your account!");
+      // Invalidate conversations cache so sidebar refreshes
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
       router.push(`/chat?id=${json.conversationId}`);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setCloning(false);
     }
-  }, [shareId, router]);
+  }, [shareId, router, queryClient]);
 
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
     toast.success("Link copied to clipboard!");
   }, []);
+
+  // Auto-trigger clone when returning from login with action=clone
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "clone" && !loading && data && !autoCloneTriggered.current) {
+      autoCloneTriggered.current = true;
+      // Clear the action from URL to prevent re-triggering on refresh
+      router.replace(`/share/${shareId}`, { scroll: false });
+      handleClone();
+    }
+  }, [searchParams, loading, data, shareId, router, handleClone]);
 
   if (loading) {
     return (

@@ -14,10 +14,17 @@ export const metadata: Metadata = {
   }
 }
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>
+}) {
   const session = await auth()
+  const { callbackUrl } = await searchParams
+  const redirectUrl = callbackUrl || "/chat"
+  
   if (session?.user) {
-    redirect("/chat")
+    redirect(redirectUrl)
   }
 
   return (
@@ -32,7 +39,7 @@ export default async function LoginPage() {
         <form
           action={async () => {
             "use server"
-            await signIn("google", { redirectTo: "/chat" })
+            await signIn("google", { redirectTo: redirectUrl })
           }}
           className="w-full"
         >
