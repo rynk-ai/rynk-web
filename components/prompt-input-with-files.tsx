@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar, ArrowRightIcon, TrendingUp } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar, ArrowRightIcon, TrendingUp, Lock } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -43,6 +43,9 @@ const SURFACE_MODES: Array<{
   { type: 'wiki', icon: BookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500' },
   { type: 'finance', icon: TrendingUp, label: 'Finance', placeholder: 'Show price of...', color: 'text-emerald-500' },
 ];
+
+// Surfaces allowed for guest users (no authentication required)
+const GUEST_ALLOWED_SURFACES: (SurfaceType | 'chat')[] = ['chat', 'wiki', 'quiz'];
 
 type PromptInputWithFilesProps = {
   onSubmit?: (text: string, files: File[]) => void;
@@ -83,6 +86,8 @@ type PromptInputWithFilesProps = {
   // Surface mode props
   surfaceMode?: SurfaceType | 'chat';
   onSurfaceModeChange?: (mode: SurfaceType | 'chat') => void;
+  // Guest mode - restricts available surfaces
+  isGuest?: boolean;
 };
 
 // Slash Commands Configuration
@@ -161,6 +166,7 @@ export const PromptInputWithFiles = memo(function
   onToggleReasoningMode,
   surfaceMode = 'chat',
   onSurfaceModeChange,
+  isGuest = false,
 }: PromptInputWithFilesProps) {
   const [prompt, setPrompt] = useState(initialValue);
   const [files, setFiles] = useState<(File | Attachment)[]>([]);
@@ -816,24 +822,39 @@ export const PromptInputWithFiles = memo(function
                       <div className="absolute bottom-full left-0 mb-2 z-[200] animate-in slide-in-from-bottom-2 duration-150">
                         <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[160px]">
                           <div className="p-1">
-                            {SURFACE_MODES.map((mode) => (
-                              <button
-                                key={mode.type}
-                                onClick={() => {
-                                  onSurfaceModeChange?.(mode.type);
-                                  setSurfaceModeOpen(false);
-                                }}
-                                className={cn(
-                                  "w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors text-left",
-                                  mode.type === surfaceMode
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-foreground hover:bg-muted/50"
-                                )}
-                              >
-                                <mode.icon className={cn("h-4 w-4", mode.color)} />
-                                <span className="font-medium">{mode.label}</span>
-                              </button>
-                            ))}
+                            {SURFACE_MODES.map((mode) => {
+                              const isRestricted = isGuest && !GUEST_ALLOWED_SURFACES.includes(mode.type);
+                              return (
+                                <button
+                                  key={mode.type}
+                                  onClick={() => {
+                                    if (isRestricted) {
+                                      toast.info(`Sign in required to use ${mode.label}`, {
+                                        description: "Create an account to access all surface types",
+                                      });
+                                      setSurfaceModeOpen(false);
+                                      return;
+                                    }
+                                    onSurfaceModeChange?.(mode.type);
+                                    setSurfaceModeOpen(false);
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors text-left",
+                                    mode.type === surfaceMode
+                                      ? "bg-primary/10 text-primary"
+                                      : isRestricted
+                                        ? "text-muted-foreground/60 hover:bg-muted/30"
+                                        : "text-foreground hover:bg-muted/50"
+                                  )}
+                                >
+                                  <mode.icon className={cn("h-4 w-4", isRestricted ? "text-muted-foreground/50" : mode.color)} />
+                                  <span className={cn("font-medium flex-1", isRestricted && "text-muted-foreground/60")}>{mode.label}</span>
+                                  {isRestricted && (
+                                    <Lock className="h-3 w-3 text-muted-foreground/50" />
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>

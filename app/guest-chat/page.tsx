@@ -7,6 +7,7 @@ import {
 } from "@/components/chat/virtualized-message-list";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import type { SubChat } from "@/lib/services/cloud-db";
+import type { SurfaceType } from "@/lib/services/domain-types";
 import {
   Message,
   MessageContent,
@@ -232,6 +233,9 @@ const GuestChatContent = memo(function GuestChatContent({
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
+
+  // Surface mode state (for guest, only wiki/quiz are allowed)
+  const [surfaceMode, setSurfaceMode] = useState<'chat' | SurfaceType>('chat');
 
   // Pagination state
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -595,9 +599,43 @@ const GuestChatContent = memo(function GuestChatContent({
 
         const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
 
-        // Navigate to new conversation
+        // SCENARIO 1: New conversation created
         if (!currentConversationId && conversationId) {
-          router.replace(`/guest-chat?id=${conversationId}`, { scroll: false });
+          // If surface mode is selected (not chat), navigate to surface page
+          if (surfaceMode !== 'chat') {
+            console.log(
+              `🎯 [GuestChat] Surface mode "${surfaceMode}" selected for new conversation, navigating to surface`
+            );
+            const query = encodeURIComponent(text.slice(0, 500));
+            router.push(`/guest-surface/${surfaceMode}/${conversationId}?q=${query}`);
+            setSurfaceMode('chat');
+            // Clean up optimistic messages
+            removeMessageRef.current(tempUserMessageId);
+            removeMessageRef.current(tempAssistantMessageId);
+            finishStreamingRef.current();
+            setIsSending(false);
+            return; // Exit early, surface page will handle generation
+          } else {
+            // Normal chat - navigate to new conversation
+            router.replace(`/guest-chat?id=${conversationId}`, { scroll: false });
+          }
+        }
+
+        // SCENARIO 2: Existing conversation with surface mode selected
+        if (surfaceMode !== 'chat' && currentConversationId) {
+          console.log(
+            `🎯 [GuestChat] Surface mode "${surfaceMode}" selected mid-conversation, navigating to surface`
+          );
+          const targetConversationId = conversationId || currentConversationId;
+          const query = encodeURIComponent(text.slice(0, 500));
+          router.push(`/guest-surface/${surfaceMode}/${targetConversationId}?q=${query}`);
+          setSurfaceMode('chat');
+          // Remove optimistic messages since surface page will handle its own UI
+          removeMessageRef.current(tempUserMessageId);
+          removeMessageRef.current(tempAssistantMessageId);
+          finishStreamingRef.current();
+          setIsSending(false);
+          return; // Exit early, surface page will handle generation
         }
 
         // Replace optimistic message IDs with real ones
@@ -674,6 +712,7 @@ const GuestChatContent = memo(function GuestChatContent({
       creditsRemaining,
       setShowUpgradeModal,
       router,
+      surfaceMode,
     ]
   );
 
@@ -799,6 +838,9 @@ const GuestChatContent = memo(function GuestChatContent({
               quotedMessage={quotedMessage}
               onClearQuote={handleClearQuote}
               hideFileUpload={true}
+              isGuest={true}
+              surfaceMode={surfaceMode}
+              onSurfaceModeChange={(mode) => setSurfaceMode(mode as 'chat' | SurfaceType)}
               className={cn(
                 "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                 !currentConversationId ? "shadow-xl" : "shadow-sm hover:shadow-md"
