@@ -587,6 +587,15 @@ export const ChatMessageItem = memo(
                   defaultCollapsed={true}
                 />
 
+                {/* Hero Images - Show before content if available */}
+                {citations && citations.length > 0 && !isStreaming && (
+                  <SourceImages 
+                    images={extractImagesFromCitations(citations)} 
+                    maxImages={4}
+                    className="mb-4"
+                  />
+                )}
+
                 {/* Message content with inline citations */}
                 <div ref={assistantContentRef}>
                   <Markdown
@@ -605,10 +614,6 @@ export const ChatMessageItem = memo(
                         `[ChatMessageItem ${message.id.slice(0, 8)}] Rendering SourcesFooter with ${citations.length} citations`,
                       )}
                     <SourcesFooter citations={citations} variant="compact" />
-                    <SourceImages 
-                      images={extractImagesFromCitations(citations)} 
-                      maxImages={4}
-                    />
                   </>
                 )}
 

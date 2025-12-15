@@ -65,7 +65,6 @@ export class SourceOrchestrator {
     }
   }
 
-  
   /**
    * Fetch from Perplexity - AI search with citations
    */
@@ -90,7 +89,8 @@ export class SourceOrchestrator {
           }],
           temperature: 0.5,
           max_tokens: 1000,
-          return_citations: true
+          return_citations: true,
+          return_images: true  // Request images from Perplexity
         })
       })
 
@@ -103,6 +103,7 @@ export class SourceOrchestrator {
       const data :any = await response.json()
       const content = data.choices?.[0]?.message?.content || ''
       const citations = data.citations || []
+      const images = data.images || []  // Images returned by Perplexity
       
       return {
         source: 'perplexity',
@@ -110,7 +111,8 @@ export class SourceOrchestrator {
         citations: citations.map((url: string, i: number) => ({
           url,
           title: `Source ${i + 1}`,
-          snippet: undefined
+          snippet: undefined,
+          image: images[i] || undefined  // Map image to corresponding citation if available
         }))
       }
     } catch (error) {

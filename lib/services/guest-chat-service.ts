@@ -272,7 +272,9 @@ export class GuestChatService {
                       type: res.source,
                       url: cit.url,
                       title: cit.title,
-                      snippet: cit.snippet || ''
+                      snippet: cit.snippet || '',
+                      image: cit.image,           // Primary image URL
+                      images: cit.images || []    // Additional images
                     })
                   })
                 }

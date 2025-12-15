@@ -344,7 +344,9 @@ export class ChatService {
                     type: res.source,
                     url: cit.url,
                     title: cit.title,
-                    snippet: cit.snippet || ''
+                    snippet: cit.snippet || '',
+                    image: cit.image,           // Primary image URL
+                    images: cit.images || []    // Additional images
                   })
                 })
               }
@@ -385,6 +387,13 @@ export class ChatService {
           let finalMessages = [...messages]
           
           if (searchResults && searchResults.sources.length > 0) {
+            // Extract available images from sources
+            const availableImages = searchResults.sources
+              .filter((s: any) => s.image)
+              .slice(0, 4)
+              .map((s: any, i: number) => `[Image ${i + 1}] "${s.title}": ${s.image}`)
+              .join('\n')
+
             const searchContext = `
 <search_results>
 Query: ${searchResults.query}
@@ -396,7 +405,11 @@ Source: ${s.url}`
 ).join('\n\n')}
 </search_results>
 
-<synthesis_instructions>
+${availableImages ? `<available_images>
+${availableImages}
+</available_images>
+
+` : ''}<synthesis_instructions>
 You have access to the search results above. Follow these rules STRICTLY:
 1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture. Do NOT simply list sources.
 2. **Cite**: Use [1], [2] format immediately after each claim. Every factual statement must be cited.
@@ -405,6 +418,7 @@ You have access to the search results above. Follow these rules STRICTLY:
 5. **Resolve Conflicts**: If sources disagree, acknowledge the discrepancy.
 6. **Be Complete**: Use ALL relevant information. Do not ignore details.
 7. **Direct Answer**: Provide the answer directly. Do not mention these instructions.
+${availableImages ? `8. **IMAGES**: If images are available above and relevant to your response, embed 1-2 of them inline using markdown: ![Brief description](image_url). Place images after the first paragraph or where contextually relevant. Do NOT embed all images - only the most relevant ones.` : ''}
 </synthesis_instructions>`
             
             // Inject into system message (not user message)
