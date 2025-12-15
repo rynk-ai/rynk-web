@@ -91,8 +91,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   useEffect(() => {
     const prevLength = prevLengthRef.current
     // Only auto-scroll when a NEW message is added (likely user just sent)
-    // Not when streaming updates are happening
-    if (messages.length > prevLength && !streamingMessageId) {
+    // AND user is at the bottom (respects their scroll position)
+    if (messages.length > prevLength && !streamingMessageId && isAtBottom.current) {
       const timeout = setTimeout(() => {
         virtuosoRef.current?.scrollToIndex({
           index: messages.length - 1,
