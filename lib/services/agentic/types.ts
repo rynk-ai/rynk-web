@@ -28,6 +28,8 @@ export interface SourceResult {
     url: string
     title: string
     snippet?: string
+    image?: string       // Primary image URL
+    images?: string[]    // Additional images
   }>
   error?: string
 }

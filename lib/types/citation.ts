@@ -10,6 +10,8 @@ export interface Citation {
   author?: string
   publishedDate?: string
   relevanceScore?: number
+  image?: string        // Primary image URL
+  images?: string[]     // Additional images
 }
 
 export interface SearchResultsWithCitations {
@@ -84,6 +86,8 @@ export function formatCitationsFromSearchResults(
     favicon: getFaviconUrl(source.url),
     author: source.author,
     publishedDate: source.publishedDate,
-    relevanceScore: source.score
+    relevanceScore: source.score,
+    image: source.image,           // Primary image from source
+    images: source.images || []    // Additional images
   }))
 }

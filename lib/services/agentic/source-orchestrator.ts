@@ -29,7 +29,10 @@ export class SourceOrchestrator {
           num_results: 10,
           contents: {
             text: true,
-            highlights: true
+            highlights: true,
+            extras: {
+              imageLinks: 3  // Get up to 3 images per result
+            }
           },
           use_autoprompt: true // Let Exa optimize the query
         })
@@ -47,7 +50,9 @@ export class SourceOrchestrator {
         citations: data.results?.map((r: any) => ({
           url: r.url,
           title: r.title,
-          snippet: r.highlights?.[0] || r.text?.substring(0, 200)
+          snippet: r.highlights?.[0] || r.text?.substring(0, 200),
+          image: r.image,                        // Primary image from Exa
+          images: r.extras?.imageLinks || []     // Additional images from page
         })) || []
       }
     } catch (error) {
@@ -59,6 +64,7 @@ export class SourceOrchestrator {
       }
     }
   }
+
   
   /**
    * Fetch from Perplexity - AI search with citations
@@ -157,7 +163,8 @@ export class SourceOrchestrator {
         citations: validResults.map((r: any) => ({
           url: r.content_urls?.desktop?.page || '',
           title: r.title,
-          snippet: r.extract
+          snippet: r.extract,
+          image: r.originalimage?.source || r.thumbnail?.source  // Wikipedia image
         }))
       }
     } catch (error) {

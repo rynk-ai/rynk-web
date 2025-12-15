@@ -20,6 +20,8 @@ export interface SearchSource {
   url: string;
   snippet?: string;
   favicon?: string;
+  image?: string;       // Primary image URL from the source
+  images?: string[];    // Additional images (from Exa imageLinks)
 }
 
 /**

@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 import { ReasoningDisplay } from "@/components/chat/reasoning-display";
 import { SourcesFooter } from "@/components/chat/sources-footer";
+import { SourceImages, type SourceImage } from "@/components/chat/source-images";
 import {
   formatCitationsFromSearchResults,
   type Citation,
@@ -88,6 +89,34 @@ interface ChatMessageItemProps {
   savedSurfaces?: Record<string, any>;
   // Credit indicator
   userCredits?: number | null;
+}
+
+/**
+ * Extract images from citations for display
+ */
+function extractImagesFromCitations(citations: Citation[]): SourceImage[] {
+  const images: SourceImage[] = []
+  for (const citation of citations) {
+    // Primary image
+    if (citation.image) {
+      images.push({
+        url: citation.image,
+        sourceUrl: citation.url,
+        sourceTitle: citation.title
+      })
+    }
+    // Additional images
+    if (citation.images) {
+      for (const imgUrl of citation.images) {
+        images.push({
+          url: imgUrl,
+          sourceUrl: citation.url,
+          sourceTitle: citation.title
+        })
+      }
+    }
+  }
+  return images
 }
 
 /**
@@ -576,6 +605,10 @@ export const ChatMessageItem = memo(
                         `[ChatMessageItem ${message.id.slice(0, 8)}] Rendering SourcesFooter with ${citations.length} citations`,
                       )}
                     <SourcesFooter citations={citations} variant="compact" />
+                    <SourceImages 
+                      images={extractImagesFromCitations(citations)} 
+                      maxImages={4}
+                    />
                   </>
                 )}
 
