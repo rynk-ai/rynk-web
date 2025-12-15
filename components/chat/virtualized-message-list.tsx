@@ -74,6 +74,16 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
   const prevLengthRef = useRef(messages.length)
+  
+  // Track when we're transitioning out of streaming to prevent scroll jump
+  const wasStreamingRef = useRef(false)
+
+  // Track streaming state transitions
+  useEffect(() => {
+    if (streamingMessageId) {
+      wasStreamingRef.current = true
+    }
+  }, [streamingMessageId])
 
   // Expose scrollToBottom method to parent
   useImperativeHandle(ref, () => ({
@@ -90,6 +100,15 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   // (NOT during streaming - let users control their scroll position)
   useEffect(() => {
     const prevLength = prevLengthRef.current
+    
+    // Skip auto-scroll if streaming just finished
+    // This prevents the scroll jump when stream ends and user has scrolled up
+    if (wasStreamingRef.current && !streamingMessageId) {
+      wasStreamingRef.current = false
+      prevLengthRef.current = messages.length
+      return
+    }
+    
     // Only auto-scroll when a NEW message is added (likely user just sent)
     // Not when streaming updates are happening
     if (messages.length > prevLength && !streamingMessageId) {
