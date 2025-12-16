@@ -76,6 +76,7 @@
     "react-virtuoso": "^4.17.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
+    "resend": "^6.6.0",
     "shiki": "^3.19.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",

@@ -1,18 +1,24 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import Resend from "next-auth/providers/resend"
 import { D1Adapter } from "@auth/d1-adapter"
 import { getCloudflareContext } from "@opennextjs/cloudflare"
+import { sendMagicLinkEmail } from "@/lib/email/resend"
 
 export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
   // Try to get D1 binding from Cloudflare context
   let db: any = undefined
+  let resendApiKey: string | undefined
   
   try {
     // Use getCloudflareContext() to access Cloudflare bindings
-    db = getCloudflareContext().env.DB
+    const ctx = getCloudflareContext()
+    db = ctx.env.DB
+    resendApiKey = ctx.env.RESEND_API_KEY
   } catch (error) {
     // In local dev, we'll use JWT-based sessions instead
-    console.log('No D1 binding available - using JWT sessions')
+    console.log('No Cloudflare context - using JWT sessions')
+    resendApiKey = process.env.RESEND_API_KEY
   }
   
   return {
@@ -22,6 +28,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
       Google({
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      }),
+      // Passwordless magic link authentication
+      Resend({
+        apiKey: resendApiKey || '',
+        from: 'noreply@rynk.io',
+        // Custom email sending function using our branded template
+        sendVerificationRequest: async ({ identifier, url, provider }) => {
+          if (!resendApiKey) {
+            console.error('❌ [Auth] RESEND_API_KEY not configured')
+            throw new Error('Email service not configured')
+          }
+          
+          const result = await sendMagicLinkEmail(resendApiKey, {
+            to: identifier,
+            url,
+            host: new URL(url).host
+          })
+          
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to send magic link email')
+          }
+        }
       }),
     ],
     events: {

@@ -11,6 +11,7 @@ declare namespace Cloudflare {
 		R2_PUBLIC_URL: string;
 		NEXTAUTH_URL: string;
 		PORT: string;
+		RESEND_API_KEY: string;
 		BUCKET: R2Bucket;
 		NEXT_INC_CACHE_R2_BUCKET: R2Bucket;
 		DB: D1Database;
