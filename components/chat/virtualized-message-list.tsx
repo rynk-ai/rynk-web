@@ -39,6 +39,7 @@ interface VirtualizedMessageListProps {
 
 export interface VirtualizedMessageListRef {
   scrollToBottom: () => void
+  scrollToMessageTop: (messageIndex: number) => void
 }
 
 const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, VirtualizedMessageListProps>(function VirtualizedMessageList({
@@ -74,8 +75,12 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
   const prevLengthRef = useRef(messages.length)
+  
+  // Scroll snap tracking refs
+  const lastSnapTimeRef = useRef(0)
+  const hasUserScrolledRef = useRef(false)
 
-  // Expose scrollToBottom method to parent
+  // Expose scroll methods to parent
   useImperativeHandle(ref, () => ({
     scrollToBottom: () => {
       virtuosoRef.current?.scrollToIndex({
@@ -83,27 +88,59 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
         align: 'end',
         behavior: 'smooth'
       })
+    },
+    scrollToMessageTop: (messageIndex: number) => {
+      virtuosoRef.current?.scrollToIndex({
+        index: messageIndex,
+        align: 'start',
+        behavior: 'smooth'
+      })
     }
   }), [messages.length])
 
-  // Auto-scroll only on initial load of a conversation or when user sends a message
-  // (NOT during streaming - let users control their scroll position)
+  // Reset scroll tracking when streaming ends
+  useEffect(() => {
+    if (!streamingMessageId && !isSending) {
+      hasUserScrolledRef.current = false
+    }
+  }, [streamingMessageId, isSending])
+
+  // Scroll snap: When user sends a new message, snap the user message to the top
+  // This provides better UX as users can see their question while watching the AI respond
   useEffect(() => {
     const prevLength = prevLengthRef.current
-    // Only auto-scroll when a NEW message is added (likely user just sent)
-    // AND user is at the bottom (respects their scroll position)
-    if (messages.length > prevLength && !streamingMessageId && isAtBottom.current) {
-      const timeout = setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: messages.length - 1,
-          align: 'end',
-          behavior: 'auto'
-        })
-      }, 100)
-      return () => clearTimeout(timeout)
+    const now = Date.now()
+    
+    // Detect when new message pair is added (user + assistant placeholder)
+    // Conditions: message count increased, user is sending, not yet streaming, user hasn't manually scrolled
+    if (
+      messages.length > prevLength && 
+      isSending && 
+      !streamingMessageId && 
+      !hasUserScrolledRef.current
+    ) {
+      // Debounce to prevent jitter on rapid messages
+      if (now - lastSnapTimeRef.current > 300) {
+        // User message is second-to-last (assistant placeholder is last)
+        const userMessageIndex = messages.length - 2
+        if (userMessageIndex >= 0 && messages[userMessageIndex]?.role === 'user') {
+          const timeout = setTimeout(() => {
+            virtuosoRef.current?.scrollToIndex({
+              index: userMessageIndex,
+              align: 'start',
+              behavior: 'smooth'
+            })
+            lastSnapTimeRef.current = Date.now()
+          }, 50)
+          prevLengthRef.current = messages.length
+          return () => clearTimeout(timeout)
+        }
+      }
     }
+    
     prevLengthRef.current = messages.length
-  }, [messages.length, streamingMessageId])
+  }, [messages.length, streamingMessageId, isSending])
+
 
   // Removed: Auto-scroll during streaming
   // Users now control their own scroll position
@@ -208,6 +245,13 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
       atBottomStateChange={(isBottom) => {
         isAtBottom.current = isBottom
         onIsAtBottomChange?.(isBottom)
+      }}
+      isScrolling={(scrolling) => {
+        // Track when user manually scrolls during sending/streaming
+        // This prevents auto-snap from fighting with user's scroll intent
+        if (scrolling && (isSending || streamingMessageId)) {
+          hasUserScrolledRef.current = true
+        }
       }}
       initialTopMostItemIndex={messages.length - 1}
       className="h-full scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40"
