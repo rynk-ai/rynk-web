@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { QuizSurface } from "@/components/surfaces/quiz-surface";
 import { WikiSurface } from "@/components/surfaces/wiki-surface";
+import { SurfacePageSkeleton } from "@/components/surfaces/surface-skeletons";
 import type { 
   SurfaceState, 
   SurfaceType,

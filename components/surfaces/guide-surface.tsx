@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
+import { StepContentSkeleton } from "@/components/surfaces/surface-skeletons";
 
 interface GuideSurfaceProps {
   metadata: GuideMetadata;
@@ -306,16 +307,7 @@ export const GuideSurface = memo(function GuideSurface({
                 <div className="border-t bg-card/50">
                   <div className="p-5">
                     {isStepGenerating ? (
-                      <div className="flex flex-col items-center py-12">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse" />
-                          <Loader2 className="h-10 w-10 animate-spin text-green-500 relative" />
-                        </div>
-                        <p className="text-muted-foreground mt-4 flex items-center gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          Generating step details...
-                        </p>
-                      </div>
+                      <StepContentSkeleton />
                     ) : content ? (
                       <>
                         <div className="prose prose-sm dark:prose-invert max-w-none

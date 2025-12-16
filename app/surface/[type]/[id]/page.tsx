@@ -51,6 +51,7 @@ import { TimelineSurface } from "@/components/surfaces/timeline-surface";
 import { WikiSurface } from "@/components/surfaces/wiki-surface";
 import { FinanceSurface } from "@/components/surfaces/finance-surface";
 import { ResearchSurface } from "@/components/surfaces/research-surface";
+import { SurfacePageSkeleton, ChapterContentSkeleton, StepContentSkeleton, QuestionSkeleton, FlashcardCardSkeleton } from "@/components/surfaces/surface-skeletons";
 import { cn } from "@/lib/utils";
 import type { 
   SurfaceState, 
@@ -730,26 +731,9 @@ export default function SurfacePage() {
   const surfaceInfo = getSurfaceInfo(surfaceType);
   const SurfaceIcon = surfaceInfo.icon;
 
-  // Loading state - simple loader since skeleton appears quickly
+  // Loading state - show skeleton that matches the surface layout
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-4">
-          {/* Spinner with glow */}
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-            <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
-          </div>
-          
-          {/* Simple message */}
-          <p className="text-muted-foreground font-medium animate-pulse">
-            {surfaceType === 'learning' ? 'Preparing your course...' : 
-             surfaceType === 'quiz' ? 'Generating your quiz...' : 
-             surfaceType === 'flashcard' ? 'Creating flashcards...' : 'Building surface...'}
-          </p>
-        </div>
-      </div>
-    );
+    return <SurfacePageSkeleton type={surfaceType} />;
   }
 
   // Error state

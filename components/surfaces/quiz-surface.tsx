@@ -31,6 +31,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import type { QuizMetadata, SurfaceState } from "@/lib/services/domain-types";
+import { QuestionSkeleton } from "@/components/surfaces/surface-skeletons";
 
 interface QuizSurfaceProps {
   metadata: QuizMetadata;
@@ -214,15 +215,7 @@ export const QuizSurface = memo(function QuizSurface({
   
   // Loading state
   if (!currentQuestion || isGenerating) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="relative">
-          <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-          <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
-        </div>
-        <p className="text-muted-foreground mt-6 font-medium">Preparing question...</p>
-      </div>
-    );
+    return <QuestionSkeleton />;
   }
   
   return (

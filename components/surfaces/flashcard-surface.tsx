@@ -31,6 +31,7 @@ import {
   Keyboard,
 } from "lucide-react";
 import type { FlashcardMetadata, SurfaceState } from "@/lib/services/domain-types";
+import { FlashcardCardSkeleton } from "@/components/surfaces/surface-skeletons";
 
 interface FlashcardSurfaceProps {
   metadata: FlashcardMetadata;
@@ -126,11 +127,8 @@ export const FlashcardSurface = memo(function FlashcardSurface({
   // Loading state
   if (!currentCard || isGenerating) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-        <p className="text-muted-foreground mt-4 text-sm">Generating flashcards...</p>
+      <div className="max-w-2xl mx-auto py-8">
+        <FlashcardCardSkeleton />
       </div>
     );
   }
