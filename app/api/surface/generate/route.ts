@@ -128,6 +128,93 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Research surface - deep multi-source research (higher credit cost)
+    // Runs synchronously in API route to avoid bundle size issues with DO
+    if (surfaceType === 'research') {
+      console.log(`🔬 [surface/generate] Research surface - starting deep research for: "${query.substring(0, 50)}..."`)
+      
+      // Deduct 3 credits for research surface (more resource-intensive)
+      await cloudDb.updateCredits(session.user.id, -3)
+      
+      try {
+        // Import research orchestrator (runs in API route, not DO)
+        const { 
+          analyzeResearchQuery,
+          searchAllVerticals,
+          generateResearchSkeleton,
+          generateAllSections,
+          synthesizeResearchDocument
+        } = await import('@/lib/services/research/research-orchestrator')
+        
+        // Get API keys from env
+        const groqApiKey = process.env.GROQ_API_KEY
+        const exaApiKey = process.env.EXA_API_KEY
+        const perplexityApiKey = process.env.PERPLEXITY_API_KEY
+        
+        if (!groqApiKey) {
+          throw new Error('Missing GROQ_API_KEY for research')
+        }
+
+        // Phase 1: Analyze query and generate verticals
+        const verticals = await analyzeResearchQuery(query, groqApiKey)
+        console.log(`🔬 [research] Generated ${verticals.length} verticals`)
+
+        // Phase 2: Parallel web search per vertical
+        const sourcesByVertical = await searchAllVerticals(
+          verticals,
+          exaApiKey,
+          perplexityApiKey
+        )
+
+        // Phase 3: Generate document skeleton
+        const skeleton = await generateResearchSkeleton(
+          query,
+          verticals.map(v => ({
+            ...v,
+            sourcesCount: sourcesByVertical.get(v.id)?.reduce((acc, s) => acc + (s.citations?.length || 0), 0) || 0
+          })),
+          sourcesByVertical,
+          groqApiKey
+        )
+
+        // Phase 4: Generate all sections (using Groq/Kimi)
+        const completedSections = await generateAllSections(
+          skeleton,
+          sourcesByVertical,
+          groqApiKey
+        )
+
+        // Phase 5: Final synthesis
+        const finalMetadata = synthesizeResearchDocument(skeleton, completedSections)
+
+        const surfaceState = {
+          surfaceType: 'research' as const,
+          metadata: finalMetadata,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          research: {
+            expandedSections: [],
+            bookmarkedSections: []
+          }
+        }
+
+        console.log(`✅ [research] Complete with ${completedSections.length} sections`)
+        
+        return NextResponse.json({
+          success: true,
+          surfaceState,
+        })
+      } catch (researchError) {
+        console.error('❌ [surface/generate] Research generation failed:', researchError)
+        // Refund credits on failure
+        await cloudDb.updateCredits(session.user.id, 3)
+        return NextResponse.json(
+          { error: 'Research generation failed. Please try again.', details: String(researchError) },
+          { status: 500 }
+        )
+      }
+    }
+
     // Check if async processing via Durable Objects is enabled
     // Set to true to use DO for all surface generation, false for sync fallback
     const ASYNC_ENABLED = true // Full sync route prompts ported to DO

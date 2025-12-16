@@ -582,6 +582,77 @@ export interface FinanceMetadata {
 }
 
 /**
+ * Research vertical - a research angle explored
+ */
+export interface ResearchVertical {
+  id: string
+  name: string                    // e.g., "Historical Context"
+  description: string
+  searchQueries: string[]
+  status: 'pending' | 'searching' | 'completed' | 'error'
+  sourcesCount: number
+}
+
+/**
+ * Research section with generation status
+ */
+export interface ResearchSection {
+  id: string
+  heading: string
+  verticalId: string              // Links to which vertical this came from
+  content: string                 // Markdown content
+  wordCount: number
+  citations: string[]             // [1], [2] refs in this section
+  status: 'pending' | 'generating' | 'completed'
+}
+
+/**
+ * Research citation with full metadata
+ */
+export interface ResearchCitation {
+  id: string                      // [1], [2] etc.
+  url: string
+  title: string
+  author?: string
+  date?: string
+  snippet: string
+  sourceType: 'web' | 'academic' | 'news' | 'official'
+}
+
+/**
+ * Metadata for Research surface (deep comprehensive research)
+ */
+export interface ResearchMetadata {
+  type: 'research'
+  title: string
+  query: string                   // Original user query
+  abstract: string                // 200-300 word executive summary
+  keyFindings: string[]           // 5-7 bullet points
+  methodology: string             // How research was conducted
+  limitations: string[]           // Known gaps
+  generatedAt: number
+  
+  // Research structure
+  verticals: ResearchVertical[]
+  sections: ResearchSection[]
+  
+  // Citations
+  allCitations: ResearchCitation[]
+  
+  // Images
+  heroImages: Array<{
+    url: string
+    title: string
+    sourceUrl: string
+  }>
+  
+  // Stats
+  totalSources: number
+  totalWordCount: number
+  estimatedReadTime: number       // minutes
+}
+
+/**
  * Union type for all surface metadata
  */
 export type SurfaceMetadata = 
@@ -593,6 +664,7 @@ export type SurfaceMetadata =
   | TimelineMetadata
   | WikiMetadata
   | FinanceMetadata
+  | ResearchMetadata
   | ChatMetadata
 
 /**
@@ -635,6 +707,20 @@ export interface SurfaceState {
     unknownCards: number[]   // Indices of cards marked as need review
     completed: boolean
     shuffleOrder?: number[]  // Custom order if shuffled
+  }
+  // Research-specific state
+  research?: {
+    expandedSections: string[]      // IDs of expanded sections
+    bookmarkedSections: string[]    // IDs of bookmarked sections
+    generationProgress?: {
+      phase: 'analyzing' | 'verticals' | 'searching' | 'skeleton' | 'sections' | 'synthesis' | 'complete'
+      currentVertical?: number
+      totalVerticals?: number
+      currentSection?: number
+      totalSections?: number
+      sourcesFound?: number
+      message: string
+    }
   }
   // Available images from web search (for hero display and inline embedding)
   availableImages?: Array<{

@@ -24,7 +24,8 @@ import {
   Calendar,
   Cloud,
   CheckCircle2,
-  TrendingUp
+  TrendingUp,
+  Microscope
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ import { FlashcardSurface } from "@/components/surfaces/flashcard-surface";
 import { TimelineSurface } from "@/components/surfaces/timeline-surface";
 import { WikiSurface } from "@/components/surfaces/wiki-surface";
 import { FinanceSurface } from "@/components/surfaces/finance-surface";
+import { ResearchSurface } from "@/components/surfaces/research-surface";
 import { cn } from "@/lib/utils";
 import type { 
   SurfaceState, 
@@ -59,7 +61,8 @@ import type {
   ComparisonMetadata,
   FlashcardMetadata,
   TimelineMetadata,
-  WikiMetadata 
+  WikiMetadata,
+  ResearchMetadata 
 } from "@/lib/services/domain-types";
 
 // Helper to get icon and label for surface type
@@ -73,6 +76,7 @@ const getSurfaceInfo = (type: string) => {
     case 'timeline': return { icon: Calendar, label: 'Timeline', color: 'text-amber-500' };
     case 'wiki': return { icon: BookOpen, label: 'Wiki', color: 'text-orange-500' };
     case 'finance': return { icon: TrendingUp, label: 'Finance', color: 'text-emerald-500' };
+    case 'research': return { icon: Microscope, label: 'Research', color: 'text-purple-500' };
     default: return { icon: BookOpen, label: 'Surface', color: 'text-primary' };
   }
 };
@@ -832,7 +836,7 @@ export default function SurfacePage() {
 
             {/* Actions Menu */}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger>
                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -906,6 +910,13 @@ export default function SurfacePage() {
           <FinanceSurface
             metadata={surfaceState.metadata as any}
             surfaceState={surfaceState}
+          />
+        ) : surfaceType === 'research' && surfaceState.metadata?.type === 'research' ? (
+          <ResearchSurface
+            metadata={surfaceState.metadata as ResearchMetadata}
+            surfaceState={surfaceState}
+            isGenerating={isGenerating}
+            progress={generationProgress || undefined}
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">

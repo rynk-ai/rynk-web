@@ -358,6 +358,9 @@ class TaskProcessor implements DurableObject {
   ): Promise<any> {
     const { query, surfaceType, messageId, conversationId } = params
     
+    // Research surface is handled synchronously in API route (not in DO)
+    // This reduces DO bundle size to stay under Cloudflare limits
+    
     onProgress({ current: 1, total: 5, message: 'Generating outline...', step: 'skeleton' })
     
     // Step 1: Generate skeleton quickly (minimal prompt, same model)

@@ -14,7 +14,7 @@ import {
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar, ArrowRightIcon, TrendingUp, Lock } from "lucide-react";
+import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar, ArrowRightIcon, TrendingUp, Lock, Microscope } from "lucide-react";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -42,6 +42,7 @@ const SURFACE_MODES: Array<{
   { type: 'timeline', icon: Calendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500' },
   { type: 'wiki', icon: BookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500' },
   { type: 'finance', icon: TrendingUp, label: 'Finance', placeholder: 'Show price of...', color: 'text-emerald-500' },
+  { type: 'research', icon: Microscope, label: 'Research', placeholder: 'Research topic in depth...', color: 'text-purple-500' },
 ];
 
 // Surfaces allowed for guest users (no authentication required)

@@ -30,6 +30,26 @@ export interface Job {
   skeletonState?: any
 }
 
+/**
+ * Extended progress tracking for research surface generation
+ */
+export interface ResearchProgress {
+  phase: 'analyzing' | 'verticals' | 'searching' | 'skeleton' | 'sections' | 'synthesis' | 'complete'
+  currentVertical?: number
+  totalVerticals?: number
+  currentSection?: number
+  totalSections?: number
+  sourcesFound?: number
+  message: string
+  // Per-vertical progress
+  verticalProgress?: Array<{
+    id: string
+    name: string
+    status: 'pending' | 'searching' | 'completed' | 'error'
+    sourcesCount: number
+  }>
+}
+
 export interface SurfaceGenerateParams {
   query: string
   surfaceType: string
