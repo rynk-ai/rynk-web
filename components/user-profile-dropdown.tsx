@@ -110,8 +110,8 @@ export function UserProfileDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-sidebar-accent transition-colors">
+      <DropdownMenuTrigger>
+        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-muted dark:hover:bg-muted/50 transition-colors outline-none">
           <Avatar className="h-9 w-9">
             <AvatarImage src={user.image || undefined} alt={user.name || ""} />
             <AvatarFallback className="bg-primary/10 text-primary font-medium">
@@ -151,7 +151,7 @@ export function UserProfileDropdown() {
         <DropdownMenuSeparator />
         {credits !== null && (
           <>
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem disabled className="focus:bg-muted dark:focus:bg-muted/50">
               <Coins className="mr-2 h-4 w-4" />
               <span className="flex-1">Credits</span>
               <span className="text-sm font-medium">
@@ -161,38 +161,38 @@ export function UserProfileDropdown() {
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem onClick={handleManageSubscription}>
+        <DropdownMenuItem onClick={handleManageSubscription} className="focus:bg-muted dark:focus:bg-muted/50">
           <CreditCard className="mr-2 h-4 w-4" />
           <span className="flex-1">Subscription</span>
           {tier === "free" && (
             <span className="text-xs text-primary font-medium">Upgrade</span>
           )}
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem disabled className="focus:bg-muted dark:focus:bg-muted/50">
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
             <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span>Theme</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
-            <DropdownMenuItem onClick={() => setTheme("light")}>
+            <DropdownMenuItem onClick={() => setTheme("light")} className="focus:bg-muted dark:focus:bg-muted/50">
               Light
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("dark")}>
+            <DropdownMenuItem onClick={() => setTheme("dark")} className="focus:bg-muted dark:focus:bg-muted/50">
               Dark
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("system")}>
+            <DropdownMenuItem onClick={() => setTheme("system")} className="focus:bg-muted dark:focus:bg-muted/50">
               System
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
             <Type className="mr-2 h-4 w-4" />
             <span>Font</span>
           </DropdownMenuSubTrigger>
@@ -201,7 +201,7 @@ export function UserProfileDropdown() {
               <DropdownMenuItem
                 key={option.name}
                 onClick={() => setFont(option.name)}
-                className={font === option.name ? "bg-accent" : ""}
+                className={`focus:bg-muted dark:focus:bg-muted/50 ${font === option.name ? "bg-muted dark:bg-muted/50" : ""}`}
               >
                 {option.label}
               </DropdownMenuItem>
@@ -211,7 +211,7 @@ export function UserProfileDropdown() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleLogout}
-          className="text-red-400 focus:text-red-400"
+          className="text-red-400 focus:text-red-400 focus:bg-muted dark:focus:bg-muted/50"
         >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
