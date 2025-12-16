@@ -11,6 +11,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '100mb',
     },
+    serverExternalPackages: ['mermaid', 'shiki'],
   },
 };
 
