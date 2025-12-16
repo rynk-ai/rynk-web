@@ -1085,37 +1085,9 @@ Generate the course structure as JSON:
   ]
 }
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS: 8-12 chapters (2 foundation, 4 concept, 3 practical, 2 deep-dive, 1 synthesis). Time: 15-40min per chapter. Total 2-5 hours.
 
-1. CHAPTER COUNT: Create 8-12 chapters minimum. This is a COMPREHENSIVE course, not a quick overview.
-
-2. CHAPTER STRUCTURE - Include these types:
-   - 1-2 FOUNDATION chapters (context, motivation, fundamentals)
-   - 3-4 CONCEPT chapters (core theoretical knowledge)
-   - 2-3 PRACTICAL chapters (hands-on application, real examples)
-   - 1-2 DEEP-DIVE chapters (advanced topics, edge cases)
-   - 1 SYNTHESIS chapter (bringing it all together)
-
-3. CONTENT DEPTH:
-   - Each chapter should feel like a full lesson, not a bullet point
-   - Topics should be specific (not "basics" but "The three fundamental principles of X")
-   - Include real-world context and practical applications
-   - Reference specific techniques, tools, or methodologies
-
-4. LEARNING DESIGN:
-   - Progressive complexity: each chapter builds on the previous
-   - Include practice elements: exercises, examples, thought experiments
-   - Balance theory and application
-
-5. TIME ESTIMATES:
-   - Foundation chapters: 15-25 minutes
-   - Concept chapters: 20-40 minutes  
-   - Practical chapters: 30-45 minutes
-   - Deep-dive: 25-40 minutes
-   - Synthesis: 15-25 minutes
-   - Total should feel substantial (2-5 hours for a real course)
-
-Return ONLY valid JSON, no markdown or explanation.`
+Return ONLY valid JSON.`
         }
 
       case 'guide':
@@ -1176,34 +1148,9 @@ Generate a guide structure as JSON:
   "nextSteps": ["What to do after completing this guide"]
 }
 
-CRITICAL REQUIREMENTS:
-
-1. STEP COUNT: Create 10-15 steps. This is a COMPLETE guide, not a quick overview.
-
-2. STEP STRUCTURE - Include these types:
-   - 1-2 PREPARATION steps (prerequisites check, environment setup)
-   - 2-3 SETUP steps (installations, configurations)
-   - 5-8 ACTION steps (the main work, broken into manageable chunks)
-   - 2-3 VERIFICATION steps (confirm things are working)
-   - 1 CLEANUP/FINALIZATION step
-
-3. SUBSTEPS: Each main step should have 2-5 specific substeps that break down the action.
-
-4. SAFETY: Always include warnings for:
-   - Data loss risks
-   - Breaking changes
-   - Irreversible actions
-   - Admin/sudo requirements
-
-5. VERIFICATION: After major milestones, include a verification step to confirm progress.
-
-6. TIME ESTIMATES:
-   - Preparation: 5-10 minutes
-   - Setup: 10-20 minutes per step
-   - Action: 5-15 minutes per step
-   - Verification: 2-5 minutes
-${webContext ? '\n7. USE THE RESEARCH DATA: Incorporate the current information provided above for accuracy.' : ''}
-Return ONLY valid JSON, no markdown or explanation.`
+REQUIREMENTS: 10-15 steps (2 prep, 3 setup, 7 action, 3 verification). Each step has 2-5 substeps. Include safety warnings and time estimates.
+${webContext ? 'Use provided research data for accuracy.' : ''}
+Return ONLY valid JSON.`
         }
 
       case 'quiz':
@@ -1259,36 +1206,9 @@ Generate a quiz as JSON:
   ]
 }
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS: 15-20 questions (4 knowledge, 5 comprehension, 5 application, 4 analysis). Difficulty: 5 easy, 10 medium, 5 hard. Use scenarios, plausible distractors, teach with explanations.
 
-1. QUESTION COUNT: Create 15-20 questions minimum. This is a THOROUGH assessment.
-
-2. QUESTION DISTRIBUTION (follow Bloom's Taxonomy):
-   - 3-4 Knowledge questions (recall, define, list)
-   - 4-5 Comprehension questions (explain, describe, interpret)
-   - 4-5 Application questions (apply, demonstrate, use)
-   - 3-4 Analysis questions (compare, contrast, analyze)
-   - 2-3 Evaluation questions (judge, evaluate, recommend)
-
-3. DIFFICULTY PROGRESSION:
-   - First 4-5 questions: Easy (build confidence)
-   - Middle 8-10 questions: Medium (core assessment)
-   - Final 4-5 questions: Hard (separate masters from learners)
-
-4. QUESTION QUALITY:
-   - Use SCENARIOS: "A developer is building..." not just "What is..."
-   - Include CODE SNIPPETS for technical topics (use markdown code blocks in the scenario)
-   - ALL distractors must be PLAUSIBLE (no joke answers)
-   - Each wrong answer should represent a COMMON MISCONCEPTION
-   - Explanations should TEACH - if someone gets it wrong, they should learn why
-
-5. AVOID:
-   - "All of the above" / "None of the above"
-   - Trick questions or gotchas
-   - Vague or ambiguous wording
-   - Questions that test memorization of trivia
-
-Return ONLY valid JSON, no markdown or explanation.`
+Return ONLY valid JSON.`
         }
 
       case 'comparison':
@@ -1366,37 +1286,9 @@ Generate a comparison as JSON:
   "bottomLine": "1-2 sentence definitive summary for someone who just wants the answer"
 }
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS: 5+ pros/3+ cons per item. 8-10 criteria (features, performance, pricing, usability, support, scalability). Be objective, provide use-case recommendations.
 
-1. ITEM DEPTH: Each item should have 5+ pros and 3+ cons. Be SPECIFIC and HONEST.
-
-2. CRITERIA: Include 8-10 comparison criteria covering:
-   - Core functionality/features
-   - Performance/speed/quality
-   - Ease of use/learning curve
-   - Pricing/value
-   - Support/community
-   - Scalability/future-proofing
-   - Integration/compatibility
-   - Specific domain requirements
-
-3. OBJECTIVITY:
-   - Present facts, not opinions
-   - Acknowledge trade-offs honestly
-   - Note where each option genuinely excels
-   - Don't artificially favor any option
-
-4. ACTIONABILITY:
-   - Provide clear scenarios for different user needs
-   - Make the "winner" conditional on use case
-   - Include a bottom-line summary
-
-5. DATA:
-   - Include specific metrics where possible
-   - Use real pricing (or realistic estimates)
-   - Reference specific features, not vague claims
-
-Return ONLY valid JSON, no markdown or explanation.`
+Return ONLY valid JSON.`
         }
 
       case 'flashcard':
@@ -1441,40 +1333,9 @@ Generate flashcards as JSON:
   ]
 }
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS: 25-35 cards in 4-6 categories. Mix: definitions, concepts, applications, comparisons, processes. Answers: comprehensive but scannable (<100 words). Use active recall, link related cards.
 
-1. CARD COUNT: Create 25-35 cards minimum. This is a COMPREHENSIVE study deck.
-
-2. CATEGORY COVERAGE: Divide cards into 4-6 logical categories that progress from foundational to advanced.
-
-3. CARD TYPE DISTRIBUTION:
-   - 6-8 Definition cards (What is X?)
-   - 6-8 Concept cards (Explain why/how X works)
-   - 4-6 Application cards (When/how would you use X?)
-   - 4-6 Comparison cards (X vs Y, differences between...)
-   - 3-4 Process cards (Steps to do X)
-   - 2-3 Example cards (Give an example of X)
-
-4. ANSWER QUALITY:
-   - Backs should be COMPREHENSIVE but SCANNABLE
-   - Use bullet points for multi-part answers
-   - Include the "why it matters" context
-   - For technical topics, include code snippets or formulas
-   - Maximum 100 words per back
-
-5. LEARNING SCIENCE:
-   - Include mnemonics for difficult concepts
-   - Link related cards together
-   - Progress from simple to complex within each category
-   - Front should prompt ACTIVE RECALL (not recognition)
-
-6. AVOID:
-   - Yes/No questions
-   - Overly vague fronts like "Explain X"
-   - Backs that are just single words
-   - Duplicate concepts
-
-Return ONLY valid JSON, no markdown or explanation.`
+Return ONLY valid JSON.`
         }
 
       case 'timeline':
@@ -1608,42 +1469,9 @@ Generate the article as JSON:
   ]
 }
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS: 6-8 sections (150-300 words each, markdown). Infobox with 5-8 facts. 5-8 related topics. 3-5 references ${webContext ? 'from provided sources' : ''}. Encyclopedic neutral tone.
 
-1. SECTION COUNT: Create 6-8 substantial sections. Each section should be 2-4 paragraphs of quality content.
-
-2. CONTENT DEPTH:
-   - Each section should contain 150-300 words of actual content
-   - Use markdown formatting: **bold** for key terms, bullet lists for enumerations
-   - Include specific facts, figures, and examples
-   - Maintain encyclopedic neutral tone (avoid promotional language)
-
-3. STRUCTURE:
-   - Start with Overview/Introduction (no "Introduction" heading - just start with context)
-   - Include History/Background section
-   - Core technical/conceptual content in the middle
-   - End with future outlook or conclusion
-
-4. INFOBOX:
-   - Include 5-8 key facts that someone would want at a glance
-   - Use specific values (numbers, dates, categories)
-   - Think: What would be in a Wikipedia infobox?
-
-5. RELATED TOPICS:
-   - Include 5-8 genuinely related topics that readers might want to explore
-   - Should be specific enough to be useful (not "Science" but "Machine Learning")
-
-6. REFERENCES:
-   - List 3-5 authoritative sources with real URLs
-   - ${webContext ? 'Use the PROVIDED REAL SOURCES above for accurate references' : 'Include credible sources (books, papers, organizations)'}
-
-7. TONE:
-   - Neutral, encyclopedic voice
-   - Avoid "you" - use passive voice or third person
-   - No promotional or sensational language
-   - Acknowledge multiple perspectives where relevant
-
-Return ONLY valid JSON, no markdown or explanation.`
+Return ONLY valid JSON.`
         }
 
       default:
