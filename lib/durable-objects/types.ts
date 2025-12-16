@@ -6,7 +6,7 @@
 
 export type JobType = 'surface_generate' | 'chat_with_search'
 
-export type JobStatus = 'queued' | 'processing' | 'complete' | 'error'
+export type JobStatus = 'queued' | 'processing' | 'skeleton_ready' | 'complete' | 'error'
 
 export interface Job {
   id: string
@@ -24,7 +24,10 @@ export interface Job {
     current: number
     total: number
     message: string
+    step?: string  // Current step name for UI
   }
+  // Skeleton state for fast initial display
+  skeletonState?: any
 }
 
 export interface SurfaceGenerateParams {
@@ -61,6 +64,7 @@ export interface JobStatusResponse {
   error?: string
   createdAt: number
   completedAt?: number
+  skeletonState?: any  // Early skeleton for fast display
 }
 
 /**

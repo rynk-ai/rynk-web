@@ -100,6 +100,13 @@ export default function SurfacePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   // Track the ID of the currently loaded surface
   const [currentSurfaceId, setCurrentSurfaceId] = useState<string | null>(null);
+  // Track generation progress for UI
+  const [generationProgress, setGenerationProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+    step?: string;
+  } | null>(null);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
@@ -245,6 +252,7 @@ export default function SurfacePage() {
           // Poll for completion
           let attempts = 0;
           const maxAttempts = 90; // ~2.25 minutes
+          let skeletonDisplayed = false;
           
           while (attempts < maxAttempts) {
             await new Promise(r => setTimeout(r, 1500));
@@ -256,10 +264,25 @@ export default function SurfacePage() {
                 status: string;
                 result?: { surfaceState: SurfaceState };
                 error?: string;
-                progress?: { current: number; total: number; message: string };
+                progress?: { current: number; total: number; message: string; step?: string };
+                skeletonState?: SurfaceState;
               };
               
               console.log(`[SurfacePage] Poll ${attempts}: status=${jobData.status}`, jobData.progress);
+              
+              // Update progress UI
+              if (jobData.progress) {
+                setGenerationProgress(jobData.progress);
+              }
+              
+              // Handle skeleton_ready - display skeleton early for fast feedback
+              if (jobData.status === 'skeleton_ready' && jobData.skeletonState && !skeletonDisplayed) {
+                console.log('[SurfacePage] Skeleton ready, displaying early feedback');
+                setSurfaceState(jobData.skeletonState);
+                setIsLoading(false);  // Hide loading spinner, show skeleton
+                skeletonDisplayed = true;
+                // Continue polling for full content - don't return
+              }
               
               if (jobData.status === 'complete' && jobData.result?.surfaceState) {
                 setSurfaceState(jobData.result.surfaceState);
@@ -703,19 +726,22 @@ export default function SurfacePage() {
   const surfaceInfo = getSurfaceInfo(surfaceType);
   const SurfaceIcon = surfaceInfo.icon;
 
-  // Loading state
+  // Loading state - simple loader since skeleton appears quickly
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
+          {/* Spinner with glow */}
           <div className="relative">
-             <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-             <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+            <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
           </div>
+          
+          {/* Simple message */}
           <p className="text-muted-foreground font-medium animate-pulse">
             {surfaceType === 'learning' ? 'Preparing your course...' : 
              surfaceType === 'quiz' ? 'Generating your quiz...' : 
-             surfaceType === 'flashcard' ? 'Shuffling deck...' : 'Building surface...'}
+             surfaceType === 'flashcard' ? 'Creating flashcards...' : 'Building surface...'}
           </p>
         </div>
       </div>

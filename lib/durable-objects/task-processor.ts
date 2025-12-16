@@ -65,9 +65,17 @@ class TaskProcessor implements DurableObject {
         completedAt INTEGER,
         result TEXT,
         error TEXT,
-        progress TEXT
+        progress TEXT,
+        skeletonState TEXT
       )
     `)
+    
+    // Migration: Add skeletonState column to existing tables that don't have it
+    try {
+      this.state.storage.sql.exec(`ALTER TABLE jobs ADD COLUMN skeletonState TEXT`)
+    } catch {
+      // Column already exists, ignore error
+    }
     
     // Create index for faster lookups
     this.state.storage.sql.exec(`
@@ -202,7 +210,8 @@ class TaskProcessor implements DurableObject {
       result: job.status === 'complete' ? job.result : undefined,
       error: job.status === 'error' ? job.error : undefined,
       createdAt: job.createdAt,
-      completedAt: job.completedAt
+      completedAt: job.completedAt,
+      skeletonState: job.skeletonState  // Include skeleton for early display
     }
     
     return Response.json(response)
@@ -263,7 +272,8 @@ class TaskProcessor implements DurableObject {
       completedAt: row.completedAt as number | undefined,
       result: row.result ? JSON.parse(row.result as string) : undefined,
       error: row.error as string | undefined,
-      progress: row.progress ? JSON.parse(row.progress as string) : undefined
+      progress: row.progress ? JSON.parse(row.progress as string) : undefined,
+      skeletonState: row.skeletonState ? JSON.parse(row.skeletonState as string) : undefined
     }
   }
 
@@ -295,7 +305,8 @@ class TaskProcessor implements DurableObject {
         case 'surface_generate':
           jobResult = await this.processSurfaceGeneration(
             job.params as SurfaceGenerateParams,
-            (progress) => this.updateProgress(jobId, progress)
+            (progress) => this.updateProgress(jobId, progress),
+            jobId  // Pass jobId for skeleton updates
           )
           break
           
@@ -334,30 +345,46 @@ class TaskProcessor implements DurableObject {
   }
 
   /**
-   * Process surface generation - the main CPU-intensive work
+   * Process surface generation - now with skeleton-first approach
+   * 1. Generate skeleton quickly (3-5s)
+   * 2. Update job with skeleton and mark as skeleton_ready
+   * 3. Continue to generate full content
+   * 4. Mark complete with full result
    */
   private async processSurfaceGeneration(
     params: SurfaceGenerateParams,
-    onProgress: (progress: Job['progress']) => void
+    onProgress: (progress: Job['progress']) => void,
+    jobId: string  // Need job ID to update skeleton
   ): Promise<any> {
     const { query, surfaceType, messageId, conversationId } = params
     
-    onProgress({ current: 1, total: 4, message: 'Analyzing query...' })
+    onProgress({ current: 1, total: 5, message: 'Generating outline...', step: 'skeleton' })
     
-    // Step 1: Analyze the query (fast Groq call)
+    // Step 1: Generate skeleton quickly (minimal prompt, same model)
+    const skeleton = await this.generateSkeleton(query, surfaceType)
+    
+    if (skeleton) {
+      // Update job with skeleton state immediately - this allows the client to display something fast
+      this.updateSkeleton(jobId, skeleton)
+      console.log(`[TaskProcessor] Skeleton ready for job ${jobId}, continuing to hydrate...`)
+    }
+    
+    onProgress({ current: 2, total: 5, message: 'Analyzing topic...', step: 'analysis' })
+    
+    // Step 2: Analyze the query (fast Groq call) - can run in parallel opportunity
     const analysis = await this.analyzeSurfaceQuery(query, surfaceType)
     
-    onProgress({ current: 2, total: 4, message: 'Fetching web data...' })
+    onProgress({ current: 3, total: 5, message: 'Researching information...', step: 'research' })
     
-    // Step 2: Fetch web context if needed (parallel external calls)
+    // Step 3: Fetch web context if needed (parallel external calls)
     let webContext: any = undefined
     if (analysis.needsWebSearch && (surfaceType === 'wiki' || surfaceType === 'guide')) {
       webContext = await this.fetchWebContext(query, analysis)
     }
     
-    onProgress({ current: 3, total: 4, message: 'Generating structure...' })
+    onProgress({ current: 4, total: 5, message: 'Generating detailed content...', step: 'generation' })
     
-    // Step 3: Generate the surface structure (main LLM call)
+    // Step 4: Generate the full surface structure (main LLM call)
     const surfaceState = await this.generateSurfaceStructure(
       surfaceType,
       query,
@@ -365,12 +392,338 @@ class TaskProcessor implements DurableObject {
       webContext
     )
     
-    onProgress({ current: 4, total: 4, message: 'Complete!' })
+    onProgress({ current: 5, total: 5, message: 'Complete!', step: 'complete' })
     
     return {
       surfaceState,
       messageId,
       conversationId
+    }
+  }
+
+  /**
+   * Generate skeleton using minimal prompt for fast response
+   */
+  private async generateSkeleton(query: string, surfaceType: string): Promise<any | null> {
+    const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
+    if (!apiKey) return null     
+    
+    // Minimal prompt for skeleton generation
+    const skeletonPrompt = this.getSkeletonPrompt(surfaceType, query)
+    
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: 'You are a content structure expert. Generate ONLY the requested structure as JSON. Be concise.' },
+            { role: 'user', content: skeletonPrompt }
+          ],
+          max_tokens: 1000,  // Limit to keep it fast
+          stream: false
+        })
+      })
+      
+      if (!response.ok) {
+        console.error('[TaskProcessor] Skeleton generation failed:', response.status)
+        return null
+      }
+      
+      const data: any = await response.json()
+      const content = data.choices[0].message.content
+      
+      // Parse skeleton
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) return null
+      
+      const parsed = JSON.parse(jsonMatch[0])
+      
+      // Build skeleton surface state
+      return this.buildSkeletonSurfaceState(surfaceType, parsed)
+      
+    } catch (error) {
+      console.error('[TaskProcessor] Skeleton generation error:', error)
+      return null
+    }
+  }
+
+  /**
+   * Update job with skeleton state
+   */
+  private updateSkeleton(jobId: string, skeletonState: any): void {
+    this.state.storage.sql.exec(`
+      UPDATE jobs SET status = 'skeleton_ready', skeletonState = ?
+      WHERE id = ?
+    `, JSON.stringify(skeletonState), jobId)
+  }
+
+  /**
+   * Get minimal prompt for skeleton generation
+   */
+  private getSkeletonPrompt(surfaceType: string, query: string): string {
+    const baseFormat = `Return ONLY valid JSON with this structure:
+{
+  "title": "Content title",
+  "subtitle": "Brief description",
+  "description": "One sentence",
+  "items": [{ "id": "item1", "title": "First item" }]
+}`
+
+    switch (surfaceType) {
+      case 'learning':
+        return `Create a course outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 8-12 chapters (items), specific descriptive titles.`
+        
+      case 'guide':
+        return `Create a step-by-step guide outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 10-15 steps, each title starts with action verb.`
+        
+      case 'quiz':
+        return `Create a quiz outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 15-20 questions, items are topic hints.`
+        
+      case 'comparison':
+        return `Create a comparison outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 2-5 items to compare.`
+        
+      case 'flashcard':
+        return `Create a flashcard deck outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 25-35 cards, items describe each card topic.`
+        
+      case 'timeline':
+        return `Create a timeline outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 10-15 key events in chronological order.`
+        
+      case 'wiki':
+        return `Create a wiki article outline for: "${query}"
+
+${baseFormat}
+
+Requirements: 6-8 main sections with Wikipedia-style headings.`
+        
+      default:
+        return `Create a content outline for: "${query}"\n\n${baseFormat}`
+    }
+  }
+
+  /**
+   * Build skeleton surface state from parsed skeleton
+   */
+  private buildSkeletonSurfaceState(surfaceType: string, skeleton: any): any {
+    const now = Date.now()
+    const baseState = {
+      surfaceType,
+      createdAt: now,
+      updatedAt: now,
+      isSkeleton: true
+    }
+    
+    const items = skeleton.items || []
+    
+    switch (surfaceType) {
+      case 'learning':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'learning',
+            title: skeleton.title || 'Course',
+            description: skeleton.description || 'Loading details...',
+            depth: 'intermediate',
+            estimatedTime: items.length * 10,
+            prerequisites: [],
+            chapters: items.map((item: any, i: number) => ({
+              id: item.id || `ch${i + 1}`,
+              title: item.title || `Chapter ${i + 1}`,
+              description: 'Loading...',
+              estimatedTime: 10,
+              status: 'available'
+            }))
+          },
+          learning: {
+            currentChapter: 0,
+            completedChapters: [],
+            chaptersContent: {},
+            notes: []
+          }
+        }
+        
+      case 'guide':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'guide',
+            title: skeleton.title || 'Guide',
+            description: skeleton.description || 'Loading details...',
+            difficulty: 'intermediate',
+            estimatedTime: items.length * 5,
+            steps: items.map((item: any, i: number) => ({
+              index: i,
+              title: item.title || `Step ${i + 1}`,
+              estimatedTime: 5,
+              status: 'pending'
+            }))
+          },
+          guide: {
+            currentStep: 0,
+            completedSteps: [],
+            skippedSteps: [],
+            stepsContent: {},
+            questionsAsked: []
+          }
+        }
+        
+      case 'quiz':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'quiz',
+            topic: skeleton.title || 'Quiz',
+            description: skeleton.description || 'Loading questions...',
+            questionCount: items.length,
+            difficulty: 'medium',
+            format: 'multiple-choice',
+            questions: items.map((item: any, i: number) => ({
+              id: item.id || `q${i + 1}`,
+              question: `Loading: ${item.title}...`,
+              options: ['Loading...', 'Loading...', 'Loading...', 'Loading...'],
+              correctAnswer: 0,
+              explanation: ''
+            }))
+          },
+          quiz: {
+            currentQuestion: 0,
+            answers: {},
+            correctCount: 0,
+            incorrectCount: 0,
+            completed: false,
+            startedAt: now
+          }
+        }
+        
+      case 'flashcard':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'flashcard',
+            topic: skeleton.title || 'Flashcards',
+            description: skeleton.description || 'Loading...',
+            cardCount: items.length,
+            cards: items.map((item: any, i: number) => ({
+              id: item.id || `card${i + 1}`,
+              front: item.title || `Card ${i + 1}`,
+              back: 'Loading...',
+              hint: undefined
+            }))
+          },
+          flashcard: {
+            currentCard: 0,
+            knownCards: [],
+            unknownCards: [],
+            sessionStats: { correct: 0, incorrect: 0 }
+          }
+        }
+        
+      case 'timeline':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'timeline',
+            title: skeleton.title || 'Timeline',
+            description: skeleton.description || 'Loading...',
+            events: items.map((item: any, i: number) => ({
+              id: item.id || `event${i + 1}`,
+              date: '',
+              title: item.title || `Event ${i + 1}`,
+              description: 'Loading...',
+              significance: undefined
+            }))
+          },
+          timeline: {
+            currentEvent: 0,
+            expandedEvents: []
+          }
+        }
+        
+      case 'wiki':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'wiki',
+            title: skeleton.title || 'Article',
+            subtitle: skeleton.subtitle || 'Loading...',
+            summary: skeleton.description || 'Loading...',
+            infobox: {},
+            sections: items.map((item: any, i: number) => ({
+              id: item.id || `section${i + 1}`,
+              heading: item.title || `Section ${i + 1}`,
+              content: 'Loading...',
+              subsections: []
+            })),
+            relatedTopics: [],
+            references: [],
+            categories: []
+          },
+          wiki: {
+            expandedSections: [],
+            bookmarkedSections: []
+          }
+        }
+        
+      case 'comparison':
+        return {
+          ...baseState,
+          metadata: {
+            type: 'comparison',
+            title: skeleton.title || 'Comparison',
+            description: skeleton.description || 'Loading...',
+            items: items.map((item: any, i: number) => ({
+              id: item.id || `item${i + 1}`,
+              name: item.title || `Item ${i + 1}`,
+              tagline: 'Loading...',
+              description: 'Loading...',
+              pros: [],
+              cons: []
+            })),
+            criteria: []
+          },
+          comparison: {
+            selectedItems: [],
+            notes: {}
+          }
+        }
+        
+      default:
+        return {
+          ...baseState,
+          metadata: {
+            type: surfaceType,
+            title: skeleton.title || 'Content',
+            description: skeleton.description || ''
+          }
+        }
     }
   }
 
