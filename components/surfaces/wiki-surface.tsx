@@ -36,7 +36,14 @@ export const WikiSurface = memo(function WikiSurface({
   metadata,
   surfaceState,
 }: WikiSurfaceProps) {
-  const { title, summary, infobox, sections, relatedTopics, references, categories } = metadata;
+  // Defensive destructuring with defaults for progressive loading
+  const title = metadata?.title || 'Loading...';
+  const summary = metadata?.summary || '';
+  const infobox = metadata?.infobox || { facts: [] };
+  const sections = metadata?.sections || [];
+  const relatedTopics = metadata?.relatedTopics || [];
+  const references = metadata?.references || [];
+  const categories = metadata?.categories || [];
   const availableImages = surfaceState?.availableImages || [];
   
   const [activeSection, setActiveSection] = useState<string | null>(sections[0]?.id || null);
