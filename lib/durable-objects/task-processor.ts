@@ -66,13 +66,19 @@ class TaskProcessor implements DurableObject {
         result TEXT,
         error TEXT,
         progress TEXT,
-        skeletonState TEXT
+        skeletonState TEXT,
+        readySections TEXT
       )
     `)
     
-    // Migration: Add skeletonState column to existing tables that don't have it
+    // Migration: Add new columns to existing tables that don't have them
     try {
       this.state.storage.sql.exec(`ALTER TABLE jobs ADD COLUMN skeletonState TEXT`)
+    } catch {
+      // Column already exists, ignore error
+    }
+    try {
+      this.state.storage.sql.exec(`ALTER TABLE jobs ADD COLUMN readySections TEXT`)
     } catch {
       // Column already exists, ignore error
     }
@@ -203,6 +209,16 @@ class TaskProcessor implements DurableObject {
     
     const job = this.rowToJob(rows[0])
     
+    // Calculate section counts from skeleton and ready sections
+    const totalSections = job.skeletonState?.metadata?.sections?.length 
+      || job.skeletonState?.metadata?.questions?.length 
+      || job.skeletonState?.metadata?.cards?.length 
+      || job.skeletonState?.metadata?.chapters?.length 
+      || job.skeletonState?.metadata?.steps?.length 
+      || job.skeletonState?.metadata?.events?.length 
+      || job.skeletonState?.metadata?.items?.length 
+      || 0
+    
     const response: JobStatusResponse = {
       id: job.id,
       status: job.status,
@@ -211,7 +227,10 @@ class TaskProcessor implements DurableObject {
       error: job.status === 'error' ? job.error : undefined,
       createdAt: job.createdAt,
       completedAt: job.completedAt,
-      skeletonState: job.skeletonState  // Include skeleton for early display
+      skeletonState: job.skeletonState,  // Include skeleton for early display
+      readySections: job.readySections,   // Progressive sections
+      totalSections,
+      completedSections: job.readySections?.length || 0
     }
     
     return Response.json(response)
@@ -273,7 +292,8 @@ class TaskProcessor implements DurableObject {
       result: row.result ? JSON.parse(row.result as string) : undefined,
       error: row.error as string | undefined,
       progress: row.progress ? JSON.parse(row.progress as string) : undefined,
-      skeletonState: row.skeletonState ? JSON.parse(row.skeletonState as string) : undefined
+      skeletonState: row.skeletonState ? JSON.parse(row.skeletonState as string) : undefined,
+      readySections: row.readySections ? JSON.parse(row.readySections as string) : undefined
     }
   }
 
@@ -345,21 +365,29 @@ class TaskProcessor implements DurableObject {
   }
 
   /**
-   * Process surface generation - now with skeleton-first approach
+   * Process surface generation - now with skeleton-first + progressive sections
+   * 
+   * Flow for wiki, quiz, flashcard, timeline, comparison:
    * 1. Generate skeleton quickly (3-5s)
    * 2. Update job with skeleton and mark as skeleton_ready
-   * 3. Continue to generate full content
-   * 4. Mark complete with full result
+   * 3. Generate sections in PARALLEL, each with skeleton context
+   * 4. Update readySections as each completes (progressive display)
+   * 5. Mark complete with full assembled result
+   * 
+   * Flow for learning, guide (on-demand content):
+   * 1. Generate skeleton - skeleton IS the final structure
+   * 2. Content is generated on-demand when user clicks sections
    */
   private async processSurfaceGeneration(
     params: SurfaceGenerateParams,
     onProgress: (progress: Job['progress']) => void,
-    jobId: string  // Need job ID to update skeleton
+    jobId: string  // Need job ID to update skeleton and sections
   ): Promise<any> {
     const { query, surfaceType, messageId, conversationId } = params
     
-    // Research surface is handled synchronously in API route (not in DO)
-    // This reduces DO bundle size to stay under Cloudflare limits
+    // Surfaces that benefit from parallel section generation
+    const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'timeline', 'comparison']
+    const useProgressiveGeneration = PROGRESSIVE_SURFACES.includes(surfaceType)
     
     onProgress({ current: 1, total: 5, message: 'Generating outline...', step: 'skeleton' })
     
@@ -372,28 +400,46 @@ class TaskProcessor implements DurableObject {
       console.log(`[TaskProcessor] Skeleton ready for job ${jobId}, continuing to hydrate...`)
     }
     
+    // For learning and guide, skeleton IS the final structure (content generated on-demand)
+    if (['learning', 'guide'].includes(surfaceType)) {
+      onProgress({ current: 5, total: 5, message: 'Complete!', step: 'complete' })
+      return {
+        surfaceState: skeleton,
+        messageId,
+        conversationId
+      }
+    }
+    
     onProgress({ current: 2, total: 5, message: 'Analyzing topic...', step: 'analysis' })
     
-    // Step 2: Analyze the query (fast Groq call) - can run in parallel opportunity
+    // Step 2: Analyze the query (fast Groq call)
     const analysis = await this.analyzeSurfaceQuery(query, surfaceType)
     
     onProgress({ current: 3, total: 5, message: 'Researching information...', step: 'research' })
     
-    // Step 3: Fetch web context if needed (parallel external calls)
+    // Step 3: Fetch web context if needed (for wiki and guide)
     let webContext: any = undefined
-    if (analysis.needsWebSearch && (surfaceType === 'wiki' || surfaceType === 'guide')) {
+    if (analysis.needsWebSearch && surfaceType === 'wiki') {
       webContext = await this.fetchWebContext(query, analysis)
     }
     
     onProgress({ current: 4, total: 5, message: 'Generating detailed content...', step: 'generation' })
     
-    // Step 4: Generate the full surface structure (main LLM call)
-    const surfaceState = await this.generateSurfaceStructure(
-      surfaceType,
-      query,
-      analysis,
-      webContext
-    )
+    // Step 4: Generate content
+    let surfaceState: any
+    
+    if (useProgressiveGeneration && skeleton) {
+      // PROGRESSIVE: Generate sections in parallel with skeleton context
+      surfaceState = await this.generateSectionsParallel(skeleton, query, surfaceType, jobId, onProgress)
+    } else {
+      // FALLBACK: Generate full surface structure (main LLM call)
+      surfaceState = await this.generateSurfaceStructure(
+        surfaceType,
+        query,
+        analysis,
+        webContext
+      )
+    }
     
     onProgress({ current: 5, total: 5, message: 'Complete!', step: 'complete' })
     
@@ -402,6 +448,139 @@ class TaskProcessor implements DurableObject {
       messageId,
       conversationId
     }
+  }
+
+  /**
+   * Generate sections in parallel with skeleton context
+   * Each section is generated independently but with awareness of full structure
+   */
+  private async generateSectionsParallel(
+    skeleton: any,
+    query: string,
+    surfaceType: string,
+    jobId: string,
+    onProgress: (progress: Job['progress']) => void
+  ): Promise<any> {
+    // Get sections from skeleton based on surface type
+    const sections = skeleton.metadata?.sections 
+      || skeleton.metadata?.questions 
+      || skeleton.metadata?.cards 
+      || skeleton.metadata?.events 
+      || skeleton.metadata?.items 
+      || []
+    
+    const totalSections = sections.length
+    console.log(`[TaskProcessor] Starting parallel generation of ${totalSections} sections for ${surfaceType}`)
+    
+    // Fire all section generations in parallel
+    const sectionPromises = sections.map(async (section: any, index: number) => {
+      try {
+        const content = await this.generateSectionContent(surfaceType, section, skeleton, query)
+        
+        // Update ready sections in storage (notifies polling clients)
+        this.addReadySection(jobId, section.id, content, index)
+        
+        // Return content for final assembly
+        return { id: section.id, index, content }
+      } catch (error) {
+        console.error(`[TaskProcessor] Error generating section ${section.id}:`, error)
+        return { id: section.id, index, content: `Error generating content` }
+      }
+    })
+    
+    // Wait for all sections to complete
+    const completedSections = await Promise.all(sectionPromises)
+    
+    // Assemble final surface state with all content
+    return this.assembleFinalSurfaceState(skeleton, completedSections, surfaceType)
+  }
+
+  /**
+   * Assemble final surface state by merging skeleton with generated content
+   */
+  private assembleFinalSurfaceState(skeleton: any, completedSections: any[], surfaceType: string): any {
+    const finalState = { ...skeleton, isSkeleton: false }
+    
+    // Create a map for quick lookup
+    const contentMap = new Map(completedSections.map(s => [s.index, s.content]))
+    
+    switch (surfaceType) {
+      case 'wiki':
+        if (finalState.metadata?.sections) {
+          finalState.metadata.sections = finalState.metadata.sections.map((section: any, i: number) => ({
+            ...section,
+            content: contentMap.get(i) || section.content || ''
+          }))
+        }
+        break
+        
+      case 'quiz':
+        if (finalState.metadata?.questions) {
+          finalState.metadata.questions = finalState.metadata.questions.map((q: any, i: number) => {
+            const content = contentMap.get(i) || ''
+            try {
+              // Parse JSON response for quiz questions
+              const jsonMatch = content.match(/\{[\s\S]*\}/)
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0])
+                return { ...q, ...parsed }
+              }
+            } catch { /* Keep original */ }
+            return q
+          })
+        }
+        break
+        
+      case 'flashcard':
+        if (finalState.metadata?.cards) {
+          finalState.metadata.cards = finalState.metadata.cards.map((card: any, i: number) => {
+            const content = contentMap.get(i) || ''
+            try {
+              const jsonMatch = content.match(/\{[\s\S]*\}/)
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0])
+                return { ...card, ...parsed }
+              }
+            } catch { /* Keep original */ }
+            return card
+          })
+        }
+        break
+        
+      case 'timeline':
+        if (finalState.metadata?.events) {
+          finalState.metadata.events = finalState.metadata.events.map((event: any, i: number) => {
+            const content = contentMap.get(i) || ''
+            try {
+              const jsonMatch = content.match(/\{[\s\S]*\}/)
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0])
+                return { ...event, ...parsed }
+              }
+            } catch { /* Keep original */ }
+            return event
+          })
+        }
+        break
+        
+      case 'comparison':
+        if (finalState.metadata?.items) {
+          finalState.metadata.items = finalState.metadata.items.map((item: any, i: number) => {
+            const content = contentMap.get(i) || ''
+            try {
+              const jsonMatch = content.match(/\{[\s\S]*\}/)
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0])
+                return { ...item, ...parsed }
+              }
+            } catch { /* Keep original */ }
+            return item
+          })
+        }
+        break
+    }
+    
+    return finalState
   }
 
   /**
@@ -463,6 +642,160 @@ class TaskProcessor implements DurableObject {
       UPDATE jobs SET status = 'skeleton_ready', skeletonState = ?
       WHERE id = ?
     `, JSON.stringify(skeletonState), jobId)
+  }
+
+  /**
+   * Add a ready section to the job (progressive section generation)
+   */
+  private addReadySection(jobId: string, sectionId: string, content: string, order: number): void {
+    // Fetch current ready sections
+    const result = this.state.storage.sql.exec(`
+      SELECT readySections FROM jobs WHERE id = ?
+    `, jobId)
+    
+    const rows = result.toArray()
+    if (rows.length === 0) return
+    
+    const currentSections = rows[0].readySections 
+      ? JSON.parse(rows[0].readySections as string) 
+      : []
+    
+    // Add new section
+    currentSections.push({ sectionId, content, order })
+    
+    // Update database
+    this.state.storage.sql.exec(`
+      UPDATE jobs SET readySections = ? WHERE id = ?
+    `, JSON.stringify(currentSections), jobId)
+    
+    console.log(`[TaskProcessor] Section ${sectionId} (order ${order}) ready for job ${jobId}`)
+  }
+
+  /**
+   * Generate content for a single section with skeleton context (for parallel generation)
+   */
+  private async generateSectionContent(
+    surfaceType: string,
+    section: { id: string; heading?: string; title?: string; question?: string; front?: string },
+    skeleton: any,
+    query: string
+  ): Promise<string> {
+    const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
+    if (!apiKey) return ''
+    
+    const sectionTitle = section.heading || section.title || section.question || section.front || 'Section'
+    
+    // Build context from skeleton
+    const allSections = skeleton.metadata?.sections 
+      || skeleton.metadata?.questions 
+      || skeleton.metadata?.cards 
+      || skeleton.metadata?.events 
+      || skeleton.metadata?.items 
+      || []
+    
+    const sectionList = allSections.map((s: any, i: number) => 
+      `${i + 1}. ${s.heading || s.title || s.question || s.front || `Item ${i + 1}`}`
+    ).join('\n')
+    
+    const prompt = this.getSectionPrompt(surfaceType, sectionTitle, sectionList, query, skeleton.metadata?.title || query)
+    
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: this.getSectionSystemPrompt(surfaceType) },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 2000,
+          stream: false
+        })
+      })
+      
+      if (!response.ok) {
+        console.error(`[TaskProcessor] Section generation failed for ${section.id}:`, response.status)
+        return `Error generating content for ${sectionTitle}`
+      }
+      
+      const data: any = await response.json()
+      return data.choices[0].message.content || ''
+      
+    } catch (error) {
+      console.error(`[TaskProcessor] Section generation error for ${section.id}:`, error)
+      return `Error generating content for ${sectionTitle}`
+    }
+  }
+
+  /**
+   * Get system prompt for section content generation
+   */
+  private getSectionSystemPrompt(surfaceType: string): string {
+    switch (surfaceType) {
+      case 'wiki':
+        return 'You are a Wikipedia-style content writer. Write informative, well-structured content in Markdown format. Be factual and comprehensive.'
+      case 'quiz':
+        return 'You are a quiz question writer. Return ONLY valid JSON with: { "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "..." }'
+      case 'flashcard':
+        return 'You are a flashcard content creator. Return ONLY valid JSON with: { "front": "...", "back": "...", "hint": "..." }'
+      case 'timeline':
+        return 'You are a historian. Return ONLY valid JSON with: { "date": "...", "title": "...", "description": "...", "significance": "..." }'
+      case 'comparison':
+        return 'You are an analyst. Return ONLY valid JSON with: { "name": "...", "tagline": "...", "description": "...", "pros": ["..."], "cons": ["..."] }'
+      default:
+        return 'You are a content writer. Write clear, informative content.'
+    }
+  }
+
+  /**
+   * Get prompt for generating section content
+   */
+  private getSectionPrompt(surfaceType: string, sectionTitle: string, allSections: string, query: string, title: string): string {
+    switch (surfaceType) {
+      case 'wiki':
+        return `Write detailed content for the section "${sectionTitle}" of an article about "${title}".
+
+FULL ARTICLE STRUCTURE:
+${allSections}
+
+Write 2-3 paragraphs in Markdown format for ONLY the section "${sectionTitle}". 
+Other sections cover their own topics - focus on this section's scope only.
+Do NOT include the section heading, just the content.`
+
+      case 'quiz':
+        return `Create a challenging multiple-choice question about "${sectionTitle}" for a quiz on "${title}".
+
+QUIZ STRUCTURE:
+${allSections}
+
+Return JSON with: { "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "..." }
+Make sure the question tests understanding, not just memorization.`
+
+      case 'flashcard':
+        return `Create a flashcard for the concept: "${sectionTitle}" (topic: ${title}).
+
+Return JSON with: { "front": "...", "back": "...", "hint": "..." }
+The front should be a clear question or prompt. The back should be a concise, memorable answer.`
+
+      case 'timeline':
+        return `Provide details for the event: "${sectionTitle}" in the timeline of "${title}".
+
+Return JSON with: { "date": "...", "title": "...", "description": "...", "significance": "..." }
+Be historically accurate and explain the event's importance.`
+
+      case 'comparison':
+        return `Provide a detailed analysis of "${sectionTitle}" for comparison with other items about "${title}".
+
+Return JSON with: { "name": "...", "tagline": "...", "description": "...", "pros": ["..."], "cons": ["..."] }
+Be objective and balanced in your analysis.`
+
+      default:
+        return `Write content about "${sectionTitle}" for "${title}".`
+    }
   }
 
   /**

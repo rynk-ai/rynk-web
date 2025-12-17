@@ -28,6 +28,12 @@ export interface Job {
   }
   // Skeleton state for fast initial display
   skeletonState?: any
+  // Progressive section generation - sections ready so far
+  readySections?: Array<{
+    sectionId: string
+    content: string
+    order: number
+  }>
 }
 
 /**
@@ -85,6 +91,14 @@ export interface JobStatusResponse {
   createdAt: number
   completedAt?: number
   skeletonState?: any  // Early skeleton for fast display
+  // Progressive section generation
+  readySections?: Array<{
+    sectionId: string
+    content: string
+    order: number
+  }>
+  totalSections?: number
+  completedSections?: number
 }
 
 /**

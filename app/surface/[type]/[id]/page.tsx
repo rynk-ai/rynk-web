@@ -254,10 +254,14 @@ export default function SurfacePage() {
         if (data.async && data.jobId) {
           console.log('[SurfacePage] Async job started:', data.jobId);
           
+          // Clear URL param IMMEDIATELY to prevent re-generation on refresh
+          router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
+          
           // Poll for completion
           let attempts = 0;
           const maxAttempts = 90; // ~2.25 minutes
           let skeletonDisplayed = false;
+          let lastSectionCount = 0;  // Track section updates for progressive display
           
           while (attempts < maxAttempts) {
             await new Promise(r => setTimeout(r, 1500));
@@ -271,9 +275,12 @@ export default function SurfacePage() {
                 error?: string;
                 progress?: { current: number; total: number; message: string; step?: string };
                 skeletonState?: SurfaceState;
+                readySections?: Array<{ sectionId: string; content: string; order: number }>;
+                totalSections?: number;
+                completedSections?: number;
               };
               
-              console.log(`[SurfacePage] Poll ${attempts}: status=${jobData.status}`, jobData.progress);
+              console.log(`[SurfacePage] Poll ${attempts}: status=${jobData.status}, sections=${jobData.completedSections}/${jobData.totalSections}`, jobData.progress);
               
               // Update progress UI
               if (jobData.progress) {
@@ -289,11 +296,39 @@ export default function SurfacePage() {
                 // Continue polling for full content - don't return
               }
               
+              // Handle progressive section updates
+              if (jobData.readySections && jobData.readySections.length > lastSectionCount) {
+                const newSections = jobData.readySections.slice(lastSectionCount);
+                console.log(`[SurfacePage] ${newSections.length} new sections ready, updating state`);
+                
+                // Update surface state with new section content
+                setSurfaceState(prevState => {
+                  if (!prevState) return prevState;
+                  
+                  const newState = { ...prevState };
+                  
+                  // Apply ready sections based on surface type
+                  for (const readySection of newSections) {
+                    if (newState.metadata && 'sections' in newState.metadata) {
+                      // Wiki surface
+                      const sections = (newState.metadata as any).sections;
+                      if (sections && sections[readySection.order]) {
+                        sections[readySection.order].content = readySection.content;
+                      }
+                    }
+                    // For quiz, flashcard, timeline, comparison - the final result will have parsed content
+                    // We can show progress but won't parse here (full content comes on complete)
+                  }
+                  
+                  return { ...newState, updatedAt: Date.now() };
+                });
+                
+                lastSectionCount = jobData.readySections.length;
+              }
+              
               if (jobData.status === 'complete' && jobData.result?.surfaceState) {
                 setSurfaceState(jobData.result.surfaceState);
                 await saveState(jobData.result.surfaceState);
-                // Clear URL param to prevent re-generation on refresh
-                router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
                 return;
               }
               
@@ -313,8 +348,6 @@ export default function SurfacePage() {
         if (data.surfaceState) {
           setSurfaceState(data.surfaceState);
           await saveState(data.surfaceState);
-          // Clear URL param to prevent re-generation on refresh
-          router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
         }
       } catch (err) {
         console.error('[SurfacePage] Error:', err);

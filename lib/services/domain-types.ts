@@ -728,6 +728,19 @@ export interface SurfaceState {
     title: string
     sourceUrl?: string
   }>
+  // Progressive section generation tracking
+  sectionProgress?: {
+    totalSections: number
+    completedSections: number
+    readySections: Array<{
+      sectionId: string
+      content: string
+      order: number
+    }>
+    isStreaming: boolean  // True while sections are being generated
+  }
+  // Flag indicating this is a skeleton (incomplete content)
+  isSkeleton?: boolean
 }
 
 /**
