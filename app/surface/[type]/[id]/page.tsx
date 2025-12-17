@@ -290,6 +290,7 @@ export default function SurfacePage() {
           let attempts = 0;
           const maxAttempts = 90; // ~2.25 minutes
           let skeletonDisplayed = false;
+          let lastSkeletonUpdate = 0;
           let lastSectionCount = 0;  // Track section updates for progressive display
           
           while (attempts < maxAttempts) {
@@ -317,17 +318,31 @@ export default function SurfacePage() {
               }
               
               // Handle skeleton_ready - display skeleton early for fast feedback
-              if (jobData.status === 'skeleton_ready' && jobData.skeletonState && !skeletonDisplayed) {
-                console.log('[SurfacePage] Skeleton ready, displaying early feedback');
-                // Store skeleton state to preserve type narrowing in callback
+              // Handle skeleton_ready - display skeleton early for fast feedback
+              // Check if we have a skeleton and if it's newer than what we've seen
+              if (jobData.skeletonState && jobData.skeletonState.updatedAt > lastSkeletonUpdate) {
+                console.log('[SurfacePage] Skeleton update received (newer timestamp)');
+                
                 const skeleton = jobData.skeletonState;
-                // Use flushSync to batch state updates atomically - prevents flash between states
+                lastSkeletonUpdate = skeleton.updatedAt;
+                
+                // Use flushSync to batch state updates atomically
                 flushSync(() => {
-                  setSurfaceState(skeleton);
-                  setIsLoading(false);  // Hide loading spinner, show skeleton
+                  setSurfaceState(prev => {
+                    // Start with new skeleton
+                    const newState = skeleton;
+                    
+                    // If we previously had content generated (e.g. from progressive section updates),
+                    // we should try to preserve it if the IDs match, essentially merging the new skeleton
+                    // with any completed work.
+                    // However, normally fullSkeleton comes before sections, so direct replacement is usually safe.
+                    // But if sections started arriving for the OLD skeleton, we might want to be careful.
+                    // For now, simpler is better: The new skeleton is the "truth".
+                    return newState;
+                  });
+                  setIsLoading(false);
                 });
                 skeletonDisplayed = true;
-                // Continue polling for full content - don't return
               }
               
               // Handle progressive section updates for ALL surface types
@@ -948,10 +963,6 @@ export default function SurfacePage() {
 
       {/* Content */}
       <main className="container max-w-6xl mx-auto px-4 md:px-6 py-8">
-        {(() => {
-           console.log('[SurfacePage] Rendering content for:', { surfaceType, isValid: validSurfaceTypes.includes(surfaceType) });
-           return null;
-        })()}
         {surfaceType === 'learning' ? (
           <LearningSurface
             metadata={surfaceState.metadata as LearningMetadata}
@@ -1020,7 +1031,7 @@ export default function SurfacePage() {
             <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
               <Cloud className="h-8 w-8 text-muted-foreground/50" />
             </div>
-            <h3 className="text-lg font-medium text-foreground">Surface Not Found: "{surfaceType}"</h3>
+            <h3 className="text-lg font-medium text-foreground">Surface Not Found</h3>
             <p className="text-muted-foreground mt-2 max-w-xs">
               This surface type doesn't exist or hasn't been implemented yet.
             </p>

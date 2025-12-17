@@ -606,32 +606,49 @@ class TaskProcessor implements DurableObject {
     const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
     if (!apiKey) throw new Error('No AI API key configured')
 
-    onProgress({ current: 1, total: 6, message: 'Analyzing research angles...', step: 'verticals' })
+    onProgress({ current: 1, total: 7, message: 'Analyzing research angles...', step: 'verticals' })
 
     // Step 1: Generate research verticals
     const verticals = await this.generateResearchVerticals(query, apiKey)
     console.log(`[TaskProcessor] Research: ${verticals.length} verticals generated`)
 
-    onProgress({ current: 2, total: 6, message: 'Searching sources...', step: 'searching' })
+    onProgress({ current: 2, total: 7, message: 'Drafting outline...', step: 'outline' })
 
-    // Step 2: Search web for each vertical (parallel)
+    // Step 2: Generate INITIAL skeleton (Outline only - Fast feedback)
+    // We pass an empty Map for sources to indicate "outline mode"
+    const initialSkeleton = await this.generateResearchSkeletonState(query, verticals, new Map(), apiKey)
+    
+    if (initialSkeleton) {
+      this.updateSkeleton(jobId, initialSkeleton)
+      console.log(`[TaskProcessor] Research initial outline ready for job ${jobId}`)
+    }
+
+    onProgress({ current: 3, total: 7, message: 'Searching sources...', step: 'searching' })
+
+    // Step 3: Search web for each vertical (parallel)
     const sourcesByVertical = await this.searchResearchVerticals(verticals)
     console.log(`[TaskProcessor] Research: Sources gathered for ${sourcesByVertical.size} verticals`)
 
-    onProgress({ current: 3, total: 6, message: 'Creating document structure...', step: 'skeleton' })
+    onProgress({ current: 4, total: 7, message: 'Synthesizing knowledge...', step: 'synthesis' })
 
-    // Step 3: Generate research skeleton
-    const skeleton = await this.generateResearchSkeletonState(query, verticals, sourcesByVertical, apiKey)
+    // Step 4: Generate FULL skeleton (Enriched with citations/findings)
+    // We re-run the skeleton generation but this time with sources
+    const fullSkeleton = await this.generateResearchSkeletonState(query, verticals, sourcesByVertical, apiKey)
     
-    if (skeleton) {
-      this.updateSkeleton(jobId, skeleton)
-      console.log(`[TaskProcessor] Research skeleton ready for job ${jobId}`)
+    // Merge full skeleton with initial structure (preserving IDs if possible, but for now full overwrite is safer for consistency)
+    // We update the job again - the client must handle receiving a second skeleton update
+    if (fullSkeleton) {
+      this.updateSkeleton(jobId, fullSkeleton)
+      console.log(`[TaskProcessor] Research full skeleton ready for job ${jobId}`)
     }
+    
+    // Use the best available skeleton for section generation
+    const workingSkeleton = fullSkeleton || initialSkeleton
 
-    onProgress({ current: 4, total: 6, message: 'Generating sections...', step: 'sections' })
+    onProgress({ current: 5, total: 7, message: 'Generating sections...', step: 'sections' })
 
-    // Step 4: Generate sections in parallel
-    const sections = skeleton?.metadata?.sections || []
+    // Step 5: Generate sections in parallel
+    const sections = workingSkeleton?.metadata?.sections || []
     const completedSections: any[] = []
     
     // Process sections in batches of 4
@@ -643,7 +660,7 @@ class TaskProcessor implements DurableObject {
         batch.map(async (section: any, batchIdx: number) => {
           const sectionIdx = i + batchIdx
           const sources = sourcesByVertical.get(section.verticalId) || []
-          const content = await this.generateResearchSectionContent(section, sources, skeleton, apiKey)
+          const content = await this.generateResearchSectionContent(section, sources, workingSkeleton, apiKey)
           
           // Update ready sections for progressive display
           this.addReadySection(jobId, section.id, content, sectionIdx)
@@ -660,24 +677,24 @@ class TaskProcessor implements DurableObject {
       completedSections.push(...batchResults)
     }
 
-    onProgress({ current: 5, total: 6, message: 'Finalizing...', step: 'synthesis' })
+    onProgress({ current: 6, total: 7, message: 'Finalizing...', step: 'finalizing' })
 
-    // Step 5: Build final surface state
+    // Step 6: Build final surface state
     const totalWordCount = completedSections.reduce((acc, s) => acc + (s.wordCount || 0), 0)
     const estimatedReadTime = Math.ceil(totalWordCount / 200)
 
     const surfaceState = {
-      ...skeleton,
+      ...workingSkeleton,
       isSkeleton: false,
       metadata: {
-        ...skeleton?.metadata,
+        ...workingSkeleton?.metadata,
         sections: completedSections,
         totalWordCount,
         estimatedReadTime
       }
     }
 
-    onProgress({ current: 6, total: 6, message: 'Complete!', step: 'complete' })
+    onProgress({ current: 7, total: 7, message: 'Complete!', step: 'complete' })
 
     return {
       surfaceState,
@@ -820,38 +837,50 @@ class TaskProcessor implements DurableObject {
     sourcesByVertical: Map<string, any[]>,
     apiKey: string
   ): Promise<any> {
-    // Build source context
+    const isOutlineMode = sourcesByVertical.size === 0
+    
+    // Build source context (if available)
     let sourceContext = ''
     const allCitations: any[] = []
     let citationIndex = 1
 
-    for (const [verticalId, sources] of sourcesByVertical) {
-      const vertical = verticals.find(v => v.id === verticalId)
-      if (!vertical) continue
-      
-      sourceContext += `\n--- ${vertical.name} ---\n`
-      
-      for (const source of sources) {
-        if (source.source === 'perplexity' && typeof source.data === 'string') {
-          sourceContext += source.data.substring(0, 800) + '\n'
-        }
+    if (!isOutlineMode) {
+      for (const [verticalId, sources] of sourcesByVertical) {
+        const vertical = verticals.find(v => v.id === verticalId)
+        if (!vertical) continue
         
-        if (source.citations) {
-          for (const c of source.citations.slice(0, 3)) {
-            allCitations.push({
-              id: `${citationIndex}`,
-              url: c.url,
-              title: c.title,
-              snippet: c.snippet || '',
-              sourceType: 'web'
-            })
-            citationIndex++
+        sourceContext += `\n--- ${vertical.name} ---\n`
+        
+        for (const source of sources) {
+          if (source.source === 'perplexity' && typeof source.data === 'string') {
+            sourceContext += source.data.substring(0, 800) + '\n'
+          }
+          
+          if (source.citations) {
+            for (const c of source.citations.slice(0, 3)) {
+              allCitations.push({
+                id: `${citationIndex}`,
+                url: c.url,
+                title: c.title,
+                snippet: c.snippet || '',
+                sourceType: 'web'
+              })
+              citationIndex++
+            }
           }
         }
       }
     }
 
-    const prompt = `Create a research document skeleton.\n\nRESEARCH QUERY: "${query}"\n\nVERTICALS EXPLORED:\n${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}\n\nSOURCE SUMMARY:\n${sourceContext.substring(0, 3000)}\n\nReturn JSON:\n{"title":"Research title","abstract":"200-300 word summary","keyFindings":["Finding 1","Finding 2"],"methodology":"How research was conducted","limitations":["Limit 1"],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1","contentOutline":"What to cover"}]}\n\n6-12 sections, logical flow. Return ONLY valid JSON.`
+    let prompt = ''
+    
+    if (isOutlineMode) {
+      // Fast prompt for initial structure (no sources yet)
+      prompt = `Create a research document outline.\n\nRESEARCH QUERY: "${query}"\n\nVERTICALS:\n${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}\n\nReturn JSON:\n{"title":"Research title","abstract":"Brief intention of research...","keyFindings":[],"methodology":"Multi-source search","limitations":[],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1"}]}\n\n6-8 logical sections. Return ONLY valid JSON.`
+    } else {
+      // Full prompt with source context
+      prompt = `Create a research document skeleton.\n\nRESEARCH QUERY: "${query}"\n\nVERTICALS EXPLORED:\n${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}\n\nSOURCE SUMMARY:\n${sourceContext.substring(0, 3000)}\n\nReturn JSON:\n{"title":"Research title","abstract":"200-300 word summary","keyFindings":["Finding 1","Finding 2"],"methodology":"How research was conducted","limitations":["Limit 1"],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1","contentOutline":"What to cover"}]}\n\n6-12 sections, logical flow. Return ONLY valid JSON.`
+    }
 
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -892,7 +921,7 @@ class TaskProcessor implements DurableObject {
           type: 'research',
           title: result.title || `Research: ${query}`,
           query,
-          abstract: result.abstract || '',
+          abstract: result.abstract || (isOutlineMode ? 'Generating abstract based on source material...' : ''),
           keyFindings: result.keyFindings || [],
           methodology: result.methodology || 'Multi-source web research with AI synthesis',
           limitations: result.limitations || [],
