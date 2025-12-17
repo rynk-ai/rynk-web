@@ -431,6 +431,11 @@ class TaskProcessor implements DurableObject {
     if (useProgressiveGeneration && skeleton) {
       // PROGRESSIVE: Generate sections in parallel with skeleton context
       surfaceState = await this.generateSectionsParallel(skeleton, query, surfaceType, jobId, onProgress)
+      
+      // Add web context citations to surfaceState for wiki surface
+      if (surfaceType === 'wiki' && webContext?.citations?.length > 0) {
+        surfaceState.citations = webContext.citations
+      }
     } else {
       // FALLBACK: Generate full surface structure (main LLM call)
       surfaceState = await this.generateSurfaceStructure(
@@ -1156,7 +1161,9 @@ Requirements: 6-8 main sections with Wikipedia-style headings.`
               citations: data.results?.map((r: any) => ({
                 url: r.url,
                 title: r.title,
-                snippet: r.highlights?.[0] || r.text?.substring(0, 200)
+                snippet: r.highlights?.[0] || r.text?.substring(0, 200),
+                image: r.image,  // Exa may return thumbnail images
+                favicon: r.url ? `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=32` : undefined
               })) || []
             })
           }

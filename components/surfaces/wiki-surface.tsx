@@ -12,6 +12,7 @@
 "use client";
 
 import { memo, useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { 
   BookOpen, 
   ChevronRight, 
@@ -24,18 +25,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { WikiSectionSkeleton } from "@/components/surfaces/surface-skeletons";
+import { SourcesFooter } from "@/components/chat/sources-footer";
+import { SourceImages, type SourceImage } from "@/components/chat/source-images";
 import { cn } from "@/lib/utils";
 import type { WikiMetadata, SurfaceState } from "@/lib/services/domain-types";
+import type { Citation } from "@/lib/types/citation";
 
 interface WikiSurfaceProps {
   metadata: WikiMetadata;
   surfaceState?: SurfaceState;
+  conversationId?: string;  // For navigation on related topics
 }
 
 export const WikiSurface = memo(function WikiSurface({
   metadata,
   surfaceState,
+  conversationId,
 }: WikiSurfaceProps) {
+  const router = useRouter();
+  
   // Defensive destructuring with defaults for progressive loading
   const title = metadata?.title || 'Loading...';
   const summary = metadata?.summary || '';
@@ -45,6 +53,26 @@ export const WikiSurface = memo(function WikiSurface({
   const references = metadata?.references || [];
   const categories = metadata?.categories || [];
   const availableImages = surfaceState?.availableImages || [];
+  
+  // Convert raw citations from surfaceState to Citation format for SourcesFooter
+  const citations: Citation[] = (surfaceState?.citations || []).map((c, i) => ({
+    id: i + 1,
+    url: c.url,
+    title: c.title || 'Source',
+    snippet: c.snippet || '',
+    source: (c.source || 'exa') as 'exa' | 'perplexity' | 'wikipedia',
+    favicon: c.favicon,
+    image: c.image
+  }));
+  
+  // Extract images from citations for hero display
+  const citationImages: SourceImage[] = citations
+    .filter(c => c.image)
+    .map(c => ({
+      url: c.image!,
+      sourceUrl: c.url,
+      sourceTitle: c.title
+    }));
   
   const [activeSection, setActiveSection] = useState<string | null>(sections[0]?.id || null);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -75,8 +103,14 @@ export const WikiSurface = memo(function WikiSurface({
 
   return (
     <div className="max-w-6xl mx-auto pb-16">
-      {/* Hero Images */}
-      {availableImages.length > 0 && (
+      {/* Hero Images - from citations or availableImages */}
+      {citationImages.length > 0 ? (
+        <SourceImages 
+          images={citationImages} 
+          maxImages={4}
+          className="mb-6"
+        />
+      ) : availableImages.length > 0 && (
         <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
           {availableImages.slice(0, 4).map((img, idx) => (
             <a
@@ -264,7 +298,7 @@ export const WikiSurface = memo(function WikiSurface({
             })}
           </article>
 
-          {/* Related Topics */}
+          {/* Related Topics - Clickable to generate new wiki */}
           {relatedTopics.length > 0 && (
             <div className="mt-12 pt-8 border-t border-border/30">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -275,6 +309,11 @@ export const WikiSurface = memo(function WikiSurface({
                 {relatedTopics.map((topic, idx) => (
                   <button
                     key={idx}
+                    onClick={() => {
+                      // Navigate to new wiki with topic as query
+                      const newId = crypto.randomUUID();
+                      router.push(`/surface/wiki/${newId}?q=${encodeURIComponent(topic)}`);
+                    }}
                     className="px-4 py-2 text-sm font-medium bg-secondary hover:bg-secondary/80 rounded-full transition-colors flex items-center gap-1.5 group"
                   >
                     {topic}
@@ -285,8 +324,10 @@ export const WikiSurface = memo(function WikiSurface({
             </div>
           )}
 
-          {/* References */}
-          {references.length > 0 && (
+          {/* Sources - Use SourcesFooter if citations available, fallback to simple references */}
+          {citations.length > 0 ? (
+            <SourcesFooter citations={citations} variant="compact" />
+          ) : references.length > 0 && (
             <div className="mt-12 pt-8 border-t border-border/30">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />

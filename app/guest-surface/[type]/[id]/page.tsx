@@ -298,6 +298,7 @@ export default function GuestSurfacePage() {
         {surfaceType === 'wiki' && (
           <WikiSurface
             metadata={surfaceState.metadata as WikiMetadata}
+            surfaceState={surfaceState}
           />
         )}
 

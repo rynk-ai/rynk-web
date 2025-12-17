@@ -939,6 +939,8 @@ export default function SurfacePage() {
         ) : surfaceType === 'wiki' && surfaceState.metadata?.type === 'wiki' ? (
           <WikiSurface
             metadata={surfaceState.metadata as WikiMetadata}
+            surfaceState={surfaceState}
+            conversationId={conversationId}
           />
         ) : surfaceType === 'finance' && surfaceState.metadata?.type === 'finance' ? (
           <FinanceSurface

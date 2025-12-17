@@ -739,6 +739,15 @@ export interface SurfaceState {
     }>
     isStreaming: boolean  // True while sections are being generated
   }
+  // Web source citations (from Exa, Perplexity, etc.)
+  citations?: Array<{
+    url: string
+    title: string
+    snippet?: string
+    image?: string
+    favicon?: string
+    source?: 'exa' | 'perplexity' | 'wikipedia'
+  }>
   // Flag indicating this is a skeleton (incomplete content)
   isSkeleton?: boolean
 }
