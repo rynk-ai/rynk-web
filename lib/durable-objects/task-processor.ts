@@ -967,11 +967,48 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
           // Update ready sections for progressive display
           this.addReadySection(jobId, section.id, content, sectionIdx)
           
+          // Extract per-section citations and images from vertical sources
+          const sectionCitations: any[] = []
+          const sectionImages: any[] = []
+          
+          for (const src of sources) {
+            // Extract Exa citations and images
+            if (src.source === 'exa' && Array.isArray(src.data)) {
+              for (const item of src.data) {
+                if (item.url && item.title) {
+                  sectionCitations.push({
+                    url: item.url,
+                    title: item.title,
+                    snippet: item.highlights?.[0] || item.text?.substring(0, 200)
+                  })
+                }
+                if (item.image) {
+                  sectionImages.push({
+                    url: item.image,
+                    sourceUrl: item.url,
+                    sourceTitle: item.title
+                  })
+                }
+              }
+            }
+            // Extract Perplexity citations
+            if (src.source === 'perplexity' && src.citations) {
+              for (const c of src.citations) {
+                sectionCitations.push({
+                  url: c.url,
+                  title: c.title || 'Source'
+                })
+              }
+            }
+          }
+          
           return {
             ...section,
             content,
             wordCount: content.split(/\s+/).filter(Boolean).length,
-            status: 'completed'
+            status: 'completed',
+            sectionCitations: sectionCitations.slice(0, 6), // Limit to 6 per section
+            sectionImages: sectionImages.slice(0, 2)        // Limit to 2 per section
           }
         })
       )
@@ -1141,25 +1178,42 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
   ): Promise<any> {
     const isOutlineMode = sourcesByVertical.size === 0
     
-    // Build source context (if available)
+    // Build source context (if available) - include BOTH Exa and Perplexity
     let sourceContext = ''
     const allCitations: any[] = []
     let citationIndex = 1
+    const heroImages: any[] = []
 
     if (!isOutlineMode) {
       for (const [verticalId, sources] of sourcesByVertical) {
         const vertical = verticals.find(v => v.id === verticalId)
         if (!vertical) continue
         
-        sourceContext += `\n--- ${vertical.name} ---\n`
+        sourceContext += `\n### ${vertical.name} ###\n`
         
         for (const source of sources) {
-          if (source.source === 'perplexity' && typeof source.data === 'string') {
-            sourceContext += source.data.substring(0, 800) + '\n'
+          // Include Exa content (snippets/highlights)
+          if (source.source === 'exa' && Array.isArray(source.data)) {
+            for (const item of source.data.slice(0, 3)) {
+              const snippet = item.highlights?.[0] || item.text?.substring(0, 300)
+              if (snippet) {
+                sourceContext += `- ${item.title}: ${snippet}\n`
+              }
+              // Collect images for hero display
+              if (item.image) {
+                heroImages.push({ url: item.image, title: item.title, sourceUrl: item.url })
+              }
+            }
           }
           
+          // Include Perplexity synthesized content
+          if (source.source === 'perplexity' && typeof source.data === 'string') {
+            sourceContext += source.data.substring(0, 600) + '\n'
+          }
+          
+          // Collect citations
           if (source.citations) {
-            for (const c of source.citations.slice(0, 3)) {
+            for (const c of source.citations.slice(0, 4)) {
               allCitations.push({
                 id: `${citationIndex}`,
                 url: c.url,
@@ -1178,10 +1232,51 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
     
     if (isOutlineMode) {
       // Fast prompt for initial structure (no sources yet)
-      prompt = `Create a research document outline.\n\nRESEARCH QUERY: "${query}"\n\nVERTICALS:\n${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}\n\nReturn JSON:\n{"title":"Research title","abstract":"Brief intention of research...","keyFindings":[],"methodology":"Multi-source search","limitations":[],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1"}]}\n\n6-8 logical sections. Return ONLY valid JSON.`
+      prompt = `Create a research document outline.
+
+RESEARCH QUERY: "${query}"
+
+RESEARCH VERTICALS:
+${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}
+
+Return JSON:
+{"title":"Research title","abstract":"Brief intention...","keyFindings":[],"methodology":"Multi-source research","limitations":[],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1"}]}
+
+Create 6-8 logical sections. Return ONLY valid JSON.`
     } else {
-      // Full prompt with source context
-      prompt = `Create a research document skeleton.\n\nRESEARCH QUERY: "${query}"\n\nVERTICALS EXPLORED:\n${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}\n\nSOURCE SUMMARY:\n${sourceContext.substring(0, 3000)}\n\nReturn JSON:\n{"title":"Research title","abstract":"200-300 word summary","keyFindings":["Finding 1","Finding 2"],"methodology":"How research was conducted","limitations":["Limit 1"],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1","contentOutline":"What to cover"}]}\n\n6-12 sections, logical flow. Return ONLY valid JSON.`
+      // Full prompt with source context - enhanced quality
+      prompt = `Create a comprehensive research document skeleton based on gathered sources.
+
+RESEARCH QUERY: "${query}"
+
+RESEARCH VERTICALS:
+${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}
+
+WEB RESEARCH FINDINGS (use this to inform your outline):
+${sourceContext.substring(0, 4000)}
+
+AVAILABLE CITATIONS: ${allCitations.length} sources found
+
+INSTRUCTIONS:
+1. Synthesize findings from the web research above
+2. Create a title that accurately reflects the research topic
+3. Write a 200-300 word abstract summarizing key insights from the sources
+4. Extract 5-7 key findings DIRECTLY from the source material
+5. Create 6-12 sections covering different aspects found in the research
+6. Each section should have a contentOutline describing what to cover based on sources
+
+Return JSON:
+{
+  "title": "Comprehensive research title",
+  "abstract": "200-300 word summary synthesizing source findings...",
+  "keyFindings": ["Key finding 1 from sources", "Key finding 2"],
+  "methodology": "Searched multiple web sources including news, academic, and authoritative sites",
+  "limitations": ["What the sources didn't cover"],
+  "sections": [{"id":"s1","heading":"Section title","verticalId":"v1","contentOutline":"Topics to cover based on sources"}]
+}
+
+CRITICAL: Base all keyFindings and abstract on the actual web research above. Do not invent facts.
+Return ONLY valid JSON.`
     }
 
     try {

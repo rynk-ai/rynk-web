@@ -607,6 +607,9 @@ export interface ResearchSection {
   wordCount: number
   citations: string[]             // [1], [2] refs in this section
   status: 'pending' | 'generating' | 'completed'
+  // Per-section sources from vertical web search
+  sectionCitations?: Array<{ url: string; title: string; snippet?: string }>
+  sectionImages?: Array<{ url: string; sourceUrl: string; sourceTitle: string }>
 }
 
 /**
