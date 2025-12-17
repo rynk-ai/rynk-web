@@ -244,6 +244,8 @@ export const WikiSurface = memo(function WikiSurface({
             {sections.map((section, idx) => {
               // Check if section content is still loading (skeleton content)
               const isLoading = !section.content || section.content === 'Loading...' || section.content.startsWith('Loading:');
+              const sectionCitations = section.citations || [];
+              const sectionImages = section.images || [];
               
               return (
                 <section 
@@ -264,9 +266,66 @@ export const WikiSurface = memo(function WikiSurface({
                   ) : (
                     // Animate content in when it loads
                     <div className="text-foreground/90 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                      <Markdown className="!bg-transparent !p-0">
+                      {/* Section Image - Wikipedia style float right */}
+                      {sectionImages.length > 0 && (
+                        <figure className="float-right ml-4 mb-4 mt-0 w-40 md:w-56 not-prose">
+                          <a 
+                            href={sectionImages[0].sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <img 
+                              src={sectionImages[0].url}
+                              alt={section.heading}
+                              className="rounded-lg shadow-md w-full object-cover aspect-[4/3]"
+                              loading="lazy"
+                            />
+                          </a>
+                          <figcaption className="text-xs text-muted-foreground mt-1.5 text-center line-clamp-2">
+                            {sectionImages[0].sourceTitle}
+                          </figcaption>
+                        </figure>
+                      )}
+                      
+                      <Markdown 
+                        className="!bg-transparent !p-0"
+                        citations={sectionCitations.map((c: any, i: number) => ({
+                          id: i + 1,
+                          url: c.url,
+                          title: c.title || 'Source',
+                          snippet: c.snippet || '',
+                          source: 'exa' as const
+                        }))}
+                      >
                         {section.content}
                       </Markdown>
+                      
+                      {/* Section source pills */}
+                      {sectionCitations.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-4 not-prose clear-both">
+                          {sectionCitations.slice(0, 4).map((c: any, i: number) => {
+                            let domain = 'source';
+                            try { domain = new URL(c.url).hostname.replace('www.', ''); } catch {}
+                            return (
+                              <a 
+                                key={i}
+                                href={c.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full bg-secondary/60 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                              >
+                                <img 
+                                  src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`} 
+                                  className="h-3 w-3 rounded-sm" 
+                                  alt=""
+                                />
+                                <span className="truncate max-w-[100px]">{domain}</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 

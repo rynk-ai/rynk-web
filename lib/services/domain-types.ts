@@ -463,6 +463,9 @@ export interface WikiMetadata {
       heading: string
       content: string 
     }[]
+    // Per-section sources from web search
+    citations?: Array<{ url: string; title: string; snippet?: string }>
+    images?: Array<{ url: string; sourceUrl: string; sourceTitle: string }>
   }[]
   relatedTopics: string[]
   references: { 

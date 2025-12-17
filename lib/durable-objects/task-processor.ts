@@ -389,10 +389,18 @@ class TaskProcessor implements DurableObject {
     const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'timeline', 'comparison']
     const useProgressiveGeneration = PROGRESSIVE_SURFACES.includes(surfaceType)
     
-    onProgress({ current: 1, total: 5, message: 'Generating outline...', step: 'skeleton' })
+    // WIKI: Fetch web context FIRST so skeleton can be informed by sources
+    let webContext: any = undefined
+    if (surfaceType === 'wiki') {
+      onProgress({ current: 1, total: 5, message: 'Researching topic...', step: 'research' })
+      webContext = await this.fetchWebContext(query, { suggestedQueries: [query] })
+      console.log(`[TaskProcessor] Wiki web context fetched: ${webContext?.keyFacts?.length || 0} facts, ${webContext?.citations?.length || 0} citations`)
+    }
     
-    // Step 1: Generate skeleton quickly (minimal prompt, same model)
-    const skeleton = await this.generateSkeleton(query, surfaceType)
+    onProgress({ current: 2, total: 5, message: 'Generating outline...', step: 'skeleton' })
+    
+    // Step 1: Generate skeleton (with web context for wiki)
+    const skeleton = await this.generateSkeleton(query, surfaceType, webContext)
     
     if (skeleton) {
       // Update job with skeleton state immediately - this allows the client to display something fast
@@ -415,16 +423,14 @@ class TaskProcessor implements DurableObject {
       }
     }
     
-    onProgress({ current: 2, total: 5, message: 'Analyzing topic...', step: 'analysis' })
+    onProgress({ current: 3, total: 5, message: 'Analyzing topic...', step: 'analysis' })
     
-    // Step 2: Analyze the query (fast Groq call)
+    // Step 2: Analyze the query (fast Groq call) - for non-wiki surfaces
     const analysis = await this.analyzeSurfaceQuery(query, surfaceType)
     
-    onProgress({ current: 3, total: 5, message: 'Researching information...', step: 'research' })
-    
-    // Step 3: Fetch web context if needed (for wiki and guide)
-    let webContext: any = undefined
-    if (analysis.needsWebSearch && surfaceType === 'wiki') {
+    // For non-wiki surfaces that need web search
+    if (analysis.needsWebSearch && !webContext) {
+      onProgress({ current: 4, total: 5, message: 'Researching...', step: 'research' })
       webContext = await this.fetchWebContext(query, analysis)
     }
     
@@ -435,7 +441,8 @@ class TaskProcessor implements DurableObject {
     
     if (useProgressiveGeneration && skeleton) {
       // PROGRESSIVE: Generate sections in parallel with skeleton context
-      surfaceState = await this.generateSectionsParallel(skeleton, query, surfaceType, jobId, onProgress)
+      // Pass webContext for wiki surface to include web research in section generation
+      surfaceState = await this.generateSectionsParallel(skeleton, query, surfaceType, jobId, onProgress, webContext)
       
       // Add web context citations to surfaceState for wiki surface
       if (surfaceType === 'wiki' && webContext?.citations?.length > 0) {
@@ -469,8 +476,14 @@ class TaskProcessor implements DurableObject {
     query: string,
     surfaceType: string,
     jobId: string,
-    onProgress: (progress: Job['progress']) => void
+    onProgress: (progress: Job['progress']) => void,
+    webContext?: any
   ): Promise<any> {
+    // WIKI: Use section-specific searches for better source quality
+    if (surfaceType === 'wiki') {
+      return this.generateWikiSectionsWithSearch(skeleton, query, jobId, onProgress)
+    }
+    
     // Get sections from skeleton based on surface type
     const sections = skeleton.metadata?.sections 
       || skeleton.metadata?.questions 
@@ -485,7 +498,7 @@ class TaskProcessor implements DurableObject {
     // Fire all section generations in parallel
     const sectionPromises = sections.map(async (section: any, index: number) => {
       try {
-        const content = await this.generateSectionContent(surfaceType, section, skeleton, query)
+        const content = await this.generateSectionContent(surfaceType, section, skeleton, query, webContext)
         
         // Update ready sections in storage (notifies polling clients)
         this.addReadySection(jobId, section.id, content, index)
@@ -511,16 +524,22 @@ class TaskProcessor implements DurableObject {
   private assembleFinalSurfaceState(skeleton: any, completedSections: any[], surfaceType: string): any {
     const finalState = { ...skeleton, isSkeleton: false }
     
-    // Create a map for quick lookup
+    // Create maps for quick lookup
     const contentMap = new Map(completedSections.map(s => [s.index, s.content]))
+    const sectionDataMap = new Map(completedSections.map(s => [s.id, { citations: s.citations, images: s.images }]))
     
     switch (surfaceType) {
       case 'wiki':
         if (finalState.metadata?.sections) {
-          finalState.metadata.sections = finalState.metadata.sections.map((section: any, i: number) => ({
-            ...section,
-            content: contentMap.get(i) || section.content || ''
-          }))
+          finalState.metadata.sections = finalState.metadata.sections.map((section: any, i: number) => {
+            const sectionData = sectionDataMap.get(section.id) as { citations?: any[], images?: any[] } | undefined
+            return {
+              ...section,
+              content: contentMap.get(i) || section.content || '',
+              citations: sectionData?.citations || [],
+              images: sectionData?.images || []
+            }
+          })
         }
         break
         
@@ -591,6 +610,289 @@ class TaskProcessor implements DurableObject {
     }
     
     return finalState
+  }
+
+  /**
+   * Generate wiki sections with section-specific web searches
+   * Each section gets its own targeted search for better source quality
+   */
+  private async generateWikiSectionsWithSearch(
+    skeleton: any,
+    query: string,
+    jobId: string,
+    onProgress: (progress: Job['progress']) => void
+  ): Promise<any> {
+    const sections = skeleton.metadata?.sections || []
+    const title = skeleton.metadata?.title || query
+    
+    console.log(`[TaskProcessor] Wiki: Starting section-specific search for ${sections.length} sections`)
+    
+    // Step 1: Generate search queries for each section
+    onProgress({ current: 4, total: 6, message: 'Generating search queries...', step: 'queries' })
+    const sectionQueries = await this.generateWikiSectionSearchQueries(title, query, sections)
+    console.log(`[TaskProcessor] Wiki: Generated ${sectionQueries.size} search queries`)
+    
+    // Step 2: Search for each section in parallel
+    onProgress({ current: 5, total: 6, message: 'Searching sources per section...', step: 'searching' })
+    const sourcesBySection = await this.searchWikiSections(sectionQueries)
+    console.log(`[TaskProcessor] Wiki: Searched ${sourcesBySection.size} sections`)
+    
+    // Step 3: Generate each section with its specific sources (parallel with batching)
+    onProgress({ current: 6, total: 6, message: 'Generating content...', step: 'content' })
+    const batchSize = 3
+    const completedSections: any[] = []
+    
+    for (let i = 0; i < sections.length; i += batchSize) {
+      const batch = sections.slice(i, i + batchSize)
+      
+      const batchResults = await Promise.all(
+        batch.map(async (section: any, batchIdx: number) => {
+          const sectionIdx = i + batchIdx
+          const sources = sourcesBySection.get(section.id) || { keyFacts: [], citations: [], images: [] }
+          const content = await this.generateWikiSectionWithSources(section, sources, skeleton, query)
+          
+          // Update ready sections for progressive display
+          this.addReadySection(jobId, section.id, content, sectionIdx)
+          
+          // Return content along with citations and images for this section
+          return { 
+            id: section.id, 
+            index: sectionIdx, 
+            content,
+            citations: sources.citations,
+            images: sources.images
+          }
+        })
+      )
+      
+      completedSections.push(...batchResults)
+    }
+    
+    return this.assembleFinalSurfaceState(skeleton, completedSections, 'wiki')
+  }
+
+  /**
+   * Generate targeted search queries for each wiki section
+   */
+  private async generateWikiSectionSearchQueries(
+    title: string,
+    originalQuery: string,
+    sections: any[]
+  ): Promise<Map<string, string>> {
+    const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
+    const queries = new Map<string, string>()
+    
+    if (!apiKey) {
+      // Fallback: use section heading + title as query
+      for (const section of sections) {
+        queries.set(section.id, `${section.heading} ${title}`)
+      }
+      return queries
+    }
+    
+    const prompt = `Generate specific web search queries for each section of a wiki article.
+
+ARTICLE TITLE: "${title}"
+ORIGINAL QUERY: "${originalQuery}"
+
+SECTIONS:
+${sections.map((s, i) => `${i + 1}. ${s.heading} (id: ${s.id})`).join('\n')}
+
+Return JSON with optimized search queries for finding factual, up-to-date information:
+{"queries": [{"sectionId": "section1", "searchQuery": "specific factual search query"}, ...]}
+
+Make each query:
+- Specific to that section's topic
+- Include the main subject (${title})
+- Optimized for finding verifiable facts, statistics, dates
+- News-focused if the topic is current events`
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: 'Generate precise web search queries. Return only valid JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.2,
+          max_tokens: 800
+        })
+      })
+
+      if (response.ok) {
+        const data: any = await response.json()
+        const result = JSON.parse(data.choices[0].message.content || '{}')
+        
+        for (const q of result.queries || []) {
+          if (q.sectionId && q.searchQuery) {
+            queries.set(q.sectionId, q.searchQuery)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[TaskProcessor] Wiki query generation failed:', error)
+    }
+    
+    // Fallback for any sections without queries
+    for (const section of sections) {
+      if (!queries.has(section.id)) {
+        queries.set(section.id, `${section.heading} ${title}`)
+      }
+    }
+    
+    return queries
+  }
+
+  /**
+   * Search Exa + Perplexity for each wiki section's query
+   */
+  private async searchWikiSections(queries: Map<string, string>): Promise<Map<string, { keyFacts: string[], citations: any[], images: any[] }>> {
+    const results = new Map<string, { keyFacts: string[], citations: any[], images: any[] }>()
+    const exaApiKey = this.env.EXA_API_KEY
+    const perplexityApiKey = this.env.PERPLEXITY_API_KEY
+    
+    // Process in batches of 3 to avoid rate limits
+    const entries = Array.from(queries.entries())
+    const batchSize = 3
+    
+    for (let i = 0; i < entries.length; i += batchSize) {
+      const batch = entries.slice(i, i + batchSize)
+      
+      await Promise.all(batch.map(async ([sectionId, searchQuery]) => {
+        const keyFacts: string[] = []
+        const citations: any[] = []
+        const images: any[] = []
+        
+        // Search Exa
+        if (exaApiKey) {
+          try {
+            const response = await fetch('https://api.exa.ai/search', {
+              method: 'POST',
+              headers: { 'x-api-key': exaApiKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query: searchQuery,
+                type: 'auto',
+                num_results: 4,
+                contents: { text: true, highlights: true },
+                use_autoprompt: true
+              })
+            })
+
+            if (response.ok) {
+              const data: any = await response.json()
+              for (const r of data.results || []) {
+                const snippet = r.highlights?.[0] || r.text?.substring(0, 300)
+                if (snippet) {
+                  keyFacts.push(`${r.title}: ${snippet}`)
+                  citations.push({ url: r.url, title: r.title, snippet })
+                }
+                // Extract image if available
+                if (r.image) {
+                  images.push({ url: r.image, sourceUrl: r.url, sourceTitle: r.title })
+                }
+              }
+            }
+          } catch (e) { console.error(`[TaskProcessor] Exa search failed for ${sectionId}:`, e) }
+        }
+
+        // Search Perplexity
+        if (perplexityApiKey) {
+          try {
+            const response = await fetch('https://api.perplexity.ai/chat/completions', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${perplexityApiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'sonar',
+                messages: [{ role: 'user', content: searchQuery }],
+                temperature: 0.3,
+                max_tokens: 600,
+                return_citations: true
+              })
+            })
+
+            if (response.ok) {
+              const data: any = await response.json()
+              const content = data.choices?.[0]?.message?.content
+              if (content) {
+                keyFacts.push(content)
+              }
+              for (const url of data.citations || []) {
+                citations.push({ url, title: 'Source' })
+              }
+            }
+          } catch (e) { console.error(`[TaskProcessor] Perplexity search failed for ${sectionId}:`, e) }
+        }
+
+        results.set(sectionId, { keyFacts, citations, images })
+      }))
+    }
+
+    return results
+  }
+
+  /**
+   * Generate wiki section content with its specific sources
+   */
+  private async generateWikiSectionWithSources(
+    section: any,
+    sources: { keyFacts: string[], citations: any[] },
+    skeleton: any,
+    query: string
+  ): Promise<string> {
+    const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
+    if (!apiKey) return 'Content generation unavailable.'
+    
+    const title = skeleton.metadata?.title || query
+    const sectionTitle = section.heading || section.title || 'Section'
+    
+    // Build source context from this section's specific sources
+    let sourceContext = ''
+    if (sources.keyFacts.length > 0) {
+      sourceContext = `\n\nSOURCE MATERIAL FOR THIS SECTION (you MUST use this):\n${sources.keyFacts.join('\n\n').substring(0, 3000)}`
+    }
+    if (sources.citations.length > 0) {
+      sourceContext += `\n\nCITATIONS (use [1], [2] etc):\n${sources.citations.slice(0, 6).map((c, i) => `[${i+1}] ${c.title}: ${c.snippet || c.url}`).join('\n')}`
+    }
+    
+    const prompt = `Write factual content for the section "${sectionTitle}" of a wiki article about "${title}".
+${sourceContext}
+
+CRITICAL INSTRUCTIONS:
+- ONLY include information from the source material above
+- If sources don't adequately cover this topic, state that limited verified information is available
+- Do NOT invent facts, statistics, dates, or names not in sources
+- Use inline citations [1], [2] when referencing source information
+- Write 2-3 paragraphs in Markdown format
+- Do NOT include the section heading
+
+${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this section. Provide a brief, general factual overview only, clearly stating that detailed verified information is not available.' : ''}`
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: 'You are a Wikipedia editor. Ground all claims in provided sources. Never invent facts. Use inline citations [1], [2] when citing sources.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 1500
+        })
+      })
+
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
+      const data: any = await response.json()
+      return data.choices?.[0]?.message?.content || 'Content generation failed.'
+    } catch (error) {
+      console.error(`[TaskProcessor] Wiki section ${section.id} generation failed:`, error)
+      return '*Content generation failed for this section.*'
+    }
   }
 
   /**
@@ -998,12 +1300,12 @@ class TaskProcessor implements DurableObject {
   /**
    * Generate skeleton using minimal prompt for fast response
    */
-  private async generateSkeleton(query: string, surfaceType: string): Promise<any | null> {
+  private async generateSkeleton(query: string, surfaceType: string, webContext?: any): Promise<any | null> {
     const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
     if (!apiKey) return null     
     
-    // Minimal prompt for skeleton generation
-    const skeletonPrompt = this.getSkeletonPrompt(surfaceType, query)
+    // Minimal prompt for skeleton generation (with webContext for wiki)
+    const skeletonPrompt = this.getSkeletonPrompt(surfaceType, query, webContext)
     
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1090,7 +1392,8 @@ class TaskProcessor implements DurableObject {
     surfaceType: string,
     section: { id: string; heading?: string; title?: string; question?: string; front?: string },
     skeleton: any,
-    query: string
+    query: string,
+    webContext?: any
   ): Promise<string> {
     const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
     if (!apiKey) return ''
@@ -1109,7 +1412,7 @@ class TaskProcessor implements DurableObject {
       `${i + 1}. ${s.heading || s.title || s.question || s.front || `Item ${i + 1}`}`
     ).join('\n')
     
-    const prompt = this.getSectionPrompt(surfaceType, sectionTitle, sectionList, query, skeleton.metadata?.title || query)
+    const prompt = this.getSectionPrompt(surfaceType, sectionTitle, sectionList, query, skeleton.metadata?.title || query, webContext)
     
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1149,7 +1452,7 @@ class TaskProcessor implements DurableObject {
   private getSectionSystemPrompt(surfaceType: string): string {
     switch (surfaceType) {
       case 'wiki':
-        return 'You are a Wikipedia-style content writer. Write informative, well-structured content in Markdown format. Be factual and comprehensive.'
+        return 'You are a Wikipedia editor. You MUST ground all claims in the provided source material. Never invent facts, statistics, dates, or names not in sources. If sources are insufficient, acknowledge limitations. Use inline citations [1], [2] when citing sources.'
       case 'quiz':
         return 'You are a quiz question writer. Return ONLY valid JSON with: { "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "..." }'
       case 'flashcard':
@@ -1166,17 +1469,32 @@ class TaskProcessor implements DurableObject {
   /**
    * Get prompt for generating section content
    */
-  private getSectionPrompt(surfaceType: string, sectionTitle: string, allSections: string, query: string, title: string): string {
+  private getSectionPrompt(surfaceType: string, sectionTitle: string, allSections: string, query: string, title: string, webContext?: any): string {
     switch (surfaceType) {
       case 'wiki':
-        return `Write detailed content for the section "${sectionTitle}" of an article about "${title}".
+        // Build web context for source-grounded sections
+        let webInfo = ''
+        if (webContext?.keyFacts?.length) {
+          webInfo = `\n\nSOURCE MATERIAL (YOU MUST USE THIS - do not invent information):\n${webContext.keyFacts.join('\n').substring(0, 2500)}`
+        }
+        if (webContext?.citations?.length) {
+          webInfo += `\n\nCITATIONS (reference as [1], [2] etc):\n${webContext.citations.slice(0, 6).map((c: any, i: number) => `[${i+1}] ${c.title}: ${c.snippet || c.url}`).join('\n')}`
+        }
+        
+        return `Write factual content for the section "${sectionTitle}" of an article about "${title}".
+${webInfo}
 
-FULL ARTICLE STRUCTURE:
+ARTICLE STRUCTURE:
 ${allSections}
 
-Write 2-3 paragraphs in Markdown format for ONLY the section "${sectionTitle}". 
-Other sections cover their own topics - focus on this section's scope only.
-Do NOT include the section heading, just the content.`
+CRITICAL INSTRUCTIONS:
+- ONLY include information supported by the source material above
+- If sources don't cover this section topic adequately, write a brief factual overview only
+- Do NOT invent statistics, dates, names, or facts not in the sources
+- Use inline citations like [1], [2] when referencing specific source information
+- If no relevant source material exists for this section, state that limited information is available
+
+Write 2-3 paragraphs in Markdown for the section "${sectionTitle}" only. Do NOT include the heading.`
 
       case 'quiz':
         return `Create a challenging multiple-choice question about "${sectionTitle}" for a quiz on "${title}".
@@ -1213,7 +1531,7 @@ Be objective and balanced in your analysis.`
   /**
    * Get minimal prompt for skeleton generation
    */
-  private getSkeletonPrompt(surfaceType: string, query: string): string {
+  private getSkeletonPrompt(surfaceType: string, query: string, webContext?: any): string {
     const baseFormat = `Return ONLY valid JSON with this structure:
 {
   "title": "Content title",
@@ -1266,11 +1584,16 @@ ${baseFormat}
 Requirements: 10-15 key events in chronological order.`
         
       case 'wiki':
-        return `Create a wiki article outline for: "${query}"
+        // Build web research context for better wiki outline
+        let wikiResearch = ''
+        if (webContext?.keyFacts?.length) {
+          wikiResearch = `\n\nWEB RESEARCH SUMMARY (use this to inform section topics):\n${webContext.keyFacts.slice(0, 3).join('\n').substring(0, 2000)}\n\nCreate sections that align with topics covered in the research above.`
+        }
+        return `Create a wiki article outline for: "${query}"${wikiResearch}
 
 ${baseFormat}
 
-Requirements: 6-8 main sections with Wikipedia-style headings.`
+Requirements: 6-8 main sections with Wikipedia-style headings that cover the key aspects found in research.`
         
       default:
         return `Create a content outline for: "${query}"\n\n${baseFormat}`
@@ -1619,11 +1942,19 @@ Requirements: 6-8 main sections with Wikipedia-style headings.`
     // Wait for all fetches in parallel
     await Promise.all(fetchPromises)
     
-    // Synthesize results
+    // Synthesize results - include BOTH Perplexity content AND Exa snippets
     const allCitations = results.flatMap(r => r.citations || [])
-    const keyFacts = results
-      .filter(r => r.content)
-      .map(r => r.content)
+    const keyFacts = results.flatMap(r => {
+      // Perplexity synthesized content
+      if (r.content) return [r.content]
+      // Exa snippets and highlights
+      if (r.citations && r.citations.length > 0) {
+        return r.citations
+          .filter((c: any) => c.snippet)
+          .map((c: any) => `${c.title}: ${c.snippet}`)
+      }
+      return []
+    })
     
     return {
       summary: keyFacts.join('\n\n'),
