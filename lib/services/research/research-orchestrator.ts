@@ -71,7 +71,7 @@ Return ONLY valid JSON.`
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [
           { role: 'system', content: 'You are a research methodology expert. Generate research angles that ensure comprehensive coverage of a topic.' },
           { role: 'user', content: prompt }
@@ -328,7 +328,7 @@ Generate a JSON structure for the research document:
 }
 
 REQUIREMENTS:
-- 6-8 comprehensive sections
+- 6-15 comprehensive sections
 - Each section maps to a vertical (can have multiple sections per vertical)
 - Sections should flow logically (intro → background → main content → analysis → conclusion)
 - Abstract should synthesize the most important insights
@@ -344,7 +344,7 @@ Return ONLY valid JSON.`
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [
           { role: 'system', content: 'You are a senior research analyst creating comprehensive research documents. Your skeletons are well-structured and comprehensive.' },
           { role: 'user', content: prompt }

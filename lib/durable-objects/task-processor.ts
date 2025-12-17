@@ -400,6 +400,11 @@ class TaskProcessor implements DurableObject {
       console.log(`[TaskProcessor] Skeleton ready for job ${jobId}, continuing to hydrate...`)
     }
     
+    // RESEARCH SURFACE: Special handling with web search + parallel sections
+    if (surfaceType === 'research') {
+      return this.processResearchGeneration(query, messageId, conversationId, jobId, onProgress)
+    }
+    
     // For learning and guide, skeleton IS the final structure (content generated on-demand)
     if (['learning', 'guide'].includes(surfaceType)) {
       onProgress({ current: 5, total: 5, message: 'Complete!', step: 'complete' })
@@ -586,6 +591,379 @@ class TaskProcessor implements DurableObject {
     }
     
     return finalState
+  }
+
+  /**
+   * Process research surface generation with web search and parallel sections
+   */
+  private async processResearchGeneration(
+    query: string,
+    messageId: string,
+    conversationId: string | undefined,
+    jobId: string,
+    onProgress: (progress: Job['progress']) => void
+  ): Promise<any> {
+    const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
+    if (!apiKey) throw new Error('No AI API key configured')
+
+    onProgress({ current: 1, total: 6, message: 'Analyzing research angles...', step: 'verticals' })
+
+    // Step 1: Generate research verticals
+    const verticals = await this.generateResearchVerticals(query, apiKey)
+    console.log(`[TaskProcessor] Research: ${verticals.length} verticals generated`)
+
+    onProgress({ current: 2, total: 6, message: 'Searching sources...', step: 'searching' })
+
+    // Step 2: Search web for each vertical (parallel)
+    const sourcesByVertical = await this.searchResearchVerticals(verticals)
+    console.log(`[TaskProcessor] Research: Sources gathered for ${sourcesByVertical.size} verticals`)
+
+    onProgress({ current: 3, total: 6, message: 'Creating document structure...', step: 'skeleton' })
+
+    // Step 3: Generate research skeleton
+    const skeleton = await this.generateResearchSkeletonState(query, verticals, sourcesByVertical, apiKey)
+    
+    if (skeleton) {
+      this.updateSkeleton(jobId, skeleton)
+      console.log(`[TaskProcessor] Research skeleton ready for job ${jobId}`)
+    }
+
+    onProgress({ current: 4, total: 6, message: 'Generating sections...', step: 'sections' })
+
+    // Step 4: Generate sections in parallel
+    const sections = skeleton?.metadata?.sections || []
+    const completedSections: any[] = []
+    
+    // Process sections in batches of 4
+    const batchSize = 4
+    for (let i = 0; i < sections.length; i += batchSize) {
+      const batch = sections.slice(i, i + batchSize)
+      
+      const batchResults = await Promise.all(
+        batch.map(async (section: any, batchIdx: number) => {
+          const sectionIdx = i + batchIdx
+          const sources = sourcesByVertical.get(section.verticalId) || []
+          const content = await this.generateResearchSectionContent(section, sources, skeleton, apiKey)
+          
+          // Update ready sections for progressive display
+          this.addReadySection(jobId, section.id, content, sectionIdx)
+          
+          return {
+            ...section,
+            content,
+            wordCount: content.split(/\s+/).filter(Boolean).length,
+            status: 'completed'
+          }
+        })
+      )
+      
+      completedSections.push(...batchResults)
+    }
+
+    onProgress({ current: 5, total: 6, message: 'Finalizing...', step: 'synthesis' })
+
+    // Step 5: Build final surface state
+    const totalWordCount = completedSections.reduce((acc, s) => acc + (s.wordCount || 0), 0)
+    const estimatedReadTime = Math.ceil(totalWordCount / 200)
+
+    const surfaceState = {
+      ...skeleton,
+      isSkeleton: false,
+      metadata: {
+        ...skeleton?.metadata,
+        sections: completedSections,
+        totalWordCount,
+        estimatedReadTime
+      }
+    }
+
+    onProgress({ current: 6, total: 6, message: 'Complete!', step: 'complete' })
+
+    return {
+      surfaceState,
+      messageId,
+      conversationId
+    }
+  }
+
+  /**
+   * Generate research verticals (angles to explore)
+   */
+  private async generateResearchVerticals(query: string, apiKey: string): Promise<any[]> {
+    const prompt = `Analyze this research query and identify 4-6 distinct research verticals.\n\nQUERY: "${query}"\n\nReturn JSON:\n{"verticals":[{"id":"v1","name":"Vertical name","description":"What this explores","searchQueries":["query1","query2"]}]}\n\nVertical types: Historical Context, Current Research, Key Players, Data/Statistics, Case Studies, Challenges, Future Outlook, Critiques.\n\nReturn ONLY valid JSON.`
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: 'You are a research methodology expert. Generate research angles for comprehensive coverage.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+          max_tokens: 1000
+        })
+      })
+
+      if (!response.ok) throw new Error(`Groq API error: ${response.status}`)
+      const data: any = await response.json()
+      const result = JSON.parse(data.choices[0].message.content || '{}')
+      
+      return (result.verticals || []).slice(0, 6).map((v: any, i: number) => ({
+        id: v.id || `v${i + 1}`,
+        name: v.name || `Research Angle ${i + 1}`,
+        description: v.description || '',
+        searchQueries: v.searchQueries || [query],
+        status: 'completed',
+        sourcesCount: 0
+      }))
+    } catch (error) {
+      console.error('[TaskProcessor] Verticals generation failed:', error)
+      return [
+        { id: 'v1', name: 'Overview', description: 'General context', searchQueries: [query], status: 'completed', sourcesCount: 0 },
+        { id: 'v2', name: 'Current Research', description: 'Latest findings', searchQueries: [`${query} latest research`], status: 'completed', sourcesCount: 0 },
+        { id: 'v3', name: 'Applications', description: 'Real-world uses', searchQueries: [`${query} applications`], status: 'completed', sourcesCount: 0 },
+      ]
+    }
+  }
+
+  /**
+   * Search sources for each research vertical
+   */
+  private async searchResearchVerticals(verticals: any[]): Promise<Map<string, any[]>> {
+    const results = new Map<string, any[]>()
+    const exaApiKey = this.env.EXA_API_KEY
+    const perplexityApiKey = this.env.PERPLEXITY_API_KEY
+
+    // Process verticals in parallel (batches of 3)
+    const batchSize = 3
+    for (let i = 0; i < verticals.length; i += batchSize) {
+      const batch = verticals.slice(i, i + batchSize)
+      
+      await Promise.all(batch.map(async (vertical) => {
+        const sources: any[] = []
+        const searchQuery = vertical.searchQueries?.[0] || vertical.name
+
+        // Search Exa
+        if (exaApiKey) {
+          try {
+            const response = await fetch('https://api.exa.ai/search', {
+              method: 'POST',
+              headers: { 'x-api-key': exaApiKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query: searchQuery,
+                type: 'auto',
+                num_results: 5,
+                contents: { text: true, highlights: true },
+                use_autoprompt: true
+              })
+            })
+
+            if (response.ok) {
+              const data: any = await response.json()
+              sources.push({
+                source: 'exa',
+                data: data.results,
+                citations: data.results?.map((r: any) => ({
+                  url: r.url,
+                  title: r.title,
+                  snippet: r.highlights?.[0] || r.text?.substring(0, 200),
+                  image: r.image
+                })) || []
+              })
+            }
+          } catch (e) { console.error(`[TaskProcessor] Exa search failed:`, e) }
+        }
+
+        // Search Perplexity
+        if (perplexityApiKey) {
+          try {
+            const response = await fetch('https://api.perplexity.ai/chat/completions', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${perplexityApiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'sonar',
+                messages: [{ role: 'user', content: searchQuery }],
+                temperature: 0.5,
+                max_tokens: 800,
+                return_citations: true
+              })
+            })
+
+            if (response.ok) {
+              const data: any = await response.json()
+              sources.push({
+                source: 'perplexity',
+                data: data.choices?.[0]?.message?.content || '',
+                citations: (data.citations || []).map((url: string, i: number) => ({ url, title: `Source ${i + 1}` }))
+              })
+            }
+          } catch (e) { console.error(`[TaskProcessor] Perplexity search failed:`, e) }
+        }
+
+        results.set(vertical.id, sources)
+      }))
+    }
+
+    return results
+  }
+
+  /**
+   * Generate research skeleton state
+   */
+  private async generateResearchSkeletonState(
+    query: string,
+    verticals: any[],
+    sourcesByVertical: Map<string, any[]>,
+    apiKey: string
+  ): Promise<any> {
+    // Build source context
+    let sourceContext = ''
+    const allCitations: any[] = []
+    let citationIndex = 1
+
+    for (const [verticalId, sources] of sourcesByVertical) {
+      const vertical = verticals.find(v => v.id === verticalId)
+      if (!vertical) continue
+      
+      sourceContext += `\n--- ${vertical.name} ---\n`
+      
+      for (const source of sources) {
+        if (source.source === 'perplexity' && typeof source.data === 'string') {
+          sourceContext += source.data.substring(0, 800) + '\n'
+        }
+        
+        if (source.citations) {
+          for (const c of source.citations.slice(0, 3)) {
+            allCitations.push({
+              id: `${citationIndex}`,
+              url: c.url,
+              title: c.title,
+              snippet: c.snippet || '',
+              sourceType: 'web'
+            })
+            citationIndex++
+          }
+        }
+      }
+    }
+
+    const prompt = `Create a research document skeleton.\n\nRESEARCH QUERY: "${query}"\n\nVERTICALS EXPLORED:\n${verticals.map(v => `- ${v.name}: ${v.description}`).join('\n')}\n\nSOURCE SUMMARY:\n${sourceContext.substring(0, 3000)}\n\nReturn JSON:\n{"title":"Research title","abstract":"200-300 word summary","keyFindings":["Finding 1","Finding 2"],"methodology":"How research was conducted","limitations":["Limit 1"],"sections":[{"id":"s1","heading":"Section heading","verticalId":"v1","contentOutline":"What to cover"}]}\n\n6-12 sections, logical flow. Return ONLY valid JSON.`
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: 'You are a senior research analyst. Create well-structured research documents.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+          max_tokens: 2000
+        })
+      })
+
+      if (!response.ok) throw new Error(`Groq API error: ${response.status}`)
+      const data: any = await response.json()
+      const result = JSON.parse(data.choices[0].message.content || '{}')
+
+      const sections = (result.sections || []).map((s: any, i: number) => ({
+        id: s.id || `s${i + 1}`,
+        heading: s.heading || `Section ${i + 1}`,
+        verticalId: s.verticalId || verticals[0]?.id || 'v1',
+        content: 'Loading...',
+        wordCount: 0,
+        citations: [],
+        status: 'pending'
+      }))
+
+      return {
+        surfaceType: 'research',
+        isSkeleton: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        metadata: {
+          type: 'research',
+          title: result.title || `Research: ${query}`,
+          query,
+          abstract: result.abstract || '',
+          keyFindings: result.keyFindings || [],
+          methodology: result.methodology || 'Multi-source web research with AI synthesis',
+          limitations: result.limitations || [],
+          generatedAt: Date.now(),
+          verticals,
+          sections,
+          allCitations,
+          heroImages: [],
+          totalSources: allCitations.length,
+          totalWordCount: 0,
+          estimatedReadTime: 0
+        },
+        research: {
+          expandedSections: [],
+          bookmarkedSections: []
+        }
+      }
+    } catch (error) {
+      console.error('[TaskProcessor] Research skeleton generation failed:', error)
+      return null
+    }
+  }
+
+  /**
+   * Generate content for a single research section
+   */
+  private async generateResearchSectionContent(
+    section: any,
+    sources: any[],
+    skeleton: any,
+    apiKey: string
+  ): Promise<string> {
+    // Build source context for this section
+    let sourceContext = ''
+    for (const source of sources) {
+      if (source.source === 'perplexity' && typeof source.data === 'string') {
+        sourceContext += source.data + '\n\n'
+      }
+      if (source.source === 'exa' && Array.isArray(source.data)) {
+        for (const item of source.data.slice(0, 3)) {
+          if (item.highlights?.[0]) sourceContext += item.highlights[0] + '\n'
+          else if (item.text) sourceContext += item.text.substring(0, 400) + '\n'
+        }
+      }
+    }
+
+    const citations = skeleton?.metadata?.allCitations || []
+    const prompt = `Write comprehensive content for research section.\n\nDOCUMENT: "${skeleton?.metadata?.title}"\nSECTION: "${section.heading}"\n\nSOURCES:\n${sourceContext.substring(0, 2500)}\n\nCITATIONS (use [1], [2] inline):\n${citations.slice(0, 8).map((c: any) => `[${c.id}] ${c.title}`).join('\n')}\n\nWrite 300-500 words in markdown. Be objective, evidence-based. Include inline citations.`
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2-instruct-0905',
+          messages: [
+            { role: 'system', content: 'You are a research writer producing well-cited, professional content.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.4,
+          max_tokens: 1200
+        })
+      })
+
+      if (!response.ok) throw new Error(`Groq API error: ${response.status}`)
+      const data: any = await response.json()
+      return data.choices?.[0]?.message?.content || 'Content generation failed.'
+    } catch (error) {
+      console.error(`[TaskProcessor] Section ${section.id} generation failed:`, error)
+      return '*Content generation failed for this section.*'
+    }
   }
 
   /**
@@ -1094,7 +1472,7 @@ Requirements: 6-8 main sections with Wikipedia-style headings.`
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'moonshotai/kimi-k2-instruct-0905',
           messages: [{
             role: 'system',
             content: `Analyze this query for a "${surfaceType}" surface. Return JSON with: topic, subtopics[], needsWebSearch (bool), depth (basic/intermediate/advanced), audience, suggestedQueries[]. Keep it concise.`

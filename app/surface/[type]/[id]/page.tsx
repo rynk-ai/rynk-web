@@ -327,14 +327,13 @@ export default function SurfacePage() {
                   // Apply ready sections based on surface type
                   for (const readySection of newSections) {
                     if (newState.metadata && 'sections' in newState.metadata) {
-                      // Wiki surface
+                      // Wiki and Research surfaces have sections array
                       const sections = (newState.metadata as any).sections;
                       if (sections && sections[readySection.order]) {
                         sections[readySection.order].content = readySection.content;
+                        sections[readySection.order].status = 'completed';
                       }
                     }
-                    // For quiz, flashcard, timeline, comparison - the final result will have parsed content
-                    // We can show progress but won't parse here (full content comes on complete)
                   }
                   
                   return { ...newState, updatedAt: Date.now() };

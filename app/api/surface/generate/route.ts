@@ -128,90 +128,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Research surface - deep multi-source research (higher credit cost)
-    // Runs synchronously in API route to avoid bundle size issues with DO
+    // Research surface - uses DO for progressive generation (3 credits)
+    // Special handling to deduct 3 credits instead of 1
     if (surfaceType === 'research') {
-      console.log(`🔬 [surface/generate] Research surface - starting deep research for: "${query.substring(0, 50)}..."`)
-      
-      // Deduct 3 credits for research surface (more resource-intensive)
-      await cloudDb.updateCredits(session.user.id, -3)
+      console.log(`🔬 [surface/generate] Research surface - routing to DO for progressive generation: "${query.substring(0, 50)}..."`)
       
       try {
-        // Import research orchestrator (runs in API route, not DO)
-        const { 
-          analyzeResearchQuery,
-          searchAllVerticals,
-          generateResearchSkeleton,
-          generateAllSections,
-          synthesizeResearchDocument
-        } = await import('@/lib/services/research/research-orchestrator')
+        const { getCloudflareContext } = await import('@opennextjs/cloudflare')
+        const { env } = getCloudflareContext()
         
-        // Get API keys from env
-        const groqApiKey = process.env.GROQ_API_KEY
-        const exaApiKey = process.env.EXA_API_KEY
-        const perplexityApiKey = process.env.PERPLEXITY_API_KEY
-        
-        if (!groqApiKey) {
-          throw new Error('Missing GROQ_API_KEY for research')
+        if (env.TASK_PROCESSOR) {
+          // Deduct 3 credits for research (more resource-intensive)
+          await cloudDb.updateCredits(session.user.id, -3)
+          
+          const doId = env.TASK_PROCESSOR.idFromName('global')
+          const stub = env.TASK_PROCESSOR.get(doId)
+          
+          const response = await stub.fetch('http://do/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'surface_generate',
+              params: {
+                query,
+                surfaceType,
+                messageId,
+                conversationId: body.conversationId
+              },
+              userId: session.user.id
+            })
+          })
+          
+          const jobData = await response.json() as { jobId: string }
+          console.log(`🔬 [research] Async job queued: ${jobData.jobId}`)
+          
+          return NextResponse.json({
+            success: true,
+            async: true,
+            jobId: jobData.jobId
+          })
         }
-
-        // Phase 1: Analyze query and generate verticals
-        const verticals = await analyzeResearchQuery(query, groqApiKey)
-        console.log(`🔬 [research] Generated ${verticals.length} verticals`)
-
-        // Phase 2: Parallel web search per vertical
-        const sourcesByVertical = await searchAllVerticals(
-          verticals,
-          exaApiKey,
-          perplexityApiKey
-        )
-
-        // Phase 3: Generate document skeleton
-        const skeleton = await generateResearchSkeleton(
-          query,
-          verticals.map(v => ({
-            ...v,
-            sourcesCount: sourcesByVertical.get(v.id)?.reduce((acc, s) => acc + (s.citations?.length || 0), 0) || 0
-          })),
-          sourcesByVertical,
-          groqApiKey
-        )
-
-        // Phase 4: Generate all sections (using Groq/Kimi)
-        const completedSections = await generateAllSections(
-          skeleton,
-          sourcesByVertical,
-          groqApiKey
-        )
-
-        // Phase 5: Final synthesis
-        const finalMetadata = synthesizeResearchDocument(skeleton, completedSections)
-
-        const surfaceState = {
-          surfaceType: 'research' as const,
-          metadata: finalMetadata,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          research: {
-            expandedSections: [],
-            bookmarkedSections: []
-          }
-        }
-
-        console.log(`✅ [research] Complete with ${completedSections.length} sections`)
-        
-        return NextResponse.json({
-          success: true,
-          surfaceState,
-        })
-      } catch (researchError) {
-        console.error('❌ [surface/generate] Research generation failed:', researchError)
-        // Refund credits on failure
-        await cloudDb.updateCredits(session.user.id, 3)
-        return NextResponse.json(
-          { error: 'Research generation failed. Please try again.', details: String(researchError) },
-          { status: 500 }
-        )
+      } catch (doError) {
+        console.error('[research] DO routing failed, will use sync fallback:', doError)
+        // Fall through to sync route below
       }
     }
 

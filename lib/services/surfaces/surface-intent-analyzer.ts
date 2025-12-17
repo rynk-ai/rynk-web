@@ -79,7 +79,7 @@ export async function analyzeSurfaceQuery(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [{
           role: 'system',
           content: `You are a query analyzer for an educational content platform. Analyze the user's query and extract structured information.
