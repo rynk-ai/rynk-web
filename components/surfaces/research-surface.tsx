@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { ResearchProgress } from "./research-progress";
+import { ResearchSectionSkeleton } from "./surface-skeletons";
 import { cn } from "@/lib/utils";
 import type { ResearchMetadata, SurfaceState } from "@/lib/services/domain-types";
 
@@ -89,8 +90,9 @@ export const ResearchSurface = memo(function ResearchSurface({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Show progress overlay if still generating
-  if (isGenerating && (!sections || sections.length === 0 || sections[0]?.status === 'pending')) {
+  // Show progress overlay only before skeleton is available
+  // Once skeleton has sections (even with pending status), show the structure
+  if (isGenerating && (!sections || sections.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] py-16">
         <ResearchProgress progress={progress} />
@@ -244,45 +246,47 @@ export const ResearchSurface = memo(function ResearchSurface({
         <main className="flex-1 min-w-0" ref={contentRef}>
           {/* Sections */}
           <article className="prose prose-slate dark:prose-invert max-w-none">
-            {sections.map((section, idx) => (
-              <section 
-                key={section.id} 
-                id={`research-section-${section.id}`}
-                className="mb-10 scroll-mt-24"
-              >
-                <h2 className="text-xl font-bold flex items-center gap-3 mb-4 pb-2 border-b border-border/30">
-                  <span className="text-primary/60 text-sm font-mono">
-                    {String(idx + 1).padStart(2, '0')}
-                  </span>
-                  {section.heading}
-                  {section.status === 'generating' && (
-                    <span className="ml-2 text-xs text-muted-foreground animate-pulse">
-                      Generating...
+            {sections.map((section, idx) => {
+              // Check if section content is still loading (progressive loading)
+              const isLoading = !section.content || 
+                section.content === 'Loading...' || 
+                section.content.startsWith('Loading:') ||
+                section.status === 'pending';
+              
+              return (
+                <section 
+                  key={section.id} 
+                  id={`research-section-${section.id}`}
+                  className="mb-10 scroll-mt-24"
+                >
+                  <h2 className="text-xl font-bold flex items-center gap-3 mb-4 pb-2 border-b border-border/30">
+                    <span className="text-primary/60 text-sm font-mono">
+                      {String(idx + 1).padStart(2, '0')}
                     </span>
+                    {section.heading}
+                  </h2>
+                  
+                  {isLoading ? (
+                    // Show skeleton while content is loading
+                    <ResearchSectionSkeleton />
+                  ) : (
+                    // Animate content in when it loads
+                    <div className="text-foreground/90 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <Markdown className="!bg-transparent !p-0">
+                        {section.content}
+                      </Markdown>
+                    </div>
                   )}
-                </h2>
-                
-                {section.content ? (
-                  <div className="text-foreground/90">
-                    <Markdown className="!bg-transparent !p-0">
-                      {section.content}
-                    </Markdown>
-                  </div>
-                ) : section.status === 'pending' ? (
-                  <div className="py-8 flex flex-col items-center justify-center text-muted-foreground">
-                    <div className="h-6 w-6 rounded-full border-2 border-muted-foreground/30 border-t-primary animate-spin mb-2" />
-                    <span className="text-sm">Generating content...</span>
-                  </div>
-                ) : null}
 
-                {/* Section citations */}
-                {section.citations.length > 0 && (
-                  <div className="mt-4 text-xs text-muted-foreground">
-                    Sources: {section.citations.map(c => `[${c}]`).join(' ')}
-                  </div>
-                )}
-              </section>
-            ))}
+                  {/* Section citations - only show when content is loaded */}
+                  {!isLoading && section.citations?.length > 0 && (
+                    <div className="mt-4 text-xs text-muted-foreground animate-in fade-in duration-300">
+                      Sources: {section.citations.map(c => `[${c}]`).join(' ')}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
           </article>
 
           {/* Methodology */}

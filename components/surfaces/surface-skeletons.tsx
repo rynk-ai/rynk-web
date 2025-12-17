@@ -607,3 +607,32 @@ export function ComparisonItemSkeleton() {
     </div>
   );
 }
+
+/**
+ * Research section skeleton for progressive loading
+ * Shows animated placeholder while research section content is being generated
+ */
+export function ResearchSectionSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* Paragraph lines */}
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-5/6 bg-muted dark:bg-muted/50" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-4/5 bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-3/4 bg-muted dark:bg-muted/50" />
+      </div>
+      {/* Citation placeholder */}
+      <div className="flex items-center gap-2 pt-2">
+        <Skeleton className="h-3 w-16 bg-muted/70 dark:bg-muted/30" />
+        <Skeleton className="h-3 w-8 bg-muted/70 dark:bg-muted/30" />
+        <Skeleton className="h-3 w-8 bg-muted/70 dark:bg-muted/30" />
+      </div>
+    </div>
+  );
+}
