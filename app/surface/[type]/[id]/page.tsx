@@ -121,6 +121,8 @@ export default function SurfacePage() {
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   // Track current surface ID in a ref to avoid stale closures in callbacks
   const currentSurfaceIdRef = useRef<string | null>(null);
+  // Guard against duplicate generation in React StrictMode
+  const generationStartedRef = useRef(false);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -227,8 +229,23 @@ export default function SurfacePage() {
         }
 
         // Step 2: Generate new surface (either no saved state, or user wants new)
-
-        const query = queryFromUrl || "General topic";
+        
+        // GUARD: Prevent duplicate generation (React StrictMode double-render protection)
+        if (generationStartedRef.current) {
+          console.log('[SurfacePage] Generation already started, skipping duplicate');
+          return;
+        }
+        
+        // Capture query BEFORE any state changes
+        const query = queryFromUrl;
+        if (!query) {
+          console.log('[SurfacePage] No query provided, cannot generate');
+          setError('No query provided for surface generation');
+          setIsLoading(false);
+          return;
+        }
+        
+        generationStartedRef.current = true;
         setOriginalQuery(query);
 
         const response = await fetch('/api/surface/generate', {

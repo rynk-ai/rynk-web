@@ -1011,7 +1011,7 @@ Requirements: 6-8 main sections with Wikipedia-style headings.`
             title: skeleton.title || 'Article',
             subtitle: skeleton.subtitle || 'Loading...',
             summary: skeleton.description || 'Loading...',
-            infobox: {},
+            infobox: { facts: [] },
             sections: items.map((item: any, i: number) => ({
               id: item.id || `section${i + 1}`,
               heading: item.title || `Section ${i + 1}`,
