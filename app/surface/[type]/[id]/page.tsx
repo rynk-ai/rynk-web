@@ -9,6 +9,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
@@ -115,6 +116,13 @@ export default function SurfacePage() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
+  // Track mount status to force immediate skeleton loading
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
   // Track if we need to save (after state changes)
   const pendingSaveRef = useRef(false);
   // Abort controller for save requests
@@ -194,6 +202,9 @@ export default function SurfacePage() {
     async function loadSurface() {
       setIsLoading(true);
       setError(null);
+      // Flag to control if finally block should reset loading state
+      // We don't want to reset if we exit early due to duplicate generation
+      let shouldResetLoading = true;
 
       try {
         // Determine intent:
@@ -233,6 +244,7 @@ export default function SurfacePage() {
         // GUARD: Prevent duplicate generation (React StrictMode double-render protection)
         if (generationStartedRef.current) {
           console.log('[SurfacePage] Generation already started, skipping duplicate');
+          shouldResetLoading = false; // Let the original process manage loading state
           return;
         }
         
@@ -307,8 +319,13 @@ export default function SurfacePage() {
               // Handle skeleton_ready - display skeleton early for fast feedback
               if (jobData.status === 'skeleton_ready' && jobData.skeletonState && !skeletonDisplayed) {
                 console.log('[SurfacePage] Skeleton ready, displaying early feedback');
-                setSurfaceState(jobData.skeletonState);
-                setIsLoading(false);  // Hide loading spinner, show skeleton
+                // Store skeleton state to preserve type narrowing in callback
+                const skeleton = jobData.skeletonState;
+                // Use flushSync to batch state updates atomically - prevents flash between states
+                flushSync(() => {
+                  setSurfaceState(skeleton);
+                  setIsLoading(false);  // Hide loading spinner, show skeleton
+                });
                 skeletonDisplayed = true;
                 // Continue polling for full content - don't return
               }
@@ -393,7 +410,9 @@ export default function SurfacePage() {
         console.error('[SurfacePage] Error:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
-        setIsLoading(false);
+        if (shouldResetLoading) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -804,9 +823,18 @@ export default function SurfacePage() {
   const surfaceInfo = getSurfaceInfo(surfaceType);
   const SurfaceIcon = surfaceInfo.icon;
 
-  // Loading state - show skeleton that matches the surface layout
-  if (isLoading) {
-    return <SurfacePageSkeleton type={surfaceType} />;
+  // GUARD: Show visual "Skeleton Loading" immediately on mount or while loading
+  // This ensures we show a placeholder BEFORE we even have the Surface Skeleton Info from the backend
+  if (!isMounted || isLoading) {
+    return <SurfacePageSkeleton type={surfaceType || 'wiki'} />;
+  }
+
+  // Validate surface type - show skeleton if type is not recognized
+  // This prevents "Surface Not Found" flash during route transitions
+  const validSurfaceTypes = ['learning', 'guide', 'quiz', 'comparison', 'flashcard', 'timeline', 'wiki', 'finance', 'research'];
+  if (!validSurfaceTypes.includes(surfaceType)) {
+    console.warn('[SurfacePage] Invalid surfaceType, showing skeleton:', surfaceType);
+    return <SurfacePageSkeleton type={surfaceType || 'wiki'} />;
   }
 
   // Error state
@@ -841,6 +869,12 @@ export default function SurfacePage() {
         </div>
       </div>
     );
+  }
+
+  // Show skeleton if surfaceState exists but metadata is not yet populated
+  // This prevents "Surface Not Found" flash during state transitions
+  if (!surfaceState.metadata) {
+    return <SurfacePageSkeleton type={surfaceType} />;
   }
 
   return (
@@ -914,7 +948,11 @@ export default function SurfacePage() {
 
       {/* Content */}
       <main className="container max-w-6xl mx-auto px-4 md:px-6 py-8">
-        {surfaceType === 'learning' && surfaceState.metadata?.type === 'learning' ? (
+        {(() => {
+           console.log('[SurfacePage] Rendering content for:', { surfaceType, isValid: validSurfaceTypes.includes(surfaceType) });
+           return null;
+        })()}
+        {surfaceType === 'learning' ? (
           <LearningSurface
             metadata={surfaceState.metadata as LearningMetadata}
             surfaceState={surfaceState}
@@ -922,7 +960,7 @@ export default function SurfacePage() {
             onMarkComplete={handleMarkChapterComplete}
             isGenerating={isGenerating}
           />
-        ) : surfaceType === 'guide' && surfaceState.metadata?.type === 'guide' ? (
+        ) : surfaceType === 'guide' ? (
           <GuideSurface
             metadata={surfaceState.metadata as GuideMetadata}
             surfaceState={surfaceState}
@@ -931,7 +969,7 @@ export default function SurfacePage() {
             onSkipStep={handleSkipStep}
             isGenerating={isGenerating}
           />
-        ) : surfaceType === 'quiz' && surfaceState.metadata?.type === 'quiz' ? (
+        ) : surfaceType === 'quiz' ? (
           <QuizSurface
             metadata={surfaceState.metadata as QuizMetadata}
             surfaceState={surfaceState}
@@ -940,11 +978,11 @@ export default function SurfacePage() {
             onRestartQuiz={handleRestartQuiz}
             isGenerating={isGenerating}
           />
-        ) : surfaceType === 'comparison' && surfaceState.metadata?.type === 'comparison' ? (
+        ) : surfaceType === 'comparison' ? (
           <ComparisonSurface
             metadata={surfaceState.metadata as ComparisonMetadata}
           />
-        ) : surfaceType === 'flashcard' && surfaceState.metadata?.type === 'flashcard' ? (
+        ) : surfaceType === 'flashcard' ? (
           <FlashcardSurface
             metadata={surfaceState.metadata as FlashcardMetadata}
             surfaceState={surfaceState}
@@ -955,22 +993,22 @@ export default function SurfacePage() {
             onRestartDeck={handleRestartFlashcards}
             isGenerating={isGenerating}
           />
-        ) : surfaceType === 'timeline' && surfaceState.metadata?.type === 'timeline' ? (
+        ) : surfaceType === 'timeline' ? (
           <TimelineSurface
             metadata={surfaceState.metadata as TimelineMetadata}
           />
-        ) : surfaceType === 'wiki' && surfaceState.metadata?.type === 'wiki' ? (
+        ) : surfaceType === 'wiki' ? (
           <WikiSurface
             metadata={surfaceState.metadata as WikiMetadata}
             surfaceState={surfaceState}
             conversationId={conversationId}
           />
-        ) : surfaceType === 'finance' && surfaceState.metadata?.type === 'finance' ? (
+        ) : surfaceType === 'finance' ? (
           <FinanceSurface
             metadata={surfaceState.metadata as any}
             surfaceState={surfaceState}
           />
-        ) : surfaceType === 'research' && surfaceState.metadata?.type === 'research' ? (
+        ) : surfaceType === 'research' ? (
           <ResearchSurface
             metadata={surfaceState.metadata as ResearchMetadata}
             surfaceState={surfaceState}
@@ -982,7 +1020,7 @@ export default function SurfacePage() {
             <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
               <Cloud className="h-8 w-8 text-muted-foreground/50" />
             </div>
-            <h3 className="text-lg font-medium text-foreground">Surface Not Found</h3>
+            <h3 className="text-lg font-medium text-foreground">Surface Not Found: "{surfaceType}"</h3>
             <p className="text-muted-foreground mt-2 max-w-xs">
               This surface type doesn't exist or hasn't been implemented yet.
             </p>
