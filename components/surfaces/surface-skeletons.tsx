@@ -548,3 +548,22 @@ export function FlashcardCardSkeleton() {
     </div>
   );
 }
+
+/**
+ * Wiki section skeleton for progressive loading
+ * Shows animated placeholder while section content is being generated
+ */
+export function WikiSectionSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-3 w-3 rounded-full bg-primary/30" />
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+      </div>
+      <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+      <Skeleton className="h-4 w-5/6 bg-muted dark:bg-muted/50" />
+      <Skeleton className="h-4 w-4/5 bg-muted dark:bg-muted/50" />
+    </div>
+  );
+}
+

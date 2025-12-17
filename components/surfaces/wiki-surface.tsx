@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
+import { WikiSectionSkeleton } from "@/components/surfaces/surface-skeletons";
 import { cn } from "@/lib/utils";
 import type { WikiMetadata, SurfaceState } from "@/lib/services/domain-types";
 
@@ -199,39 +200,61 @@ export const WikiSurface = memo(function WikiSurface({
 
           {/* Article Sections */}
           <article className="prose prose-slate dark:prose-invert max-w-none">
-            {sections.map((section, idx) => (
-              <section 
-                key={section.id} 
-                id={`section-${section.id}`}
-                className="mb-10 scroll-mt-24"
-              >
-                <h2 className="text-xl font-bold flex items-center gap-3 mb-4 pb-2 border-b border-border/30">
-                  <span className="text-primary/60 text-sm font-mono">
-                    {String(idx + 1).padStart(2, '0')}
-                  </span>
-                  {section.heading}
-                </h2>
-                <div className="text-foreground/90">
-                  <Markdown className="!bg-transparent !p-0">
-                    {section.content}
-                  </Markdown>
-                </div>
+            {sections.map((section, idx) => {
+              // Check if section content is still loading (skeleton content)
+              const isLoading = !section.content || section.content === 'Loading...' || section.content.startsWith('Loading:');
+              
+              return (
+                <section 
+                  key={section.id} 
+                  id={`section-${section.id}`}
+                  className="mb-10 scroll-mt-24"
+                >
+                  <h2 className="text-xl font-bold flex items-center gap-3 mb-4 pb-2 border-b border-border/30">
+                    <span className="text-primary/60 text-sm font-mono">
+                      {String(idx + 1).padStart(2, '0')}
+                    </span>
+                    {section.heading}
+                  </h2>
+                  
+                  {isLoading ? (
+                    // Show skeleton while content is loading
+                    <WikiSectionSkeleton />
+                  ) : (
+                    // Animate content in when it loads
+                    <div className="text-foreground/90 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <Markdown className="!bg-transparent !p-0">
+                        {section.content}
+                      </Markdown>
+                    </div>
+                  )}
 
-                {/* Subsections */}
-                {section.subsections && section.subsections.map((sub) => (
-                  <div 
-                    key={sub.id}
-                    id={`section-${sub.id}`}
-                    className="mt-6 ml-4 pl-4 border-l-2 border-primary/20 scroll-mt-24"
-                  >
-                    <h3 className="text-lg font-semibold mb-2">{sub.heading}</h3>
-                    <Markdown className="!bg-transparent !p-0">
-                      {sub.content}
-                    </Markdown>
-                  </div>
-                ))}
-              </section>
-            ))}
+                  {/* Subsections */}
+                  {section.subsections && section.subsections.map((sub) => {
+                    const subIsLoading = !sub.content || sub.content === 'Loading...';
+                    
+                    return (
+                      <div 
+                        key={sub.id}
+                        id={`section-${sub.id}`}
+                        className="mt-6 ml-4 pl-4 border-l-2 border-primary/20 scroll-mt-24"
+                      >
+                        <h3 className="text-lg font-semibold mb-2">{sub.heading}</h3>
+                        {subIsLoading ? (
+                          <WikiSectionSkeleton />
+                        ) : (
+                          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <Markdown className="!bg-transparent !p-0">
+                              {sub.content}
+                            </Markdown>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </section>
+              );
+            })}
           </article>
 
           {/* Related Topics */}

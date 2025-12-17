@@ -213,8 +213,13 @@ export const QuizSurface = memo(function QuizSurface({
     );
   }
   
-  // Loading state
-  if (!currentQuestion || isGenerating) {
+  // Loading state - also detect skeleton content
+  const isQuestionLoading = !currentQuestion || 
+    isGenerating || 
+    currentQuestion.question?.startsWith('Loading:') ||
+    currentQuestion.options?.every((opt: string) => opt === 'Loading...');
+  
+  if (isQuestionLoading) {
     return <QuestionSkeleton />;
   }
   
