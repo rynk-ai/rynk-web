@@ -124,8 +124,13 @@ export const FlashcardSurface = memo(function FlashcardSurface({
     onNextCard();
   }, [onNextCard]);
   
-  // Loading state
-  if (!currentCard || isGenerating) {
+  // Loading state - detect skeleton content or pending status (progressive loading)
+  const isCardLoading = !currentCard || 
+    isGenerating || 
+    currentCard.back === 'Loading...' ||
+    (currentCard as any).status === 'pending';  // Progressive loading - card not ready yet
+  
+  if (isCardLoading) {
     return (
       <div className="max-w-2xl mx-auto py-8">
         <FlashcardCardSkeleton />

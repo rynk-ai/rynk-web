@@ -25,6 +25,7 @@ import {
   MapPin,
 } from "lucide-react";
 import type { TimelineMetadata } from "@/lib/services/domain-types";
+import { TimelineEventSkeleton } from "@/components/surfaces/surface-skeletons";
 
 interface TimelineSurfaceProps {
   metadata: TimelineMetadata;
@@ -265,10 +266,19 @@ function EventCard({
   onToggle: () => void; 
   isMajor: boolean; 
 }) {
+  // Check if event content is still loading (progressive loading)
+  const isLoading = event.description === 'Loading...' || 
+    event.status === 'pending' ||
+    !event.description;
+    
+  if (isLoading) {
+    return <TimelineEventSkeleton />;
+  }
+  
   return (
     <div 
       className={cn(
-        "group w-full bg-card border rounded-2xl p-5 md:p-6 cursor-pointer transition-all duration-300 relative overflow-hidden",
+        "group w-full bg-card border rounded-2xl p-5 md:p-6 cursor-pointer transition-all duration-300 relative overflow-hidden animate-in fade-in slide-in-from-bottom-2",
         "hover:shadow-md hover:border-amber-500/30",
         isExpanded && "ring-1 ring-amber-500/30 shadow-md",
         isMajor && "border-amber-500/40 bg-amber-500/5"
@@ -311,3 +321,4 @@ function EventCard({
 }
 
 export default TimelineSurface;
+

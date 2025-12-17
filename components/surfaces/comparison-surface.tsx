@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ComparisonMetadata } from "@/lib/services/domain-types";
+import { ComparisonItemSkeleton } from "@/components/surfaces/surface-skeletons";
 
 interface ComparisonSurfaceProps {
   metadata: ComparisonMetadata;
@@ -100,11 +101,20 @@ export const ComparisonSurface = memo(function ComparisonSurface({
           const isRecommended = recommendedItem?.id === item.id;
           const isExpanded = expandedItem === item.id;
           
+          // Check if item content is still loading (progressive loading)
+          const isLoading = item.description === 'Loading...' || 
+            (item as any).status === 'pending' ||
+            item.pros?.length === 0;
+          
+          if (isLoading) {
+            return <ComparisonItemSkeleton key={item.id} />;
+          }
+          
           return (
             <div 
               key={item.id}
               className={cn(
-                "group relative bg-card rounded-2xl transition-all duration-300 flex flex-col h-full",
+                "group relative bg-card rounded-2xl transition-all duration-300 flex flex-col h-full animate-in fade-in slide-in-from-bottom-2",
                 isRecommended 
                   ? "border-2 border-indigo-500 shadow-xl shadow-indigo-500/10 scale-[1.02] z-10" 
                   : "border hover:border-indigo-500/30 hover:shadow-lg"

@@ -213,11 +213,12 @@ export const QuizSurface = memo(function QuizSurface({
     );
   }
   
-  // Loading state - also detect skeleton content
+  // Loading state - detect skeleton content or pending status (progressive loading)
   const isQuestionLoading = !currentQuestion || 
     isGenerating || 
     currentQuestion.question?.startsWith('Loading:') ||
-    currentQuestion.options?.every((opt: string) => opt === 'Loading...');
+    currentQuestion.options?.every((opt: string) => opt === 'Loading...') ||
+    (currentQuestion as any).status === 'pending';  // Progressive loading - question not ready yet
   
   if (isQuestionLoading) {
     return <QuestionSkeleton />;

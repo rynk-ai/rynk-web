@@ -313,26 +313,50 @@ export default function SurfacePage() {
                 // Continue polling for full content - don't return
               }
               
-              // Handle progressive section updates
+              // Handle progressive section updates for ALL surface types
               if (jobData.readySections && jobData.readySections.length > lastSectionCount) {
                 const newSections = jobData.readySections.slice(lastSectionCount);
-                console.log(`[SurfacePage] ${newSections.length} new sections ready, updating state`);
+                console.log(`[SurfacePage] ${newSections.length} new sections ready for ${surfaceType}, updating state`);
                 
                 // Update surface state with new section content
                 setSurfaceState(prevState => {
                   if (!prevState) return prevState;
                   
                   const newState = { ...prevState };
+                  const meta = newState.metadata as any;
                   
-                  // Apply ready sections based on surface type
+                  // Determine array key based on surface type
+                  const arrayKey = surfaceType === 'quiz' ? 'questions' 
+                    : surfaceType === 'flashcard' ? 'cards'
+                    : surfaceType === 'timeline' ? 'events'
+                    : surfaceType === 'comparison' ? 'items'
+                    : 'sections';  // wiki, research
+                  
+                  // Apply ready sections
                   for (const readySection of newSections) {
-                    if (newState.metadata && 'sections' in newState.metadata) {
-                      // Wiki and Research surfaces have sections array
-                      const sections = (newState.metadata as any).sections;
-                      if (sections && sections[readySection.order]) {
-                        sections[readySection.order].content = readySection.content;
-                        sections[readySection.order].status = 'completed';
+                    if (meta?.[arrayKey]?.[readySection.order]) {
+                      const item = meta[arrayKey][readySection.order];
+                      
+                      // Parse JSON content for quiz/flashcard/timeline/comparison
+                      if (['quiz', 'flashcard', 'timeline', 'comparison'].includes(surfaceType)) {
+                        try {
+                          // Extract JSON from response (may have markdown wrapper)
+                          const jsonMatch = readySection.content.match(/\{[\s\S]*\}/);
+                          if (jsonMatch) {
+                            const parsed = JSON.parse(jsonMatch[0]);
+                            // Merge parsed content with existing item
+                            Object.assign(item, parsed);
+                          }
+                        } catch (e) {
+                          console.warn(`[SurfacePage] Failed to parse section ${readySection.order}:`, e);
+                        }
+                      } else {
+                        // Wiki/Research: content is plain markdown
+                        item.content = readySection.content;
                       }
+                      
+                      // Mark as completed for UI feedback
+                      item.status = 'completed';
                     }
                   }
                   

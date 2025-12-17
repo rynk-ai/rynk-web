@@ -567,3 +567,43 @@ export function WikiSectionSkeleton() {
   );
 }
 
+/**
+ * Timeline event skeleton for progressive loading
+ * Shows animated placeholder while event content is being generated
+ */
+export function TimelineEventSkeleton() {
+  return (
+    <div className="bg-card rounded-2xl border p-5 space-y-3 animate-pulse">
+      <Skeleton className="h-5 w-3/4 bg-muted dark:bg-muted/50" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-4 w-2/3 bg-muted dark:bg-muted/50" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Comparison item skeleton for progressive loading
+ * Shows animated placeholder while item details are being generated
+ */
+export function ComparisonItemSkeleton() {
+  return (
+    <div className="bg-card rounded-2xl border p-6 space-y-4 animate-pulse">
+      <Skeleton className="h-6 w-1/2 mx-auto bg-muted dark:bg-muted/50" />
+      <Skeleton className="h-4 w-3/4 mx-auto bg-muted dark:bg-muted/50" />
+      <div className="space-y-3 pt-2">
+        <div className="bg-green-500/5 rounded-xl p-3 space-y-2">
+          <Skeleton className="h-4 w-20 bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-3 w-full bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-3 w-4/5 bg-muted dark:bg-muted/50" />
+        </div>
+        <div className="bg-red-500/5 rounded-xl p-3 space-y-2">
+          <Skeleton className="h-4 w-20 bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-3 w-full bg-muted dark:bg-muted/50" />
+        </div>
+      </div>
+    </div>
+  );
+}

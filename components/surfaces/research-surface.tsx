@@ -50,19 +50,18 @@ export const ResearchSurface = memo(function ResearchSurface({
   isGenerating = false,
   progress,
 }: ResearchSurfaceProps) {
-  const { 
-    title, 
-    abstract, 
-    keyFindings, 
-    methodology,
-    limitations,
-    sections, 
-    allCitations,
-    heroImages,
-    totalSources,
-    totalWordCount,
-    estimatedReadTime
-  } = metadata;
+  // Defensive destructuring with defaults for progressive/skeleton loading
+  const title = metadata?.title || 'Loading...';
+  const abstract = metadata?.abstract || '';
+  const keyFindings = metadata?.keyFindings || [];
+  const methodology = metadata?.methodology || '';
+  const limitations = metadata?.limitations || [];
+  const sections = metadata?.sections || [];
+  const allCitations = metadata?.allCitations || [];
+  const heroImages = metadata?.heroImages || [];
+  const totalSources = metadata?.totalSources || 0;
+  const totalWordCount = metadata?.totalWordCount || 0;
+  const estimatedReadTime = metadata?.estimatedReadTime || 0;
   
   const [activeSection, setActiveSection] = useState<string | null>(sections[0]?.id || null);
   const [showBackToTop, setShowBackToTop] = useState(false);
