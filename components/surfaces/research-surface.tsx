@@ -294,7 +294,16 @@ export const ResearchSurface = memo(function ResearchSurface({
                         </figure>
                       )}
                       
-                      <Markdown className="!bg-transparent !p-0">
+                      <Markdown 
+                        className="!bg-transparent !p-0"
+                        citations={section.sectionCitations?.map((c: any, i: number) => ({
+                          id: i + 1, // IDs might need alignment with content but starting simple
+                          url: c.url,
+                          title: c.title || 'Source',
+                          snippet: c.snippet || '',
+                          source: 'exa' as const
+                        }))}
+                      >
                         {section.content}
                       </Markdown>
                       

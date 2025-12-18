@@ -145,14 +145,14 @@ export function ProjectList({
                 ) : (
                   <Folder className="h-4 w-4 shrink-0 text-primary" />
                 )}
-                <span className="flex-1 truncate">{project.name}</span>
+                <span className="flex-1 truncate min-w-0">{project.name}</span>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreVertical className="h-3 w-3" />

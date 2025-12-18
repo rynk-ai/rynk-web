@@ -385,16 +385,22 @@ class TaskProcessor implements DurableObject {
   ): Promise<any> {
     const { query, surfaceType, messageId, conversationId } = params
     
+    // RESEARCH SURFACE: Special handling with web search + parallel sections
+    // Return early to bypass generic skeleton generation and web context fetching
+    if (surfaceType === 'research') {
+      return this.processResearchGeneration(query, messageId, conversationId, jobId, onProgress)
+    }
+
     // Surfaces that benefit from parallel section generation
     const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'timeline', 'comparison']
     const useProgressiveGeneration = PROGRESSIVE_SURFACES.includes(surfaceType)
     
-    // WIKI: Fetch web context FIRST so skeleton can be informed by sources
+    // WIKI & TIMELINE: Fetch web context FIRST so skeleton can be informed by sources
     let webContext: any = undefined
-    if (surfaceType === 'wiki') {
+    if (['wiki', 'timeline'].includes(surfaceType)) {
       onProgress({ current: 1, total: 5, message: 'Researching topic...', step: 'research' })
       webContext = await this.fetchWebContext(query, { suggestedQueries: [query] })
-      console.log(`[TaskProcessor] Wiki web context fetched: ${webContext?.keyFacts?.length || 0} facts, ${webContext?.citations?.length || 0} citations`)
+      console.log(`[TaskProcessor] ${surfaceType} web context fetched: ${webContext?.keyFacts?.length || 0} facts, ${webContext?.citations?.length || 0} citations`)
     }
     
     onProgress({ current: 2, total: 5, message: 'Generating outline...', step: 'skeleton' })
@@ -408,10 +414,7 @@ class TaskProcessor implements DurableObject {
       console.log(`[TaskProcessor] Skeleton ready for job ${jobId}, continuing to hydrate...`)
     }
     
-    // RESEARCH SURFACE: Special handling with web search + parallel sections
-    if (surfaceType === 'research') {
-      return this.processResearchGeneration(query, messageId, conversationId, jobId, onProgress)
-    }
+
     
     // For learning and guide, skeleton IS the final structure (content generated on-demand)
     if (['learning', 'guide'].includes(surfaceType)) {
@@ -914,42 +917,28 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
     const verticals = await this.generateResearchVerticals(query, apiKey)
     console.log(`[TaskProcessor] Research: ${verticals.length} verticals generated`)
 
-    onProgress({ current: 2, total: 7, message: 'Drafting outline...', step: 'outline' })
+    onProgress({ current: 2, total: 6, message: 'Searching sources...', step: 'searching' })
 
-    // Step 2: Generate INITIAL skeleton (Outline only - Fast feedback)
-    // We pass an empty Map for sources to indicate "outline mode"
-    const initialSkeleton = await this.generateResearchSkeletonState(query, verticals, new Map(), apiKey)
-    
-    if (initialSkeleton) {
-      this.updateSkeleton(jobId, initialSkeleton)
-      console.log(`[TaskProcessor] Research initial outline ready for job ${jobId}`)
-    }
-
-    onProgress({ current: 3, total: 7, message: 'Searching sources...', step: 'searching' })
-
-    // Step 3: Search web for each vertical (parallel)
+    // Step 2: Search web for each vertical (parallel)
     const sourcesByVertical = await this.searchResearchVerticals(verticals)
     console.log(`[TaskProcessor] Research: Sources gathered for ${sourcesByVertical.size} verticals`)
 
-    onProgress({ current: 4, total: 7, message: 'Synthesizing knowledge...', step: 'synthesis' })
+    onProgress({ current: 3, total: 6, message: 'Synthesizing knowledge...', step: 'synthesis' })
 
-    // Step 4: Generate FULL skeleton (Enriched with citations/findings)
-    // We re-run the skeleton generation but this time with sources
+    // Step 3: Generate FULL skeleton (Enriched with citations/findings)
     const fullSkeleton = await this.generateResearchSkeletonState(query, verticals, sourcesByVertical, apiKey)
     
-    // Merge full skeleton with initial structure (preserving IDs if possible, but for now full overwrite is safer for consistency)
-    // We update the job again - the client must handle receiving a second skeleton update
     if (fullSkeleton) {
       this.updateSkeleton(jobId, fullSkeleton)
       console.log(`[TaskProcessor] Research full skeleton ready for job ${jobId}`)
     }
     
-    // Use the best available skeleton for section generation
-    const workingSkeleton = fullSkeleton || initialSkeleton
+    // Use the skeleton for section generation
+    const workingSkeleton = fullSkeleton
 
-    onProgress({ current: 5, total: 7, message: 'Generating sections...', step: 'sections' })
+    onProgress({ current: 4, total: 6, message: 'Generating sections...', step: 'sections' })
 
-    // Step 5: Generate sections in parallel
+    // Step 4: Generate sections in parallel
     const sections = workingSkeleton?.metadata?.sections || []
     const completedSections: any[] = []
     
@@ -1016,9 +1005,9 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
       completedSections.push(...batchResults)
     }
 
-    onProgress({ current: 6, total: 7, message: 'Finalizing...', step: 'finalizing' })
+    onProgress({ current: 5, total: 6, message: 'Finalizing...', step: 'finalizing' })
 
-    // Step 6: Build final surface state
+    // Step 5: Build final surface state
     const totalWordCount = completedSections.reduce((acc, s) => acc + (s.wordCount || 0), 0)
     const estimatedReadTime = Math.ceil(totalWordCount / 200)
 
@@ -1033,7 +1022,7 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
       }
     }
 
-    onProgress({ current: 7, total: 7, message: 'Complete!', step: 'complete' })
+    onProgress({ current: 6, total: 6, message: 'Complete!', step: 'complete' })
 
     return {
       surfaceState,
@@ -1176,7 +1165,9 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
     sourcesByVertical: Map<string, any[]>,
     apiKey: string
   ): Promise<any> {
-    const isOutlineMode = sourcesByVertical.size === 0
+    // Check if we actually have any sources
+    const hasSources = Array.from(sourcesByVertical.values()).some(sources => sources && sources.length > 0)
+    const isOutlineMode = !hasSources
     
     // Build source context (if available) - include BOTH Exa and Perplexity
     let sourceContext = ''
@@ -1366,7 +1357,7 @@ Return ONLY valid JSON.`
     }
 
     const citations = skeleton?.metadata?.allCitations || []
-    const prompt = `Write comprehensive content for research section.\n\nDOCUMENT: "${skeleton?.metadata?.title}"\nSECTION: "${section.heading}"\n\nSOURCES:\n${sourceContext.substring(0, 2500)}\n\nCITATIONS (use [1], [2] inline):\n${citations.slice(0, 8).map((c: any) => `[${c.id}] ${c.title}`).join('\n')}\n\nWrite 300-500 words in markdown. Be objective, evidence-based. Include inline citations.`
+    const prompt = `Write comprehensive content for research section.\n\nDOCUMENT: "${skeleton?.metadata?.title}"\nSECTION: "${section.heading}"\n\nSOURCES:\n${sourceContext.substring(0, 2500)}\n\nCITATIONS (use [1], [2] inline):\n${citations.slice(0, 8).map((c: any) => `[${c.id}] ${c.title}`).join('\n')}\n\nWrite 300-500 words in markdown. Be objective, evidence-based. Include inline citations.\nIMPORTANT: Do NOT include the section heading "${section.heading}" at the start. Start directly with the content.`
 
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1607,10 +1598,16 @@ Return JSON with: { "front": "...", "back": "...", "hint": "..." }
 The front should be a clear question or prompt. The back should be a concise, memorable answer.`
 
       case 'timeline':
-        return `Provide details for the event: "${sectionTitle}" in the timeline of "${title}".
+        // Build web context for accurate event details
+        let timelineContext = ''
+        if (webContext?.keyFacts?.length) {
+          timelineContext = `\n\nSOURCE MATERIAL (Use for accuracy):\n${webContext.keyFacts.join('\n').substring(0, 1500)}`
+        }
+
+        return `Provide details for the event: "${sectionTitle}" in the timeline of "${title}".${timelineContext}
 
 Return JSON with: { "date": "...", "title": "...", "description": "...", "significance": "..." }
-Be historically accurate and explain the event's importance.`
+Be historically accurate and explain the event's importance based on the source material if available.`
 
       case 'comparison':
         return `Provide a detailed analysis of "${sectionTitle}" for comparison with other items about "${title}".
@@ -1672,11 +1669,16 @@ ${baseFormat}
 Requirements: 25-35 cards, items describe each card topic.`
         
       case 'timeline':
-        return `Create a timeline outline for: "${query}"
+        // Build web research context for accurate timeline events
+        let timelineResearch = ''
+        if (webContext?.keyFacts?.length) {
+          timelineResearch = `\n\nWEB RESEARCH SUMMARY (Use this to find REAL events):\n${webContext.keyFacts.join('\n').substring(0, 2000)}\n\nCreate events based strictly on the research above.`
+        }
+        return `Create a timeline outline for: "${query}"${timelineResearch}
 
 ${baseFormat}
 
-Requirements: 10-15 key events in chronological order.`
+Requirements: 10-15 key events in chronological order. Use accurate dates found in research.`
         
       case 'wiki':
         // Build web research context for better wiki outline
