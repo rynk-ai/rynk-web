@@ -169,6 +169,10 @@
         @apply border-border outline-ring/50;
     }
 
+    html {
+        scroll-behavior: smooth;
+    }
+
     body {
         @apply bg-background text-foreground antialiased selection:bg-accent/20 selection:text-accent-foreground/80;
         font-feature-settings: "ss01", "ss02", "cv01", "cv02"; /* Modern font features */

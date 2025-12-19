@@ -1,15 +1,5 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { LandingPage } from "@/components/landing-page";
 
 export default function HomePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Immediately redirect without waiting or showing loading
-    router.replace("/chat");
-  }, [router]);
-
-  return null;
+  return <LandingPage />;
 }
