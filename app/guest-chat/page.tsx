@@ -331,6 +331,13 @@ const GuestChatContent = memo(function GuestChatContent({
 
   // Reset state for new chat
   useEffect(() => {
+    // CRITICAL: Don't clear messages if we're currently sending!
+    // This prevents wiping out optimistic messages during new conversation creation
+    if (isSending) {
+      console.log("[GuestChat] Skipping message clear - currently sending");
+      return;
+    }
+    
     if (!currentConversationId) {
       if (!chatId) {
         console.log("[GuestChat] New chat - clearing state");
@@ -340,7 +347,7 @@ const GuestChatContent = memo(function GuestChatContent({
         setLocalContext([]);
       }
     }
-  }, [currentConversationId, chatId]);
+  }, [currentConversationId, chatId, isSending]);
 
   // Reset context when switching conversations
   useEffect(() => {
@@ -441,16 +448,28 @@ const GuestChatContent = memo(function GuestChatContent({
 
   // Load messages when conversation changes
   const currentConversationIdRef = useRef(currentConversationId);
+  // Track previously loaded conversation to prevent double-loading
+  const prevLoadedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    currentConversationIdRef.current = currentConversationId;
-  }, [currentConversationId]);
-
-  useEffect(() => {
-    if (isSending) return;
-
-    const conversationId = currentConversationIdRef.current;
+    const conversationId = currentConversationId;
     if (!conversationId) return;
+
+    // CRITICAL FIX: Update the ref BEFORE the early returns!
+    // This prevents reloadMessages from being called after streaming completes.
+    const previouslyLoaded = prevLoadedConversationIdRef.current;
+    prevLoadedConversationIdRef.current = conversationId;
+    currentConversationIdRef.current = conversationId;
+
+    if (isSending) {
+      console.log("[GuestChat] Skipping reloadMessages - currently sending");
+      return;
+    }
+
+    // Only reload if conversation ID ACTUALLY changed
+    if (conversationId === previouslyLoaded) {
+      return;
+    }
 
     if (messages.length > 0 && messages[0].conversationId !== conversationId) {
       console.log("[GuestChat] Switching conversation, clearing state...");

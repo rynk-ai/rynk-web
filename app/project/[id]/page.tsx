@@ -349,6 +349,13 @@ const ChatContent = memo(
     // Simple state reset when starting a new chat
     // This clears messages when currentConversationId becomes null
     useEffect(() => {
+      // CRITICAL: Don't clear messages if we're currently sending!
+      // This prevents wiping out optimistic messages during new conversation creation
+      if (isSending) {
+        console.log("[ProjectPage] Skipping message clear - currently sending");
+        return;
+      }
+      
       if (!currentConversationId) {
         console.log("[ProjectPage] New chat - clearing state");
         // Clear all state to show fresh empty state
@@ -357,7 +364,7 @@ const ChatContent = memo(
         setQuotedMessage(null);
         setLocalContext([]);
       }
-    }, [currentConversationId]);
+    }, [currentConversationId, isSending]);
 
     // Local context state (used for all conversations now, transient)
     // Added 'status' field to track loading state for minimal progress feedback
@@ -1582,22 +1589,37 @@ const ChatContent = memo(
 
     // Load messages from conversation path
     useEffect(() => {
+      const conversationId = currentConversation?.id;
+      if (!conversationId) return;
+
+      // CRITICAL FIX: Update the ref BEFORE the early returns!
+      // This prevents reloadMessages from being called after streaming completes.
+      // Without this, the ref wouldn't be set during the guarded return,
+      // and when isSending becomes false, reloadMessages would be incorrectly called.
+      const previouslyLoaded = currentConversationIdRef.current;
+      currentConversationIdRef.current = conversationId;
+
       // Skip if we're in the middle of an edit to prevent race conditions
       // Also skip if sending to prevent overwriting stream with partial DB data
       // Note: We intentionally do NOT watch streamingMessageId here because when streaming ends,
       // the message is already in local state with full content and reasoning_metadata.
       // Reloading from DB would overwrite that with stale data.
-      if (isEditing || isSending || isSavingEdit) return;
-
-      // Check if we switched conversations
-      const isSwitching0 = currentConversationIdRef.current !== currentConversation?.id;
-      
-      if (isSwitching0 && currentConversation?.id) {
-          console.log("[ProjectPage] Switching conversation, clearing state...");
-          setMessages([]);
-          setMessageVersions(new Map());
+      if (isEditing || isSending || isSavingEdit) {
+        console.log("[ProjectPage] Skipping reloadMessages - currently sending/editing");
+        return;
       }
-      currentConversationIdRef.current = currentConversation?.id || null;
+
+      // Only reload if conversation ID ACTUALLY changed
+      if (conversationId === previouslyLoaded) {
+        return;
+      }
+
+      // Check if we switched conversations (state has messages from another conversation)
+      if (messages.length > 0 && messages[0].conversationId !== conversationId) {
+        console.log("[ProjectPage] Switching conversation, clearing state...");
+        setMessages([]);
+        setMessageVersions(new Map());
+      }
 
       reloadMessages();
     }, [
