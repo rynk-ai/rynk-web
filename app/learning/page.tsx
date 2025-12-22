@@ -4,17 +4,17 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
-  GraduationCap, 
-  Plus, 
-  BookOpen, 
-  Clock, 
-  Flame, 
-  Trophy,
-  ChevronRight,
-  Sparkles,
-  ArrowRight,
-  Loader2
-} from "lucide-react";
+  PiGraduationCap, 
+  PiPlus, 
+  PiBookOpenText, 
+  PiClock, 
+  PiFire, 
+  PiTrophy,
+  PiCaretRight,
+  PiSparkle,
+  PiArrowRight,
+  PiSpinner
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -54,7 +54,7 @@ function EmptyState({ onCreateCourse }: { onCreateCourse: () => void }) {
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
       <div className="relative mb-6">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-purple-500/20 blur-3xl rounded-full" />
-        <GraduationCap className="relative h-20 w-20 text-primary" />
+        <PiGraduationCap className="relative h-20 w-20 text-primary" />
       </div>
       
       <h2 className="text-2xl font-bold mb-2">Start Your Learning Journey</h2>
@@ -68,13 +68,13 @@ function EmptyState({ onCreateCourse }: { onCreateCourse: () => void }) {
         onClick={onCreateCourse}
         className="gap-2"
       >
-        <Plus className="h-5 w-5" />
+        <PiPlus className="h-5 w-5" />
         Create Your First Course
       </Button>
       
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-3xl">
         <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
-          <BookOpen className="h-8 w-8 text-primary mb-3" />
+          <PiBookOpenText className="h-8 w-8 text-primary mb-3" />
           <h3 className="font-semibold mb-1">Academic Sources</h3>
           <p className="text-sm text-muted-foreground">
             Content backed by research from Semantic Scholar, Crossref, and more.
@@ -82,7 +82,7 @@ function EmptyState({ onCreateCourse }: { onCreateCourse: () => void }) {
         </div>
         
         <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
-          <Sparkles className="h-8 w-8 text-yellow-500 mb-3" />
+          <PiSparkle className="h-8 w-8 text-yellow-500 mb-3" />
           <h3 className="font-semibold mb-1">Interactive Learning</h3>
           <p className="text-sm text-muted-foreground">
             Quizzes, assignments, and hands-on exercises after each chapter.
@@ -90,7 +90,7 @@ function EmptyState({ onCreateCourse }: { onCreateCourse: () => void }) {
         </div>
         
         <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
-          <Flame className="h-8 w-8 text-orange-500 mb-3" />
+          <PiFire className="h-8 w-8 text-orange-500 mb-3" />
           <h3 className="font-semibold mb-1">Streak Tracking</h3>
           <p className="text-sm text-muted-foreground">
             Stay motivated with daily streaks and achievement badges.
@@ -130,7 +130,7 @@ function CourseCard({
             {course.description}
           </p>
         </div>
-        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
+        <PiCaretRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
       </div>
       
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -138,12 +138,12 @@ function CourseCard({
           {course.difficulty}
         </span>
         <span className="flex items-center gap-1">
-          <BookOpen className="h-3.5 w-3.5" />
+          <PiBookOpenText className="h-3.5 w-3.5" />
           {course.completedChapters}/{course.totalChapters} {course.isV2 ? 'projects' : 'chapters'}
         </span>
         {course.streak && course.streak.currentStreak > 0 && (
           <span className="flex items-center gap-1 text-orange-500">
-            <Flame className="h-3.5 w-3.5" />
+            <PiFire className="h-3.5 w-3.5" />
             {course.streak.currentStreak} day streak
           </span>
         )}
@@ -204,9 +204,9 @@ function CreateCourseInput({
             className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl"
           >
             {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <PiSpinner className="h-5 w-5 animate-spin" />
             ) : (
-              <ArrowRight className="h-5 w-5" />
+              <PiArrowRight className="h-5 w-5" />
             )}
           </Button>
         </div>
@@ -313,7 +313,7 @@ export default function LearningPage() {
         <AppSidebar />
         <SidebarInset>
           <div className="flex items-center justify-center min-h-screen">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <PiSpinner className="h-8 w-8 animate-spin text-primary" />
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -333,7 +333,7 @@ export default function LearningPage() {
           <div className="flex items-center gap-3">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <GraduationCap className="h-7 w-7 text-primary" />
+            <PiGraduationCap className="h-7 w-7 text-primary" />
             <h1 className="text-xl font-bold">Learning</h1>
           </div>
           
@@ -343,7 +343,7 @@ export default function LearningPage() {
               variant={showCreateInput ? "secondary" : "default"}
               className="gap-2"
             >
-              <Plus className="h-4 w-4" />
+              <PiPlus className="h-4 w-4" />
               New Course
             </Button>
           )}
@@ -356,7 +356,7 @@ export default function LearningPage() {
         {courses.some(c => c.streak && c.streak.currentStreak > 0) && (
           <div className="mb-8 p-4 rounded-xl bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 flex items-center gap-4">
             <div className="flex items-center justify-center h-12 w-12 rounded-full bg-orange-500/20">
-              <Flame className="h-6 w-6 text-orange-500" />
+              <PiFire className="h-6 w-6 text-orange-500" />
             </div>
             <div>
               <p className="font-semibold">
@@ -388,7 +388,7 @@ export default function LearningPage() {
             {courses.filter(c => c.progress < 100).length > 0 && (
               <section className="mb-10">
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-blue-500" />
+                  <PiClock className="h-5 w-5 text-blue-500" />
                   In Progress
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -410,7 +410,7 @@ export default function LearningPage() {
             {courses.filter(c => c.progress === 100).length > 0 && (
               <section>
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  <PiTrophy className="h-5 w-5 text-yellow-500" />
                   Completed
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

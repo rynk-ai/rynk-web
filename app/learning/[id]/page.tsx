@@ -4,20 +4,20 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
-  GraduationCap, 
-  ArrowLeft,
-  ChevronRight,
-  ChevronDown,
-  Clock,
-  BookOpen,
-  CheckCircle2,
-  Lock,
-  Play,
-  Flame,
-  Loader2,
-  Menu,
-  X
-} from "lucide-react";
+  PiGraduationCap, 
+  PiArrowLeft,
+  PiCaretRight,
+  PiCaretDown,
+  PiClock,
+  PiBookOpenText,
+  PiCheckCircle,
+  PiLock,
+  PiPlay,
+  PiFire,
+  PiSpinner,
+  PiList,
+  PiX
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { SelectableContent } from "@/components/selectable-content";
@@ -125,14 +125,14 @@ function TocSidebar({
         onClick={onClose}
         className="lg:hidden absolute top-4 right-4 p-2 rounded-lg hover:bg-secondary z-10"
       >
-        <X className="h-5 w-5" />
+        <PiX className="h-5 w-5" />
       </button>
       
       {/* Course header - fixed at top */}
       <div className="p-4 border-b border-border/40 shrink-0">
         <h2 className="font-semibold line-clamp-2">{metadata.title}</h2>
         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-          <Clock className="h-3.5 w-3.5" />
+          <PiClock className="h-3.5 w-3.5" />
           <span>{metadata.totalEstimatedTime} min total</span>
           <span className="mx-1">•</span>
           <span>{metadata.totalChapters} chapters</span>
@@ -162,7 +162,7 @@ function TocSidebar({
               onClick={() => toggleUnit(unit.id)}
               className="w-full flex items-center gap-2 p-2 text-left rounded-lg hover:bg-secondary/50 transition-colors"
             >
-              <ChevronRight className={cn(
+              <PiCaretRight className={cn(
                 "h-4 w-4 shrink-0 transition-transform",
                 expandedUnits.includes(unit.id) && "rotate-90"
               )} />
@@ -184,11 +184,11 @@ function TocSidebar({
                       )}
                     >
                       {isChapterCompleted(chapter) ? (
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        <PiCheckCircle className="h-4 w-4 shrink-0" />
                       ) : chapter.status === 'locked' ? (
-                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <PiLock className="h-4 w-4 shrink-0 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className={cn(
+                        <PiCaretRight className={cn(
                           "h-4 w-4 shrink-0 transition-transform",
                           expandedChapters.includes(chapter.id) && "rotate-90"
                         )} />
@@ -213,9 +213,9 @@ function TocSidebar({
                             )}
                           >
                             {isSectionCompleted(section.id) ? (
-                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                              <PiCheckCircle className="h-3 w-3 shrink-0" />
                             ) : currentSection?.sectionId === section.id ? (
-                              <Play className="h-3 w-3 shrink-0" />
+                              <PiPlay className="h-3 w-3 shrink-0" />
                             ) : (
                               <div className="h-3 w-3 rounded-full border border-current shrink-0" />
                             )}
@@ -499,7 +499,7 @@ export default function CourseViewPage() {
   if (status === "loading" || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <PiSpinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -546,7 +546,7 @@ export default function CourseViewPage() {
               className="lg:hidden"
               onClick={() => setIsSidebarOpen(true)}
             >
-              <Menu className="h-5 w-5" />
+              <PiList className="h-5 w-5" />
             </Button>
             
             <Button 
@@ -554,7 +554,7 @@ export default function CourseViewPage() {
               onClick={() => router.push("/learning")}
               className="gap-2 hidden lg:flex"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <PiArrowLeft className="h-4 w-4" />
               Back
             </Button>
             
@@ -562,7 +562,7 @@ export default function CourseViewPage() {
               {sectionInfo && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="truncate">{sectionInfo.unit?.title}</span>
-                  <ChevronRight className="h-4 w-4 shrink-0" />
+                  <PiCaretRight className="h-4 w-4 shrink-0" />
                   <span className="truncate">{sectionInfo.chapter?.title}</span>
                 </div>
               )}
@@ -571,7 +571,7 @@ export default function CourseViewPage() {
             {/* Streak display */}
             {progress.streak.currentStreak > 0 && (
               <div className="flex items-center gap-1.5 text-orange-500">
-                <Flame className="h-5 w-5" />
+                <PiFire className="h-5 w-5" />
                 <span className="font-medium">{progress.streak.currentStreak}</span>
               </div>
             )}
@@ -695,7 +695,7 @@ export default function CourseViewPage() {
                       
                       {isLoadingAssessment && (
                         <div className="mt-4 text-center text-muted-foreground">
-                          <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                          <PiSpinner className="h-5 w-5 animate-spin mx-auto mb-2" />
                           <span>Generating assessment...</span>
                         </div>
                       )}
@@ -705,7 +705,7 @@ export default function CourseViewPage() {
               </>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <PiBookOpenText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Select a section to start learning</p>
               </div>
             )}
