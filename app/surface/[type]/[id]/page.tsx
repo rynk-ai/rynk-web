@@ -13,21 +13,22 @@ import { flushSync } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
-  ArrowLeft, 
-  Loader2, 
-  MoreVertical, 
-  Trash2, 
-  BookOpen, 
-  ListChecks, 
-  Target, 
-  Scale, 
-  Layers, 
-  Calendar,
-  Cloud,
-  CheckCircle2,
-  TrendingUp,
-  Microscope
-} from "lucide-react";
+  PiArrowLeft, 
+  PiSpinner, 
+  PiDotsThreeVertical, 
+  PiTrash, 
+  PiBookOpen, 
+  PiListChecks, 
+  PiTarget, 
+  PiScales, 
+  PiStack, 
+  PiCalendar,
+  PiCloud,
+  PiCheckCircle,
+  PiTrendUp,
+  PiMicroscope,
+  PiXCircle
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -72,16 +73,16 @@ import type {
 // Helper to get icon and label for surface type
 const getSurfaceInfo = (type: string) => {
   switch (type) {
-    case 'learning': return { icon: BookOpen, label: 'Course', color: 'text-blue-500' };
-    case 'guide': return { icon: ListChecks, label: 'Guide', color: 'text-green-500' };
-    case 'quiz': return { icon: Target, label: 'Quiz', color: 'text-pink-500' };
-    case 'comparison': return { icon: Scale, label: 'Comparison', color: 'text-indigo-500' };
-    case 'flashcard': return { icon: Layers, label: 'Flashcards', color: 'text-teal-500' };
-    case 'timeline': return { icon: Calendar, label: 'Timeline', color: 'text-amber-500' };
-    case 'wiki': return { icon: BookOpen, label: 'Wiki', color: 'text-orange-500' };
-    case 'finance': return { icon: TrendingUp, label: 'Finance', color: 'text-emerald-500' };
-    case 'research': return { icon: Microscope, label: 'Research', color: 'text-purple-500' };
-    default: return { icon: BookOpen, label: 'Surface', color: 'text-primary' };
+    case 'learning': return { icon: PiBookOpen, label: 'Course', color: 'text-blue-500' };
+    case 'guide': return { icon: PiListChecks, label: 'Guide', color: 'text-green-500' };
+    case 'quiz': return { icon: PiTarget, label: 'Quiz', color: 'text-pink-500' };
+    case 'comparison': return { icon: PiScales, label: 'Comparison', color: 'text-indigo-500' };
+    case 'flashcard': return { icon: PiStack, label: 'Flashcards', color: 'text-teal-500' };
+    case 'timeline': return { icon: PiCalendar, label: 'Timeline', color: 'text-amber-500' };
+    case 'wiki': return { icon: PiBookOpen, label: 'Wiki', color: 'text-orange-500' };
+    case 'finance': return { icon: PiTrendUp, label: 'Finance', color: 'text-emerald-500' };
+    case 'research': return { icon: PiMicroscope, label: 'Research', color: 'text-purple-500' };
+    default: return { icon: PiBookOpen, label: 'Surface', color: 'text-primary' };
   }
 };
 
@@ -797,11 +798,14 @@ export default function SurfacePage() {
     const updatedState = {
       ...surfaceState,
       flashcard: {
-        currentCard: 0,
+        ...surfaceState.flashcard,
+        ...surfaceState.flashcard,
+        // Preserve existing progress
         knownCards: surfaceState.flashcard?.knownCards ?? [],
         unknownCards: surfaceState.flashcard?.unknownCards ?? [],
         completed: surfaceState.flashcard?.completed ?? false,
         shuffleOrder: order,
+        currentCard: surfaceState.flashcard?.currentCard ?? 0,
       },
     };
     setSurfaceState(updatedState);
@@ -875,12 +879,12 @@ export default function SurfacePage() {
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <div className="bg-card border rounded-2xl p-8 flex flex-col items-center gap-4 text-center max-w-md shadow-lg">
           <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
-            <Trash2 className="h-6 w-6 text-red-500" />
+            <PiXCircle className="h-6 w-6 text-red-500" />
           </div>
           <h2 className="text-xl font-bold">Something went wrong</h2>
           <p className="text-muted-foreground text-sm">{error}</p>
           <Button onClick={handleBackToChat} variant="outline" className="mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <PiArrowLeft className="h-4 w-4 mr-2" />
             Back to Chat
           </Button>
         </div>
@@ -895,7 +899,7 @@ export default function SurfacePage() {
         <div className="flex flex-col items-center gap-4">
           <p className="text-muted-foreground">No surface data found</p>
           <Button onClick={handleBackToChat} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <PiArrowLeft className="h-4 w-4 mr-2" />
             Back to Chat
           </Button>
         </div>
@@ -910,202 +914,233 @@ export default function SurfacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Clean Header */}
-      <header className="sticky top-0 z-50 border-b border-border/30 bg-card/80 backdrop-blur-md">
-        <div className="container max-w-6xl mx-auto flex h-14 items-center justify-between gap-4 px-4 md:px-6">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-background flex flex-col font-sans">
+      {/* Header - Compact and Technical */}
+      <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur-[2px] supports-[backdrop-filter]:bg-background/80">
+        <div className="h-14 max-w-[1400px] mx-auto px-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 overflow-hidden">
             <Button 
               variant="ghost" 
-              size="sm" 
+              size="icon" 
+              className="h-8 w-8 -ml-1 text-muted-foreground hover:text-foreground rounded-lg"
               onClick={handleBackToChat}
-              className="gap-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Back to Chat</span>
+              <PiArrowLeft className="h-4 w-4" />
             </Button>
             
-            <div className="h-4 w-px bg-border hidden sm:block" />
+            <div className="h-4 w-[1px] bg-border/60 mx-1" />
             
-            <div className="flex items-center gap-2">
-              <SurfaceIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block">
-                {surfaceInfo.label}
-              </span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={cn("p-1.5 rounded-md bg-muted/40 border border-border/30", surfaceInfo.color)}>
+                <SurfaceIcon className="h-3.5 w-3.5" />
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <h1 className="text-sm font-semibold truncate leading-none tracking-tight">
+                  {(surfaceState.metadata as any).title || (surfaceState.metadata as any).topic || originalQuery || queryFromUrl || "New Context"}
+                </h1>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider leading-none">
+                  {surfaceInfo.label} Surface
+                </span>
+              </div>
             </div>
-          </div>
-
-          <div className="flex-1 max-w-md mx-6 hidden md:block text-center">
-             <h1 className="text-sm font-medium truncate opacity-90">
-               {(surfaceState.metadata as any).title || (surfaceState.metadata as any).topic}
-             </h1>
+            
+            {/* Saving Indicator */}
+            {(isSaving || isGenerating) && (
+              <div className="ml-2 flex items-center gap-1.5 text-[10px] text-muted-foreground animate-in fade-in duration-300">
+                <PiCloud className="h-3 w-3" />
+                <span>{isGenerating ? 'Generating...' : 'Saving...'}</span>
+              </div>
+             )}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Status Indicator */}
-            <div className="flex items-center gap-1.5 mr-2 px-2.5 py-1 bg-secondary/50 rounded-full">
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  <span className="text-[10px] uppercase font-semibold tracking-wide text-muted-foreground">Saving</span>
-                </>
-              ) : (
-                <>
-                   <CheckCircle2 className="h-3 w-3 text-green-500" />
-                   <span className="text-[10px] uppercase font-semibold tracking-wide text-muted-foreground">Saved</span>
-                </>
-              )}
-            </div>
-
-            {/* Actions Menu */}
+            {generationProgress && isGenerating && (
+              <div className="hidden md:flex items-center gap-2 mr-2 px-2.5 py-1 bg-muted/30 rounded-full border border-border/30">
+                <PiSpinner className="h-3 w-3 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  {generationProgress.message} ({Math.round((generationProgress.current / generationProgress.total) * 100)}%)
+                </span>
+              </div>
+            )}
+            
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
-                  <MoreVertical className="h-4 w-4" />
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground">
+                  <PiDotsThreeVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive cursor-pointer group"
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive gap-2 text-xs font-medium"
                   onClick={() => setShowDeleteDialog(true)}
                 >
-                  <Trash2 className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                  <PiTrash className="h-3.5 w-3.5" />
                   Delete Surface
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-      </header>
-
-      {/* Content */}
-      <main className="container max-w-6xl mx-auto px-4 md:px-6 py-8">
-        {surfaceType === 'learning' ? (
-          <LearningSurface
-            metadata={surfaceState.metadata as LearningMetadata}
-            surfaceState={surfaceState}
-            onGenerateChapter={handleGenerateChapter}
-            onMarkComplete={handleMarkChapterComplete}
-            isGenerating={isGenerating}
-            surfaceId={currentSurfaceId || undefined}
-            onSubChatSelect={handleOpenSubChat}
-            sectionIdsWithSubChats={sectionIdsWithSubChats}
-          />
-        ) : surfaceType === 'guide' ? (
-          <GuideSurface
-            metadata={surfaceState.metadata as GuideMetadata}
-            surfaceState={surfaceState}
-            onGenerateStep={handleGenerateStep}
-            onMarkComplete={handleMarkStepComplete}
-            onSkipStep={handleSkipStep}
-            isGenerating={isGenerating}
-          />
-        ) : surfaceType === 'quiz' ? (
-          <QuizSurface
-            metadata={surfaceState.metadata as QuizMetadata}
-            surfaceState={surfaceState}
-            onAnswerQuestion={handleAnswerQuestion}
-            onNextQuestion={handleNextQuestion}
-            onRestartQuiz={handleRestartQuiz}
-            isGenerating={isGenerating}
-          />
-        ) : surfaceType === 'comparison' ? (
-          <ComparisonSurface
-            metadata={surfaceState.metadata as ComparisonMetadata}
-          />
-        ) : surfaceType === 'flashcard' ? (
-          <FlashcardSurface
-            metadata={surfaceState.metadata as FlashcardMetadata}
-            surfaceState={surfaceState}
-            onMarkCard={handleMarkFlashcard}
-            onNextCard={handleNextFlashcard}
-            onPrevCard={handlePrevFlashcard}
-            onShuffleCards={handleShuffleFlashcards}
-            onRestartDeck={handleRestartFlashcards}
-            isGenerating={isGenerating}
-          />
-        ) : surfaceType === 'timeline' ? (
-          <TimelineSurface
-            metadata={surfaceState.metadata as TimelineMetadata}
-          />
-        ) : surfaceType === 'wiki' ? (
-          <WikiSurface
-            metadata={surfaceState.metadata as WikiMetadata}
-            surfaceState={surfaceState}
-            conversationId={conversationId}
-            surfaceId={currentSurfaceId || undefined}
-            onSubChatSelect={handleOpenSubChat}
-            sectionIdsWithSubChats={sectionIdsWithSubChats}
-          />
-        ) : surfaceType === 'finance' ? (
-          <FinanceSurface
-            metadata={surfaceState.metadata as any}
-            surfaceState={surfaceState}
-          />
-        ) : surfaceType === 'research' ? (
-          <ResearchSurface
-            metadata={surfaceState.metadata as ResearchMetadata}
-            surfaceState={surfaceState}
-            isGenerating={isGenerating}
-            progress={generationProgress || undefined}
-            surfaceId={currentSurfaceId || undefined}
-            onSubChatSelect={handleOpenSubChat}
-            sectionIdsWithSubChats={sectionIdsWithSubChats}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
-              <Cloud className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-            <h3 className="text-lg font-medium text-foreground">Surface Not Found</h3>
-            <p className="text-muted-foreground mt-2 max-w-xs">
-              This surface type doesn't exist or hasn't been implemented yet.
-            </p>
+        
+        {/* Progress Bar */}
+        {generationProgress && isGenerating && (
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-muted/30">
+            <div 
+              className="h-full bg-primary/70 transition-all duration-300 ease-out"
+              style={{ width: `${(generationProgress.current / generationProgress.total) * 100}%` }}
+            />
           </div>
         )}
-      </main>
+      </header>
+      
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <main className="max-w-[1200px] mx-auto px-4 py-8 md:px-8">
+           <div className="animate-in fade-in duration-500 ease-out slide-in-from-bottom-2">
+             {surfaceType === 'learning' ? (
+              <LearningSurface
+                metadata={surfaceState.metadata as LearningMetadata}
+                surfaceState={surfaceState}
+                content={(surfaceState.learning?.chaptersContent) || {}}
+                completedChapters={surfaceState.learning?.completedChapters || []}
+                onGenerateChapter={handleGenerateChapter}
+                onMarkComplete={handleMarkChapterComplete}
+                isGenerating={isGenerating}
+                conversationId={conversationId}
+                surfaceId={currentSurfaceId || undefined}
+                onSubChatSelect={handleOpenSubChat}
+                sectionIdsWithSubChats={sectionIdsWithSubChats}
+              />
+            ) : surfaceType === 'guide' ? (
+              <GuideSurface
+                metadata={surfaceState.metadata as GuideMetadata}
+                surfaceState={surfaceState}
+                content={(surfaceState.guide?.stepsContent) || {}}
+                completedSteps={surfaceState.guide?.completedSteps || []}
+                skippedSteps={surfaceState.guide?.skippedSteps || []}
+                onGenerateStep={handleGenerateStep}
+                onMarkComplete={handleMarkStepComplete}
+                onSkipStep={handleSkipStep}
+                isGenerating={isGenerating}
+                conversationId={conversationId}
+                surfaceId={currentSurfaceId || undefined}
+                onSubChatSelect={handleOpenSubChat}
+                sectionIdsWithSubChats={sectionIdsWithSubChats}
+              />
+            ) : surfaceType === 'quiz' ? (
+              <QuizSurface
+                metadata={surfaceState.metadata as QuizMetadata}
+                surfaceState={surfaceState}
+                onAnswerQuestion={handleAnswerQuestion}
+                onNextQuestion={handleNextQuestion}
+                onRestartQuiz={handleRestartQuiz}
+                isGenerating={isGenerating}
+              />
+            ) : surfaceType === 'comparison' ? (
+              <ComparisonSurface
+                metadata={surfaceState.metadata as ComparisonMetadata}
+                /* SubChat not yet supported */
 
-      {/* Delete Confirmation Dialog */}
+
+              />
+            ) : surfaceType === 'flashcard' ? (
+              <FlashcardSurface
+                metadata={surfaceState.metadata as FlashcardMetadata}
+                surfaceState={surfaceState}
+                onNextCard={handleNextFlashcard}
+                onPrevCard={handlePrevFlashcard}
+                onMarkCard={handleMarkFlashcard}
+                onShuffleCards={handleShuffleFlashcards}
+                onRestartDeck={handleRestartFlashcards}
+                isGenerating={isGenerating}
+              />
+            ) : surfaceType === 'timeline' ? (
+              <TimelineSurface
+                metadata={surfaceState.metadata as TimelineMetadata}
+                /* SubChat not yet supported */
+
+
+              />
+            ) : surfaceType === 'wiki' ? (
+              <WikiSurface
+                metadata={surfaceState.metadata as WikiMetadata}
+                surfaceState={surfaceState} // Pass full state for availableImages/citations
+                conversationId={conversationId}
+                surfaceId={currentSurfaceId || undefined}
+                onSubChatSelect={handleOpenSubChat}
+                sectionIdsWithSubChats={sectionIdsWithSubChats}
+              />
+            ) : surfaceType === 'finance' ? (
+              <FinanceSurface
+                metadata={surfaceState.metadata as any} // Relax typing for now
+                surfaceState={surfaceState} // Pass full state if needed
+              />
+            ) : surfaceType === 'research' ? (
+              <ResearchSurface
+                metadata={surfaceState.metadata as ResearchMetadata}
+                surfaceState={surfaceState}
+                isGenerating={isGenerating}
+                progress={generationProgress || undefined}
+                surfaceId={currentSurfaceId || undefined}
+                onSubChatSelect={handleOpenSubChat}
+                sectionIdsWithSubChats={sectionIdsWithSubChats}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
+                  <PiCloud className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground">Surface Not Found</h3>
+                <p className="text-muted-foreground mt-2 max-w-xs">
+                  This surface type doesn't exist or hasn't been implemented yet.
+                </p>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Delete this surface?</DialogTitle>
-            <DialogDescription className="pt-2">
-              This will permanently delete your progress on this <strong className="text-foreground">{surfaceInfo.label.toLowerCase()}</strong>. 
-              This action cannot be undone.
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <PiTrash className="h-5 w-5" />
+              Delete Surface
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this {surfaceInfo.label}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteSurface}
+            <Button 
+              variant="destructive" 
+              onClick={async () => {
+                if (!currentSurfaceId) return;
+                setIsDeleting(true);
+                try {
+                  await fetch(`/api/surface/${currentSurfaceId}`, { method: 'DELETE' });
+                  handleBackToChat();
+                } catch (e) {
+                  console.error(e);
+                  setIsDeleting(false);
+                }
+              }}
               disabled={isDeleting}
-              className="gap-2"
             >
-              <Trash2 className="h-4 w-4" />
-              {isDeleting ? 'Deleting...' : 'Delete Forever'}
+              {isDeleting ? <PiSpinner className="h-4 w-4 animate-spin" /> : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Surface Sub-Chat Sheet */}
+      
+      {/* SubChat Sheet - Deep Dive Context */}
       <SubChatSheet
         open={subChatSheetOpen}
         onOpenChange={setSubChatSheetOpen}
-        subChat={activeSubChat ? {
-          id: activeSubChat.id,
-          conversationId: activeSubChat.sourceId,
-          sourceMessageId: activeSubChat.sectionId || 'surface',
-          quotedText: activeSubChat.quotedText,
-          fullMessageContent: activeSubChat.sourceContent || '',
-          messages: activeSubChat.messages,
-          createdAt: activeSubChat.createdAt,
-          updatedAt: activeSubChat.updatedAt,
-        } : null}
+        subChat={activeSubChat}
         onSendMessage={handleSubChatSendMessage}
         isLoading={subChatLoading}
         streamingContent={subChatStreamingContent}

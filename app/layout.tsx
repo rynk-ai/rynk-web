@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
-import { Inter } from "next/font/google";
+import { Outfit, Inter } from "next/font/google"; // [MODIFIED]
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
@@ -12,10 +10,16 @@ import { FontProviderWrapper } from "@/components/providers/font-provider-wrappe
 import { Toaster } from "sonner";
 import "./globals.css";
 
+const outfit = Outfit({ // [MODIFIED]
+  subsets: ["latin"],
+  variable: "--font-outfit", // [MODIFIED]
+  display: "swap",
+});
+
 const inter = Inter({
   subsets: ["latin"],
-  display: "swap",
   variable: "--font-inter",
+  display: "swap",
 });
 
 // Viewport configuration (Next.js 15+ requires separate export)
@@ -194,7 +198,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} antialiased tracking-tight`}
+        className={`${outfit.variable} ${inter.variable} font-sans antialiased tracking-tight bg-background text-foreground`}
       >
         <AuthProvider>
           <FontProviderWrapper defaultFont="geist">

@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'motion/react'
-import { Loader2 } from 'lucide-react'
+import { PiSpinner } from 'react-icons/pi'
 import {
   HoverCard,
   HoverCardContent,
@@ -45,7 +45,7 @@ export function LiveSourcePills({ sources, isSearching }: LiveSourcePillsProps) 
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ repeat: Infinity, duration: 1.5 }}
           >
-            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            <PiSpinner className="h-2.5 w-2.5 animate-spin" />
             Finding sources...
           </motion.div>
         )}

@@ -12,14 +12,14 @@
 
 import { memo } from "react";
 import { 
-  Search, 
-  GitBranch, 
-  Globe, 
-  FileText, 
-  Edit, 
-  CheckCircle2,
-  Loader2
-} from "lucide-react";
+  PiMagnifyingGlass, 
+  PiGitBranch, 
+  PiGlobe, 
+  PiFileText, 
+  PiPencil, 
+  PiCheckCircle,
+  PiSpinner
+} from "react-icons/pi";
 import { cn } from "@/lib/utils";
 
 interface ResearchProgressProps {
@@ -54,9 +54,9 @@ function ProgressStep({ icon: Icon, label, status, detail }: ProgressStepProps) 
         status === 'pending' && "bg-muted text-muted-foreground"
       )}>
         {status === 'active' ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <PiSpinner className="h-4 w-4 animate-spin" />
         ) : status === 'completed' ? (
-          <CheckCircle2 className="h-4 w-4" />
+          <PiCheckCircle className="h-4 w-4" />
         ) : (
           <Icon className="h-4 w-4" />
         )}
@@ -108,34 +108,34 @@ export const ResearchProgress = memo(function ResearchProgress({
       {/* Progress Steps */}
       <div className="space-y-2">
         <ProgressStep
-          icon={Search}
+          icon={PiMagnifyingGlass}
           label="Analyzing research question"
           status={getStepStatus('analyzing')}
         />
         <ProgressStep
-          icon={GitBranch}
+          icon={PiGitBranch}
           label="Creating research angles"
           status={getStepStatus('searching')}
           detail={currentStep === 'searching' ? message : undefined}
         />
         <ProgressStep
-          icon={FileText}
+          icon={PiFileText}
           label="Building document structure"
           status={getStepStatus('skeleton')}
         />
         <ProgressStep
-          icon={Edit}
+          icon={PiPencil}
           label="Writing sections"
           status={getStepStatus('sections')}
           detail={currentStep === 'sections' ? message : undefined}
         />
         <ProgressStep
-          icon={Globe}
+          icon={PiGlobe}
           label="Finalizing research"
           status={getStepStatus('synthesis')}
         />
         <ProgressStep
-          icon={CheckCircle2}
+          icon={PiCheckCircle}
           label="Complete"
           status={getStepStatus('complete')}
         />

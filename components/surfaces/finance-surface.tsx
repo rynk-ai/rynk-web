@@ -15,22 +15,22 @@ import { memo } from "react";
 import { cn } from "@/lib/utils";
 import type { FinanceMetadata, SurfaceState } from "@/lib/services/domain-types";
 import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  BarChart3,
-  Activity,
-  AlertTriangle,
-  Newspaper,
-  ExternalLink,
-  Info,
-  Zap,
-  ArrowUpRight,
-  ArrowDownRight,
-  Circle,
-  Target,
-  Shield,
-} from "lucide-react";
+  PiTrendUp,
+  PiTrendDown,
+  PiMinus,
+  PiChartBar,
+  PiPulse,
+  PiWarning,
+  PiNewspaper,
+  PiArrowSquareOut,
+  PiInfo,
+  PiLightning,
+  PiArrowUpRight,
+  PiArrowDownRight,
+  PiCircleFill,
+  PiTarget,
+  PiShield,
+} from "react-icons/pi";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { StockChart } from "@/components/charts/stock-chart";
 
@@ -57,48 +57,48 @@ function CompactHeader({ asset, liveData, summary }: {
   const isPositive = liveData.changePercent24h >= 0;
   
   return (
-    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+    <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8 bg-card border border-border/40 rounded-2xl p-6 shadow-sm">
       {/* Left: Price info */}
       <div className="flex-1">
-        <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-2xl font-bold">{asset.name}</h1>
-          <span className="text-sm font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+        <div className="flex items-center gap-2.5 mb-1.5">
+          <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">{asset.name}</h1>
+          <span className="text-sm font-medium px-2 py-0.5 rounded-md bg-muted border border-border/50 text-muted-foreground font-mono">
             {asset.symbol}
           </span>
           {asset.type !== 'stock' && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wide border border-primary/20">
               {asset.type}
             </span>
           )}
         </div>
         
         {asset.sector && (
-          <p className="text-sm text-muted-foreground mb-3">
-            {asset.sector} • {asset.industry}
+          <p className="text-xs font-medium text-muted-foreground mb-4 uppercase tracking-wide flex items-center gap-1.5">
+            {asset.sector} <span className="text-border">•</span> {asset.industry}
           </p>
         )}
         
         <div className="flex items-baseline gap-4">
-          <span className="text-4xl font-bold">
+          <span className="text-4xl font-bold tracking-tight text-foreground font-display">
             ${liveData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
           <div className={cn(
-            "flex items-center gap-1 text-lg font-semibold",
-            isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+            "flex items-center gap-1 text-lg font-bold p-1 rounded-lg",
+            isPositive ? "text-green-600 dark:text-green-500 bg-green-500/10" : "text-red-600 dark:text-red-500 bg-red-500/10"
           )}>
-            {isPositive ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
+            {isPositive ? <PiArrowUpRight className="h-5 w-5" /> : <PiArrowDownRight className="h-5 w-5" />}
             <span>{isPositive ? '+' : ''}{liveData.change24h.toFixed(2)}</span>
-            <span className="text-sm">({isPositive ? '+' : ''}{liveData.changePercent24h.toFixed(2)}%)</span>
+            <span className="text-sm font-medium opacity-90">({isPositive ? '+' : ''}{liveData.changePercent24h.toFixed(2)}%)</span>
           </div>
         </div>
       </div>
       
       {/* Right: Key stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-x-8 gap-y-4 lg:gap-x-10 p-4 bg-muted/20 rounded-xl border border-border/30">
         <StatItem label="Market Cap" value={formatNumber(liveData.marketCap)} />
         <StatItem label="Volume" value={formatNumber(liveData.volume)} />
-        <StatItem label="Day High" value={`$${liveData.high24h.toFixed(2)}`} valueClass="text-green-600" />
-        <StatItem label="Day Low" value={`$${liveData.low24h.toFixed(2)}`} valueClass="text-red-600" />
+        <StatItem label="Day High" value={`$${liveData.high24h.toFixed(2)}`} valueClass="text-green-600 dark:text-green-500" />
+        <StatItem label="Day Low" value={`$${liveData.low24h.toFixed(2)}`} valueClass="text-red-600 dark:text-red-500" />
       </div>
     </div>
   );
@@ -106,9 +106,9 @@ function CompactHeader({ asset, liveData, summary }: {
 
 function StatItem({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div className="text-center lg:text-left">
-      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className={cn("text-sm font-semibold", valueClass)}>{value}</div>
+    <div className="text-left">
+      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 opacity-70">{label}</div>
+      <div className={cn("text-sm font-bold font-mono", valueClass)}>{value}</div>
     </div>
   );
 }
@@ -121,22 +121,22 @@ function SignalsRow({ metadata }: { metadata: FinanceMetadata }) {
       value: metadata.summary.sentiment,
       color: metadata.summary.sentiment === 'bullish' ? 'green' : 
              metadata.summary.sentiment === 'bearish' ? 'red' : 'gray',
-      icon: metadata.summary.sentiment === 'bullish' ? TrendingUp : 
-            metadata.summary.sentiment === 'bearish' ? TrendingDown : Minus,
+      icon: metadata.summary.sentiment === 'bullish' ? PiTrendUp : 
+            metadata.summary.sentiment === 'bearish' ? PiTrendDown : PiMinus,
     },
     {
       label: 'Valuation',
       value: metadata.fundamentals.verdict.replace('-', ' '),
       color: metadata.fundamentals.verdict === 'undervalued' ? 'green' : 
              metadata.fundamentals.verdict === 'overvalued' ? 'red' : 'gray',
-      icon: BarChart3,
+      icon: PiChartBar,
     },
     {
       label: 'Trend',
       value: metadata.technicals.trend.replace('-', ' '),
       color: metadata.technicals.trend.includes('uptrend') ? 'green' : 
              metadata.technicals.trend.includes('downtrend') ? 'red' : 'gray',
-      icon: Activity,
+      icon: PiPulse,
     },
     {
       label: 'Phase',
@@ -144,34 +144,42 @@ function SignalsRow({ metadata }: { metadata: FinanceMetadata }) {
       color: metadata.cycles.phase === 'markup' ? 'green' : 
              metadata.cycles.phase === 'decline' ? 'red' : 
              metadata.cycles.phase === 'distribution' ? 'amber' : 'blue',
-      icon: Target,
+      icon: PiTarget,
     },
   ];
   
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {signals.map((signal, idx) => {
         const Icon = signal.icon;
         const colorClasses = {
-          green: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
-          red: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
-          amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-          blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-          gray: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
+          green: 'bg-green-500/5 text-green-700 dark:text-green-400 border-green-500/20 hover:bg-green-500/10',
+          red: 'bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20 hover:bg-red-500/10',
+          amber: 'bg-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10',
+          blue: 'bg-blue-500/5 text-blue-700 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/10',
+          gray: 'bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/60',
         };
         
         return (
           <div 
             key={idx} 
             className={cn(
-              "flex items-center gap-3 p-3 rounded-xl border",
+              "flex items-center gap-3.5 p-3.5 rounded-xl border transition-colors",
               colorClasses[signal.color as keyof typeof colorClasses]
             )}
           >
-            <Icon className="h-5 w-5 flex-shrink-0" />
+            <div className={cn(
+              "p-2 rounded-lg bg-background/50 backdrop-blur-sm shadow-sm",
+              signal.color === 'green' ? "text-green-600" :
+              signal.color === 'red' ? "text-red-600" :
+              signal.color === 'amber' ? "text-amber-600" :
+              signal.color === 'blue' ? "text-blue-600" : "text-muted-foreground"
+            )}>
+              <Icon className="h-5 w-5 flex-shrink-0" />
+            </div>
             <div>
-              <div className="text-xs opacity-70">{signal.label}</div>
-              <div className="font-semibold capitalize text-sm">{signal.value}</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider opacity-70 mb-0.5">{signal.label}</div>
+              <div className="font-bold capitalize text-sm">{signal.value}</div>
             </div>
           </div>
         );
@@ -187,31 +195,31 @@ function NewsSection({ news }: { news: FinanceMetadata['news'] }) {
   }
   
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <Newspaper className="h-5 w-5 text-primary" />
+    <div className="h-full flex flex-col">
+      <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-display">
+        <PiNewspaper className="h-5 w-5 text-primary" />
         Latest News
       </h2>
-      <div className="grid gap-3">
+      <div className="grid gap-3 flex-1">
         {news.headlines.slice(0, 4).map((headline, idx) => (
           <a 
             key={idx}
             href={headline.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-start gap-4 p-4 bg-card border border-border/50 rounded-xl hover:bg-muted/50 hover:border-primary/30 transition-all group"
+            className="flex items-start gap-4 p-4 bg-card border border-border/50 rounded-xl hover:bg-muted/30 hover:border-primary/30 transition-all group hover:shadow-sm"
           >
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2">
                 {headline.title}
               </h3>
-              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                <span className="font-medium">{headline.source}</span>
-                <Circle className="h-1 w-1 fill-current" />
+              <div className="flex items-center gap-2 mt-2.5 text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+                <span className="text-foreground/80">{headline.source}</span>
+                <PiCircleFill className="h-1 w-1 fill-current opacity-30" />
                 <span>{new Date(headline.date).toLocaleDateString()}</span>
               </div>
             </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0 mt-1" />
+            <PiArrowSquareOut className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary flex-shrink-0 mt-0.5 transition-colors" />
           </a>
         ))}
       </div>
@@ -225,25 +233,25 @@ function InsightsSection({ research, summary }: {
   summary: FinanceMetadata['summary'];
 }) {
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Analysis Summary</h2>
+    <div className="space-y-5">
+      <h2 className="text-lg font-bold font-display">Analysis Summary</h2>
       
       {/* Headline */}
-      <p className="text-base font-medium">{summary.headline}</p>
+      <p className="text-base font-medium leading-relaxed bg-muted/10 p-4 rounded-xl border border-border/30">{summary.headline}</p>
       
       {/* Bull/Bear Points in 2 columns */}
       {(research.thesis.bull.length > 0 || research.thesis.bear.length > 0) && (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-6">
           {research.thesis.bull.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                <TrendingUp className="h-4 w-4" />
-                <span className="font-medium text-sm">Bull Case</span>
+            <div className="space-y-3 p-4 bg-green-500/5 rounded-xl border border-green-500/10">
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <PiTrendUp className="h-5 w-5" />
+                <span className="font-bold text-sm uppercase tracking-wide">Bull Case</span>
               </div>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {research.thesis.bull.slice(0, 3).map((point, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex gap-2">
-                    <span className="text-green-500 mt-0.5">•</span>
+                  <li key={idx} className="text-sm text-foreground/80 flex gap-2.5 items-start leading-snug">
+                    <span className="text-green-500 mt-1 text-[10px]">●</span>
                     <span>{point}</span>
                   </li>
                 ))}
@@ -252,15 +260,15 @@ function InsightsSection({ research, summary }: {
           )}
           
           {research.thesis.bear.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <TrendingDown className="h-4 w-4" />
-                <span className="font-medium text-sm">Bear Case</span>
+            <div className="space-y-3 p-4 bg-red-500/5 rounded-xl border border-red-500/10">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                <PiTrendDown className="h-5 w-5" />
+                <span className="font-bold text-sm uppercase tracking-wide">Bear Case</span>
               </div>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {research.thesis.bear.slice(0, 3).map((point, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex gap-2">
-                    <span className="text-red-500 mt-0.5">•</span>
+                  <li key={idx} className="text-sm text-foreground/80 flex gap-2.5 items-start leading-snug">
+                    <span className="text-red-500 mt-1 text-[10px]">●</span>
                     <span>{point}</span>
                   </li>
                 ))}
@@ -271,26 +279,26 @@ function InsightsSection({ research, summary }: {
       )}
       
       {/* Risks & Catalysts inline */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 pt-2">
         {research.risks.slice(0, 3).map((risk, idx) => (
           <span 
             key={`risk-${idx}`}
             className={cn(
-              "text-xs px-2.5 py-1 rounded-full font-medium",
-              risk.severity === 'high' ? "bg-red-500/10 text-red-600" :
-              risk.severity === 'medium' ? "bg-amber-500/10 text-amber-600" :
-              "bg-gray-500/10 text-gray-600"
+              "text-xs px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5 border",
+              risk.severity === 'high' ? "bg-red-500/10 text-red-600 border-red-500/20" :
+              risk.severity === 'medium' ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+              "bg-gray-500/10 text-gray-600 border-border/50"
             )}
           >
-            ⚠ {risk.risk}
+            <PiWarning className="h-3.5 w-3.5" /> {risk.risk}
           </span>
         ))}
         {research.catalysts.slice(0, 2).map((cat, idx) => (
           <span 
             key={`cat-${idx}`}
-            className="text-xs px-2.5 py-1 rounded-full font-medium bg-purple-500/10 text-purple-600"
+            className="text-xs px-3 py-1.5 rounded-full font-medium bg-purple-500/10 text-purple-600 border border-purple-500/20 flex items-center gap-1.5"
           >
-            ⚡ {cat.event}
+            <PiLightning className="h-3.5 w-3.5" /> {cat.event}
           </span>
         ))}
       </div>
@@ -317,19 +325,19 @@ function MetricsGrid({ fundamentals, technicals }: {
   
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Key Metrics</h2>
+      <h2 className="text-lg font-bold mb-4 font-display">Key Metrics</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {allMetrics.slice(0, 10).map((metric, idx) => (
-          <div key={idx} className="p-3 bg-card border border-border/50 rounded-lg">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground">{metric.name}</span>
+          <div key={idx} className="p-3.5 bg-card border border-border/50 rounded-xl hover:border-primary/20 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground opacity-80">{metric.name}</span>
               <span className={cn(
-                "w-2 h-2 rounded-full",
-                metric.signal === 'positive' ? 'bg-green-500' :
-                metric.signal === 'negative' ? 'bg-red-500' : 'bg-gray-400'
+                "w-1.5 h-1.5 rounded-full ring-2 ring-background",
+                metric.signal === 'positive' ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]' :
+                metric.signal === 'negative' ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.6)]' : 'bg-gray-400'
               )} />
             </div>
-            <div className="font-semibold text-sm">{metric.value}</div>
+            <div className="font-bold text-sm font-mono tracking-tight">{metric.value}</div>
           </div>
         ))}
       </div>
@@ -343,23 +351,27 @@ function LevelsSection({ technicals }: { technicals: FinanceMetadata['technicals
   
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Price Levels</h2>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-green-600">Support</div>
+      <h2 className="text-lg font-bold mb-4 font-display">Price Levels</h2>
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-3 bg-green-500/5 p-4 rounded-xl border border-green-500/10">
+          <div className="text-sm font-bold text-green-700 dark:text-green-400 uppercase tracking-wide flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-green-500" /> Support
+          </div>
           {technicals.support.slice(0, 3).map((s, idx) => (
-            <div key={idx} className="flex items-center justify-between text-sm p-2 bg-green-500/5 rounded">
-              <span className="font-mono">${s.level.toFixed(2)}</span>
-              <span className="text-xs text-muted-foreground capitalize">{s.strength}</span>
+            <div key={idx} className="flex items-center justify-between text-sm p-2.5 bg-background/60 rounded-lg shadow-sm">
+              <span className="font-mono font-bold">${s.level.toFixed(2)}</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">{s.strength}</span>
             </div>
           ))}
         </div>
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-red-600">Resistance</div>
+        <div className="space-y-3 bg-red-500/5 p-4 rounded-xl border border-red-500/10">
+          <div className="text-sm font-bold text-red-700 dark:text-red-400 uppercase tracking-wide flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-red-500" /> Resistance
+          </div>
           {technicals.resistance.slice(0, 3).map((r, idx) => (
-            <div key={idx} className="flex items-center justify-between text-sm p-2 bg-red-500/5 rounded">
-              <span className="font-mono">${r.level.toFixed(2)}</span>
-              <span className="text-xs text-muted-foreground capitalize">{r.strength}</span>
+            <div key={idx} className="flex items-center justify-between text-sm p-2.5 bg-background/60 rounded-lg shadow-sm">
+              <span className="font-mono font-bold">${r.level.toFixed(2)}</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">{r.strength}</span>
             </div>
           ))}
         </div>
@@ -376,38 +388,38 @@ function GenericDashboard({ genericData }: { genericData: FinanceMetadata['gener
   const hasPartialMatches = genericData.partialMatches && genericData.partialMatches.length > 0;
   
   return (
-    <div className="space-y-6">
-      <div className="text-center py-6">
+    <div className="space-y-8">
+      <div className="text-center py-12 bg-card border border-border/40 rounded-2xl">
         {hasFailed ? (
           <>
-            <div className="inline-flex items-center justify-center p-3 rounded-full bg-amber-500/10 mb-4">
-              <AlertTriangle className="h-6 w-6 text-amber-500" />
+            <div className="inline-flex items-center justify-center p-4 rounded-full bg-amber-500/10 mb-5 animate-pulse">
+              <PiWarning className="h-8 w-8 text-amber-500" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Could Not Load Asset Data</h2>
+            <h2 className="text-2xl font-bold mb-3 font-display">Could Not Load Asset Data</h2>
             <p className="text-muted-foreground max-w-lg mx-auto">{genericData.failureReason}</p>
           </>
         ) : (
           <>
-            <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4">
-              <BarChart3 className="h-6 w-6 text-primary" />
+            <div className="inline-flex items-center justify-center p-4 rounded-full bg-primary/10 mb-5 shadow-sm">
+              <PiChartBar className="h-8 w-8 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Financial Market Overview</h2>
+            <h2 className="text-2xl font-bold mb-3 font-display">Financial Market Overview</h2>
             <p className="text-muted-foreground">Ask about a specific stock or cryptocurrency</p>
           </>
         )}
       </div>
       
       {hasPartialMatches && (
-        <div className="bg-card border border-border/40 rounded-xl p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Info className="h-5 w-5 text-blue-500" />
+        <div className="bg-card border border-border/40 rounded-xl p-8 shadow-sm">
+          <h3 className="font-bold mb-6 flex items-center gap-2 text-lg">
+            <PiInfo className="h-5 w-5 text-blue-500" />
             Did you mean one of these?
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {genericData.partialMatches!.map((match, idx) => (
-              <div key={idx} className="p-3 bg-muted/30 rounded-lg border border-border/30">
-                <div className="font-semibold">{match.symbol}</div>
-                <div className="text-sm text-muted-foreground">{match.name}</div>
+              <div key={idx} className="p-4 bg-muted/20 rounded-xl border border-border/40 hover:bg-muted/40 transition-colors">
+                <div className="font-bold text-primary mb-1">{match.symbol}</div>
+                <div className="text-sm text-foreground/80">{match.name}</div>
               </div>
             ))}
           </div>
@@ -415,14 +427,17 @@ function GenericDashboard({ genericData }: { genericData: FinanceMetadata['gener
       )}
       
       {genericData.topCryptos && genericData.topCryptos.length > 0 && !hasFailed && (
-        <div>
-          <h3 className="font-semibold mb-4">Top Cryptocurrencies</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-card border border-border/40 rounded-xl p-8 shadow-sm">
+          <h3 className="font-bold mb-6 flex items-center gap-2 text-lg">
+            <PiPulse className="h-5 w-5 text-green-500" />
+            Top Cryptocurrencies
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {genericData.topCryptos.map((crypto, idx) => (
-              <div key={idx} className="p-4 bg-card border border-border/40 rounded-xl">
-                <div className="font-semibold">{crypto.symbol}</div>
-                <div className="text-lg font-bold">${crypto.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-                <div className={cn("text-sm", crypto.change >= 0 ? "text-green-600" : "text-red-600")}>
+              <div key={idx} className="p-5 bg-card border border-border/40 rounded-xl shadow-sm hover:border-primary/20 transition-all">
+                <div className="font-bold text-xs uppercase text-muted-foreground mb-2 tracking-wider">{crypto.symbol}</div>
+                <div className="text-xl font-bold font-mono tracking-tight mb-1">${crypto.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                <div className={cn("text-xs font-bold", crypto.change >= 0 ? "text-green-600" : "text-red-600")}>
                   {crypto.change >= 0 ? '+' : ''}{crypto.change.toFixed(2)}%
                 </div>
               </div>
@@ -442,14 +457,14 @@ export const FinanceSurface = memo(function FinanceSurface({
 }: FinanceSurfaceProps) {
   if (metadata.isGeneric) {
     return (
-      <div className={cn("max-w-5xl mx-auto", className)}>
+      <div className={cn("max-w-6xl mx-auto", className)}>
         <GenericDashboard genericData={metadata.genericData} />
       </div>
     );
   }
   
   return (
-    <div className={cn("max-w-5xl mx-auto space-y-6", className)}>
+    <div className={cn("max-w-6xl mx-auto space-y-8 pb-10", className)}>
       {/* Compact Header */}
       <CompactHeader 
         asset={metadata.asset} 
@@ -461,10 +476,15 @@ export const FinanceSurface = memo(function FinanceSurface({
       <SignalsRow metadata={metadata} />
       
       {/* Two Column Layout: Chart + News */}
-      <div className="grid lg:grid-cols-5 gap-6">
+      <div className="grid lg:grid-cols-5 gap-8">
         {/* Chart - Takes 3 columns */}
         <div className="lg:col-span-3">
-          <div className="bg-card border border-border/50 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border/50 rounded-2xl overflow-hidden shadow-sm h-full">
+            <div className="p-4 border-b border-border/40 bg-muted/10">
+              <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <PiChartBar className="h-4 w-4" /> Price Performance
+              </h3>
+            </div>
             <StockChart 
               symbol={metadata.asset.symbol}
               type={metadata.asset.type === 'crypto' ? 'crypto' : 'stock'}
@@ -480,7 +500,7 @@ export const FinanceSurface = memo(function FinanceSurface({
       </div>
       
       {/* Analysis Summary */}
-      <div className="bg-card border border-border/50 rounded-xl p-6">
+      <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm">
         <InsightsSection research={metadata.research} summary={metadata.summary} />
       </div>
       

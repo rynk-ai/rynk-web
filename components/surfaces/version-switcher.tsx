@@ -10,7 +10,7 @@
 import { memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { SurfaceType } from "@/lib/services/domain-types";
-import { MessageSquare, BookOpen, ListChecks, Loader2 } from "lucide-react";
+import { PiChat, PiBookOpenText, PiListChecks, PiSpinner } from "react-icons/pi";
 
 interface VersionSwitcherProps {
   activeVersion: SurfaceType;
@@ -65,7 +65,7 @@ const VersionTab = memo(function VersionTab({
       }
     >
       {isGenerating ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <PiSpinner className="h-3.5 w-3.5 animate-spin" />
       ) : (
         icon
       )}
@@ -103,7 +103,7 @@ export const VersionSwitcher = memo(function VersionSwitcher({
       <VersionTab
         type="chat"
         label="Chat"
-        icon={<MessageSquare className="h-3.5 w-3.5" />}
+        icon={<PiChat className="h-3.5 w-3.5" />}
         isActive={activeVersion === "chat"}
         isAvailable={availableVersions.chat}
         isGenerating={generatingVersion === "chat"}
@@ -112,7 +112,7 @@ export const VersionSwitcher = memo(function VersionSwitcher({
       <VersionTab
         type="learning"
         label="Course"
-        icon={<BookOpen className="h-3.5 w-3.5" />}
+        icon={<PiBookOpenText className="h-3.5 w-3.5" />}
         isActive={activeVersion === "learning"}
         isAvailable={availableVersions.learning}
         isGenerating={generatingVersion === "learning"}
@@ -121,7 +121,7 @@ export const VersionSwitcher = memo(function VersionSwitcher({
       <VersionTab
         type="guide"
         label="Guide"
-        icon={<ListChecks className="h-3.5 w-3.5" />}
+        icon={<PiListChecks className="h-3.5 w-3.5" />}
         isActive={activeVersion === "guide"}
         isAvailable={availableVersions.guide}
         isGenerating={generatingVersion === "guide"}

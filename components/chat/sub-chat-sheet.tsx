@@ -9,10 +9,10 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, X, Quote, Loader2, ExternalLink } from "lucide-react";
+import { PiPaperPlaneRight, PiX, PiQuotes, PiSpinner, PiArrowSquareOut } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/prompt-kit/markdown";
-import type { SubChat, SubChatMessage } from "@/lib/services/cloud-db";
+import type { SubChat, SubChatMessage, SurfaceSubChat } from "@/lib/services/cloud-db";
 
 interface SearchResult {
   query: string;
@@ -29,7 +29,7 @@ interface SearchResult {
 interface SubChatSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subChat: SubChat | null;
+  subChat: SubChat | SurfaceSubChat | null;
   onSendMessage: (content: string) => Promise<void>;
   isLoading?: boolean;
   streamingContent?: string;
@@ -92,7 +92,7 @@ export function SubChatSheet({
         {/* Header with full message context and highlighted text */}
         <SheetHeader className="px-6 py-4 border-b border-border bg-background flex-shrink-0">
           <SheetTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <Quote className="h-4 w-4 text-primary" />
+            <PiQuotes className="h-4 w-4 text-primary" />
             Context
           </SheetTitle>
 
@@ -112,7 +112,7 @@ export function SubChatSheet({
               <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
                 <div className="max-w-[90%] rounded-xl px-4 py-3 bg-muted/30 border border-border/50">
                   <p className="text-xs text-primary mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                    <ExternalLink className="h-3 w-3" />
+                    <PiArrowSquareOut className="h-3 w-3" />
                     Sources ({searchResults.totalResults})
                   </p>
                   <div className="flex flex-col gap-2">
@@ -160,7 +160,7 @@ export function SubChatSheet({
             {isLoading && !streamingContent && !searchResults && (
               <div className="flex justify-start animate-in fade-in zoom-in-95">
                 <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 rounded-full border border-border/40">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <PiSpinner className="h-3.5 w-3.5 animate-spin text-primary" />
                   <span className="text-xs font-medium text-muted-foreground">
                     Thinking...
                   </span>
@@ -200,9 +200,9 @@ export function SubChatSheet({
               disabled={!input.trim() || isLoading}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <PiSpinner className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <PiPaperPlaneRight className="h-4 w-4" />
               )}
             </Button>
           </div>

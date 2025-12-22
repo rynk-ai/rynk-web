@@ -14,14 +14,14 @@
 import { memo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  BookOpen, 
-  ChevronRight, 
-  ExternalLink, 
-  Hash,
-  ArrowUp,
-  Lightbulb,
-  Info
-} from "lucide-react";
+  PiBookOpenText, 
+  PiCaretRight, 
+  PiArrowSquareOut, 
+  PiHash,
+  PiArrowUp,
+  PiLightbulb,
+  PiInfo
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { WikiSectionSkeleton } from "@/components/surfaces/surface-skeletons";
@@ -98,7 +98,17 @@ export const WikiSurface = memo(function WikiSurface({
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(`section-${sectionId}`);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Offset for sticky header
+      const offset = 80; 
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
       setActiveSection(sectionId);
     }
   };
@@ -115,17 +125,17 @@ export const WikiSurface = memo(function WikiSurface({
         <SourceImages 
           images={citationImages} 
           maxImages={4}
-          className="mb-6"
+          className="mb-8"
         />
       ) : availableImages.length > 0 && (
-        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-2">
           {availableImages.slice(0, 4).map((img, idx) => (
             <a
               key={idx}
               href={img.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative aspect-video rounded-lg overflow-hidden bg-secondary/50"
+              className="group relative aspect-video rounded-lg overflow-hidden bg-muted/40"
             >
               <img
                 src={img.url}
@@ -140,42 +150,43 @@ export const WikiSurface = memo(function WikiSurface({
       )}
 
       {/* Hero Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
           {categories.map((cat, idx) => (
             <span 
               key={idx}
-              className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary"
+              className="text-[10px] uppercase font-semibold tracking-wider px-2 py-1 rounded-md bg-secondary text-secondary-foreground"
             >
               {cat}
             </span>
           ))}
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-foreground font-display">
           {title}
         </h1>
-        <p className="text-lg text-muted-foreground leading-relaxed">
+        <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-4xl">
           {summary}
         </p>
       </div>
 
       {/* Main Layout: Sidebar + Content */}
-      <div className="flex gap-8 relative">
+      <div className="flex flex-col lg:flex-row gap-10 relative">
         {/* Sticky Table of Contents - Desktop */}
-        <aside className="hidden lg:block w-64 shrink-0">
-          <div className="sticky top-24">
-            <div className="border-border/40 rounded-xl p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                <Hash className="h-4 w-4" />
+        <aside className="hidden lg:block w-72 shrink-0">
+          <div className="sticky top-24 space-y-6">
+             {/* TOC */}
+            <div className="rounded-xl border border-border/30 bg-muted/10 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <PiHash className="h-4 w-4" />
                 Contents
               </h3>
-              <nav className="space-y-1">
+              <nav className="space-y-0.5">
                 {sections.map((section) => (
                   <div key={section.id}>
                     <button
                       onClick={() => scrollToSection(section.id)}
                       className={cn(
-                        "w-full text-left text-sm py-1.5 px-2 rounded-lg transition-colors",
+                        "w-full text-left text-sm py-1.5 px-2.5 rounded-md transition-all duration-200",
                         activeSection === section.id
                           ? "bg-primary/10 text-primary font-medium"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -184,15 +195,15 @@ export const WikiSurface = memo(function WikiSurface({
                       {section.heading}
                     </button>
                     {section.subsections && section.subsections.length > 0 && (
-                      <div className="ml-3 mt-1 space-y-0.5">
+                      <div className="ml-3 mt-0.5 space-y-0.5 border-l border-border/30 pl-2">
                         {section.subsections.map((sub) => (
                           <button
                             key={sub.id}
                             onClick={() => scrollToSection(sub.id)}
                             className={cn(
-                              "w-full text-left text-xs py-1 px-2 rounded-lg transition-colors",
+                              "w-full text-left text-xs py-1 px-2 rounded-md transition-all",
                               activeSection === sub.id
-                                ? "text-primary"
+                                ? "text-primary font-medium"
                                 : "text-muted-foreground/70 hover:text-foreground"
                             )}
                           >
@@ -208,16 +219,16 @@ export const WikiSurface = memo(function WikiSurface({
 
             {/* Infobox - Desktop */}
             {infobox.facts.length > 0 && (
-              <div className="mt-4 bg-secondary/50 border border-border/40 rounded-xl p-4">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Info className="h-4 w-4 text-primary" />
+              <div className="rounded-xl border border-border/30 bg-card p-5 shadow-sm">
+                <h3 className="text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 text-primary">
+                  <PiInfo className="h-4 w-4" />
                   Quick Facts
                 </h3>
-                <dl className="space-y-2">
+                <dl className="space-y-3">
                   {infobox.facts.map((fact, idx) => (
-                    <div key={idx} className="text-sm">
-                      <dt className="text-muted-foreground text-xs">{fact.label}</dt>
-                      <dd className="font-medium">{fact.value}</dd>
+                    <div key={idx} className="text-sm border-b border-border/30 last:border-0 pb-2 last:pb-0">
+                      <dt className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wide mb-0.5">{fact.label}</dt>
+                      <dd className="font-medium text-foreground">{fact.value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -227,18 +238,18 @@ export const WikiSurface = memo(function WikiSurface({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0" ref={contentRef}>
+        <main className="flex-1 min-w-0 font-sans" ref={contentRef}>
           {/* Mobile Infobox */}
           {infobox.facts.length > 0 && (
-            <div className="lg:hidden mb-6 bg-secondary/50 border border-border/40 rounded-xl p-4">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Info className="h-4 w-4 text-primary" />
+            <div className="lg:hidden mb-8 bg-muted/20 border border-border/30 rounded-xl p-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 text-primary">
+                <PiInfo className="h-4 w-4" />
                 Quick Facts
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {infobox.facts.map((fact, idx) => (
                   <div key={idx} className="text-sm">
-                    <dt className="text-muted-foreground text-xs">{fact.label}</dt>
+                    <dt className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wide mb-0.5">{fact.label}</dt>
                     <dd className="font-medium">{fact.value}</dd>
                   </div>
                 ))}
@@ -247,7 +258,7 @@ export const WikiSurface = memo(function WikiSurface({
           )}
 
           {/* Article Sections */}
-          <article className="prose prose-slate dark:prose-invert max-w-none">
+          <article className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-display prose-headings:tracking-tight prose-p:leading-relaxed prose-img:rounded-xl">
             {sections.map((section, idx) => {
               // Check if section content is still loading (skeleton content)
               const isLoading = !section.content || section.content === 'Loading...' || section.content.startsWith('Loading:');
@@ -258,10 +269,10 @@ export const WikiSurface = memo(function WikiSurface({
                 <section 
                   key={section.id} 
                   id={`section-${section.id}`}
-                  className="mb-10 scroll-mt-24"
+                  className="mb-12 scroll-mt-24 group"
                 >
-                  <h2 className="text-xl font-bold flex items-center gap-3 mb-4 pb-2 border-b border-border/30">
-                    <span className="text-primary/60 text-sm font-mono">
+                  <h2 className="text-2xl font-bold flex items-center gap-3 mb-6 pb-2 border-b border-border/30 group-hover:border-primary/20 transition-colors">
+                    <span className="text-primary/40 text-sm font-mono pt-1">
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     {section.heading}
@@ -275,21 +286,21 @@ export const WikiSurface = memo(function WikiSurface({
                     <div className="text-foreground/90 animate-in fade-in slide-in-from-bottom-2 duration-500">
                       {/* Section Image - Wikipedia style float right */}
                       {sectionImages.length > 0 && (
-                        <figure className="float-right ml-4 mb-4 mt-0 w-40 md:w-56 not-prose">
+                        <figure className="float-right ml-6 mb-4 mt-1 w-full md:w-64 max-w-full md:max-w-xs not-prose">
                           <a 
                             href={sectionImages[0].sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block"
+                            className="block rounded-xl overflow-hidden border border-border/20 shadow-sm transition-transform hover:scale-[1.01]"
                           >
                             <img 
                               src={sectionImages[0].url}
                               alt={section.heading}
-                              className="rounded-lg shadow-md w-full object-cover aspect-[4/3]"
+                              className="w-full object-cover aspect-[4/3] bg-muted"
                               loading="lazy"
                             />
                           </a>
-                          <figcaption className="text-xs text-muted-foreground mt-1.5 text-center line-clamp-2">
+                          <figcaption className="text-xs text-muted-foreground mt-2 text-center line-clamp-2 px-2">
                             {sectionImages[0].sourceTitle}
                           </figcaption>
                         </figure>
@@ -301,8 +312,8 @@ export const WikiSurface = memo(function WikiSurface({
                         disabled={!onSubChatSelect}
                       >
                         <Markdown 
-                          className="!bg-transparent !p-0"
-                          citations={sectionCitations.map((c: any, i: number) => ({
+                          className="!bg-transparent !p-0 text-base"
+                          citations={sectionCitations.map((c: { url: string; title: string; snippet?: string }, i: number) => ({
                             id: i + 1,
                             url: c.url,
                             title: c.title || 'Source',
@@ -316,8 +327,8 @@ export const WikiSurface = memo(function WikiSurface({
                       
                       {/* Section source pills */}
                       {sectionCitations.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-4 not-prose clear-both">
-                          {sectionCitations.slice(0, 4).map((c: any, i: number) => {
+                        <div className="flex flex-wrap gap-2 mt-6 not-prose clear-both pt-2">
+                          {sectionCitations.slice(0, 4).map((c: { url: string; title: string; snippet?: string }, i: number) => {
                             let domain = 'source';
                             try { domain = new URL(c.url).hostname.replace('www.', ''); } catch {}
                             return (
@@ -326,14 +337,14 @@ export const WikiSurface = memo(function WikiSurface({
                                 href={c.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full bg-secondary/60 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full bg-secondary/50 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground border border-transparent hover:border-border/30"
                               >
                                 <img 
                                   src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`} 
-                                  className="h-3 w-3 rounded-sm" 
+                                  className="h-3 w-3 rounded-sm opacity-70" 
                                   alt=""
                                 />
-                                <span className="truncate max-w-[100px]">{domain}</span>
+                                <span className="truncate max-w-[120px]">{domain}</span>
                               </a>
                             );
                           })}
@@ -350,9 +361,9 @@ export const WikiSurface = memo(function WikiSurface({
                       <div 
                         key={sub.id}
                         id={`section-${sub.id}`}
-                        className="mt-6 ml-4 pl-4 border-l-2 border-primary/20 scroll-mt-24"
+                        className="mt-8 pt-4"
                       >
-                        <h3 className="text-lg font-semibold mb-2">{sub.heading}</h3>
+                        <h3 className="text-xl font-semibold mb-3 text-foreground/90">{sub.heading}</h3>
                         {subIsLoading ? (
                           <WikiSectionSkeleton />
                         ) : (
@@ -372,12 +383,12 @@ export const WikiSurface = memo(function WikiSurface({
 
           {/* Related Topics - Clickable to generate new wiki */}
           {relatedTopics.length > 0 && (
-            <div className="mt-12 pt-8 border-t border-border/30">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-amber-500" />
+            <div className="mt-16 pt-10 border-t border-border/30 bg-muted/10 -mx-4 px-4 py-8 md:mx-0 md:px-0 md:bg-transparent rounded-xl">
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-foreground/80 md:px-6">
+                <PiLightbulb className="h-4 w-4 text-amber-500" />
                 Related Topics
               </h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 md:px-6">
                 {relatedTopics.map((topic, idx) => (
                   <button
                     key={idx}
@@ -386,10 +397,10 @@ export const WikiSurface = memo(function WikiSurface({
                       const newId = crypto.randomUUID();
                       router.push(`/surface/wiki/${newId}?q=${encodeURIComponent(topic)}`);
                     }}
-                    className="px-4 py-2 text-sm font-medium bg-secondary hover:bg-secondary/80 rounded-full transition-colors flex items-center gap-1.5 group"
+                    className="px-4 py-2 text-sm font-medium bg-card hover:bg-accent border border-border/30 hover:border-border/60 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-2 group text-muted-foreground hover:text-foreground"
                   >
                     {topic}
-                    <ChevronRight className="h-3.5 w-3.5 opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
+                    <PiCaretRight className="h-3.5 w-3.5 opacity-50 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all text-primary" />
                   </button>
                 ))}
               </div>
@@ -398,25 +409,27 @@ export const WikiSurface = memo(function WikiSurface({
 
           {/* Sources - Use SourcesFooter if citations available, fallback to simple references */}
           {citations.length > 0 ? (
-            <SourcesFooter citations={citations} variant="compact" />
+            <div className="mt-8 text-sm">
+                <SourcesFooter citations={citations} variant="compact" />
+            </div>
           ) : references.length > 0 && (
-            <div className="mt-12 pt-8 border-t border-border/30">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-muted-foreground" />
+            <div className="mt-16 pt-8 border-t border-border/30">
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-foreground/80">
+                <PiBookOpenText className="h-4 w-4 text-primary" />
                 References
               </h3>
-              <ol className="space-y-2 list-decimal list-inside">
+              <ol className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 list-decimal list-inside">
                 {references.map((ref, idx) => (
-                  <li key={ref.id} className="text-sm text-muted-foreground">
-                    <span className="text-foreground">{ref.title}</span>
+                  <li key={ref.id} className="text-sm text-muted-foreground py-1">
+                    <span className="text-foreground/90 font-medium">{ref.title}</span>
                     {ref.url && (
                       <a 
                         href={ref.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-2 inline-flex items-center gap-1 text-primary hover:underline"
+                        className="ml-2 inline-flex items-center gap-1 text-primary hover:underline opacity-80 hover:opacity-100"
                       >
-                        <ExternalLink className="h-3 w-3" />
+                        <PiArrowSquareOut className="h-3.5 w-3.5" />
                         <span className="text-xs">View</span>
                       </a>
                     )}
@@ -433,9 +446,9 @@ export const WikiSurface = memo(function WikiSurface({
         <Button
           onClick={scrollToTop}
           size="icon"
-          className="fixed bottom-8 right-8 h-12 w-12 rounded-full shadow-lg bg-primary hover:bg-primary/90 animate-in fade-in slide-in-from-bottom-4 duration-300"
+          className="fixed bottom-8 right-8 h-10 w-10 rounded-full shadow-xl bg-primary hover:bg-primary/90 animate-in fade-in slide-in-from-bottom-4 duration-300 z-50 print:hidden"
         >
-          <ArrowUp className="h-5 w-5" />
+          <PiArrowUp className="h-5 w-5" />
         </Button>
       )}
     </div>

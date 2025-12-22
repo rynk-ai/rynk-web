@@ -11,22 +11,21 @@ import { memo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { GuideMetadata, SurfaceState } from "@/lib/services/domain-types";
 import {
-  ListChecks,
-  Check,
-  Clock,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  SkipForward,
-  Sparkles,
-  Trophy,
-  Zap,
-  AlertCircle,
-  Target,
-} from "lucide-react";
+  PiCheck,
+  PiClock,
+  PiSpinner,
+  PiCaretDown,
+  PiCaretUp,
+  PiSkipForward,
+  PiSparkle,
+  PiTrophy,
+  PiLightning,
+  PiTarget,
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { StepContentSkeleton } from "@/components/surfaces/surface-skeletons";
+import { SelectableContent } from "@/components/selectable-content";
 
 interface GuideSurfaceProps {
   metadata: GuideMetadata;
@@ -36,6 +35,14 @@ interface GuideSurfaceProps {
   onSkipStep: (stepIndex: number) => void;
   isGenerating: boolean;
   className?: string;
+  // Add conversationId prop to match page.tsx usage
+  conversationId?: string;
+  surfaceId?: string;
+  onSubChatSelect?: (text: string, sectionId?: string, fullContent?: string) => void;
+  sectionIdsWithSubChats?: Set<string>;
+  content?: Record<number, string>;
+  completedSteps?: number[];
+  skippedSteps?: number[];
 }
 
 export const GuideSurface = memo(function GuideSurface({
@@ -46,6 +53,7 @@ export const GuideSurface = memo(function GuideSurface({
   onSkipStep,
   isGenerating,
   className,
+  onSubChatSelect,
 }: GuideSurfaceProps) {
   const [expandedStep, setExpandedStep] = useState<number>(
     surfaceState?.guide?.currentStep ?? 0
@@ -101,17 +109,17 @@ export const GuideSurface = memo(function GuideSurface({
   );
 
   return (
-    <div className={cn("max-w-3xl mx-auto", className)}>
+    <div className={cn("max-w-4xl mx-auto", className)}>
       {/* Hero Images */}
       {availableImages.length > 0 && (
-        <div className="mb-6 grid grid-cols-3 gap-2">
+        <div className="mb-8 grid grid-cols-3 gap-3">
           {availableImages.slice(0, 3).map((img, idx) => (
             <a
               key={idx}
               href={img.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative aspect-video rounded-lg overflow-hidden bg-secondary/50"
+              className="group relative aspect-video rounded-xl overflow-hidden bg-muted/40"
             >
               <img
                 src={img.url}
@@ -119,20 +127,21 @@ export const GuideSurface = memo(function GuideSurface({
                 className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 loading="lazy"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             </a>
           ))}
         </div>
       )}
 
       {/* Clean Hero Header */}
-      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8">
-        <div className="p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+      <div className="bg-card border border-border/30 rounded-2xl shadow-sm mb-10 overflow-hidden">
+        <div className="p-6 md:p-8 bg-gradient-to-br from-card to-muted/20">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
             {/* Guide Info */}
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
                 <span className={cn(
-                  "px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
+                  "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
                   metadata.difficulty === 'beginner' && "bg-green-500/10 text-green-600 dark:text-green-400",
                   metadata.difficulty === 'intermediate' && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                   metadata.difficulty === 'advanced' && "bg-red-500/10 text-red-600 dark:text-red-400",
@@ -141,23 +150,23 @@ export const GuideSurface = memo(function GuideSurface({
                 </span>
               </div>
               
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">{metadata.title}</h1>
-              <p className="text-muted-foreground text-base leading-relaxed">{metadata.description}</p>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 font-display text-foreground">{metadata.title}</h1>
+              <p className="text-muted-foreground text-lg max-w-2xl leading-relaxed">{metadata.description}</p>
               
-              <div className="flex flex-wrap items-center gap-4 mt-5 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Target className="h-4 w-4 opacity-70" />
+              <div className="flex flex-wrap items-center gap-6 mt-6 text-sm text-muted-foreground font-medium">
+                <span className="flex items-center gap-2">
+                  <PiTarget className="h-4 w-4 opacity-70" />
                   {steps.length} steps
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 opacity-70" />
+                <span className="flex items-center gap-2">
+                  <PiClock className="h-4 w-4 opacity-70" />
                   ~{metadata.estimatedTime} min
                 </span>
               </div>
             </div>
 
             {/* Progress Stats */}
-            <div className="flex flex-col items-center p-4 bg-secondary/30 rounded-xl">
+            <div className="flex flex-col items-center justify-center p-6 bg-background/50 backdrop-blur-sm border border-border/20 rounded-2xl min-w-[140px]">
               <div className="relative w-20 h-20">
                 {/* Background ring */}
                 <svg className="w-20 h-20 transform -rotate-90">
@@ -178,7 +187,7 @@ export const GuideSurface = memo(function GuideSurface({
                     stroke="currentColor"
                     fill="transparent"
                     strokeLinecap="round"
-                    className="text-primary transition-all duration-700"
+                    className="text-primary transition-all duration-700 ease-out"
                     style={{
                       strokeDasharray: `${2 * Math.PI * 34}`,
                       strokeDashoffset: `${2 * Math.PI * 34 * (1 - progress / 100)}`,
@@ -186,10 +195,10 @@ export const GuideSurface = memo(function GuideSurface({
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold">{progress}%</span>
+                  <span className="text-lg font-bold font-mono tracking-tight">{progress}%</span>
                 </div>
               </div>
-              <span className="text-sm text-muted-foreground mt-2">
+              <span className="text-xs font-medium text-muted-foreground mt-2">
                 {totalComplete} of {steps.length}
               </span>
             </div>
@@ -199,21 +208,21 @@ export const GuideSurface = memo(function GuideSurface({
 
       {/* Completion Banner */}
       {isComplete && (
-        <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-              <Trophy className="h-5 w-5 text-primary-foreground" />
+        <div className="mb-8 p-6 rounded-xl bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/20">
+              <PiTrophy className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-primary">Guide Complete!</h3>
-              <p className="text-sm text-muted-foreground">You've finished all steps.</p>
+              <h3 className="text-lg font-bold text-foreground">Guide Complete!</h3>
+              <p className="text-muted-foreground">You've successfully finished all steps.</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Steps */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {steps.map((step) => {
           const isExpanded = expandedStep === step.index;
           const isCompleted = completedSteps.includes(step.index);
@@ -227,42 +236,42 @@ export const GuideSurface = memo(function GuideSurface({
               key={step.index}
               className={cn(
                 "relative rounded-xl border overflow-hidden transition-all duration-300",
-                isExpanded && "shadow-lg",
+                isExpanded && "shadow-md ring-1 ring-primary/20",
                 isCompleted 
-                  ? "border-green-500/30 bg-green-500/5" 
+                  ? "border-green-500/20 bg-green-500/5" 
                   : isSkipped
-                    ? "border-border/30 bg-muted/20" 
+                    ? "border-border/50 bg-muted/20 opacity-80" 
                     : isExpanded
-                      ? "border-primary"
-                      : "border-border/40",
+                      ? "border-primary/50 bg-card"
+                      : "border-border/40 bg-card hover:bg-muted/30",
               )}
             >
               {/* Progress Line Connector */}
               {step.index < steps.length - 1 && (
                 <div className={cn(
-                  "absolute left-8 top-full w-0.5 h-3 -translate-x-1/2 z-10",
-                  isCompleted ? "bg-green-500" : "bg-border"
+                  "absolute left-[33px] top-14 bottom-[-16px] w-[2px] z-0 pointer-events-none",
+                  isCompleted ? "bg-green-500/30" : "bg-border/40"
                 )} />
               )}
 
               {/* Step Header */}
               <button
                 onClick={() => handleStepClick(step.index)}
-                className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-muted/30 transition-colors"
+                className="w-full text-left px-5 py-4 flex items-center gap-5 relative z-10"
               >
                 {/* Step Number/Check */}
                 <div className={cn(
-                  "flex-shrink-0 w-9 h-9 rounded-lg border flex items-center justify-center font-semibold text-sm transition-all",
+                  "flex-shrink-0 w-8 h-8 rounded-lg border flex items-center justify-center font-bold text-sm transition-all shadow-sm",
                   isCompleted 
                     ? "bg-green-500 border-green-500 text-white" 
                     : isSkipped
                       ? "bg-muted border-border text-muted-foreground"
                       : isCurrent
-                        ? "border-primary text-primary bg-primary/5"
-                        : "border-border text-muted-foreground"
+                        ? "border-primary text-primary bg-primary/10"
+                        : "border-border text-muted-foreground bg-background"
                 )}>
                   {isCompleted ? (
-                    <Check className="h-5 w-5" />
+                    <PiCheck className="h-4 w-4" />
                   ) : (
                     step.index + 1
                   )}
@@ -270,92 +279,102 @@ export const GuideSurface = memo(function GuideSurface({
 
                 {/* Step Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <h3 className={cn(
-                      "font-medium text-base",
-                      (isCompleted || isSkipped) && "text-muted-foreground"
+                      "font-semibold text-lg leading-snug",
+                      (isCompleted || isSkipped) ? "text-muted-foreground" : "text-foreground"
                     )}>
                       {step.title}
                     </h3>
                     {isCurrent && !isCompleted && !isSkipped && (
-                      <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                         Current
                       </span>
                     )}
                     {isSkipped && (
-                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                         Skipped
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
-                    <Clock className="h-3.5 w-3.5" />
+                  <p className="text-xs font-medium text-muted-foreground/70 mt-1 flex items-center gap-1.5">
+                    <PiClock className="h-3 w-3" />
                     ~{step.estimatedTime} min
                   </p>
                 </div>
 
                 {/* Expand Icon */}
-                {isExpanded ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground transition-transform" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
-                )}
+                <div className="text-muted-foreground/50">
+                  {isExpanded ? (
+                    <PiCaretUp className="h-5 w-5" />
+                  ) : (
+                    <PiCaretDown className="h-5 w-5" />
+                  )}
+                </div>
               </button>
 
               {/* Expanded Content */}
               {isExpanded && (
-                <div className="border-t bg-card/50">
-                  <div className="p-5">
+                <div className="border-t border-border/30 bg-background/50 relative z-10">
+                  <div className="p-6 md:p-8">
                     {isStepGenerating ? (
                       <StepContentSkeleton />
                     ) : content ? (
                       <>
                         <div className="prose prose-sm dark:prose-invert max-w-none
-                          prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
-                          prose-p:text-muted-foreground prose-p:leading-relaxed
-                          prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-                          prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg
-                          prose-li:text-muted-foreground
+                          prose-headings:font-bold prose-headings:mt-6 prose-headings:mb-3
+                          prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:mb-4
+                          prose-code:text-primary prose-code:bg-primary/5 prose-code:px-1 prose-code:py-0.5 prose-code:rounded-md prose-code:font-medium
+                          prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border/30 prose-pre:rounded-xl prose-pre:p-4
+                          prose-li:text-muted-foreground prose-li:my-1
+                          prose-blockquote:border-l-4 prose-blockquote:border-primary/30 prose-blockquote:bg-muted/10 prose-blockquote:rounded-r-lg prose-blockquote:py-2 prose-blockquote:px-5
                         ">
-                          <Markdown>{content}</Markdown>
+                          <SelectableContent
+                            sectionId={`step-${step.index}`}
+                            onSelect={onSubChatSelect || (() => {})}
+                            disabled={!onSubChatSelect}
+                          >
+                            <Markdown>{content}</Markdown>
+                          </SelectableContent>
                         </div>
+                        
                         {!isCompleted && !isSkipped && (
-                          <div className="flex items-center gap-3 pt-5 mt-5 border-t">
+                          <div className="flex items-center gap-3 pt-6 mt-6 border-t border-border/30">
                             <Button 
                               onClick={() => handleComplete(step.index)}
-                              className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                              className="gap-2 bg-green-500 hover:bg-green-600 text-white shadow-sm hover:shadow-green-500/20 transition-all"
                             >
-                              <Check className="h-4 w-4" />
+                              <PiCheck className="h-4 w-4" />
                               Mark Complete
                             </Button>
                             <Button 
                               variant="ghost" 
                               onClick={() => handleSkip(step.index)}
-                              className="gap-2"
+                              className="gap-2 text-muted-foreground hover:text-foreground"
                             >
-                              <SkipForward className="h-4 w-4" />
+                              <PiSkipForward className="h-4 w-4" />
                               Skip Step
                             </Button>
                           </div>
                         )}
                         {isCompleted && (
-                          <div className="flex items-center gap-2 pt-4 mt-4 border-t text-green-500">
-                            <Check className="h-5 w-5" />
-                            <span className="font-medium">Step completed!</span>
+                          <div className="flex items-center gap-2 pt-5 mt-5 border-t border-border/30 text-green-500 font-medium animate-in fade-in">
+                            <PiCheck className="h-5 w-5" />
+                            <span>Step completed!</span>
                           </div>
                         )}
                       </>
                     ) : (
-                      <div className="flex flex-col items-center py-10 text-center">
-                        <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-                          <Zap className="h-7 w-7 text-muted-foreground/50" />
+                      <div className="flex flex-col items-center py-12 text-center">
+                        <div className="h-16 w-16 rounded-2xl bg-muted/40 border border-border/20 flex items-center justify-center mb-5">
+                          <PiLightning className="h-8 w-8 text-muted-foreground/40" />
                         </div>
-                        <h4 className="font-medium mb-2">Ready to begin?</h4>
-                        <p className="text-muted-foreground text-sm mb-5 max-w-sm">
-                          Generate the detailed instructions for this step.
+                        <h4 className="font-semibold text-lg mb-2 text-foreground">Ready to begin?</h4>
+                        <p className="text-muted-foreground text-sm mb-6 max-w-xs">
+                          Generate the detailed instructions for this step to verify your progress.
                         </p>
-                        <Button onClick={() => onGenerateStep(step.index)} className="gap-2">
-                          <Sparkles className="h-4 w-4" />
+                        <Button onClick={() => onGenerateStep(step.index)} className="gap-2 shadow-lg shadow-primary/20">
+                          <PiSparkle className="h-4 w-4" />
                           Generate Instructions
                         </Button>
                       </div>

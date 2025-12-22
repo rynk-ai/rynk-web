@@ -110,9 +110,9 @@ const TagSection = memo(function TagSection({
               <button
                 key={index}
                 onClick={onTagClick}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary/10 text-primary/90 hover:bg-primary/15 rounded-md border border-primary/20 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
               >
-                <span className="text-primary/60">#</span>
+                <span className="text-primary">#</span>
                 {tag}
               </button>
             ))}
@@ -742,7 +742,7 @@ const GuestChatContent = memo(function GuestChatContent({
               currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
             )}
           >
-            <div className="relative h-full flex flex-col px-2 md:px-3 lg:px-4">
+            <div className="relative h-full flex flex-col">
               <div className="flex-1 relative">
                 {/* Tag Section */}
                 {currentConversationId && (

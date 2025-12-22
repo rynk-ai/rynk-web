@@ -14,20 +14,19 @@ import {
 } from "@/components/prompt-kit/message";
 import { Button } from "@/components/ui/button";
 import {
-  Copy,
-  GitBranch,
-  Pencil,
-  Trash,
-  FolderIcon,
-  MessageSquareDashedIcon,
-  Paperclip,
-  Loader2,
-  Quote,
-  MessageSquarePlus,
-  MoreHorizontal,
-  ExternalLink,
-  Trash2,
-} from "lucide-react";
+  PiCopy,
+  PiGitBranch,
+  PiPencilSimple,
+  PiTrash,
+  PiFolder,
+  PiChatCircleDots,
+  PiPaperclip,
+  PiSpinner,
+  PiQuotes,
+  PiChatTeardropText,
+  PiDotsThree,
+  PiArrowSquareOut,
+} from "react-icons/pi";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -573,7 +572,7 @@ export const ChatMessageItem = memo(
         <div className="w-full px-3 animate-in-up">
           <Message
             className={cn(
-              "py-2 mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-start",
+              "py-0.5 mx-auto flex w-auto max-w-3xl flex-col gap-0 px-0 items-start",
             )}
           >
             <div className="group flex w-full flex-col gap-0 relative">
@@ -592,7 +591,7 @@ export const ChatMessageItem = memo(
                   <SourceImages 
                     images={extractImagesFromCitations(citations)} 
                     maxImages={4}
-                    className="mb-4"
+                    className="mb-2"
                   />
                 )}
 
@@ -643,23 +642,23 @@ export const ChatMessageItem = memo(
                     {onQuote && (
                       <Button
                         size="sm"
-                        className="h-8 gap-1.5 px-3 shadow-xl bg-background text-foreground hover:bg-secondary/80 border-none rounded-xl ring-1 ring-black/5"
+                        className="h-7 gap-1.5 px-2 bg-background text-foreground hover:bg-secondary border border-border shadow-sm rounded-md"
                         onClick={handleQuoteClick}
                         onMouseDown={(e) => e.preventDefault()}
                       >
-                        <Quote className="h-3.5 w-3.5 opacity-70" />
+                        <PiQuotes className="h-3.5 w-3.5 opacity-70" />
                         <span className="text-xs font-medium">Quote</span>
                       </Button>
                     )}
                     {onOpenSubChat && (
                       <Button
                         size="sm"
-                        className="h-8 gap-1.5 px-3 shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-none rounded-xl"
+                        className="h-7 gap-1.5 px-2 bg-primary text-primary-foreground hover:bg-primary/90 border border-transparent shadow-sm rounded-md"
                         onClick={handleSubChatClick}
                         onMouseDown={(e) => e.preventDefault()}
                         title="Ask about this"
                       >
-                        <MessageSquarePlus className="h-3.5 w-3.5" />
+                        <PiChatTeardropText className="h-3.5 w-3.5" />
                         <span className="text-xs font-medium">Deep dive</span>
                       </Button>
                     )}
@@ -678,12 +677,12 @@ export const ChatMessageItem = memo(
                           className="h-8 w-8 p-0 rounded-xl shadow-md bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] border border-border/30 transition-all select-none"
                           title="View sub-chats"
                         >
-                          <MessageSquarePlus className="h-4 w-4 text-primary" />
+                          <PiChatTeardropText className="h-4 w-4 text-primary" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-72">
                         <div className="px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
-                          <MessageSquarePlus className="h-3.5 w-3.5" />
+                          <PiChatTeardropText className="h-3.5 w-3.5" />
                           <span>{messageSubChats.length} deep dive{messageSubChats.length > 1 ? 's' : ''}</span>
                         </div>
                         <DropdownMenuSeparator />
@@ -707,7 +706,7 @@ export const ChatMessageItem = memo(
                                 onDeleteSubChat?.(sc.id);
                               }}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <PiTrash className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuItem>
                         ))}
@@ -730,7 +729,7 @@ export const ChatMessageItem = memo(
                     className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
                     onClick={handleCopy}
                   >
-                    <Copy className="h-3.5 w-3.5" />
+                    <PiCopy className="h-3.5 w-3.5" />
                   </Button>
                 </MessageAction>
                 <MessageAction tooltip="Branch from here" delayDuration={100}>
@@ -740,7 +739,7 @@ export const ChatMessageItem = memo(
                     className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
                     onClick={handleBranch}
                   >
-                    <GitBranch className="h-3.5 w-3.5" />
+                    <PiGitBranch className="h-3.5 w-3.5" />
                   </Button>
                 </MessageAction>
 
@@ -762,15 +761,15 @@ export const ChatMessageItem = memo(
       <div className="w-full px-3 animate-in-up">
         <Message
           className={cn(
-            "py-2 mx-auto flex w-auto max-w-3xl flex-col gap-2 px-0 items-end",
+            "py-0.5 mx-auto flex w-auto max-w-3xl flex-col gap-1 px-0 items-end",
           )}
         >
-          <div className="group flex flex-col items-end gap-1 w-full relative">
+          <div className="group flex flex-col items-end gap-0.5 w-full relative">
             {/* Message Content */}
             <div className="flex flex-col items-end w-full">
               <MessageContent
                 className={cn(
-                  "text-foreground bg-secondary/60 hover:bg-secondary/80 rounded-[1.25rem] px-5 py-3 prose prose-slate dark:prose-invert transition-all duration-200 border-none selection:bg-primary/20",
+                  "text-foreground bg-secondary hover:bg-secondary/80 rounded-lg px-3 py-1.5 prose prose-slate dark:prose-invert transition-all duration-200 border border-border/50 selection:bg-primary/10",
                   isEditing && "opacity-50",
                 )}
                 onMouseUp={handleTextSelection}
@@ -800,7 +799,7 @@ export const ChatMessageItem = memo(
                       onClick={handleQuoteClick}
                       onMouseDown={(e) => e.preventDefault()}
                     >
-                      <Quote className="h-3.5 w-3.5 opacity-70" />
+                      <PiQuotes className="h-3.5 w-3.5 opacity-70" />
                       <span className="text-xs font-medium">Quote</span>
                     </Button>
                   )}
@@ -812,7 +811,7 @@ export const ChatMessageItem = memo(
                       onMouseDown={(e) => e.preventDefault()}
                       title="Ask about this"
                     >
-                      <MessageSquarePlus className="h-3.5 w-3.5" />
+                      <PiChatTeardropText className="h-3.5 w-3.5" />
                       <span className="text-xs font-medium">Deep dive</span>
                     </Button>
                   )}
@@ -831,7 +830,7 @@ export const ChatMessageItem = memo(
                       className="h-6 w-6 p-0 rounded-full bg-primary/10 hover:bg-primary/20"
                       title="View sub-chats"
                     >
-                      <MessageSquarePlus className="h-3 w-3 text-primary" />
+                      <PiChatTeardropText className="h-3 w-3 text-primary" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64">
@@ -858,7 +857,7 @@ export const ChatMessageItem = memo(
                               onDeleteSubChat?.(sc.id);
                             }}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <PiTrash className="h-3 w-3" />
                           </Button>
                         </div>
                       </DropdownMenuItem>
@@ -878,9 +877,9 @@ export const ChatMessageItem = memo(
                     className="flex items-center gap-1 bg-muted/50 text-muted-foreground px-2 py-0.5 rounded-full text-[10px] border border-border/30"
                   >
                     {isLoading ? (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      <PiSpinner className="h-2.5 w-2.5 animate-spin" />
                     ) : (
-                      <FolderIcon size={10} />
+                      <PiFolder size={10} />
                     )}
                     <span className="font-medium truncate max-w-[100px]">
                       {f.name}
@@ -893,9 +892,9 @@ export const ChatMessageItem = memo(
                     className="flex items-center gap-1 bg-muted/50 text-muted-foreground px-2 py-0.5 rounded-full text-[10px] border border-border/30"
                   >
                     {isLoading ? (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      <PiSpinner className="h-2.5 w-2.5 animate-spin" />
                     ) : (
-                      <MessageSquareDashedIcon size={10} />
+                      <PiChatCircleDots size={10} />
                     )}
                     <span className="font-medium truncate max-w-[100px]">
                       {c.title}
@@ -912,9 +911,9 @@ export const ChatMessageItem = memo(
                   <div key={i} className="relative group/file">
                     <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg text-xs border border-border/30 hover:bg-muted/80 transition-colors">
                       {isLoading ? (
-                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        <PiSpinner className="h-3 w-3 animate-spin text-muted-foreground" />
                       ) : (
-                        <Paperclip className="h-3 w-3 text-muted-foreground" />
+                        <PiPaperclip className="h-3 w-3 text-muted-foreground" />
                       )}
                       <span className="truncate max-w-[120px]">
                         {file.name}
@@ -944,7 +943,7 @@ export const ChatMessageItem = memo(
                     className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
                     onClick={handleEdit}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <PiPencilSimple className="h-3.5 w-3.5" />
                   </Button>
 
                   <Button
@@ -953,7 +952,7 @@ export const ChatMessageItem = memo(
                     className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     onClick={handleDelete}
                   >
-                    <Trash className="h-3.5 w-3.5" />
+                    <PiTrash className="h-3.5 w-3.5" />
                   </Button>
                 </MessageActions>
               </div>

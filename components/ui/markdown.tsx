@@ -48,39 +48,39 @@ function CopyButton({ code }: { code: string }) {
 const INITIAL_COMPONENTS: Partial<Components> = {
   // Headings with custom styling and anchor links
   h1: ({ children }) => (
-    <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4 mt-8 first:mt-0">
+    <h1 className="scroll-m-20 text-3xl font-extrabold tracking-tight lg:text-4xl mb-2 mt-4 first:mt-0">
       {children}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0 mt-8 mb-4">
+    <h2 className="scroll-m-20 border-b pb-1 text-2xl font-semibold tracking-tight first:mt-0 mt-4 mb-2">
       {children}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight mt-6 mb-3">
+    <h3 className="scroll-m-20 text-xl font-semibold tracking-tight mt-3 mb-1">
       {children}
     </h3>
   ),
   h4: ({ children }) => (
-    <h4 className="scroll-m-20 text-xl font-semibold tracking-tight mt-6 mb-3">
+    <h4 className="scroll-m-20 text-lg font-semibold tracking-tight mt-3 mb-1">
       {children}
     </h4>
   ),
   h5: ({ children }) => (
-    <h5 className="scroll-m-20 text-lg font-semibold tracking-tight mt-6 mb-2">
+    <h5 className="scroll-m-20 text-base font-semibold tracking-tight mt-3 mb-1">
       {children}
     </h5>
   ),
   h6: ({ children }) => (
-    <h6 className="scroll-m-20 text-base font-semibold tracking-tight mt-6 mb-2">
+    <h6 className="scroll-m-20 text-sm font-semibold tracking-tight mt-3 mb-1">
       {children}
     </h6>
   ),
 
   // Paragraphs with better spacing
   p: ({ children }) => (
-    <p className="leading-7 [&:not(:first-child)]:mt-4">
+    <p className="leading-6 [&:not(:first-child)]:mt-2">
       {children}
     </p>
   ),
@@ -105,12 +105,12 @@ const INITIAL_COMPONENTS: Partial<Components> = {
 
   // Lists with better spacing and nesting
   ul: ({ children }) => (
-    <ul className="my-4 ml-6 list-disc [&>li]:mt-2">
+    <ul className="my-2 ml-6 list-disc [&>li]:mt-1">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="my-4 ml-6 list-decimal [&>li]:mt-2">
+    <ol className="my-2 ml-6 list-decimal [&>li]:mt-1">
       {children}
     </ol>
   ),

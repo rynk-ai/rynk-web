@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import { MessageSquare, FolderOpen, FileText, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { PiChatCircle, PiFolderOpen, PiFileText, PiCaretDown, PiCaretUp, PiArrowSquareOut } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -46,13 +46,13 @@ function parseSource(source: string): { type: 'conversation' | 'folder' | 'file'
 const SourceIcon = ({ type }: { type: 'conversation' | 'folder' | 'file' | 'project' }) => {
   switch (type) {
     case 'folder':
-      return <FolderOpen className="h-3.5 w-3.5 text-blue-500" />;
+      return <PiFolderOpen className="h-3.5 w-3.5 text-blue-500" />;
     case 'file':
-      return <FileText className="h-3.5 w-3.5 text-amber-500" />;
+      return <PiFileText className="h-3.5 w-3.5 text-amber-500" />;
     case 'project':
-      return <FolderOpen className="h-3.5 w-3.5 text-purple-500" />;
+      return <PiFolderOpen className="h-3.5 w-3.5 text-purple-500" />;
     default:
-      return <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />;
+      return <PiChatCircle className="h-3.5 w-3.5 text-muted-foreground" />;
   }
 };
 
@@ -85,9 +85,9 @@ export const ContextCard = memo(function ContextCard({ card, className }: Contex
           {Math.round(card.score * 100)}% match
         </span>
         {isExpanded ? (
-          <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+          <PiCaretUp className="h-3.5 w-3.5 text-muted-foreground" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <PiCaretDown className="h-3.5 w-3.5 text-muted-foreground" />
         )}
       </button>
       
@@ -126,12 +126,12 @@ export const ContextCardList = memo(function ContextCardList({ cards, className 
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
-        <MessageSquare className="h-3.5 w-3.5" />
+        <PiChatCircle className="h-3.5 w-3.5" />
         <span>Using {cards.length} context source{cards.length > 1 ? 's' : ''}</span>
         {isCollapsed ? (
-          <ChevronDown className="h-3 w-3" />
+          <PiCaretDown className="h-3 w-3" />
         ) : (
-          <ChevronUp className="h-3 w-3" />
+          <PiCaretUp className="h-3 w-3" />
         )}
       </button>
       

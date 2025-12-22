@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { motion } from 'motion/react'
-import { Brain, Globe, Search, Sparkles, Check, Loader2 } from 'lucide-react'
+import { PiBrain, PiGlobe, PiMagnifyingGlass, PiSparkle, PiCheck, PiSpinner } from 'react-icons/pi'
 import { cn } from '@/lib/utils'
 
 import {
@@ -72,17 +72,17 @@ function StatusStepItem({
   isCompleted: boolean
 }) {
   const icons = {
-    brain: Brain,
-    globe: Globe,
-    search: Search,
-    sparkles: Sparkles,
-    check: Check,
-    analyzing: Brain,
-    synthesizing: Sparkles
+    brain: PiBrain,
+    globe: PiGlobe,
+    search: PiMagnifyingGlass,
+    sparkles: PiSparkle,
+    check: PiCheck,
+    analyzing: PiBrain,
+    synthesizing: PiSparkle
   }
   
   // Fallback to Sparkles if icon not found
-  const Icon = icons[step.icon] || Sparkles
+  const Icon = icons[step.icon] || PiSparkle
   
   return (
     <TooltipProvider>
@@ -99,7 +99,7 @@ function StatusStepItem({
             transition={{ repeat: Infinity, duration: 2 }}
           >
             {isActive ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <PiSpinner className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Icon className={cn(
                 "h-3.5 w-3.5",

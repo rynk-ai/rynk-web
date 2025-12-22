@@ -29,23 +29,22 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Plus,
-
-  FolderPlus,
-  PinIcon,
-  MoreHorizontal,
-  Folder as FolderIcon,
-  ChevronRight,
-  Users,
-  GitBranch,
-  ChevronLeft,
-  Pencil,
-  Trash,
-  HelpCircle,
-  Command,
-  Search,
-  GraduationCap,
-} from "lucide-react";
+  PiPlus,
+  PiFolderPlus,
+  PiPushPin,
+  PiDotsThree,
+  PiFolder,
+  PiCaretRight,
+  PiUsers,
+  PiGitBranch,
+  PiCaretLeft,
+  PiPencil,
+  PiTrash,
+  PiQuestion,
+  PiCommand,
+  PiMagnifyingGlass,
+  PiGraduationCap,
+} from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/hooks/chat-context";
 import { UserProfileDropdown } from "@/components/user-profile-dropdown";
@@ -362,14 +361,14 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
       <SidebarContent className="">
         <div className="flex flex-col gap-2 p-4">
           {/* Action Area: Search & New Chat in one row */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("open-command-bar"))}
-              className="group flex-1 flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground/70 bg-secondary/50 hover:bg-secondary/80 hover:text-foreground rounded-lg transition-all duration-200"
+              className="group flex-1 flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted-foreground/70 bg-secondary/50 hover:bg-secondary/80 hover:text-foreground rounded-md transition-all duration-200"
             >
-              <Search className="h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100" />
+              <PiMagnifyingGlass className="h-3.5 w-3.5 shrink-0 opacity-50 group-hover:opacity-100" />
               <span className="truncate">Search</span>
-              <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/50 bg-transparent rounded opacity-0 group-hover:opacity-100 transition-opacity">
+              <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 px-1 py-0.5 text-[9px] font-medium text-muted-foreground/50 bg-transparent rounded opacity-0 group-hover:opacity-100 transition-opacity">
                 ⌘K
               </kbd>
             </button>
@@ -379,12 +378,12 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-all"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-md transition-all"
                   onClick={() => {
                    handleSelectConversation(null);
                   }}
                 >
-                  <Plus className="size-5" />
+                  <PiPlus className="size-4" />
                   <span className="sr-only">New Chat</span>
                 </Button>
               </TooltipTrigger>
@@ -397,10 +396,10 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-all"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-md transition-all"
                     onClick={handleCreateFolder}
                   >
-                    <FolderPlus className="size-4" />
+                    <PiFolderPlus className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>New Folder</TooltipContent>
@@ -411,23 +410,23 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
         <div className="flex-1 overflow-auto no-scrollbar" ref={scrollableRef}>
           {/* Learning Section - Quick access to Education Machine */}
           {!activeProjectId && (
-            <div className="px-4 mb-4">
+            <div className="px-3 mb-2">
               <Button
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start gap-2 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-all",
+                  "w-full justify-start gap-2 px-2 py-1.5 h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-md transition-all",
                   pathname === '/learning' && "bg-secondary/80 text-foreground"
                 )}
                 onClick={() => router.push('/learning')}
               >
-                <GraduationCap className="h-4 w-4" />
+                <PiGraduationCap className="h-3.5 w-3.5" />
                 <span>Learning</span>
               </Button>
             </div>
           )}
           
           {!activeProjectId ? (
-            <div className="mb-6">
+            <div className="mb-4">
               {isLoadingProjects ? (
                 <div className="px-4 py-2 space-y-2">
                   <div className="flex items-center justify-between mb-1">
@@ -462,11 +461,11 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                   }
                 }}
               >
-                <ChevronLeft className="mr-1 h-4 w-4" />
+                <PiCaretLeft className="mr-1 h-4 w-4" />
                 Back to all chats
               </Button>
               <div className="flex items-center gap-2 py-1 px-1">
-                <FolderIcon className="h-4 w-4 text-primary/70" />
+                <PiFolder className="h-4 w-4 text-primary/70" />
                 <h2 className="font-medium text-base tracking-tight">
                   {projects.find((p) => p.id === activeProjectId)?.name ||
                     "Project"}
@@ -481,7 +480,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           {/* Folders Section - Show grouped conversations (hidden on project pages) */}
           {!activeProjectId && (
             <>
-              <div className="px-5 mb-2 mt-2">
+              <div className="px-5 mb-1 mt-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Folders</h2>
@@ -530,7 +529,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           
           {/* Pinned Conversations */}
           {conversations.some((c) => c.isPinned) && (
-            <div className="mb-4">
+            <div className="mb-2">
               <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 flex items-center gap-2">
                 Pinned
               </div>
@@ -548,7 +547,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                       isActive={currentConversationId === conversation.id}
                       onSelect={handleSelectConversation}
                       onTogglePin={togglePinConversation}
-                      showMenu={false}
+                      showMenu={true}
                       isLoading={loadingConversations.has(conversation.id)}
                     />
                   ))}

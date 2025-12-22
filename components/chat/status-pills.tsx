@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Brain, Search, Loader2, CheckCircle } from 'lucide-react'
+import { PiBrain, PiMagnifyingGlass, PiSpinner, PiCheckCircle } from 'react-icons/pi'
 import { Badge } from '@/components/ui/badge'
 
 export interface StatusPill {
@@ -53,22 +53,22 @@ function getStatusConfig(status: StatusPill['status']) {
   switch (status) {
     case 'analyzing':
       return {
-        icon: <Brain className="h-3 w-3 animate-pulse" />,
+        icon: <PiBrain className="h-3 w-3 animate-pulse" />,
         className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
       }
     case 'searching':
       return {
-        icon: <Search className="h-3 w-3 animate-pulse" />,
+        icon: <PiMagnifyingGlass className="h-3 w-3 animate-pulse" />,
         className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20'
       }
     case 'synthesizing':
       return {
-        icon: <Loader2 className="h-3 w-3 animate-spin" />,
+        icon: <PiSpinner className="h-3 w-3 animate-spin" />,
         className: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
       }
     case 'complete':
       return {
-        icon: <CheckCircle className="h-3 w-3" />,
+        icon: <PiCheckCircle className="h-3 w-3" />,
         className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
       }
   }

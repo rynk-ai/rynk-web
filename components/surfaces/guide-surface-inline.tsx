@@ -11,14 +11,14 @@ import { memo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { GuideMetadata, SurfaceState } from "@/lib/services/domain-types";
 import {
-  ListChecks,
-  ChevronDown,
-  ChevronRight,
-  Check,
-  Clock,
-  Loader2,
-  SkipForward,
-} from "lucide-react";
+  PiListChecks,
+  PiCaretDown,
+  PiCaretRight,
+  PiCheck,
+  PiClock,
+  PiSpinner,
+  PiSkipForward,
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -86,7 +86,7 @@ const StepItem = memo(function StepItem({
                 : "border-muted-foreground/30"
         )}>
           {isCompleted ? (
-            <Check className="h-3.5 w-3.5 text-white" />
+            <PiCheck className="h-3.5 w-3.5 text-white" />
           ) : (
             <span className="text-xs font-medium">{step.index + 1}</span>
           )}
@@ -103,7 +103,7 @@ const StepItem = memo(function StepItem({
           </div>
           {step.estimatedTime > 0 && (
             <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-              <Clock className="h-3 w-3" />
+              <PiClock className="h-3 w-3" />
               {step.estimatedTime} min
             </span>
           )}
@@ -111,9 +111,9 @@ const StepItem = memo(function StepItem({
 
         {/* Expand Icon */}
         {isActive ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <PiCaretDown className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <PiCaretRight className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
 
@@ -123,7 +123,7 @@ const StepItem = memo(function StepItem({
           <div className="pl-9">
             {isGenerating ? (
               <div className="flex items-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <PiSpinner className="h-4 w-4 animate-spin text-primary" />
                 <span className="ml-2 text-sm text-muted-foreground">
                   Generating step details...
                 </span>
@@ -135,11 +135,11 @@ const StepItem = memo(function StepItem({
                 </div>
                 <div className="flex items-center gap-2 pt-2">
                   <Button size="sm" onClick={onComplete}>
-                    <Check className="h-3.5 w-3.5 mr-1" />
+                    <PiCheck className="h-3.5 w-3.5 mr-1" />
                     Mark Complete
                   </Button>
                   <Button variant="ghost" size="sm" onClick={onSkip}>
-                    <SkipForward className="h-3.5 w-3.5 mr-1" />
+                    <PiSkipForward className="h-3.5 w-3.5 mr-1" />
                     Skip
                   </Button>
                 </div>
@@ -206,12 +206,12 @@ export const GuideSurfaceInline = memo(function GuideSurfaceInline({
       <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ListChecks className="h-4 w-4 text-primary" />
+            <PiListChecks className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">{metadata.title}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+              <PiClock className="h-3 w-3" />
               ~{metadata.estimatedTime} min
             </span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">

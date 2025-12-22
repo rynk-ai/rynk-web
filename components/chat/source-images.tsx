@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from "@/lib/utils"
-import { ExternalLink } from "lucide-react"
+import { PiArrowSquareOut } from "react-icons/pi"
 import { useState } from "react"
 
 interface SourceImage {
@@ -86,7 +86,7 @@ export function SourceImages({
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute bottom-0 left-0 right-0 p-2 text-white opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-xs line-clamp-1 flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                  <PiArrowSquareOut className="h-3 w-3 flex-shrink-0" />
                   <span className="truncate">{image.sourceTitle}</span>
                 </p>
               </div>

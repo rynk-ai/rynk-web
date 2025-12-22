@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useMemo, useCallback, useImperativeHandle, fo
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { ChatMessageItem } from './chat-message-item'
 import { type CloudMessage as ChatMessage, type SubChat } from '@/lib/services/cloud-db'
-import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useKeyboardAwarePosition } from '@/lib/hooks/use-keyboard-aware-position'
 

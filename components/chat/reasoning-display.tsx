@@ -1,13 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  LiveSourcePills,
-  type DiscoveredSource,
-} from "@/components/chat/live-source-pills";
+import { LiveSourcePills, type DiscoveredSource } from "@/components/chat/live-source-pills";
 import { getFaviconUrl, getDomainName } from "@/lib/types/citation";
 import { BarsLoader, DotsLoader } from "@/components/prompt-kit/loader";
-import { Globe, CheckCircle2 } from "lucide-react";
+import { PiGlobe, PiCheckCircle } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Loader } from "@/components/prompt-kit/loader"
 
@@ -119,7 +116,7 @@ export function ReasoningDisplay({
             {/* Show source count while searching */}
             {sourceCount > 0 && (
               <span className="flex items-center gap-1 text-xs bg-secondary/50 px-2 py-0.5 rounded-md">
-                <Globe className="h-3 w-3" />
+                <PiGlobe className="h-3 w-3" />
                 {sourceCount}
               </span>
             )}
@@ -128,7 +125,7 @@ export function ReasoningDisplay({
           // Complete state - just show sources if any
           sourceCount > 0 && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <PiCheckCircle className="h-4 w-4 text-primary" />
               <span className="font-medium">{sourceCount} sources found</span>
             </div>
           )

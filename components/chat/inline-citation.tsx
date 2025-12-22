@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 import type { Citation } from "@/lib/types/citation"
-import { ExternalLink } from "lucide-react"
+import { PiArrowSquareOut } from "react-icons/pi"
 
 interface InlineCitationProps {
   id: number
@@ -94,7 +94,7 @@ export function InlineCitation({
               )}
             </div>
             <div className="flex items-center gap-1 mt-2 text-xs text-primary">
-              <ExternalLink className="h-3 w-3" />
+              <PiArrowSquareOut className="h-3 w-3" />
               <span>Open source</span>
             </div>
           </div>

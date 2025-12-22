@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Citation } from "@/lib/types/citation"
-import { ExternalLink, ChevronDown, ChevronUp } from "lucide-react"
+import { PiArrowSquareOut, PiCaretDown, PiCaretUp } from "react-icons/pi"
 import { useState } from "react"
 
 interface SourcesFooterProps {
@@ -52,12 +52,12 @@ export function SourcesFooter({
           >
             {expanded ? (
               <>
-                <ChevronUp className="h-3 w-3 mr-1" />
+                <PiCaretUp className="h-3 w-3 mr-1" />
                 Show less
               </>
             ) : (
               <>
-                <ChevronDown className="h-3 w-3 mr-1" />
+                <PiCaretDown className="h-3 w-3 mr-1" />
                 Show all ({citations.length})
               </>
             )}
@@ -134,7 +134,7 @@ function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
                 <span>{formattedDate}</span>
               </>
             )}
-            <ExternalLink className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            <PiArrowSquareOut className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
       </a>
@@ -171,7 +171,7 @@ function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
                 : citation.title}
             </span>
           </div>
-          <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <PiArrowSquareOut className="h-3 w-3 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
         </a>
       </HoverCardTrigger>
       <HoverCardContent side="top" className="w-72 p-3">

@@ -7,20 +7,20 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  Sparkles, 
-  ArrowRight, 
-  BookOpen, 
-  ListChecks, 
-  Target, 
-  Scale, 
-  Layers, 
-  Calendar,
-  Zap,
-  TrendingUp
-} from "lucide-react";
+  PiSparkle, 
+  PiArrowRight, 
+  PiBookOpenText, 
+  PiListChecks, 
+  PiTarget, 
+  PiScales, 
+  PiStack, 
+  PiCalendar,
+  PiLightning,
+  PiTrendUp
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SurfaceType } from "@/lib/services/domain-types";
@@ -36,7 +36,7 @@ interface SurfaceTriggerProps {
 const SURFACE_CONFIG: Record<string, {
   label: string;
   description: string;
-  icon: any; // LucideIcon
+  icon: any; 
   color: string;
   bgColor: string;
   borderColor: string;
@@ -44,7 +44,7 @@ const SURFACE_CONFIG: Record<string, {
   learning: {
     label: "Course",
     description: "Start a structured learning path",
-    icon: BookOpen,
+    icon: PiBookOpenText,
     color: "text-blue-500",
     bgColor: "bg-blue-500/5 hover:bg-blue-500/10",
     borderColor: "border-blue-500/20 hover:border-blue-500/30",
@@ -52,7 +52,7 @@ const SURFACE_CONFIG: Record<string, {
   guide: {
     label: "Guide",
     description: "View step-by-step instructions",
-    icon: ListChecks,
+    icon: PiListChecks,
     color: "text-green-500",
     bgColor: "bg-green-500/5 hover:bg-green-500/10",
     borderColor: "border-green-500/20 hover:border-green-500/30",
@@ -60,7 +60,7 @@ const SURFACE_CONFIG: Record<string, {
   quiz: {
     label: "Quiz",
     description: "Test your knowledge",
-    icon: Target,
+    icon: PiTarget,
     color: "text-pink-500",
     bgColor: "bg-pink-500/5 hover:bg-pink-500/10",
     borderColor: "border-pink-500/20 hover:border-pink-500/30",
@@ -68,7 +68,7 @@ const SURFACE_CONFIG: Record<string, {
   comparison: {
     label: "Compare",
     description: "See side-by-side analysis",
-    icon: Scale,
+    icon: PiScales,
     color: "text-indigo-500",
     bgColor: "bg-indigo-500/5 hover:bg-indigo-500/10",
     borderColor: "border-indigo-500/20 hover:border-indigo-500/30",
@@ -76,7 +76,7 @@ const SURFACE_CONFIG: Record<string, {
   flashcard: {
     label: "Flashcards",
     description: "Review key concepts",
-    icon: Layers,
+    icon: PiStack,
     color: "text-teal-500",
     bgColor: "bg-teal-500/5 hover:bg-teal-500/10",
     borderColor: "border-teal-500/20 hover:border-teal-500/30",
@@ -84,7 +84,7 @@ const SURFACE_CONFIG: Record<string, {
   timeline: {
     label: "Timeline",
     description: "View chronological events",
-    icon: Calendar,
+    icon: PiCalendar,
     color: "text-amber-500",
     bgColor: "bg-amber-500/5 hover:bg-amber-500/10",
     borderColor: "border-amber-500/20 hover:border-amber-500/30",
@@ -92,7 +92,7 @@ const SURFACE_CONFIG: Record<string, {
   wiki: {
     label: "Wiki",
     description: "Read encyclopedic overview",
-    icon: BookOpen,
+    icon: PiBookOpenText,
     color: "text-orange-500",
     bgColor: "bg-orange-500/5 hover:bg-orange-500/10",
     borderColor: "border-orange-500/20 hover:border-orange-500/30",
@@ -100,7 +100,7 @@ const SURFACE_CONFIG: Record<string, {
   finance: {
     label: "Finance",
     description: "View charts and market data",
-    icon: TrendingUp,
+    icon: PiTrendUp,
     color: "text-emerald-500",
     bgColor: "bg-emerald-500/5 hover:bg-emerald-500/10",
     borderColor: "border-emerald-500/20 hover:border-emerald-500/30",
@@ -114,26 +114,12 @@ export const SurfaceTrigger = function SurfaceTrigger({
   conversationId,
 }: SurfaceTriggerProps) {
   const router = useRouter();
-  const [recommendations, setRecommendations] = useState<SurfaceType[]>([]);
-  const [existingSurfaces, setExistingSurfaces] = useState<SurfaceType[]>([]);
-  const [isDetecting, setIsDetecting] = useState(true);
 
-  // Parse content to find existing triggers or detect new ones
-  useEffect(() => {
-    // Only show for assistant messages
+  const recommendations = useMemo(() => {
     if (role !== "assistant" || !content) {
-      setIsDetecting(false);
-      return;
+      return [];
     }
-
-    // 1. Check for existing saved surfaces for this message
-    // In a real app, this might come from the message metadata or a quick API check
-    // For now, we'll simulate it based on keywords or if the user has visited them
-    
-    // 2. Detect relevant surfaces based on content keywords
-    const detected = detectSurfaceRecommendations(content);
-    setRecommendations(detected);
-    setIsDetecting(false);
+    return detectSurfaceRecommendations(content);
   }, [content, role]);
 
   const handleOpenSurface = (type: SurfaceType) => {
@@ -144,7 +130,7 @@ export const SurfaceTrigger = function SurfaceTrigger({
     router.push(`/surface/${type}/${conversationId}?q=${encodeURIComponent(query)}`);
   };
 
-  if (isDetecting || recommendations.length === 0) return null;
+  if (recommendations.length === 0) return null;
 
   return (
     <div className="mt-4 flex flex-wrap gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
@@ -181,7 +167,7 @@ export const SurfaceTrigger = function SurfaceTrigger({
               </span>
             </div>
             
-            <ArrowRight className={cn(
+            <PiArrowRight className={cn(
               "h-4 w-4 ml-2 opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0",
               config.color
             )} />

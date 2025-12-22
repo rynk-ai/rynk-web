@@ -1621,7 +1621,7 @@ const ChatContent = memo(
                 currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10",
               )}
             >
-              <div className="relative h-full flex flex-col px-2 md:px-3 lg:px-4">
+              <div className="relative h-full flex flex-col">
                 {jobs.filter(
                   (j) => j.status === "processing" || j.status === "parsing",
                 ).length > 0 && (

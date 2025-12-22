@@ -77,25 +77,27 @@ import { VersionIndicator } from "@/components/ui/version-indicator";
 import { ContextPicker } from "@/components/context-picker";
 import { TagDialog } from "@/components/tag-dialog";
 import {
-  Folder as FolderIcon,
-  MessageSquare,
-  X,
-  Loader2,
-  Tag,
-  Tags,
-  BookmarkPlus,
-  Plus,
-  Bookmark,
-  ChevronDown,
-  Share2,
-} from "lucide-react";
+  PiFolder as FolderIcon,
+  PiChatCircle as MessageSquare,
+  PiX as X,
+  PiSpinner as Loader2,
+  PiTag as Tag,
+  PiTag as Tags,
+  PiBookmarkSimple as BookmarkPlus,
+  PiPlus as Plus,
+  PiBookmarkSimple as Bookmark,
+  PiCaretDown as ChevronDown,
+  PiShareNetwork as Share2,
+  PiMagnifyingGlass as Search,
+  PiCommand as Command,
+} from "react-icons/pi";
+import { PiPlus, PiMagnifyingGlass } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
 import { SavedSurfacesPill } from "@/components/surfaces";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
-import { Search, Command } from "lucide-react";
 import { ShareDialog } from "@/components/share-dialog";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 
@@ -1790,7 +1792,7 @@ const ChatContent = memo(
                 currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10",
               )}
             >
-              <div className="relative h-full flex flex-col px-2 md:px-3 lg:px-4">
+              <div className="relative h-full flex flex-col">
                 {jobs.filter(
                   (j) => j.status === "processing" || j.status === "parsing",
                 ).length > 0 && (
@@ -1890,12 +1892,12 @@ const ChatContent = memo(
                 {!isScrolledUp && messages.length > 0 && (
                   <Button
                     variant="ghost"
-                    className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border border-border transition-all duration-300 px-4 py-2.5 flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in"
+                    className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-md bg-background hover:bg-accent border border-border transition-all duration-300 h-8 px-3 gap-1.5 animate-in slide-in-from-bottom-2 fade-in"
                     onClick={() => virtuosoRef.current?.scrollToBottom()}
                     title="Scroll to bottom"
                   >
-                    <ChevronDown className="h-4 w-4" />
-                    <span className="text-sm font-medium">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">
                       Scroll to Bottom
                     </span>
                   </Button>
@@ -2149,29 +2151,33 @@ const ChatHeaderWithCommandBar = memo(function ChatHeaderWithCommandBar({
   }, [router, selectConversation]);
 
   return (
-    <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 animate-in-down">
-      <div className="flex items-center gap-1 bg-background border border-border shadow-sm rounded-full p-1 transition-all duration-300 hover:shadow-md">
-        <SidebarTrigger className="h-10 w-10 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
-        <Separator orientation="vertical" className="h-5 bg-border/50" />
+    <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 animate-in-down">
+      <div className="flex items-center gap-0.5 bg-background border border-border shadow-sm rounded-md p-0.5 transition-all duration-300 hover:shadow-md">
+        <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-          onClick={handleNewChat}
-          title="Start new chat"
+          className="h-8 w-8 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => {
+            // New chat
+            selectConversation(null);
+            router.push("/chat");
+          }}
+          title="New Chat"
         >
-          <Plus className="h-5 w-5" />
+          <PiPlus className="h-4 w-4" />
         </Button>
-        <Separator orientation="vertical" className="h-5 bg-border/50" />
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
           variant="ghost"
           size="sm"
-          className="h-10 px-3 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          className="h-8 px-2.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
           onClick={() => setCommandBarOpen(true)}
           title="Search (⌘K)"
         >
-          <Search className="h-5 w-5" />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/70 bg-muted/50 border border-border/50 rounded">
+          <PiMagnifyingGlass className="h-4 w-4" />
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1 py-0.5 text-[9px] font-medium text-muted-foreground/70 bg-muted/50 border border-border/50 rounded">
             ⌘K
           </kbd>
         </Button>

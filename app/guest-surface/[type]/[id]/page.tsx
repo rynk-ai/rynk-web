@@ -13,12 +13,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { 
-  ArrowLeft, 
-  Loader2, 
-  BookOpen, 
-  Target,
-  AlertCircle
-} from "lucide-react";
+  PiArrowLeft, 
+  PiSpinner, 
+  PiBookOpenText, 
+  PiTarget,
+  PiWarningCircle
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { QuizSurface } from "@/components/surfaces/quiz-surface";
 import { WikiSurface } from "@/components/surfaces/wiki-surface";
@@ -36,9 +36,9 @@ const GUEST_ALLOWED_SURFACES = ['wiki', 'quiz'];
 // Helper to get icon and label for surface type
 const getSurfaceInfo = (type: string) => {
   switch (type) {
-    case 'quiz': return { icon: Target, label: 'Quiz', color: 'text-pink-500' };
-    case 'wiki': return { icon: BookOpen, label: 'Wiki', color: 'text-orange-500' };
-    default: return { icon: BookOpen, label: 'Surface', color: 'text-primary' };
+    case 'quiz': return { icon: PiTarget, label: 'Quiz', color: 'text-pink-500' };
+    case 'wiki': return { icon: PiBookOpenText, label: 'Wiki', color: 'text-orange-500' };
+    default: return { icon: PiBookOpenText, label: 'Surface', color: 'text-primary' };
   }
 };
 
@@ -206,7 +206,7 @@ export default function GuestSurfacePage() {
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
              <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-             <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
+             <PiSpinner className="h-10 w-10 animate-spin text-primary relative" />
           </div>
           <p className="text-muted-foreground font-medium animate-pulse">
             {surfaceType === 'quiz' ? 'Generating your quiz...' : 'Building wiki article...'}
@@ -222,12 +222,12 @@ export default function GuestSurfacePage() {
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <div className="bg-card border rounded-2xl p-8 flex flex-col items-center gap-4 text-center max-w-md shadow-lg">
           <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
-            <AlertCircle className="h-6 w-6 text-red-500" />
+            <PiWarningCircle className="h-6 w-6 text-red-500" />
           </div>
           <h2 className="text-xl font-bold">Something went wrong</h2>
           <p className="text-muted-foreground text-sm">{error}</p>
           <Button onClick={handleBackToChat} variant="outline" className="mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <PiArrowLeft className="h-4 w-4 mr-2" />
             Back to Chat
           </Button>
         </div>
@@ -242,7 +242,7 @@ export default function GuestSurfacePage() {
         <div className="flex flex-col items-center gap-4">
           <p className="text-muted-foreground">No surface data found</p>
           <Button onClick={handleBackToChat} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <PiArrowLeft className="h-4 w-4 mr-2" />
             Back to Chat
           </Button>
         </div>
@@ -262,7 +262,7 @@ export default function GuestSurfacePage() {
               onClick={handleBackToChat}
               className="gap-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <PiArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Back to Chat</span>
             </Button>
             

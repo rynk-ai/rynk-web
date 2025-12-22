@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { PinIcon, MoreHorizontal, Hash, BookOpen, ListChecks, Target, Scale, Layers, Calendar, TrendingUp, Microscope } from "lucide-react";
+import { PiPushPin, PiDotsThree, PiHash, PiBookOpen, PiListChecks, PiTarget, PiScales, PiCards, PiCalendar, PiTrendUp, PiMagnifyingGlass } from "react-icons/pi";
 import {
   Tooltip,
   TooltipContent,
@@ -54,7 +54,7 @@ export const ConversationListItem = memo(
       <div className="group/conversation relative">
         <button
           className={cn(
-            "flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-all duration-150 pr-10",
+            "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-all duration-150 pr-8",
             isActive 
               ? "bg-[hsl(var(--surface))] text-foreground shadow-sm " 
               : "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]",
@@ -76,15 +76,15 @@ export const ConversationListItem = memo(
               {(conversation as any).surfaceStates && (
                 <div className="flex items-center gap-0.5 shrink-0">
                   {Object.entries({
-                    learning: { icon: BookOpen, color: "text-blue-500", label: "Has Course" },
-                    guide: { icon: ListChecks, color: "text-green-500", label: "Has Guide" },
-                    quiz: { icon: Target, color: "text-pink-500", label: "Has Quiz" },
-                    comparison: { icon: Scale, color: "text-indigo-500", label: "Has Comparison" },
-                    flashcard: { icon: Layers, color: "text-teal-500", label: "Has Flashcards" },
-                    timeline: { icon: Calendar, color: "text-amber-500", label: "Has Timeline" },
-                    wiki: { icon: BookOpen, color: "text-orange-500", label: "Has Wiki" },
-                    finance: { icon: TrendingUp, color: "text-emerald-500", label: "Has Finance" },
-                    research: { icon: Microscope, color: "text-purple-500", label: "Has Research" },
+                    learning: { icon: PiBookOpen, color: "text-blue-500", label: "Has Course" },
+                    guide: { icon: PiListChecks, color: "text-green-500", label: "Has Guide" },
+                    quiz: { icon: PiTarget, color: "text-pink-500", label: "Has Quiz" },
+                    comparison: { icon: PiScales, color: "text-indigo-500", label: "Has Comparison" },
+                    flashcard: { icon: PiCards, color: "text-teal-500", label: "Has Flashcards" },
+                    timeline: { icon: PiCalendar, color: "text-amber-500", label: "Has Timeline" },
+                    wiki: { icon: PiBookOpen, color: "text-orange-500", label: "Has Wiki" },
+                    finance: { icon: PiTrendUp, color: "text-emerald-500", label: "Has Finance" },
+                    research: { icon: PiMagnifyingGlass, color: "text-purple-500", label: "Has Research" },
                   }).map(([type, config]) => {
                     if (!(conversation as any).surfaceStates[type]) return null;
                     const Icon = config.icon;
@@ -103,7 +103,7 @@ export const ConversationListItem = memo(
               )}
               
               {conversation.isPinned && (
-                <PinIcon className="h-3 w-3 fill-primary/60 text-primary/60 shrink-0" />
+                <PiPushPin className="h-3 w-3 fill-primary/60 text-primary/60 shrink-0" />
               )}
             </div>
             
@@ -113,14 +113,14 @@ export const ConversationListItem = memo(
                 {conversation.tags!.slice(0, 3).map((tag, i) => (
                   <span 
                     key={i}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary/80 font-medium"
+                    className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-md bg-primary/10 text-primary/80 font-medium"
                   >
-                    <Hash className="h-2 w-2" />
+                    <PiHash className="h-2 w-2" />
                     {tag}
                   </span>
                 ))}
                 {conversation.tags!.length > 3 && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[9px] text-muted-foreground">
                     +{conversation.tags!.length - 3}
                   </span>
                 )}
@@ -130,34 +130,12 @@ export const ConversationListItem = memo(
           
           {isLoading && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
-              <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              <div className="h-2.5 w-2.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             </div>
           )}
         </button>
 
-        {showPinAction && onTogglePin && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "absolute right-9 top-1.5 h-6 w-6 transition-opacity rounded-md",
-              conversation.isPinned
-                ? "opacity-100 group-hover/conversation:opacity-100"
-                : "opacity-0 group-hover/conversation:opacity-100",
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onTogglePin(conversation.id);
-            }}
-            title={
-              conversation.isPinned ? "Unpin conversation" : "Pin conversation"
-            }
-          >
-            <PinIcon
-              className={cn("h-3.5 w-3.5", conversation.isPinned && "fill-current")}
-            />
-          </Button>
-        )}
+
 
         {showMenu && (
           <DropdownMenu>
@@ -165,12 +143,22 @@ export const ConversationListItem = memo(
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-1.5 h-6 w-6 opacity-0 group-hover/conversation:opacity-100 transition-opacity rounded-md"
+                className="absolute right-1 top-1 h-5 w-5 opacity-0 group-hover/conversation:opacity-100 transition-opacity rounded-md"
               >
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <PiDotsThree className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {onTogglePin && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePin(conversation.id);
+                  }}
+                >
+                  {conversation.isPinned ? "Unpin conversation" : "Pin conversation"}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               {onAddToFolder && (
                 <DropdownMenuItem

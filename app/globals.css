@@ -7,143 +7,126 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   RYNK "NORDIC CLEAN" DESIGN SYSTEM
-   Minimalist, airy, premium, focus on typography.
+   RYNK "COGNITIVE MINIMALIST" DESIGN SYSTEM
+   Compact, Neural, Neutral. Inspired by Notion/Perplexity.
    ============================================ */
 
 @layer base {
     :root {
-        /* Backgrounds - "Vapor" (Cool, soft gray-white) */
-        --background: 220 20% 97%;
+        /* Backgrounds - "Character Light" */
+        --background: 0 0% 100%; /* Pure White */
         
-        /* Foreground - "Soft Ink" */
-        --foreground: 224 25% 12%; 
+        /* Foreground - "Rich Navy" */
+        --foreground: 222 47% 10%; /* #0F172A */
 
-        /* Card/Surface - Pure White for depth against the gray bg */
+        /* Card/Surface */
         --card: 0 0% 100%;
-        --card-foreground: 224 25% 12%;
+        --card-foreground: 222 47% 10%;
 
-        /* Popover - Pure White */
+        /* Popover */
         --popover: 0 0% 100%;
-        --popover-foreground: 224 25% 12%;
+        --popover-foreground: 222 47% 10%;
 
-        /* Primary - Elegant Charcoal */
-        --primary: 224 25% 12%;
-        --primary-foreground: 210 20% 98%;
+        /* Primary - "Navy Black" */
+        --primary: 222 47% 10%;
+        --primary-foreground: 0 0% 100%;
 
-        /* Secondary - Soft Cloud Gray */
-        --secondary: 220 14% 93%;
-        --secondary-foreground: 224 25% 12%;
+        /* Secondary - "Mist Blue" (Distinct Color) */
+        /* Increased tint to give the 'color' user asked for */
+        --secondary: 210 30% 94%; /* #EBF1F7 - Clearly blue-tinted grey */
+        --secondary-foreground: 222 47% 10%;
 
         /* Muted */
-        --muted: 220 14% 93%;
-        --muted-foreground: 220 10% 45%;
+        --muted: 210 30% 94%;
+        --muted-foreground: 215 25% 45%;
 
-        /* Accent - "Electric Indigo" (Vibrant tech feel) */
-        --accent: 230 85% 60%;
+        /* Accent */
+        --accent: 221 83% 53%;
         --accent-foreground: 0 0% 100%;
 
         /* Destructive */
         --destructive: 0 84% 60%;
-        --destructive-foreground: 210 20% 98%;
+        --destructive-foreground: 0 0% 98%;
 
-        /* Borders - Transparent/Subtle */
-        --border: 220 15% 90%; 
-        --input: 220 15% 90%;
-        --ring: 230 85% 60%;
+        /* Borders */
+        --border: 215 25% 88%; /* #DAE2EB */
+        --input: 215 25% 88%;
+        --ring: 222 47% 11%;
 
-        /* Radius - Consistent Friendliness */
-        --radius: 0.75rem;
+        /* Radius */
+        --radius: 0.5rem;
 
         /* Surface System */
-        --canvas: 220 20% 97%;
-        --canvas-subtle: 220 20% 95%; /* Slightly darker for distinct areas */
+        --canvas: 0 0% 100%;
+        --canvas-subtle: 210 30% 96%; 
         --surface: 0 0% 100%;
-        --surface-hover: 220 20% 98%; 
-        --surface-active: 220 20% 96%;
+        --surface-hover: 210 30% 93%; 
+        --surface-active: 210 30% 91%;
         
-        /* Shadows - Premium Diffusion */
-        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-        --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04); /* Slightly deeper */
-        --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.03);
-        --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.15); /* Deep float */
-        
-        /* Glows */
-        --glow-primary: 230 85% 60% / 0.15;
+        /* Sidebar - "Soft Azure" (Character) */
+        /* Distinctly colored sidebar */
+        --sidebar: 215 35% 95%; /* #EFF4FB */
+        --sidebar-foreground: 222 47% 10%;
+        --sidebar-primary: 222 47% 10%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 215 35% 92%; /* #E2EAF5 */
+        --sidebar-accent-foreground: 222 47% 10%;
+        --sidebar-border: 215 25% 88%; /* Matches border */
+        --sidebar-ring: 222 47% 10%;
     }
 
     .dark {
-        /* Backgrounds - "Carbon" (Deep, rich charcoal - NOT black) */
-        --background: 224 15% 10%; 
+        /* Backgrounds - "True Neutral" (Dark) */
+        --background: 0 0% 10%; /* #191919 - Notion Dark */
         
-        /* Foreground - Soft White */
-        --foreground: 210 20% 95%;
+        /* Foreground - "Soft White" */
+        --foreground: 0 0% 90%; /* #E5E5E5 */
 
-        /* Card/Surface - Slightly lighter layer */
-        --card: 224 15% 12%; 
-        --card-foreground: 210 20% 95%;
+        /* Card/Surface */
+        --card: 0 0% 12%; /* #1F1F1F */
+        --card-foreground: 0 0% 90%;
 
         /* Popover */
-        --popover: 224 15% 12%;
-        --popover-foreground: 210 20% 95%;
+        --popover: 0 0% 12%;
+        --popover-foreground: 0 0% 90%;
 
-        /* Primary - White for actions */
-        --primary: 210 20% 98%;
-        --primary-foreground: 224 15% 10%;
+        /* Primary - White */
+        --primary: 0 0% 96%;
+        --primary-foreground: 0 0% 10%;
 
-        /* Secondary - Dark Gray surface */
-        --secondary: 224 15% 16%; 
-        --secondary-foreground: 210 20% 95%;
+        /* Secondary - Deep Grey */
+        --secondary: 0 0% 15%; /* #262626 */
+        --secondary-foreground: 0 0% 90%;
 
         /* Muted */
-        --muted: 224 15% 16%;
-        --muted-foreground: 215 15% 65%;
+        --muted: 0 0% 15%;
+        --muted-foreground: 0 0% 60%; /* #999999 */
 
-        /* Accent - Brighter Indigo for dark mode */
-        --accent: 230 85% 65%; 
+        /* Accent */
+        --accent: 225 70% 65%; /* #4D7DFF - Brighter for dark mode */
         --accent-foreground: 0 0% 100%;
 
         /* Borders */
-        --border: 224 15% 18%;
-        --input: 224 15% 18%;
-        --ring: 230 85% 65%;
+        --border: 0 0% 18%; /* #2E2E2E */
+        --input: 0 0% 18%;
+        --ring: 0 0% 60%;
 
         /* Surfaces */
-        --canvas: 224 15% 10%;
-        --canvas-subtle: 224 15% 8%; /* Darker sidebar */
-        --surface: 224 15% 12%;
-        --surface-hover: 224 15% 15%;
-        --surface-active: 224 15% 17%;
-        
-        /* Glows */
-        --glow-primary: 230 85% 65% / 0.2;
-    }
-}
+        --canvas: 0 0% 10%;
+        --canvas-subtle: 0 0% 12%; 
+        --surface: 0 0% 12%;
+        --surface-hover: 0 0% 16%;
+        --surface-active: 0 0% 18%;
 
-@layer base {
-    :root {
-        /* Sidebar Colors - Light Mode - "Vapor" but distinct */
-        --sidebar: var(--canvas-subtle); 
-        --sidebar-foreground: 224 25% 12%; 
-        --sidebar-primary: 224 25% 12%;
-        --sidebar-primary-foreground: 0 0% 98%;
-        --sidebar-accent: 220 14% 93%;
-        --sidebar-accent-foreground: 224 25% 12%;
-        --sidebar-border: 220 15% 90%;
-        --sidebar-ring: 230 85% 60%;
-    }
-
-    .dark {
-        /* Sidebar Colors - Dark Mode - "Carbon" but distinct */
-        --sidebar: 224 15% 8%; /* Darker than main canvas */
-        --sidebar-foreground: 215 15% 70%;
-        --sidebar-primary: 230 85% 65%; /* Accent color for active items */
-        --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 224 15% 12%;
-        --sidebar-accent-foreground: 210 20% 98%;
-        --sidebar-border: 224 15% 10%;
-        --sidebar-ring: 230 85% 65%;
+        /* Sidebar Variables (Dark) */
+        --sidebar: 0 0% 11%; /* #1C1C1C */
+        --sidebar-foreground: 0 0% 88%;
+        --sidebar-primary: 0 0% 96%;
+        --sidebar-primary-foreground: 0 0% 10%;
+        --sidebar-accent: 0 0% 16%;
+        --sidebar-accent-foreground: 0 0% 96%;
+        --sidebar-border: 0 0% 18%;
+        --sidebar-ring: 0 0% 60%;
     }
 }
 
@@ -157,11 +140,10 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
     
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
+    --radius-sm: calc(var(--radius) - 2px);
+    --radius-md: calc(var(--radius));
+    --radius-lg: calc(var(--radius) + 2px);
     --radius-xl: calc(var(--radius) + 4px);
-    --radius-2xl: calc(var(--radius) + 8px);
 }
 
 @layer base {
@@ -174,18 +156,17 @@
     }
 
     body {
-        @apply bg-background text-foreground antialiased selection:bg-accent/20 selection:text-accent-foreground/80;
-        font-feature-settings: "ss01", "ss02", "cv01", "cv02"; /* Modern font features */
+        @apply bg-background text-foreground antialiased selection:bg-gray-200 selection:text-black dark:selection:bg-gray-800 dark:selection:text-white;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
 
-    /* Soften text rendering */
+    /* Compact Typography */
     h1, h2, h3, h4, h5, h6 {
-        @apply tracking-tight font-semibold text-foreground;
+        @apply font-sans tracking-tight font-semibold text-foreground; /* [MODIFIED] */
     }
     
-    /* Relaxed Paragraphs */
     p {
-        @apply leading-relaxed;
+        @apply leading-snug text-pretty;
     }
 }
 
@@ -194,24 +175,20 @@
    ============================================ */
 
 @layer utilities {
-    /* Floating Card Effect */
-    .card-float {
-        @apply bg-card rounded-xl border border-border/40 shadow-sm transition-all duration-300;
+    /* Flat Design Utilities - No Shadows */
+    .card-flat {
+        @apply bg-card border border-border transition-colors duration-200;
     }
     
-    .card-float:hover {
-        @apply shadow-md -translate-y-[2px];
+    .card-flat:hover {
+        @apply bg-secondary/50;
     }
     
-    /* Glass Effect (Refined) */
-    .glass {
-        @apply bg-background/80 backdrop-blur-md border border-white/20;
+    /* Matte "Glass" - Solid with transparency but no blur necessary for minimalist vibe, keeping it simple */
+    .glass-removed {
+        @apply bg-background border-b border-border;
     }
     
-    .dark .glass {
-        @apply bg-background/80 backdrop-blur-md border border-white/5;
-    }
-
     /* Invisible Scrollbar */
     .no-scrollbar::-webkit-scrollbar {
         display: none;
@@ -221,7 +198,7 @@
         scrollbar-width: none;
     }
 
-    /* Better Scrollbar */
+    /* Minimal Scrollbar */
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -232,10 +209,10 @@
     }
     
     ::-webkit-scrollbar-thumb {
-        @apply bg-muted-foreground/10 rounded-full hover:bg-muted-foreground/20 transition-colors;
+        @apply bg-border rounded-full hover:bg-muted-foreground/30 transition-colors;
     }
 
-    /* Typography Utilities */
+    /* Text Balance */
     .text-balance {
         text-wrap: balance;
     }
@@ -243,24 +220,9 @@
     .text-pretty {
         text-wrap: pretty;
     }
-
-    /* Animation Utilities */
-    .animate-in-fade {
-        animation: fadeIn 0.3s ease-out forwards;
-    }
     
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    
-    /* Sub-chat highlight styles for deep dive feature */
+    /* Sub-chat highlight styles */
     .subchat-highlight {
-        @apply bg-accent/20 hover:bg-accent/30 cursor-pointer rounded-sm px-0.5 transition-colors border-b border-accent/40;
-    }
-    
-    .dark .subchat-highlight {
-        @apply bg-accent/30 hover:bg-accent/40;
+        @apply bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 cursor-pointer rounded-sm px-0.5 transition-colors border-b border-dashed border-yellow-400 dark:border-yellow-700;
     }
 }
-

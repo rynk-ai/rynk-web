@@ -13,12 +13,9 @@ export default {
         // Default breakpoints are preserved: sm (640px), md (768px), lg (1024px), xl (1280px), 2xl (1536px)
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "sans-serif"],
-        mono: ["var(--font-mono)", "monospace"],
-        geist: ["var(--font-geist)", "sans-serif"],
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui"],
+        outfit: ["var(--font-outfit)", "sans-serif"], // [MODIFIED]
         inter: ["var(--font-inter)", "sans-serif"],
-        system: ["var(--font-system)", "system-ui", "sans-serif"],
-        serif: ["var(--font-serif)", "serif"],
       },
       colors: {
         background: "hsl(var(--background))",

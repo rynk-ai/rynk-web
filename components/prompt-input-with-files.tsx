@@ -14,7 +14,28 @@ import {
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Paperclip, Send, Folder, MessageSquare, Plus, X, Quote as QuoteIcon, Brain, Globe, BookOpen, ListChecks, ChevronDown, Target, Scale, Layers, Calendar, ArrowRightIcon, TrendingUp, Lock, Microscope } from "lucide-react";
+import { 
+  PiPaperclip, 
+  PiPaperPlaneRight, 
+  PiFolder, 
+  PiChatCircle, 
+  PiPlus, 
+  PiX, 
+  PiQuotes, 
+  PiBrain, 
+  PiGlobe, 
+  PiBookOpen, 
+  PiListChecks, 
+  PiCaretDown, 
+  PiTarget, 
+  PiScales, 
+  PiCards, 
+  PiCalendar, 
+  PiArrowRight, 
+  PiTrendUp, 
+  PiLock, 
+  PiMagnifyingGlass 
+} from "react-icons/pi";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
@@ -28,21 +49,21 @@ import EmptyStateChat from "./chat/empty-state-chat";
 // Surface Mode Configuration
 const SURFACE_MODES: Array<{
   type: SurfaceType | 'chat';
-  icon: typeof MessageSquare;
+  icon: typeof PiChatCircle;
   label: string;
   placeholder: string;
   color: string;
 }> = [
-  { type: 'chat', icon: MessageSquare, label: 'Chat', placeholder: 'Ask anything', color: 'text-foreground' },
-  { type: 'learning', icon: BookOpen, label: 'Course', placeholder: 'Teach me about...', color: 'text-blue-500' },
-  { type: 'guide', icon: ListChecks, label: 'Guide', placeholder: 'Guide me through...', color: 'text-green-500' },
-  { type: 'quiz', icon: Target, label: 'Quiz', placeholder: 'Test me on...', color: 'text-pink-500' },
-  { type: 'comparison', icon: Scale, label: 'Compare', placeholder: 'Compare A vs B...', color: 'text-indigo-500' },
-  { type: 'flashcard', icon: Layers, label: 'Flashcards', placeholder: 'Create flashcards about...', color: 'text-teal-500' },
-  { type: 'timeline', icon: Calendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500' },
-  { type: 'wiki', icon: BookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500' },
-  { type: 'finance', icon: TrendingUp, label: 'Finance', placeholder: 'Show price of...', color: 'text-emerald-500' },
-  { type: 'research', icon: Microscope, label: 'Research', placeholder: 'Research topic in depth...', color: 'text-purple-500' },
+  { type: 'chat', icon: PiChatCircle, label: 'Chat', placeholder: 'Ask anything', color: 'text-foreground' },
+  { type: 'learning', icon: PiBookOpen, label: 'Course', placeholder: 'Teach me about...', color: 'text-blue-500' },
+  { type: 'guide', icon: PiListChecks, label: 'Guide', placeholder: 'Guide me through...', color: 'text-green-500' },
+  { type: 'quiz', icon: PiTarget, label: 'Quiz', placeholder: 'Test me on...', color: 'text-pink-500' },
+  { type: 'comparison', icon: PiScales, label: 'Compare', placeholder: 'Compare A vs B...', color: 'text-indigo-500' },
+  { type: 'flashcard', icon: PiCards, label: 'Flashcards', placeholder: 'Create flashcards about...', color: 'text-teal-500' },
+  { type: 'timeline', icon: PiCalendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500' },
+  { type: 'wiki', icon: PiBookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500' },
+  { type: 'finance', icon: PiTrendUp, label: 'Finance', placeholder: 'Show price of...', color: 'text-emerald-500' },
+  { type: 'research', icon: PiMagnifyingGlass, label: 'Research', placeholder: 'Research topic in depth...', color: 'text-purple-500' },
 ];
 
 // Surfaces allowed for guest users (no authentication required)
@@ -97,7 +118,7 @@ const SLASH_COMMANDS = [
     id: 'web', 
     label: '/web', 
     description: 'Enable web search', 
-    icon: Globe,
+    icon: PiGlobe,
     action: (setText: (t: string) => void, current: string) => {
       // For now, just prepend "Search the web for: " as a hint
       // or we could add a specific prop later. 
@@ -112,7 +133,7 @@ const SLASH_COMMANDS = [
     id: 'deep', 
     label: '/deep', 
     description: 'Toggle deep thinking', 
-    icon: Brain,
+    icon: PiBrain,
     action: (setText: (t: string) => void, current: string, toggleReasoning?: () => void) => {
       toggleReasoning?.();
       return current; // No text change, just toggle
@@ -122,7 +143,7 @@ const SLASH_COMMANDS = [
     id: 'code', 
     label: '/code', 
     description: 'Optimize for code', 
-    icon: Plus, // Using Plus as placeholder, maybe Code xml tag?
+    icon: PiPlus, // Using Plus as placeholder, maybe Code xml tag?
     action: (setText: (t: string) => void, current: string) => {
       return current + "\n\nProvide a code solution.";
     }
@@ -131,7 +152,7 @@ const SLASH_COMMANDS = [
     id: 'brief', 
     label: '/brief', 
     description: 'Keep it concise', 
-    icon: MessageSquare,
+    icon: PiChatCircle,
     action: (setText: (t: string) => void, current: string) => {
       return current + "\n\nBe brief.";
     }
@@ -584,7 +605,7 @@ export const PromptInputWithFiles = memo(function
             disabled={isLoading || isSubmittingEdit}
             className="gap-1.5 h-7 px-2 text-xs bg-red-800/50 hover:bg-red-800/70 text-white"
           >
-            <X size={14} />
+            <PiX size={14} />
             Cancel
           </Button>
         </div>
@@ -594,7 +615,7 @@ export const PromptInputWithFiles = memo(function
       {quotedMessage && onClearQuote && (
         <div className="px-2.5 mt-2">
           <div className="flex items-start gap-2 bg-muted/50 border border-border/30 rounded-lg px-3 py-2.5 text-sm">
-            <QuoteIcon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <PiQuotes className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-xs text-muted-foreground mb-1">
                 Replying to {quotedMessage.authorRole === 'assistant' ? 'Assistant' : 'You'}
@@ -620,7 +641,7 @@ export const PromptInputWithFiles = memo(function
                 });
               }}
             >
-              <X className="h-3.5 w-3.5" />
+              <PiX className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
@@ -628,18 +649,18 @@ export const PromptInputWithFiles = memo(function
 
       {/* Expanded Context and Files Display */}
       {(files.length > 0 || context.length > 0) && (
-        <div className="px-4 pt-4 flex flex-col gap-2">
+        <div className="px-3 pt-3 flex flex-col gap-2">
           <div className="flex flex-wrap gap-2 items-start">
              {/* Context Pills */}
              {context.map((item) => (
                 <div 
                   key={item.id}
-                  className="flex items-center gap-2 bg-secondary border border-border/50 rounded-xl px-3 py-1.5 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
+                  className="flex items-center gap-2 bg-secondary/50 border border-border/50 rounded-md px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
                 >
                   {item.type === 'folder' ? (
-                    <Folder className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    <PiFolder className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                   ) : (
-                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <PiChatCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium truncate text-foreground/90 leading-tight">
@@ -655,7 +676,7 @@ export const PromptInputWithFiles = memo(function
                     className="h-5 w-5 rounded-full hover:bg-background/80 shrink-0 -mr-1"
                     onClick={() => handleRemoveContext(item)}
                   >
-                    <X className="h-3 w-3" />
+                    <PiX className="h-3 w-3" />
                   </Button>
                 </div>
              ))}
@@ -677,7 +698,7 @@ export const PromptInputWithFiles = memo(function
       {/* Slash Command Dropdown */}
       {slashQuery !== null && filteredSlashCommands.length > 0 && (
         <div className="absolute bottom-full left-0 mb-2 mx-2 z-[200]">
-          <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[200px] animate-in slide-in-from-bottom-2 duration-200">
+          <div className="bg-popover border border-border rounded-lg shadow-md overflow-hidden min-w-[200px] animate-in slide-in-from-bottom-2 duration-200">
              <div className="p-1">
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Commands
@@ -716,7 +737,7 @@ export const PromptInputWithFiles = memo(function
       {/* @ Mention Dropdown */}
       {query && (
         <div className="absolute bottom-full left-0 right-0 mb-2 mx-2 z-[200]">
-          <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl max-h-[280px] overflow-y-auto overflow-hidden">
+          <div className="bg-popover border border-border rounded-lg shadow-md max-h-[280px] overflow-y-auto overflow-hidden">
             {isSearching ? (
               <div className="p-4 text-sm text-muted-foreground text-center">
                 Searching...
@@ -736,9 +757,9 @@ export const PromptInputWithFiles = memo(function
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/50">
                       {item.type === 'folder' ? (
-                        <Folder className="h-4 w-4 text-blue-500" />
+                        <PiFolder className="h-4 w-4 text-blue-500" />
                       ) : (
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <PiChatCircle className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -777,7 +798,7 @@ export const PromptInputWithFiles = memo(function
           onValueChange={handlePromptChange}
           onSubmit={handleSubmit}
           disabled={disabled || isSubmittingEdit}
-          className="bg-card shadow-2xl rounded-2xl border-none ring-1 ring-black/5"
+          className="bg-card shadow-lg rounded-xl border border-border/40 ring-0"
         >
           <div className="flex flex-col">
             <PromptInputTextarea
@@ -791,12 +812,12 @@ export const PromptInputWithFiles = memo(function
                       ? currentSurfaceMode.placeholder 
                       : `${currentSurfaceMode.placeholder} (Shift+Enter for new line)`
               }
-              className="min-h-[52px] pt-4 pl-4 text-base leading-[1.6] sm:text-base md:text-base overscroll-contain bg-card border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
+              className="min-h-[44px] pt-3 pl-3 text-base leading-[1.5] sm:text-base md:text-base overscroll-contain bg-card border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
             />
 
-            <PromptInputActions className="flex w-full items-center justify-between gap-2 px-3 pb-3 pt-2">
+            <PromptInputActions className="flex w-full items-center justify-between gap-2 px-2 pb-2 pt-2">
               <div className="flex items-center gap-1">
                 {/* Surface Mode Dropdown */}
                 {!hideActions && onSurfaceModeChange && (
@@ -815,7 +836,7 @@ export const PromptInputWithFiles = memo(function
                     >
                       <currentSurfaceMode.icon className="h-3.5 w-3.5" />
                       {currentSurfaceMode.label}
-                      <ChevronDown className={cn("h-3 w-3 transition-transform", surfaceModeOpen && "rotate-180")} />
+                      <PiCaretDown className={cn("h-3 w-3 transition-transform", surfaceModeOpen && "rotate-180")} />
                     </Button>
                     
                     {/* Dropdown Menu */}
@@ -851,7 +872,7 @@ export const PromptInputWithFiles = memo(function
                                   <mode.icon className={cn("h-4 w-4", isRestricted ? "text-muted-foreground/50" : mode.color)} />
                                   <span className={cn("font-medium flex-1", isRestricted && "text-muted-foreground/60")}>{mode.label}</span>
                                   {isRestricted && (
-                                    <Lock className="h-3 w-3 text-muted-foreground/50" />
+                                    <PiLock className="h-3 w-3 text-muted-foreground/50" />
                                   )}
                                 </button>
                               );
@@ -871,7 +892,7 @@ export const PromptInputWithFiles = memo(function
                         className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all"
                         disabled={isLoading || isSubmittingEdit || disabled}
                       >
-                        <Paperclip size={16} />
+                        <PiPaperclip size={16} />
                       </Button>
                     </FileUploadTrigger>
                   </PromptInputAction>
@@ -897,7 +918,7 @@ export const PromptInputWithFiles = memo(function
                         )}
                         disabled={isLoading || isSubmittingEdit || disabled}
                       >
-                        <Plus size={16} />
+                        <PiPlus size={16} />
                       </Button>
                     }
                   />
@@ -922,7 +943,7 @@ export const PromptInputWithFiles = memo(function
                 {(isLoading || isSubmittingEdit) ? (
                   <div className="size-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                 ) : (
-                  <ArrowRightIcon size={20} />
+                  <PiArrowRight size={20} />
                 )}
               </Button>
             </PromptInputActions>

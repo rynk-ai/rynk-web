@@ -10,7 +10,18 @@
 
 import { memo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ListChecks, ChevronRight, Target, Scale, Layers, Calendar, ChevronDown, TrendingUp, Microscope } from "lucide-react";
+import { 
+  PiBookOpenText, 
+  PiListChecks, 
+  PiCaretRight, 
+  PiTarget, 
+  PiScales, 
+  PiStack, 
+  PiCalendar, 
+  PiCaretDown, 
+  PiTrendUp, 
+  PiFlask 
+} from "react-icons/pi";
 import { cn } from "@/lib/utils";
 
 interface SavedSurfacesPillProps {
@@ -30,63 +41,63 @@ interface SurfaceItem {
 
 const SURFACE_CONFIG = {
   learning: {
-    icon: BookOpen,
+    icon: PiBookOpenText,
     label: "Course",
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     hoverBg: "hover:bg-blue-500/20",
   },
   guide: {
-    icon: ListChecks,
+    icon: PiListChecks,
     label: "Guide", 
     color: "text-green-500",
     bgColor: "bg-green-500/10",
     hoverBg: "hover:bg-green-500/20",
   },
   quiz: {
-    icon: Target,
+    icon: PiTarget,
     label: "Quiz",
     color: "text-pink-500",
     bgColor: "bg-pink-500/10",
     hoverBg: "hover:bg-pink-500/20",
   },
   comparison: {
-    icon: Scale,
+    icon: PiScales,
     label: "Compare",
     color: "text-indigo-500",
     bgColor: "bg-indigo-500/10",
     hoverBg: "hover:bg-indigo-500/20",
   },
   flashcard: {
-    icon: Layers,
+    icon: PiStack,
     label: "Flashcards",
     color: "text-teal-500",
     bgColor: "bg-teal-500/10",
     hoverBg: "hover:bg-teal-500/20",
   },
   timeline: {
-    icon: Calendar,
+    icon: PiCalendar,
     label: "Timeline",
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
     hoverBg: "hover:bg-amber-500/20",
   },
   wiki: {
-    icon: BookOpen,
+    icon: PiBookOpenText,
     label: "Wiki",
     color: "text-orange-500",
     bgColor: "bg-orange-500/10",
     hoverBg: "hover:bg-orange-500/20",
   },
   finance: {
-    icon: TrendingUp,
+    icon: PiTrendUp,
     label: "Finance",
     color: "text-emerald-500",
     bgColor: "bg-emerald-500/10",
     hoverBg: "hover:bg-emerald-500/20",
   },
   research: {
-    icon: Microscope,
+    icon: PiFlask,
     label: "Research",
     color: "text-purple-500",
     bgColor: "bg-purple-500/10",
@@ -189,10 +200,10 @@ export const SavedSurfacesPill = memo(function SavedSurfacesPill({
                     <span className="text-[10px] opacity-70 ml-0.5">
                       ({surfaces.length})
                     </span>
-                    <ChevronDown className="h-3 w-3 opacity-60" />
+                    <PiCaretDown className="h-3 w-3 opacity-60" />
                   </>
                 ) : (
-                  <ChevronRight className="h-3 w-3 opacity-60" />
+                  <PiCaretRight className="h-3 w-3 opacity-60" />
                 )}
               </button>
               

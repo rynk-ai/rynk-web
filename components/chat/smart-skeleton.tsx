@@ -1,7 +1,7 @@
 'use client'
 
 import { Skeleton } from "@/components/ui/skeleton"
-import { AlertCircle } from "lucide-react"
+import { PiWarningCircle } from "react-icons/pi"
 import type { ResponseType } from "@/lib/types/citation"
 import { cn } from "@/lib/utils"
 
@@ -126,7 +126,7 @@ function NewsSkeleton() {
     <div className="space-y-4">
       {/* Breaking news banner */}
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm">
-        <AlertCircle className="h-4 w-4" />
+        <PiWarningCircle className="h-4 w-4" />
         <span className="animate-pulse">Gathering latest information...</span>
       </div>
       

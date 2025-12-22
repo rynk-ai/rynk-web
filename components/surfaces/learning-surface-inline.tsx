@@ -11,14 +11,14 @@ import { memo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { LearningMetadata, SurfaceState } from "@/lib/services/domain-types";
 import {
-  BookOpen,
-  ChevronRight,
-  Check,
-  Clock,
-  Loader2,
-  ArrowRight,
-  ArrowLeft,
-} from "lucide-react";
+  PiBookOpenText,
+  PiCaretRight,
+  PiCheck,
+  PiClock,
+  PiSpinner,
+  PiArrowRight,
+  PiArrowLeft,
+} from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -61,7 +61,7 @@ const ChapterListItem = memo(function ChapterListItem({
     >
       <div className="flex-shrink-0">
         {isCompleted ? (
-          <Check className="h-4 w-4 text-green-500" />
+          <PiCheck className="h-4 w-4 text-green-500" />
         ) : isActive ? (
           <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
         ) : (
@@ -74,7 +74,7 @@ const ChapterListItem = memo(function ChapterListItem({
       </div>
       {chapter.estimatedTime > 0 && (
         <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-          <Clock className="h-3 w-3" />
+          <PiClock className="h-3 w-3" />
           {chapter.estimatedTime}m
         </span>
       )}
@@ -131,7 +131,7 @@ export const LearningSurfaceInline = memo(function LearningSurfaceInline({
       <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
+            <PiBookOpenText className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">{metadata.title}</span>
           </div>
           <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
@@ -183,7 +183,7 @@ export const LearningSurfaceInline = memo(function LearningSurfaceInline({
             <div className="p-4">
               {isGenerating ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <PiSpinner className="h-6 w-6 animate-spin text-primary" />
                   <span className="ml-2 text-sm text-muted-foreground">
                     Generating chapter...
                   </span>
@@ -194,7 +194,7 @@ export const LearningSurfaceInline = memo(function LearningSurfaceInline({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <BookOpen className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <PiBookOpenText className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm text-muted-foreground mb-3">
                     Click to generate this chapter
                   </p>
@@ -217,7 +217,7 @@ export const LearningSurfaceInline = memo(function LearningSurfaceInline({
               onClick={handlePrev}
               disabled={!hasPrevChapter}
             >
-              <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+              <PiArrowLeft className="h-3.5 w-3.5 mr-1" />
               Prev
             </Button>
 
@@ -227,7 +227,7 @@ export const LearningSurfaceInline = memo(function LearningSurfaceInline({
                 size="sm"
                 onClick={() => onMarkComplete(activeChapterIndex)}
               >
-                <Check className="h-3.5 w-3.5 mr-1" />
+                <PiCheck className="h-3.5 w-3.5 mr-1" />
                 Complete
               </Button>
             )}
@@ -238,7 +238,7 @@ export const LearningSurfaceInline = memo(function LearningSurfaceInline({
               disabled={!hasNextChapter}
             >
               Next
-              <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              <PiArrowRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           </div>
         </div>
