@@ -2020,32 +2020,39 @@ function FullChatApp() {
   );
 }
 
-// Separate component that uses useSearchParams and ChatProvider
+// Separate component that uses useSearchParams
 // This ensures useSearchParams is wrapped in Suspense
-// AppSidebar and ChatHeader are inside to share the same ChatProvider context
+// Uses root-level ChatProvider from layout.tsx for data persistence
 function ChatContentWithProvider() {
   const searchParams = useSearchParams();
   const chatId = searchParams.get("id") || null;
   const [commandBarOpen, setCommandBarOpen] = useState(false);
   const router = useRouter();
+  const { selectConversation, currentConversationId } = useChatContext();
+
+  // Sync URL chatId with context when URL changes
+  useEffect(() => {
+    // Only update if chatId differs from current selection
+    if (chatId !== currentConversationId) {
+      selectConversation(chatId);
+    }
+  }, [chatId, currentConversationId, selectConversation]);
 
   return (
-    <ChatProvider initialConversationId={chatId}>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <ChatHeaderWithCommandBar 
-            commandBarOpen={commandBarOpen}
-            setCommandBarOpen={setCommandBarOpen}
-          />
-          <ChatContent />
-          <CommandBarWrapper 
-            open={commandBarOpen} 
-            onOpenChange={setCommandBarOpen} 
-          />
-        </SidebarInset>
-      </SidebarProvider>
-    </ChatProvider>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <ChatHeaderWithCommandBar 
+          commandBarOpen={commandBarOpen}
+          setCommandBarOpen={setCommandBarOpen}
+        />
+        <ChatContent />
+        <CommandBarWrapper 
+          open={commandBarOpen} 
+          onOpenChange={setCommandBarOpen} 
+        />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

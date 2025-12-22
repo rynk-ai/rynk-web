@@ -1908,16 +1908,31 @@ function CommandBarWrapper({
   );
 }
 
-// Separate component that uses useSearchParams and ChatProvider
+// Separate component that uses useSearchParams
 // This ensures useSearchParams is wrapped in Suspense
-// AppSidebar and ChatHeader are inside to share the same ChatProvider context
+// Uses root-level ChatProvider from layout.tsx for data persistence
 function ChatContentWithProvider({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const chatId = searchParams.get("id") || null;
   const [commandBarOpen, setCommandBarOpen] = useState(false);
+  const { selectConversation, currentConversationId, selectProject } = useChatContext();
+
+  // Set active project
+  useEffect(() => {
+    selectProject(projectId);
+    return () => selectProject(null); // Clear on unmount
+  }, [projectId, selectProject]);
+
+  // Sync URL chatId with context when URL changes
+  useEffect(() => {
+    // Only update if chatId differs from current selection
+    if (chatId !== currentConversationId) {
+      selectConversation(chatId);
+    }
+  }, [chatId, currentConversationId, selectConversation]);
 
   return (
-    <ChatProvider initialConversationId={chatId}>
+    <>
       <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
       <SidebarProvider>
         <AppSidebar />
@@ -1926,7 +1941,7 @@ function ChatContentWithProvider({ projectId }: { projectId: string }) {
           <ChatContent />
         </SidebarInset>
       </SidebarProvider>
-    </ChatProvider>
+    </>
   );
 }
 
