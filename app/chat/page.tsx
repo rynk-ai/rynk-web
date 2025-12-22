@@ -400,6 +400,13 @@ const ChatContent = memo(
       const prevId = prevConversationIdForClearRef.current;
       prevConversationIdForClearRef.current = currentConversationId;
       
+      // CRITICAL: Don't clear messages if we're currently sending!
+      // This prevents wiping out optimistic messages during new conversation creation
+      if (isSending) {
+        console.log("[ChatPage] Skipping message clear - currently sending");
+        return;
+      }
+      
       // Case 1: Going to new chat (currentConversationId becomes null)
       if (!currentConversationId) {
         if (!chatId) {
@@ -424,7 +431,7 @@ const ChatContent = memo(
         setQuotedMessage(null);
         setLocalContext([]);
       }
-    }, [currentConversationId, chatId]);
+    }, [currentConversationId, chatId, isSending]);
 
     // Local context state (used for all conversations now, transient)
     // Added 'status' field to track loading state for minimal progress feedback
@@ -1768,25 +1775,32 @@ const ChatContent = memo(
     const prevLoadedConversationIdRef = useRef<string | null>(null);
 
     useEffect(() => {
+      // Use ref to get the latest conversation ID, avoiding stale closures
+      const conversationId = currentConversationIdRef.current;
+      if (!conversationId) return;
+
+      // CRITICAL FIX: Update the ref BEFORE the early returns!
+      // This prevents reloadMessages from being called after streaming completes.
+      // Without this, the ref wouldn't be set during the guarded return,
+      // and when isSending becomes false, reloadMessages would be incorrectly called.
+      const previouslyLoaded = prevLoadedConversationIdRef.current;
+      prevLoadedConversationIdRef.current = conversationId;
+
       // Skip if we're in the middle of an edit to prevent race conditions
       // Also skip if sending to prevent overwriting stream with partial DB data
       // Note: We intentionally do NOT watch streamingMessageId here because when streaming ends,
       // the message is already in local state with full content and reasoning_metadata.
       // Reloading from DB would overwrite that with stale data.
-      if (isEditing || isSending || isSavingEdit) return;
-
-      // Use ref to get the latest conversation ID, avoiding stale closures
-      const conversationId = currentConversationIdRef.current;
-      if (!conversationId) return;
-
-      // CRITICAL FIX: Only reload if conversation ID ACTUALLY changed
-      // This prevents unnecessary fetches when editing/sending states change
-      if (conversationId === prevLoadedConversationIdRef.current) {
+      if (isEditing || isSending || isSavingEdit) {
+        console.log("[ChatPage] Skipping reloadMessages - currently sending/editing");
         return;
       }
-      
-      // Track that we're loading this conversation
-      prevLoadedConversationIdRef.current = conversationId;
+
+      // Only reload if conversation ID ACTUALLY changed
+      // This prevents unnecessary fetches when editing/sending states change
+      if (conversationId === previouslyLoaded) {
+        return;
+      }
 
       // Check if we switched conversations (state has messages from another conversation)
       if (messages.length > 0 && messages[0].conversationId !== conversationId) {
@@ -1863,8 +1877,12 @@ const ChatContent = memo(
                     />
                   )}
                   
-                  {/* Show skeleton when loading new conversation */}
-                  {isLoadingConversation ? (
+                  {/* Show skeleton when loading new conversation 
+                      BUT NOT when:
+                      - Currently sending (isSending) - we have optimistic messages to show
+                      - Messages already exist - we're mid-stream or have content
+                  */}
+                  {isLoadingConversation && !isSending && messages.length === 0 ? (
                     <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto px-3 pt-12 animate-in fade-in duration-300">
                       {/* User message skeleton */}
                       <div className="flex justify-end">
