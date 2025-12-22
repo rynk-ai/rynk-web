@@ -126,6 +126,20 @@ export interface SubChat {
   updatedAt: number
 }
 
+// Surface Sub-Chat for surfaces (Wiki, Research, etc.) and learning pages
+export interface SurfaceSubChat {
+  id: string
+  userId: string
+  sourceType: 'surface' | 'learning'
+  sourceId: string           // surfaceId or courseId
+  sectionId?: string         // Specific section within source
+  quotedText: string
+  sourceContent?: string     // Full section content for context
+  messages: SubChatMessage[]
+  createdAt: number
+  updatedAt: number
+}
+
 export interface SharedConversation {
   id: string
   conversationId: string
@@ -1639,6 +1653,145 @@ export const cloudDb = {
   async deleteSubChat(subChatId: string): Promise<void> {
     const db = getDB()
     await db.prepare('DELETE FROM sub_chats WHERE id = ?').bind(subChatId).run()
+  },
+
+  // --- Surface Sub-Chats (for surfaces and learning pages) ---
+
+  async getSurfaceSubChats(userId: string, sourceType: 'surface' | 'learning', sourceId: string): Promise<SurfaceSubChat[]> {
+    const db = getDB()
+    const results = await db.prepare(
+      'SELECT * FROM surface_sub_chats WHERE userId = ? AND sourceType = ? AND sourceId = ? ORDER BY createdAt DESC'
+    ).bind(userId, sourceType, sourceId).all()
+
+    return results.results.map((s: any) => ({
+      id: s.id as string,
+      userId: s.userId as string,
+      sourceType: s.sourceType as 'surface' | 'learning',
+      sourceId: s.sourceId as string,
+      sectionId: s.sectionId as string | undefined,
+      quotedText: s.quotedText as string,
+      sourceContent: s.sourceContent as string | undefined,
+      messages: JSON.parse(s.messages as string || '[]'),
+      createdAt: new Date(s.createdAt as string).getTime(),
+      updatedAt: new Date(s.updatedAt as string).getTime()
+    }))
+  },
+
+  async getSurfaceSubChat(subChatId: string): Promise<SurfaceSubChat | null> {
+    const db = getDB()
+    const result = await db.prepare('SELECT * FROM surface_sub_chats WHERE id = ?').bind(subChatId).first()
+    if (!result) return null
+
+    return {
+      id: result.id as string,
+      userId: result.userId as string,
+      sourceType: result.sourceType as 'surface' | 'learning',
+      sourceId: result.sourceId as string,
+      sectionId: result.sectionId as string | undefined,
+      quotedText: result.quotedText as string,
+      sourceContent: result.sourceContent as string | undefined,
+      messages: JSON.parse(result.messages as string || '[]'),
+      createdAt: new Date(result.createdAt as string).getTime(),
+      updatedAt: new Date(result.updatedAt as string).getTime()
+    }
+  },
+
+  async getSurfaceSubChatsBySection(userId: string, sourceType: 'surface' | 'learning', sourceId: string, sectionId: string): Promise<SurfaceSubChat[]> {
+    const db = getDB()
+    const results = await db.prepare(
+      'SELECT * FROM surface_sub_chats WHERE userId = ? AND sourceType = ? AND sourceId = ? AND sectionId = ? ORDER BY createdAt DESC'
+    ).bind(userId, sourceType, sourceId, sectionId).all()
+
+    return results.results.map((s: any) => ({
+      id: s.id as string,
+      userId: s.userId as string,
+      sourceType: s.sourceType as 'surface' | 'learning',
+      sourceId: s.sourceId as string,
+      sectionId: s.sectionId as string | undefined,
+      quotedText: s.quotedText as string,
+      sourceContent: s.sourceContent as string | undefined,
+      messages: JSON.parse(s.messages as string || '[]'),
+      createdAt: new Date(s.createdAt as string).getTime(),
+      updatedAt: new Date(s.updatedAt as string).getTime()
+    }))
+  },
+
+  async createSurfaceSubChat(
+    userId: string,
+    sourceType: 'surface' | 'learning',
+    sourceId: string,
+    quotedText: string,
+    sectionId?: string,
+    sourceContent?: string
+  ): Promise<SurfaceSubChat> {
+    const db = getDB()
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    await db.prepare(
+      'INSERT INTO surface_sub_chats (id, userId, sourceType, sourceId, sectionId, quotedText, sourceContent, messages, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, userId, sourceType, sourceId, sectionId || null, quotedText, sourceContent || null, '[]', now, now).run()
+
+    return {
+      id,
+      userId,
+      sourceType,
+      sourceId,
+      sectionId,
+      quotedText,
+      sourceContent,
+      messages: [],
+      createdAt: new Date(now).getTime(),
+      updatedAt: new Date(now).getTime()
+    }
+  },
+
+  async addSurfaceSubChatMessage(subChatId: string, role: 'user' | 'assistant', content: string): Promise<SubChatMessage> {
+    const db = getDB()
+
+    // Get current messages
+    const subChat = await db.prepare('SELECT messages FROM surface_sub_chats WHERE id = ?').bind(subChatId).first()
+    if (!subChat) throw new Error(`SurfaceSubChat ${subChatId} not found`)
+
+    const messages = JSON.parse(subChat.messages as string || '[]') as SubChatMessage[]
+
+    const newMessage: SubChatMessage = {
+      id: crypto.randomUUID(),
+      role,
+      content,
+      createdAt: Date.now()
+    }
+
+    messages.push(newMessage)
+
+    await db.prepare(
+      'UPDATE surface_sub_chats SET messages = ?, updatedAt = ? WHERE id = ?'
+    ).bind(JSON.stringify(messages), new Date().toISOString(), subChatId).run()
+
+    return newMessage
+  },
+
+  async updateSurfaceSubChatMessage(subChatId: string, messageId: string, content: string): Promise<void> {
+    const db = getDB()
+
+    const subChat = await db.prepare('SELECT messages FROM surface_sub_chats WHERE id = ?').bind(subChatId).first()
+    if (!subChat) throw new Error(`SurfaceSubChat ${subChatId} not found`)
+
+    const messages = JSON.parse(subChat.messages as string || '[]') as SubChatMessage[]
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+
+    if (messageIndex !== -1) {
+      messages[messageIndex].content = content
+
+      await db.prepare(
+        'UPDATE surface_sub_chats SET messages = ?, updatedAt = ? WHERE id = ?'
+      ).bind(JSON.stringify(messages), new Date().toISOString(), subChatId).run()
+    }
+  },
+
+  async deleteSurfaceSubChat(subChatId: string): Promise<void> {
+    const db = getDB()
+    await db.prepare('DELETE FROM surface_sub_chats WHERE id = ?').bind(subChatId).run()
   },
 
   // --- Shared Conversations ---

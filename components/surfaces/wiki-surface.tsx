@@ -27,6 +27,7 @@ import { Markdown } from "@/components/prompt-kit/markdown";
 import { WikiSectionSkeleton } from "@/components/surfaces/surface-skeletons";
 import { SourcesFooter } from "@/components/chat/sources-footer";
 import { SourceImages, type SourceImage } from "@/components/chat/source-images";
+import { SelectableContent } from "@/components/selectable-content";
 import { cn } from "@/lib/utils";
 import type { WikiMetadata, SurfaceState } from "@/lib/services/domain-types";
 import type { Citation } from "@/lib/types/citation";
@@ -35,12 +36,18 @@ interface WikiSurfaceProps {
   metadata: WikiMetadata;
   surfaceState?: SurfaceState;
   conversationId?: string;  // For navigation on related topics
+  surfaceId?: string;       // For subchat functionality
+  onSubChatSelect?: (text: string, sectionId?: string, fullContent?: string) => void;
+  sectionIdsWithSubChats?: Set<string>;  // Sections that have existing subchats
 }
 
 export const WikiSurface = memo(function WikiSurface({
   metadata,
   surfaceState,
   conversationId,
+  surfaceId,
+  onSubChatSelect,
+  sectionIdsWithSubChats,
 }: WikiSurfaceProps) {
   const router = useRouter();
   
@@ -288,18 +295,24 @@ export const WikiSurface = memo(function WikiSurface({
                         </figure>
                       )}
                       
-                      <Markdown 
-                        className="!bg-transparent !p-0"
-                        citations={sectionCitations.map((c: any, i: number) => ({
-                          id: i + 1,
-                          url: c.url,
-                          title: c.title || 'Source',
-                          snippet: c.snippet || '',
-                          source: 'exa' as const
-                        }))}
+                      <SelectableContent
+                        sectionId={section.id}
+                        onSelect={onSubChatSelect || (() => {})}
+                        disabled={!onSubChatSelect}
                       >
-                        {section.content}
-                      </Markdown>
+                        <Markdown 
+                          className="!bg-transparent !p-0"
+                          citations={sectionCitations.map((c: any, i: number) => ({
+                            id: i + 1,
+                            url: c.url,
+                            title: c.title || 'Source',
+                            snippet: c.snippet || '',
+                            source: 'exa' as const
+                          }))}
+                        >
+                          {section.content}
+                        </Markdown>
+                      </SelectableContent>
                       
                       {/* Section source pills */}
                       {sectionCitations.length > 0 && (

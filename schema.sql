@@ -262,6 +262,33 @@ CREATE TABLE sub_chats (
   FOREIGN KEY (sourceMessageId) REFERENCES messages(id) ON DELETE CASCADE
 );
 
+-- Surface Sub-Chats: For subchat in surfaces (Wiki, Research, etc.) and learning pages
+CREATE TABLE surface_sub_chats (
+  id TEXT PRIMARY KEY,
+  userId TEXT NOT NULL,
+  
+  -- Context identification (polymorphic)
+  sourceType TEXT NOT NULL,           -- 'surface' | 'learning'
+  sourceId TEXT NOT NULL,             -- surfaceId or courseId  
+  sectionId TEXT,                     -- Specific section within source (e.g., 'section-1', 'chapter-0')
+  
+  -- The selected content
+  quotedText TEXT NOT NULL,
+  sourceContent TEXT,                 -- Full section content for context
+  
+  -- Subchat messages (same format as sub_chats)
+  messages TEXT DEFAULT '[]',         -- JSON array of {id, role, content, createdAt}
+  
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_surface_subchat_source ON surface_sub_chats(sourceType, sourceId);
+CREATE INDEX idx_surface_subchat_user ON surface_sub_chats(userId);
+CREATE INDEX idx_surface_subchat_section ON surface_sub_chats(sourceId, sectionId);
+
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   name TEXT,

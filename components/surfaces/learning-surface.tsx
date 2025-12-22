@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { ChapterContentSkeleton } from "@/components/surfaces/surface-skeletons";
+import { SelectableContent } from "@/components/selectable-content";
 
 interface LearningSurfaceProps {
   metadata: LearningMetadata;
@@ -34,6 +35,9 @@ interface LearningSurfaceProps {
   onMarkComplete: (chapterIndex: number) => void;
   isGenerating: boolean;
   className?: string;
+  surfaceId?: string;  // For subchat functionality
+  onSubChatSelect?: (text: string, sectionId?: string, fullContent?: string) => void;
+  sectionIdsWithSubChats?: Set<string>;  // Sections that have existing subchats
 }
 
 // Circular progress ring component
@@ -85,6 +89,9 @@ export const LearningSurface = memo(function LearningSurface({
   onMarkComplete,
   isGenerating,
   className,
+  surfaceId,
+  onSubChatSelect,
+  sectionIdsWithSubChats,
 }: LearningSurfaceProps) {
   const [activeChapterIndex, setActiveChapterIndex] = useState(
     surfaceState?.learning?.currentChapter ?? 0
@@ -316,7 +323,13 @@ export const LearningSurface = memo(function LearningSurface({
                   prose-ul:my-4 prose-li:text-muted-foreground
                   prose-blockquote:border-l-primary prose-blockquote:bg-primary/5 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:px-4
                 ">
-                  <Markdown>{activeChapterContent}</Markdown>
+                  <SelectableContent
+                    sectionId={`chapter-${activeChapterIndex}`}
+                    onSelect={onSubChatSelect || (() => {})}
+                    disabled={!onSubChatSelect}
+                  >
+                    <Markdown>{activeChapterContent}</Markdown>
+                  </SelectableContent>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">

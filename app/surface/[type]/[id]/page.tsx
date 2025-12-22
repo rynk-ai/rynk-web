@@ -53,6 +53,8 @@ import { WikiSurface } from "@/components/surfaces/wiki-surface";
 import { FinanceSurface } from "@/components/surfaces/finance-surface";
 import { ResearchSurface } from "@/components/surfaces/research-surface";
 import { SurfacePageSkeleton, ChapterContentSkeleton, StepContentSkeleton, QuestionSkeleton, FlashcardCardSkeleton } from "@/components/surfaces/surface-skeletons";
+import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
+import { useSurfaceSubChats } from "@/lib/hooks/use-surface-sub-chats";
 import { cn } from "@/lib/utils";
 import type { 
   SurfaceState, 
@@ -118,6 +120,21 @@ export default function SurfacePage() {
   
   // Track mount status to force immediate skeleton loading
   const [isMounted, setIsMounted] = useState(false);
+
+  // Surface sub-chat hook for deep dive functionality
+  const {
+    activeSubChat,
+    subChatSheetOpen,
+    setSubChatSheetOpen,
+    subChatLoading,
+    subChatStreamingContent,
+    subChatSearchResults,
+    sectionIdsWithSubChats,
+    handleOpenSubChat,
+    handleSubChatSendMessage,
+  } = useSurfaceSubChats(
+    currentSurfaceId ? { type: 'surface', id: currentSurfaceId } : null
+  );
 
   useEffect(() => {
     setIsMounted(true);
@@ -970,6 +987,9 @@ export default function SurfacePage() {
             onGenerateChapter={handleGenerateChapter}
             onMarkComplete={handleMarkChapterComplete}
             isGenerating={isGenerating}
+            surfaceId={currentSurfaceId || undefined}
+            onSubChatSelect={handleOpenSubChat}
+            sectionIdsWithSubChats={sectionIdsWithSubChats}
           />
         ) : surfaceType === 'guide' ? (
           <GuideSurface
@@ -1013,6 +1033,9 @@ export default function SurfacePage() {
             metadata={surfaceState.metadata as WikiMetadata}
             surfaceState={surfaceState}
             conversationId={conversationId}
+            surfaceId={currentSurfaceId || undefined}
+            onSubChatSelect={handleOpenSubChat}
+            sectionIdsWithSubChats={sectionIdsWithSubChats}
           />
         ) : surfaceType === 'finance' ? (
           <FinanceSurface
@@ -1065,6 +1088,26 @@ export default function SurfacePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Surface Sub-Chat Sheet */}
+      <SubChatSheet
+        open={subChatSheetOpen}
+        onOpenChange={setSubChatSheetOpen}
+        subChat={activeSubChat ? {
+          id: activeSubChat.id,
+          conversationId: activeSubChat.sourceId,
+          sourceMessageId: activeSubChat.sectionId || 'surface',
+          quotedText: activeSubChat.quotedText,
+          fullMessageContent: activeSubChat.sourceContent || '',
+          messages: activeSubChat.messages,
+          createdAt: activeSubChat.createdAt,
+          updatedAt: activeSubChat.updatedAt,
+        } : null}
+        onSendMessage={handleSubChatSendMessage}
+        isLoading={subChatLoading}
+        streamingContent={subChatStreamingContent}
+        searchResults={subChatSearchResults}
+      />
     </div>
   );
 }
