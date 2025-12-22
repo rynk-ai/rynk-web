@@ -1048,6 +1048,9 @@ export default function SurfacePage() {
             surfaceState={surfaceState}
             isGenerating={isGenerating}
             progress={generationProgress || undefined}
+            surfaceId={currentSurfaceId || undefined}
+            onSubChatSelect={handleOpenSubChat}
+            sectionIdsWithSubChats={sectionIdsWithSubChats}
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">

@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
+import { SelectableContent } from "@/components/selectable-content";
+import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
+import { useSurfaceSubChats } from "@/lib/hooks/use-surface-sub-chats";
 import { cn } from "@/lib/utils";
 import { StreakDisplay } from "@/components/learning/streak-display";
 import { XPProgress } from "@/components/learning/xp-progress";
@@ -253,6 +256,20 @@ export default function CourseViewPage() {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [isLoadingAssessment, setIsLoadingAssessment] = useState(false);
   const [showAssessment, setShowAssessment] = useState(false);
+  
+  // Surface sub-chat hook for deep dive functionality in learning content
+  const {
+    activeSubChat,
+    subChatSheetOpen,
+    setSubChatSheetOpen,
+    subChatLoading,
+    subChatStreamingContent,
+    subChatSearchResults,
+    handleOpenSubChat,
+    handleSubChatSendMessage,
+  } = useSurfaceSubChats(
+    courseId ? { type: 'learning', id: courseId } : null
+  );
   
   // Load course data
   useEffect(() => {
@@ -576,7 +593,12 @@ export default function CourseViewPage() {
             ) : sectionContent ? (
               <>
                 <div className="prose prose-neutral dark:prose-invert max-w-none">
-                  <Markdown>{sectionContent}</Markdown>
+                  <SelectableContent
+                    sectionId={currentSection?.sectionId}
+                    onSelect={handleOpenSubChat}
+                  >
+                    <Markdown>{sectionContent}</Markdown>
+                  </SelectableContent>
                 </div>
 
                 {/* Inline Quick Checks */}
@@ -690,6 +712,26 @@ export default function CourseViewPage() {
           </div>
         </main>
       </div>
+
+      {/* Learning Sub-Chat Sheet */}
+      <SubChatSheet
+        open={subChatSheetOpen}
+        onOpenChange={setSubChatSheetOpen}
+        subChat={activeSubChat ? {
+          id: activeSubChat.id,
+          conversationId: activeSubChat.sourceId,
+          sourceMessageId: activeSubChat.sectionId || 'learning',
+          quotedText: activeSubChat.quotedText,
+          fullMessageContent: activeSubChat.sourceContent || '',
+          messages: activeSubChat.messages,
+          createdAt: activeSubChat.createdAt,
+          updatedAt: activeSubChat.updatedAt,
+        } : null}
+        onSendMessage={handleSubChatSendMessage}
+        isLoading={subChatLoading}
+        streamingContent={subChatStreamingContent}
+        searchResults={subChatSearchResults}
+      />
     </div>
   );
 }

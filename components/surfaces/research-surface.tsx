@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { ResearchProgress } from "./research-progress";
 import { ResearchSectionSkeleton } from "./surface-skeletons";
+import { SelectableContent } from "@/components/selectable-content";
 import { cn } from "@/lib/utils";
 import type { ResearchMetadata, SurfaceState } from "@/lib/services/domain-types";
 
@@ -43,6 +44,9 @@ interface ResearchSurfaceProps {
     message: string;
     step?: string;
   };
+  surfaceId?: string;  // For subchat functionality
+  onSubChatSelect?: (text: string, sectionId?: string, fullContent?: string) => void;
+  sectionIdsWithSubChats?: Set<string>;  // Sections that have existing subchats
 }
 
 export const ResearchSurface = memo(function ResearchSurface({
@@ -50,6 +54,9 @@ export const ResearchSurface = memo(function ResearchSurface({
   surfaceState,
   isGenerating = false,
   progress,
+  surfaceId,
+  onSubChatSelect,
+  sectionIdsWithSubChats,
 }: ResearchSurfaceProps) {
   // Defensive destructuring with defaults for progressive/skeleton loading
   const title = metadata?.title || 'Loading...';
@@ -294,18 +301,24 @@ export const ResearchSurface = memo(function ResearchSurface({
                         </figure>
                       )}
                       
-                      <Markdown 
-                        className="!bg-transparent !p-0"
-                        citations={section.sectionCitations?.map((c: any, i: number) => ({
-                          id: i + 1, // IDs might need alignment with content but starting simple
-                          url: c.url,
-                          title: c.title || 'Source',
-                          snippet: c.snippet || '',
-                          source: 'exa' as const
-                        }))}
+                      <SelectableContent
+                        sectionId={section.id}
+                        onSelect={onSubChatSelect || (() => {})}
+                        disabled={!onSubChatSelect}
                       >
-                        {section.content}
-                      </Markdown>
+                        <Markdown 
+                          className="!bg-transparent !p-0"
+                          citations={section.sectionCitations?.map((c: any, i: number) => ({
+                            id: i + 1,
+                            url: c.url,
+                            title: c.title || 'Source',
+                            snippet: c.snippet || '',
+                            source: 'exa' as const
+                          }))}
+                        >
+                          {section.content}
+                        </Markdown>
+                      </SelectableContent>
                       
                       {/* Section source pills */}
                       {section.sectionCitations && section.sectionCitations.length > 0 && (
