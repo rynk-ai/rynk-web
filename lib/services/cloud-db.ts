@@ -1821,5 +1821,628 @@ export const cloudDb = {
     await this.incrementShareCloneCount(shareId)
     
     return { conversationId: newConversationId }
+  },
+
+  // --- Learning/Courses (Education Machine) ---
+
+  async getUserCourses(userId: string): Promise<any[]> {
+    const db = getDB()
+    const results = await db.prepare(`
+      SELECT id, title, subtitle, description, difficulty, metadata,
+             totalEstimatedTime, totalUnits, totalChapters, totalSections,
+             completedSections, currentStreak, longestStreak, lastStreakDate, xp,
+             createdAt, updatedAt, lastAccessedAt
+      FROM courses 
+      WHERE userId = ? 
+      ORDER BY lastAccessedAt DESC
+    `).bind(userId).all()
+    
+    return results.results.map((c: any) => {
+      const totalSections = c.totalSections || 1
+      const completedSections = c.completedSections || 0
+      
+      // Check if this is a v2 (project-based) course
+      let isV2 = false
+      let projectCount = 0
+      if (c.metadata) {
+        try {
+          const meta = JSON.parse(c.metadata)
+          isV2 = meta.type === 'course-v2' || meta.version === 2
+          projectCount = meta.projectCount || 0
+        } catch {}
+      }
+      
+      return {
+        id: c.id,
+        title: c.title,
+        description: c.description || c.subtitle || '',
+        progress: Math.round((completedSections / totalSections) * 100),
+        totalChapters: isV2 ? projectCount : (c.totalChapters || 0),
+        completedChapters: Math.floor(completedSections / 3), // Approximate
+        lastAccessedAt: new Date(c.lastAccessedAt).getTime(),
+        createdAt: new Date(c.createdAt).getTime(),
+        difficulty: c.difficulty || 'intermediate',
+        isV2,  // Flag for routing to project view
+        streak: {
+          currentStreak: c.currentStreak || 0,
+          lastActivityDate: c.lastStreakDate || null
+        }
+      }
+    })
+  },
+
+  async getCourse(courseId: string): Promise<{ metadata: any; progress: any } | null> {
+    const db = getDB()
+    const result = await db.prepare(`
+      SELECT metadata, progress FROM courses WHERE id = ?
+    `).bind(courseId).first()
+    
+    if (!result) return null
+    
+    return {
+      metadata: result.metadata ? JSON.parse(result.metadata as string) : null,
+      progress: result.progress ? JSON.parse(result.progress as string) : this.getDefaultProgress()
+    }
+  },
+
+  getDefaultProgress() {
+    return {
+      currentUnitIndex: 0,
+      currentChapterIndex: 0,
+      currentSectionIndex: 0,
+      completedSections: [],
+      completedChapters: [],
+      completedUnits: [],
+      sectionContent: {},
+      assessmentResults: [],
+      streak: { currentStreak: 0, longestStreak: 0, lastActivityDate: '' },
+      xp: 0,
+      level: 1,
+      badges: [],
+      bookmarks: [],
+      lastPosition: { unitId: '', chapterId: '', sectionId: '' },
+      totalTimeSpent: 0,
+      startedAt: Date.now(),
+      lastActivityAt: Date.now()
+    }
+  },
+
+  async saveCourse(userId: string, courseId: string, metadata: any, progress?: any): Promise<void> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    
+    // Check if course exists
+    const existing = await db.prepare('SELECT id FROM courses WHERE id = ?').bind(courseId).first()
+    
+    if (existing) {
+      // Update existing course
+      await db.prepare(`
+        UPDATE courses SET 
+          metadata = ?, 
+          progress = ?,
+          updatedAt = ?,
+          lastAccessedAt = ?
+        WHERE id = ?
+      `).bind(
+        JSON.stringify(metadata),
+        progress ? JSON.stringify(progress) : null,
+        now,
+        now,
+        courseId
+      ).run()
+    } else {
+      // Insert new course
+      const defaultProgress = progress || this.getDefaultProgress()
+      
+      await db.prepare(`
+        INSERT INTO courses (
+          id, userId, title, subtitle, description, metadata, progress,
+          difficulty, totalEstimatedTime, totalUnits, totalChapters, totalSections,
+          createdAt, updatedAt, lastAccessedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        courseId,
+        userId,
+        metadata.title || 'Untitled Course',
+        metadata.subtitle || null,
+        metadata.description || null,
+        JSON.stringify(metadata),
+        JSON.stringify(defaultProgress),
+        metadata.difficulty || 'intermediate',
+        metadata.totalEstimatedTime || 0,
+        metadata.totalUnits || 0,
+        metadata.totalChapters || 0,
+        metadata.totalSections || 0,
+        now,
+        now,
+        now
+      ).run()
+    }
+  },
+
+  async updateCourseProgress(courseId: string, progress: any): Promise<void> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    const today = now.split('T')[0]
+    
+    // Update streak logic
+    let currentStreak = progress.streak?.currentStreak || 0
+    let longestStreak = progress.streak?.longestStreak || 0
+    const lastStreakDate = progress.streak?.lastActivityDate || ''
+    
+    if (lastStreakDate !== today) {
+      // Check if this is a consecutive day
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = yesterday.toISOString().split('T')[0]
+      
+      if (lastStreakDate === yesterdayStr) {
+        currentStreak += 1
+      } else if (lastStreakDate !== today) {
+        currentStreak = 1 // Reset streak
+      }
+      
+      if (currentStreak > longestStreak) {
+        longestStreak = currentStreak
+      }
+      
+      // Update streak in progress
+      progress.streak = {
+        currentStreak,
+        longestStreak,
+        lastActivityDate: today
+      }
+    }
+    
+    await db.prepare(`
+      UPDATE courses SET 
+        progress = ?,
+        completedSections = ?,
+        currentStreak = ?,
+        longestStreak = ?,
+        lastStreakDate = ?,
+        xp = ?,
+        updatedAt = ?,
+        lastAccessedAt = ?
+      WHERE id = ?
+    `).bind(
+      JSON.stringify(progress),
+      progress.completedSections?.length || 0,
+      currentStreak,
+      longestStreak,
+      today,
+      progress.xp || 0,
+      now,
+      now,
+      courseId
+    ).run()
+  },
+
+  async deleteCourse(courseId: string, userId: string): Promise<boolean> {
+    const db = getDB()
+    const result = await db.prepare(
+      'DELETE FROM courses WHERE id = ? AND userId = ?'
+    ).bind(courseId, userId).run()
+    return result.meta.changes > 0
+  },
+
+  // ============================================================================
+  // Education Machine v2: Project-Based Learning
+  // ============================================================================
+
+  // --- Course Projects ---
+
+  async createCourseProject(courseId: string, project: {
+    id: string
+    title: string
+    description: string
+    difficulty: string
+    deliverable: string
+    technologies?: string[]
+    objectives?: string[]
+    prerequisites?: string[]
+    estimatedHours: number
+    orderIndex: number
+  }): Promise<void> {
+    const db = getDB()
+    await db.prepare(`
+      INSERT INTO course_projects (
+        id, courseId, title, description, difficulty, deliverable,
+        technologies, objectives, prerequisites, estimatedHours, orderIndex
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      project.id,
+      courseId,
+      project.title,
+      project.description,
+      project.difficulty,
+      project.deliverable,
+      JSON.stringify(project.technologies || []),
+      JSON.stringify(project.objectives || []),
+      JSON.stringify(project.prerequisites || []),
+      project.estimatedHours,
+      project.orderIndex
+    ).run()
+  },
+
+  async getProjectsByCourse(courseId: string): Promise<any[]> {
+    const db = getDB()
+    const results = await db.prepare(`
+      SELECT * FROM course_projects 
+      WHERE courseId = ? 
+      ORDER BY orderIndex ASC
+    `).bind(courseId).all()
+    
+    return results.results.map((p: any) => ({
+      id: p.id,
+      courseId: p.courseId,
+      title: p.title,
+      description: p.description,
+      difficulty: p.difficulty,
+      deliverable: p.deliverable,
+      technologies: JSON.parse(p.technologies || '[]'),
+      objectives: JSON.parse(p.objectives || '[]'),
+      prerequisites: JSON.parse(p.prerequisites || '[]'),
+      estimatedHours: p.estimatedHours,
+      orderIndex: p.orderIndex,
+      createdAt: p.createdAt
+    }))
+  },
+
+  async getCourseProject(projectId: string): Promise<any | null> {
+    const db = getDB()
+    const p = await db.prepare(`
+      SELECT * FROM course_projects WHERE id = ?
+    `).bind(projectId).first()
+    
+    if (!p) return null
+    
+    return {
+      id: p.id,
+      courseId: p.courseId,
+      title: p.title,
+      description: p.description,
+      difficulty: p.difficulty,
+      deliverable: p.deliverable,
+      technologies: JSON.parse(p.technologies as string || '[]'),
+      objectives: JSON.parse(p.objectives as string || '[]'),
+      prerequisites: JSON.parse(p.prerequisites as string || '[]'),
+      estimatedHours: p.estimatedHours,
+      orderIndex: p.orderIndex,
+      createdAt: p.createdAt
+    }
+  },
+
+  // --- Project Tasks ---
+
+  async createTask(projectId: string, task: {
+    id: string
+    title: string
+    description: string
+    type: string
+    instructions: string
+    starterCode?: string
+    resources?: string[]
+    hints?: string[]
+    rubric: any
+    passingScore: number
+    estimatedMinutes: number
+    orderIndex: number
+  }): Promise<void> {
+    const db = getDB()
+    await db.prepare(`
+      INSERT INTO project_tasks (
+        id, projectId, title, description, type, instructions,
+        starterCode, resources, hints, rubric, passingScore, estimatedMinutes, orderIndex
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      task.id,
+      projectId,
+      task.title,
+      task.description,
+      task.type,
+      task.instructions,
+      task.starterCode || null,
+      JSON.stringify(task.resources || []),
+      JSON.stringify(task.hints || []),
+      JSON.stringify(task.rubric),
+      task.passingScore,
+      task.estimatedMinutes,
+      task.orderIndex
+    ).run()
+  },
+
+  async getTasksByProject(projectId: string): Promise<any[]> {
+    const db = getDB()
+    const results = await db.prepare(`
+      SELECT * FROM project_tasks 
+      WHERE projectId = ? 
+      ORDER BY orderIndex ASC
+    `).bind(projectId).all()
+    
+    return results.results.map((t: any) => ({
+      id: t.id,
+      projectId: t.projectId,
+      title: t.title,
+      description: t.description,
+      type: t.type,
+      instructions: t.instructions,
+      starterCode: t.starterCode,
+      resources: JSON.parse(t.resources || '[]'),
+      hints: JSON.parse(t.hints || '[]'),
+      rubric: JSON.parse(t.rubric || '{}'),
+      passingScore: t.passingScore,
+      estimatedMinutes: t.estimatedMinutes,
+      orderIndex: t.orderIndex
+    }))
+  },
+
+  async getTask(taskId: string): Promise<any | null> {
+    const db = getDB()
+    const t = await db.prepare(`
+      SELECT * FROM project_tasks WHERE id = ?
+    `).bind(taskId).first()
+    
+    if (!t) return null
+    
+    return {
+      id: t.id,
+      projectId: t.projectId,
+      title: t.title,
+      description: t.description,
+      type: t.type,
+      instructions: t.instructions,
+      starterCode: t.starterCode,
+      resources: JSON.parse(t.resources as string || '[]'),
+      hints: JSON.parse(t.hints as string || '[]'),
+      rubric: JSON.parse(t.rubric as string || '{}'),
+      passingScore: t.passingScore,
+      estimatedMinutes: t.estimatedMinutes,
+      orderIndex: t.orderIndex
+    }
+  },
+
+  // --- Task Submissions ---
+
+  async createSubmission(submission: {
+    id: string
+    taskId: string
+    userId: string
+    content: string
+  }): Promise<void> {
+    const db = getDB()
+    await db.prepare(`
+      INSERT INTO task_submissions (id, taskId, userId, content)
+      VALUES (?, ?, ?, ?)
+    `).bind(
+      submission.id,
+      submission.taskId,
+      submission.userId,
+      submission.content
+    ).run()
+  },
+
+  async updateSubmissionEvaluation(submissionId: string, evaluation: {
+    score: number
+    passed: boolean
+    feedback: string
+    criteriaScores: Record<string, number>
+    strengths: string[]
+    improvements: string[]
+    suggestions: string[]
+  }): Promise<void> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    await db.prepare(`
+      UPDATE task_submissions SET
+        score = ?,
+        passed = ?,
+        feedback = ?,
+        criteriaScores = ?,
+        strengths = ?,
+        improvements = ?,
+        suggestions = ?,
+        evaluatedAt = ?
+      WHERE id = ?
+    `).bind(
+      evaluation.score,
+      evaluation.passed ? 1 : 0,
+      evaluation.feedback,
+      JSON.stringify(evaluation.criteriaScores),
+      JSON.stringify(evaluation.strengths),
+      JSON.stringify(evaluation.improvements),
+      JSON.stringify(evaluation.suggestions),
+      now,
+      submissionId
+    ).run()
+  },
+
+  async getSubmission(submissionId: string): Promise<any | null> {
+    const db = getDB()
+    const s = await db.prepare(`
+      SELECT * FROM task_submissions WHERE id = ?
+    `).bind(submissionId).first()
+    
+    if (!s) return null
+    
+    return {
+      id: s.id,
+      taskId: s.taskId,
+      userId: s.userId,
+      content: s.content,
+      submittedAt: s.submittedAt,
+      score: s.score,
+      passed: Boolean(s.passed),
+      feedback: s.feedback,
+      criteriaScores: JSON.parse(s.criteriaScores as string || '{}'),
+      strengths: JSON.parse(s.strengths as string || '[]'),
+      improvements: JSON.parse(s.improvements as string || '[]'),
+      suggestions: JSON.parse(s.suggestions as string || '[]'),
+      evaluatedAt: s.evaluatedAt
+    }
+  },
+
+  async getSubmissionsByTask(taskId: string, userId: string): Promise<any[]> {
+    const db = getDB()
+    const results = await db.prepare(`
+      SELECT * FROM task_submissions 
+      WHERE taskId = ? AND userId = ?
+      ORDER BY submittedAt DESC
+    `).bind(taskId, userId).all()
+    
+    return results.results.map((s: any) => ({
+      id: s.id,
+      taskId: s.taskId,
+      userId: s.userId,
+      content: s.content,
+      submittedAt: s.submittedAt,
+      score: s.score,
+      passed: Boolean(s.passed),
+      feedback: s.feedback,
+      criteriaScores: JSON.parse(s.criteriaScores || '{}'),
+      strengths: JSON.parse(s.strengths || '[]'),
+      improvements: JSON.parse(s.improvements || '[]'),
+      suggestions: JSON.parse(s.suggestions || '[]'),
+      evaluatedAt: s.evaluatedAt
+    }))
+  },
+
+  async getLatestSubmission(taskId: string, userId: string): Promise<any | null> {
+    const db = getDB()
+    const s = await db.prepare(`
+      SELECT * FROM task_submissions 
+      WHERE taskId = ? AND userId = ?
+      ORDER BY submittedAt DESC
+      LIMIT 1
+    `).bind(taskId, userId).first()
+    
+    if (!s) return null
+    
+    return {
+      id: s.id,
+      taskId: s.taskId,
+      userId: s.userId,
+      content: s.content,
+      submittedAt: s.submittedAt,
+      score: s.score,
+      passed: Boolean(s.passed),
+      feedback: s.feedback,
+      criteriaScores: JSON.parse(s.criteriaScores as string || '{}'),
+      strengths: JSON.parse(s.strengths as string || '[]'),
+      improvements: JSON.parse(s.improvements as string || '[]'),
+      suggestions: JSON.parse(s.suggestions as string || '[]'),
+      evaluatedAt: s.evaluatedAt
+    }
+  },
+
+  // --- User Project Progress ---
+
+  async getProjectProgress(userId: string, projectId: string): Promise<any | null> {
+    const db = getDB()
+    const p = await db.prepare(`
+      SELECT * FROM user_project_progress 
+      WHERE userId = ? AND projectId = ?
+    `).bind(userId, projectId).first()
+    
+    if (!p) return null
+    
+    return {
+      id: p.id,
+      userId: p.userId,
+      projectId: p.projectId,
+      status: p.status,
+      startedAt: p.startedAt,
+      completedAt: p.completedAt
+    }
+  },
+
+  async upsertProjectProgress(userId: string, projectId: string, status: string): Promise<void> {
+    const db = getDB()
+    const now = new Date().toISOString()
+    const id = crypto.randomUUID()
+    
+    await db.prepare(`
+      INSERT INTO user_project_progress (id, userId, projectId, status, startedAt)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(userId, projectId) DO UPDATE SET
+        status = excluded.status,
+        completedAt = CASE WHEN excluded.status = 'completed' THEN ? ELSE completedAt END
+    `).bind(id, userId, projectId, status, now, now).run()
+  },
+
+  async getUserCourseV2Progress(userId: string, courseId: string): Promise<{
+    projectProgress: Record<string, { status: string; startedAt?: string; completedAt?: string }>
+    taskSubmissions: Record<string, any>
+  }> {
+    const db = getDB()
+    
+    // Get project progress
+    const projectResults = await db.prepare(`
+      SELECT upp.* FROM user_project_progress upp
+      JOIN course_projects cp ON upp.projectId = cp.id
+      WHERE upp.userId = ? AND cp.courseId = ?
+    `).bind(userId, courseId).all()
+    
+    const projectProgress: Record<string, any> = {}
+    for (const p of projectResults.results) {
+      projectProgress[(p as any).projectId] = {
+        status: (p as any).status,
+        startedAt: (p as any).startedAt,
+        completedAt: (p as any).completedAt
+      }
+    }
+    
+    // Get latest submissions for each task
+    const submissionResults = await db.prepare(`
+      SELECT ts.* FROM task_submissions ts
+      JOIN project_tasks pt ON ts.taskId = pt.id
+      JOIN course_projects cp ON pt.projectId = cp.id
+      WHERE ts.userId = ? AND cp.courseId = ?
+      ORDER BY ts.submittedAt DESC
+    `).bind(userId, courseId).all()
+    
+    const taskSubmissions: Record<string, any> = {}
+    for (const s of submissionResults.results) {
+      const taskId = (s as any).taskId
+      if (!taskSubmissions[taskId]) {  // Only keep latest
+        taskSubmissions[taskId] = {
+          id: (s as any).id,
+          content: (s as any).content,
+          submittedAt: (s as any).submittedAt,
+          score: (s as any).score,
+          passed: Boolean((s as any).passed),
+          feedback: (s as any).feedback
+        }
+      }
+    }
+    
+    return { projectProgress, taskSubmissions }
+  },
+
+  // --- Full Course V2 Data ---
+
+  async getCourseV2WithProgress(courseId: string, userId: string): Promise<any | null> {
+    const db = getDB()
+    
+    // Get course metadata
+    const course = await this.getCourse(courseId)
+    if (!course) return null
+    
+    // Get projects
+    const projects = await this.getProjectsByCourse(courseId)
+    
+    // Get tasks for each project
+    for (const project of projects) {
+      project.tasks = await this.getTasksByProject(project.id)
+    }
+    
+    // Get user progress
+    const progress = await this.getUserCourseV2Progress(userId, courseId)
+    
+    return {
+      ...course,
+      projects,
+      userProgress: progress
+    }
   }
 }

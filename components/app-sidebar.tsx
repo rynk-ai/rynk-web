@@ -44,6 +44,7 @@ import {
   HelpCircle,
   Command,
   Search,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/hooks/chat-context";
@@ -408,6 +409,23 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           </div>
         </div>
         <div className="flex-1 overflow-auto no-scrollbar" ref={scrollableRef}>
+          {/* Learning Section - Quick access to Education Machine */}
+          {!activeProjectId && (
+            <div className="px-4 mb-4">
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start gap-2 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-all",
+                  pathname === '/learning' && "bg-secondary/80 text-foreground"
+                )}
+                onClick={() => router.push('/learning')}
+              >
+                <GraduationCap className="h-4 w-4" />
+                <span>Learning</span>
+              </Button>
+            </div>
+          )}
+          
           {!activeProjectId ? (
             <div className="mb-6">
               {isLoadingProjects ? (

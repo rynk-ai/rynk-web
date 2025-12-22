@@ -306,7 +306,8 @@ export function getDisclaimerText(domain: Domain): string {
  */
 export type SurfaceType = 
   | 'chat'         // 💬 Default conversational response
-  | 'learning'     // 📚 Course with chapters
+  | 'learning'     // 📚 Course with chapters (legacy)
+  | 'course'       // 🎓 Education Machine - comprehensive courses
   | 'guide'        // ✅ Step-by-step instructions
   | 'research'     // 🔬 Evidence cards, citations
   | 'wiki'         // 📖 Wikipedia-style structured info
@@ -658,6 +659,181 @@ export interface ResearchMetadata {
   estimatedReadTime: number       // minutes
 }
 
+// ============================================================================
+// COURSE SURFACE - EDUCATION MACHINE
+// ============================================================================
+
+/**
+ * Subject interpretation option shown to user before generating course
+ */
+export interface SubjectInterpretation {
+  id: string
+  title: string
+  description: string
+  approach: 'conceptual' | 'practical' | 'theoretical' | 'applied' | 'historical'
+  targetAudience: string
+  estimatedDuration: string  // e.g., "4-6 hours"
+  suggestedPrerequisites: string[]
+  keyTopics: string[]  // Main areas that will be covered
+}
+
+/**
+ * Academic citation from external sources
+ */
+export interface AcademicCitation {
+  id: string
+  source: 'semantic_scholar' | 'crossref' | 'pubmed' | 'google_books' | 
+          'open_library' | 'hathi_trust' | 'wikidata' | 'exa' | 'wikipedia'
+  title: string
+  authors?: string[]
+  year?: number
+  doi?: string
+  url: string
+  abstract?: string
+  citationCount?: number
+  relevanceScore?: number
+  snippet?: string  // Relevant excerpt
+}
+
+/**
+ * Individual section within a chapter
+ */
+export interface CourseSection {
+  id: string
+  title: string
+  description: string
+  estimatedTime: number  // minutes
+  content?: string  // Generated on-demand, markdown
+  citations: AcademicCitation[]
+  status: 'pending' | 'generating' | 'ready'
+  furtherReading?: Array<{ title: string; url: string; type: 'paper' | 'book' | 'article' }>
+}
+
+/**
+ * Chapter containing multiple sections
+ */
+export interface CourseChapter {
+  id: string
+  title: string
+  description: string
+  estimatedTime: number  // total minutes
+  learningObjectives: string[]
+  sections: CourseSection[]
+  status: 'locked' | 'available' | 'in-progress' | 'completed'
+  assessmentType?: 'quiz' | 'short_answer' | 'coding' | 'project' | 'mixed'
+}
+
+/**
+ * Unit containing multiple chapters
+ */
+export interface CourseUnit {
+  id: string
+  title: string
+  description: string
+  chapters: CourseChapter[]
+  milestone?: string  // What learner achieves after completing this unit
+}
+
+/**
+ * Badge earned through course activities
+ */
+export interface CourseBadge {
+  id: string
+  name: string
+  description: string
+  icon: string  // emoji or icon name
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum'
+  earnedAt?: number
+}
+
+/**
+ * Assessment result for a chapter
+ */
+export interface CourseAssessmentResult {
+  chapterId: string
+  assessmentType: 'quiz' | 'short_answer' | 'coding' | 'project' | 'mixed'
+  score?: number  // 0-100 for graded
+  passed: boolean
+  completedAt: number
+  answers?: Record<string, any>  // Question ID -> Answer
+  feedback?: string  // AI-generated feedback
+}
+
+/**
+ * User's progress through a course
+ */
+export interface CourseProgress {
+  // Current position
+  currentUnitIndex: number
+  currentChapterIndex: number
+  currentSectionIndex: number
+  
+  // Completion tracking
+  completedSections: string[]  // Section IDs
+  completedChapters: string[]  // Chapter IDs
+  completedUnits: string[]     // Unit IDs
+  
+  // Generated content cache
+  sectionContent: Record<string, string>  // Section ID -> Content
+  sectionQuickChecks?: Record<string, any[]> // Section ID -> QuickCheckQuestion[]
+  
+  // Assessment tracking
+  assessmentResults: CourseAssessmentResult[]
+  
+  // Gamification - Streak is a MUST
+  streak: {
+    currentStreak: number
+    longestStreak: number
+    lastActivityDate: string  // ISO date string
+  }
+  xp: number
+  level: number
+  badges: CourseBadge[]
+  
+  // Bookmarks and navigation
+  bookmarks: Array<{ sectionId: string; note?: string; createdAt: number }>
+  lastPosition: { unitId: string; chapterId: string; sectionId: string }
+  
+  // Time tracking
+  totalTimeSpent: number  // minutes
+  startedAt: number
+  lastActivityAt: number
+}
+
+/**
+ * Metadata for Course surface (Education Machine)
+ */
+export interface CourseMetadata {
+  type: 'course'
+  title: string
+  subtitle?: string
+  description: string
+  
+  // Selected subject interpretation
+  subject: SubjectInterpretation
+  
+  // Hierarchical structure: Units > Chapters > Sections
+  units: CourseUnit[]
+  
+  // Primary academic sources backing this course
+  primarySources: AcademicCitation[]
+  
+  // Course metadata
+  totalEstimatedTime: number  // minutes
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert'
+  prerequisites: string[]
+  learningOutcomes: string[]
+  
+  // Stats
+  totalUnits: number
+  totalChapters: number
+  totalSections: number
+  
+  // Generation metadata
+  generatedAt: number
+  lastUpdated: number
+}
+
 /**
  * Union type for all surface metadata
  */
@@ -671,6 +847,7 @@ export type SurfaceMetadata =
   | WikiMetadata
   | FinanceMetadata
   | ResearchMetadata
+  | CourseMetadata
   | ChatMetadata
 
 /**
@@ -728,6 +905,8 @@ export interface SurfaceState {
       message: string
     }
   }
+  // Course-specific state (Education Machine)
+  course?: CourseProgress
   // Available images from web search (for hero display and inline embedding)
   availableImages?: Array<{
     url: string
