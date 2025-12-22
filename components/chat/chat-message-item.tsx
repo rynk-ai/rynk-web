@@ -516,39 +516,15 @@ export const ChatMessageItem = memo(
     // Move useMemo before any conditional returns to fix React hooks order
     const citations = useMemo(() => {
       if (!isAssistant) return [];
-      const result = formatCitationsFromSearchResults(effectiveSearchResults);
-      if (
-        typeof window !== "undefined" &&
-        message.role === "assistant" &&
-        !isStreaming &&
-        result.length > 0
-      ) {
-        console.log(
-          `[ChatMessageItem ${message.id.slice(0, 8)}] Citations computed:`,
-          result.length,
-        );
-      }
-      return result;
-    }, [effectiveSearchResults, isStreaming, isAssistant, message.role, message.id]);
+      return formatCitationsFromSearchResults(effectiveSearchResults);
+    }, [effectiveSearchResults, isAssistant]);
 
     if (isAssistant) {
       // Use message.content if available, otherwise streaming content, otherwise cached content
       // This prevents flicker when transitioning from streaming to final state
       const displayContent = message.content || streamingContent || lastStreamingContentRef.current;
 
-      // Debug logging
-      if (typeof window !== "undefined" && message.role === "assistant") {
-        console.log(`[ChatMessageItem ${message.id.slice(0, 8)}]`, {
-          isStreaming,
-          hasMessageMetadata: !!message.reasoning_metadata?.searchResults,
-          hasStreamingProp: !!streamingSearchResults,
-          hasRefValue: !!lastStreamingSearchResults.current,
-          hasEffective: !!effectiveSearchResults,
-          isEffectiveFromRef:
-            effectiveSearchResults === lastStreamingSearchResults.current &&
-            !isStreaming,
-        });
-      }
+      // Debug logging removed - was causing console clutter on every render
 
       const hasReasoning =
         (effectiveStatusPills && effectiveStatusPills.length > 0) ||
@@ -607,13 +583,7 @@ export const ChatMessageItem = memo(
 
                 {/* Search Sources - Show after content if available */}
                 {citations && citations.length > 0 && !isStreaming && (
-                  <>
-                    {typeof window !== "undefined" &&
-                      console.log(
-                        `[ChatMessageItem ${message.id.slice(0, 8)}] Rendering SourcesFooter with ${citations.length} citations`,
-                      )}
-                    <SourcesFooter citations={citations} variant="compact" />
-                  </>
+                  <SourcesFooter citations={citations} variant="compact" />
                 )}
 
                 {/* Surface Trigger - Open as Course/Guide buttons */}

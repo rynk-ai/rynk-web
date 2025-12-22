@@ -282,10 +282,10 @@ export function useChat(initialConversationId?: string | null) {
       })
     }
     setCurrentConversationId(id)
-    // Clear transient state
-    setStatusPills([])
-    setSearchResults(null)
-    setContextCards([])
+    // Clear transient state - use functional updates to avoid creating new references if already empty
+    setStatusPills(prev => prev.length === 0 ? prev : [])
+    setSearchResults((prev: any) => prev === null ? prev : null)
+    setContextCards(prev => prev.length === 0 ? prev : [])
   }, [queryClient, effectiveProjectId])
 
   const selectProject = useCallback((id: string | null) => {

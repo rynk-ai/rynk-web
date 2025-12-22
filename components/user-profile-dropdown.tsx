@@ -110,7 +110,7 @@ export function UserProfileDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-muted dark:hover:bg-muted/50 transition-colors outline-none">
           <Avatar className="h-9 w-9">
             <AvatarImage src={user.image || undefined} alt={user.name || ""} />

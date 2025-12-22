@@ -310,6 +310,7 @@ const ChatContent = memo(
     // Pagination state
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isLoadingConversation, setIsLoadingConversation] = useState(false); // Loading new conversation's messages
     const [messageCursor, setMessageCursor] = useState<string | null>(null);
     const [tagDialogOpen, setTagDialogOpen] = useState(false);
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -384,39 +385,25 @@ const ChatContent = memo(
       }
     }, [currentConversationId]);
 
-    // Track conversation ID to detect browser navigation
-    const lastChatIdRef = useRef(chatId);
+    // Track conversation ID for message loading optimization
+    // NOTE: URL-to-state sync is handled by ChatContentWithProvider, not here
     const lastConversationIdRef = useRef(currentConversationId);
-
-    // Handle chatId from React Router - auto-select conversation when URL changes
-    useEffect(() => {
-      const prevChatId = lastChatIdRef.current;
-      lastChatIdRef.current = chatId;
-
-      // Auto-select if URL changed (browser navigation or direct URL access)
-      // But NOT if URL is changing to match already-selected conversation
-      if (chatId !== prevChatId && chatId !== currentConversationId) {
-        console.log("[ChatPage] Auto-selecting conversation from URL:", chatId);
-        selectConversation(chatId || null);
-      } else if (!chatId && currentConversationId && prevChatId) {
-        // URL cleared (e.g., going to /chat) and we have a conversation selected
-        console.log("[ChatPage] Clearing conversation (new chat)");
-        selectConversation(null);
-      }
-    }, [chatId, currentConversationId, selectConversation]);
 
     const isLoading =
       isSending || isSavingEdit || !!isDeleting || contextIsLoading;
 
-    // Simple state reset when starting a new chat
-    // This clears messages when currentConversationId becomes null
-    // BUT: Don't clear if there's a chatId in the URL (refresh case)
+    // Clear messages immediately when switching conversations to prevent flash of old content
+    // Track the previous conversation ID to detect switches
+    const prevConversationIdForClearRef = useRef<string | null>(currentConversationId);
+    
     useEffect(() => {
+      const prevId = prevConversationIdForClearRef.current;
+      prevConversationIdForClearRef.current = currentConversationId;
+      
+      // Case 1: Going to new chat (currentConversationId becomes null)
       if (!currentConversationId) {
-        // Only clear if there's NO chatId in URL (i.e., intentional new chat)
         if (!chatId) {
           console.log("[ChatPage] New chat - clearing state");
-          // Clear all state to show fresh empty state
           messageState.setMessages([]);
           messageState.setMessageVersions(new Map());
           setQuotedMessage(null);
@@ -424,6 +411,18 @@ const ChatContent = memo(
         } else {
           console.log("[ChatPage] Waiting for conversation to load from URL:", chatId);
         }
+        return;
+      }
+      
+      // Case 2: Switching FROM one conversation TO ANOTHER
+      // Clear old messages immediately to prevent flash
+      if (prevId !== null && prevId !== currentConversationId) {
+        console.log("[ChatPage] Switching conversations, clearing old messages immediately", 
+          { from: prevId, to: currentConversationId });
+        messageState.setMessages([]);
+        messageState.setMessageVersions(new Map());
+        setQuotedMessage(null);
+        setLocalContext([]);
       }
     }, [currentConversationId, chatId]);
 
@@ -1545,6 +1544,9 @@ const ChatContent = memo(
       setIsLoadingMore,
     ]);
 
+    // Track which conversation the current messages in state belong to
+    const messagesConversationIdRef = useRef<string | null>(null);
+
     // Reload messages (can be called from version switching)
     const reloadMessages = useCallback(
       async (conversationId?: string) => {
@@ -1556,7 +1558,20 @@ const ChatContent = memo(
           setMessageVersions(new Map());
           setHasMoreMessages(true); // Reset pagination state
           setMessageCursor(null); // Reset pagination state
+          messagesConversationIdRef.current = null;
           return;
+        }
+
+        // CRITICAL: Track if we're loading a DIFFERENT conversation
+        // If so, we should NOT merge with prev (which contains old conversation's messages)
+        const isLoadingSameConversation = messagesConversationIdRef.current === targetConversationId;
+        
+        // Update the ref to track which conversation we're loading for
+        messagesConversationIdRef.current = targetConversationId;
+
+        // Show loading state when switching to a different conversation
+        if (!isLoadingSameConversation) {
+          setIsLoadingConversation(true);
         }
 
         try {
@@ -1567,7 +1582,17 @@ const ChatContent = memo(
             loadedMessages.length,
             "messages for conversation:",
             targetConversationId,
+            "| Same conversation?",
+            isLoadingSameConversation,
           );
+          
+          // CRITICAL: Check if the user has switched to ANOTHER conversation while we were fetching
+          // If so, discard these results to prevent stale data flash
+          if (messagesConversationIdRef.current !== targetConversationId) {
+            console.log("⚠️ [reloadMessages] Discarding stale response - user switched conversations");
+            return;
+          }
+          
           // Filter to show only active versions (no duplicates)
           const filteredMessages = filterActiveVersions(loadedMessages);
 
@@ -1575,82 +1600,74 @@ const ChatContent = memo(
           setMessageCursor(nextCursor);
           setHasMoreMessages(!!nextCursor);
 
-          // ✅ PRESERVE OPTIMISTIC MESSAGES & FIX RACE CONDITION
-          setMessages((prev) => {
-            // 1. Merge DB messages with local state to prevent overwriting fresh content with stale DB data
-            const mergedMessages = filteredMessages.map((serverMsg) => {
-              const localMsg = prev.find((m) => m.id === serverMsg.id);
-              // If local message has content and server message is empty (and is assistant), keep local content
-              // This handles the race condition where server hasn't finished writing to DB yet
-              if (
-                localMsg &&
-                localMsg.role === "assistant" &&
-                localMsg.content &&
-                !serverMsg.content
-              ) {
-                return { ...serverMsg, content: localMsg.content };
-              }
-              return serverMsg;
-            });
-
-            // 2. Identify optimistic messages (those present locally but not in server response)
-            const serverIds = new Set(mergedMessages.map((m) => m.id));
-            const optimistic = prev.filter((m) => !serverIds.has(m.id));
-
-            // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
-            // This prevents "flash of duplicates" if server returns the message before we replace the temp one
-            const uniqueOptimistic = optimistic.filter((opt) => {
-              // ✅ CRITICAL FIX: Only keep optimistic messages that belong to the CURRENT conversation
-              // This prevents messages from the previous conversation from "leaking" into the new one
-              // when switching conversations (since they wouldn't be in the server response for the new conversation)
-              if (opt.conversationId !== targetConversationId) {
-                return false;
-              }
-
-              const isDuplicate = mergedMessages.some((serverMsg) => {
-                // Match by role
-                if (serverMsg.role !== opt.role) return false;
-
-                // For user messages, content must match (trimmed)
-                if (opt.role === "user") {
-                  return serverMsg.content?.trim() === opt.content?.trim();
+          if (!isLoadingSameConversation) {
+            // SWITCHING CONVERSATIONS: Complete replacement, no merging with old messages
+            console.log("🔄 [reloadMessages] Switching conversations - replacing all messages");
+            setMessages(filteredMessages);
+            setIsLoadingConversation(false); // Clear loading state
+          } else {
+            // RELOADING SAME CONVERSATION: Merge to preserve optimistic updates
+            setMessages((prev) => {
+              // 1. Merge DB messages with local state to prevent overwriting fresh content with stale DB data
+              const mergedMessages = filteredMessages.map((serverMsg) => {
+                const localMsg = prev.find((m) => m.id === serverMsg.id);
+                // If local message has content and server message is empty (and is assistant), keep local content
+                // This handles the race condition where server hasn't finished writing to DB yet
+                if (
+                  localMsg &&
+                  localMsg.role === "assistant" &&
+                  localMsg.content &&
+                  !serverMsg.content
+                ) {
+                  return { ...serverMsg, content: localMsg.content };
                 }
-
-                // For assistant messages, if the server message has content, assume it replaces the empty/partial optimistic one
-                // OR if the content matches exactly
-                if (opt.role === "assistant") {
-                  // precise match
-                  if (serverMsg.content === opt.content) return true;
-                  // server has content, optimistic is empty/loading -> duplicate (server has the real data)
-                  if (serverMsg.content && !opt.content) return true;
-                }
-
-                // Timestamp check (relaxed to 60 seconds to handle clock skew) as a fallback if content logic didn't catch it
-                return Math.abs(serverMsg.createdAt - opt.createdAt) < 60000;
+                return serverMsg;
               });
 
-              return !isDuplicate;
+              // 2. Identify optimistic messages (those present locally but not in server response)
+              const serverIds = new Set(mergedMessages.map((m) => m.id));
+              const optimistic = prev.filter((m) => !serverIds.has(m.id));
+
+              // Deduplicate: Don't add optimistic messages if they (likely) exist in the loaded messages
+              // This prevents "flash of duplicates" if server returns the message before we replace the temp one
+              const uniqueOptimistic = optimistic.filter((opt) => {
+                // Only keep optimistic messages that belong to the CURRENT conversation
+                if (opt.conversationId !== targetConversationId) {
+                  return false;
+                }
+
+                const isDuplicate = mergedMessages.some((serverMsg) => {
+                  if (serverMsg.role !== opt.role) return false;
+                  if (opt.role === "user") {
+                    return serverMsg.content?.trim() === opt.content?.trim();
+                  }
+                  if (opt.role === "assistant") {
+                    if (serverMsg.content === opt.content) return true;
+                    if (serverMsg.content && !opt.content) return true;
+                  }
+                  return Math.abs(serverMsg.createdAt - opt.createdAt) < 60000;
+                });
+
+                return !isDuplicate;
+              });
+
+              // Ensure optimistic messages are always strictly after the latest server message
+              let maxServerTs = mergedMessages.reduce(
+                (max, m) => Math.max(max, m.timestamp || 0),
+                0,
+              );
+
+              const adjustedOptimistic = uniqueOptimistic.map((opt) => {
+                if ((opt.timestamp || 0) <= maxServerTs) {
+                  maxServerTs += 1;
+                  return { ...opt, timestamp: maxServerTs };
+                }
+                return opt;
+              });
+
+              return [...mergedMessages, ...adjustedOptimistic];
             });
-
-            // FIX: Ensure optimistic messages are always strictly after the latest server message
-            // This handles cases where server clock is ahead of client clock
-            let maxServerTs = mergedMessages.reduce(
-              (max, m) => Math.max(max, m.timestamp || 0),
-              0,
-            );
-
-            const adjustedOptimistic = uniqueOptimistic.map((opt) => {
-              if ((opt.timestamp || 0) <= maxServerTs) {
-                maxServerTs += 1; // Increment to ensure strict ordering
-                return { ...opt, timestamp: maxServerTs };
-              }
-              return opt;
-            });
-
-            // If we have optimistic messages, append them to the loaded messages
-            // We can also sort if we want to be extra safe, but appending adjusted ones is fine
-            return [...mergedMessages, ...adjustedOptimistic];
-          });
+          }
 
           // Load versions for each message in PARALLEL (instead of sequential await)
           const versionsMap = new Map<string, ChatMessage[]>();
@@ -1677,6 +1694,7 @@ const ChatContent = memo(
           console.error("Failed to load messages:", err);
           setMessages([]);
           setMessageVersions(new Map());
+          setIsLoadingConversation(false); // Clear loading state on error
         }
       },
       [
@@ -1746,6 +1764,9 @@ const ChatContent = memo(
       currentConversationIdRef.current = currentConversationId;
     }, [currentConversationId]);
 
+    // Track previous conversation ID to only reload when it ACTUALLY changes
+    const prevLoadedConversationIdRef = useRef<string | null>(null);
+
     useEffect(() => {
       // Skip if we're in the middle of an edit to prevent race conditions
       // Also skip if sending to prevent overwriting stream with partial DB data
@@ -1757,6 +1778,15 @@ const ChatContent = memo(
       // Use ref to get the latest conversation ID, avoiding stale closures
       const conversationId = currentConversationIdRef.current;
       if (!conversationId) return;
+
+      // CRITICAL FIX: Only reload if conversation ID ACTUALLY changed
+      // This prevents unnecessary fetches when editing/sending states change
+      if (conversationId === prevLoadedConversationIdRef.current) {
+        return;
+      }
+      
+      // Track that we're loading this conversation
+      prevLoadedConversationIdRef.current = conversationId;
 
       // Check if we switched conversations (state has messages from another conversation)
       if (messages.length > 0 && messages[0].conversationId !== conversationId) {
@@ -1832,37 +1862,82 @@ const ChatContent = memo(
                       onShareClick={handleShareClick}
                     />
                   )}
-                  <VirtualizedMessageList
-                    ref={virtuosoRef}
-                    messages={messages}
-                    isSending={isSending}
-                    streamingMessageId={streamingMessageId}
-                    streamingContent={streamingContent}
-                    editingMessageId={editingMessageId}
-                    onStartEdit={handleStartEdit}
-                    onDeleteMessage={handleDeleteMessage}
-                    onBranchFromMessage={handleBranchFromMessage}
-                    onQuote={handleQuote}
-                    onOpenSubChat={handleOpenSubChat}
-                    onViewSubChats={handleViewSubChats}
-                    onOpenExistingSubChat={handleOpenExistingSubChat}
-                    onDeleteSubChat={handleDeleteSubChat}
-                    messageIdsWithSubChats={messageIdsWithSubChats}
-                    subChats={subChats}
-                    messageVersions={messageVersions}
-                    onSwitchVersion={handleSwitchVersion}
-                    onLoadMore={loadMoreMessages}
-                    isLoadingMore={isLoadingMore}
-                    statusPills={statusPills}
-                    searchResults={searchResults}
-                    contextCards={contextCards}
-                    onIsAtBottomChange={setIsScrolledUp}
-                    // Surface trigger props
-                    conversationId={currentConversationId}
-                    savedSurfaces={currentConversation?.surfaceStates}
-                    // Credit indicator
-                    userCredits={userCredits}
-                  />
+                  
+                  {/* Show skeleton when loading new conversation */}
+                  {isLoadingConversation ? (
+                    <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto px-3 pt-12 animate-in fade-in duration-300">
+                      {/* User message skeleton */}
+                      <div className="flex justify-end">
+                        <div className="bg-secondary/60 rounded-lg px-4 py-3 max-w-[75%] space-y-2">
+                          <div className="h-3.5 bg-muted-foreground/10 rounded-full w-48 animate-pulse" />
+                          <div className="h-3.5 bg-muted-foreground/10 rounded-full w-32 animate-pulse" />
+                        </div>
+                      </div>
+                      
+                      {/* Assistant message skeleton */}
+                      <div className="flex justify-start">
+                        <div className="space-y-3 max-w-[85%]">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="h-2d w-32 rounded-full bg-primary/40 animate-pulse" />
+                            <div className="h-3 bg-muted-foreground/10 rounded-full w-32 animate-pulse" />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-full max-w-md animate-pulse" />
+                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-[90%] max-w-sm animate-pulse" />
+                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-[75%] max-w-xs animate-pulse" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Optional: Second pair for longer conversations */}
+                      <div className="flex justify-end opacity-60">
+                        <div className="bg-secondary/40 rounded-lg px-4 py-3 max-w-[60%] space-y-2">
+                          <div className="h-3.5 bg-muted-foreground/10 rounded-full w-36 animate-pulse" />
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-start opacity-60">
+                        <div className="space-y-3 max-w-[75%]">
+                          <div className="space-y-2">
+                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-full max-w-sm animate-pulse" />
+                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-[80%] max-w-xs animate-pulse" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <VirtualizedMessageList
+                      ref={virtuosoRef}
+                      messages={messages}
+                      isSending={isSending}
+                      streamingMessageId={streamingMessageId}
+                      streamingContent={streamingContent}
+                      editingMessageId={editingMessageId}
+                      onStartEdit={handleStartEdit}
+                      onDeleteMessage={handleDeleteMessage}
+                      onBranchFromMessage={handleBranchFromMessage}
+                      onQuote={handleQuote}
+                      onOpenSubChat={handleOpenSubChat}
+                      onViewSubChats={handleViewSubChats}
+                      onOpenExistingSubChat={handleOpenExistingSubChat}
+                      onDeleteSubChat={handleDeleteSubChat}
+                      messageIdsWithSubChats={messageIdsWithSubChats}
+                      subChats={subChats}
+                      messageVersions={messageVersions}
+                      onSwitchVersion={handleSwitchVersion}
+                      onLoadMore={loadMoreMessages}
+                      isLoadingMore={isLoadingMore}
+                      statusPills={statusPills}
+                      searchResults={searchResults}
+                      contextCards={contextCards}
+                      onIsAtBottomChange={setIsScrolledUp}
+                      // Surface trigger props
+                      conversationId={currentConversationId}
+                      savedSurfaces={currentConversation?.surfaceStates}
+                      // Credit indicator
+                      userCredits={userCredits}
+                    />
+                  )}
                 </div>
 
                 {/* Tag Dialog */}
