@@ -392,7 +392,7 @@ class TaskProcessor implements DurableObject {
     }
 
     // Surfaces that benefit from parallel section generation
-    const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'timeline', 'comparison']
+    const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'comparison']
     const useProgressiveGeneration = PROGRESSIVE_SURFACES.includes(surfaceType)
     
     // WIKI & TIMELINE: Fetch web context FIRST so skeleton can be informed by sources

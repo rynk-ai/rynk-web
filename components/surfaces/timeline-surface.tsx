@@ -27,7 +27,7 @@ import {
   PiCalendarBlank
 } from "react-icons/pi";
 import type { TimelineMetadata } from "@/lib/services/domain-types";
-import { TimelineEventSkeleton } from "@/components/surfaces/surface-skeletons";
+
 
 interface TimelineSurfaceProps {
   metadata: TimelineMetadata;
@@ -284,15 +284,6 @@ function EventCard({
   onToggle: () => void; 
   isMajor: boolean; 
 }) {
-  // Check if event content is still loading (progressive loading)
-  const isLoading = event.description === 'Loading...' || 
-    event.status === 'pending' ||
-    !event.description;
-    
-  if (isLoading) {
-    return <TimelineEventSkeleton />;
-  }
-  
   return (
     <div 
       className={cn(
