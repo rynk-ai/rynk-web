@@ -18,8 +18,8 @@ function getGroqProvider(): GroqProvider {
 export function getAIProvider(hasFiles: boolean = false): AIProvider {
   // Use OpenRouter only for multimodal (files/images)
   if (hasFiles) {
-    console.log('🖼️ [AI Provider] Files detected - using OpenRouter for multimodal support')
-    return getOpenRouter()
+    console.log('🖼️ [AI Provider] Files detected - using Groq (Vision) for multimodal support')
+    return getGroqProvider()
   } else {
     console.log('💬 [AI Provider] Using Groq with Kimi K2 Instruct')
     return getGroqProvider()

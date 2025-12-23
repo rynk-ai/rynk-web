@@ -125,41 +125,11 @@ export class OpenRouterService implements AIProvider {
   }
 
   async getEmbeddings(text: string, timeoutMs: number = 15000): Promise<number[]> {
-    // Call OpenRouter directly instead of going through /api/embeddings
-    // This is necessary because server-side code can't use relative paths
-    const apiKey = process.env.OPENROUTER_API_KEY
-    
-    if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured')
-    }
-    
-    // Create timeout promise
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`Embedding generation timeout after ${timeoutMs}ms`)), timeoutMs)
-    })
-    
-    // Race the fetch against the timeout
-    const fetchPromise = fetch('https://openrouter.ai/api/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: text,
-      }),
-    })
-    
-    const response = await Promise.race([fetchPromise, timeoutPromise])
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } })) as any
-      throw new Error(error.error?.message || `HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json() as any
-    return data.data[0].embedding
+    // Forward to Cloudflare AI Service
+    // This keeps embedding logic unified across all providers
+    const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+    const aiProvider = getCloudflareAI()
+    return aiProvider.getEmbeddings(text)
   }
 }
 

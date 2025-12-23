@@ -35,6 +35,10 @@ binding = "VECTORIZE_INDEX"
 index_name = "simplechat-index"
 remote=true
 
+# Cloudflare AI Binding
+[ai]
+binding = "AI"
+
 [observability]
 [observability.logs]
 enabled = true

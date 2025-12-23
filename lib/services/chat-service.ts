@@ -185,7 +185,8 @@ export class ChatService {
           // 3. (Background) User message vectorization already uses the content directly
           let queryEmbedding: number[] = []
           try {
-            const aiProvider = getAIProvider()
+            const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+            const aiProvider = getCloudflareAI()
             queryEmbedding = await aiProvider.getEmbeddings(messageContent)
             console.log('⚡ [chatService] Query embedding computed once for reuse')
           } catch (embeddingError) {
@@ -579,7 +580,8 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
       } else {
         // Note: If this fails (e.g., OpenRouter credit exhaustion), 
         // the outer catch block will use D1 fallback for referenced conversations
-        const aiProvider = getAIProvider();
+        const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+        const aiProvider = getCloudflareAI()
         queryVector = await aiProvider.getEmbeddings(query);
       }
       

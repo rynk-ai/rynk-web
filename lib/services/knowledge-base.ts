@@ -83,8 +83,8 @@ export class KnowledgeBaseService {
 
       // 3. Embed and Store Chunks (Batch)
       console.log('🔄 [KnowledgeBase] Starting embedding generation for', chunks.length, 'chunks...')
-      const { getOpenRouter } = await import('@/lib/services/openrouter')
-      const aiProvider = getOpenRouter()
+      const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+      const aiProvider = getCloudflareAI()
 
       // Get current max chunk index for this source to append new chunks
       const existingChunks = await vectorDb.getKnowledgeChunks(sourceId)
@@ -214,11 +214,10 @@ export class KnowledgeBaseService {
         console.log('⚡ [KnowledgeBase] Reusing pre-computed embedding')
         queryVector = precomputedQueryVector
       } else {
-        // Always use OpenRouter/Multimodal provider for embeddings to match ingestion
-        console.log('🔄 [KnowledgeBase] Generating embeddings...')
-        const { getOpenRouter } = await import('@/lib/services/openrouter')
-        const aiProvider = getOpenRouter()
-        queryVector = await aiProvider.getEmbeddings(query, 10000) // 10s timeout
+        const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+        const aiProvider = getCloudflareAI()
+        // Workers AI is usually fast, but we can keep a generous timeout logic if needed or rely on platform timeout
+        queryVector = await aiProvider.getEmbeddings(query)
         console.log('✅ [KnowledgeBase] Embeddings generated')
       }
       
@@ -325,8 +324,8 @@ export class KnowledgeBaseService {
     console.log(`[KnowledgeBase] Chunked into ${chunks.length} parts`)
     
     // 2. Embed and Store (Batch)
-    const { getOpenRouter } = await import('@/lib/services/openrouter')
-    const aiProvider = getOpenRouter()
+    const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+    const aiProvider = getCloudflareAI()
     
     // Process in small batches to avoid rate limits
     const BATCH_SIZE = 5
