@@ -340,7 +340,7 @@ export interface LearningMetadata {
 }
 
 /**
- * Metadata for Guide surface (step structure)
+ * Metadata for Guide surface (sequential checklist)
  */
 export interface GuideMetadata {
   type: 'guide'
@@ -348,11 +348,15 @@ export interface GuideMetadata {
   description: string
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   estimatedTime: number // minutes
-  steps: {
-    index: number
-    title: string
+  
+  // Checkpoints generated upfront with substeps
+  checkpoints: {
+    id: string
+    title: string              // Action verb: "Set up...", "Configure..."
+    description: string        // 1-2 sentence summary
+    substeps: string[]         // Visible upfront (compact, 3-5 items)
     estimatedTime: number
-    status: 'pending' | 'in-progress' | 'completed' | 'skipped'
+    status: 'locked' | 'current' | 'completed'
   }[]
 }
 
@@ -900,13 +904,11 @@ export interface SurfaceState {
     chaptersContent: Record<number, string>
     notes: Array<{ chapterId: number; content: string; createdAt: number }>
   }
-  // Guide-specific state
+  // Guide-specific state (sequential checklist)
   guide?: {
-    currentStep: number
-    completedSteps: number[]
-    skippedSteps: number[]
-    stepsContent: Record<number, string>
-    questionsAsked: Array<{ question: string; answer: string; stepIndex: number }>
+    currentCheckpoint: number          // Index of current checkpoint
+    completedCheckpoints: number[]     // Completed checkpoint indices
+    checkpointContent: Record<number, string>  // Generated "Learn more" content
   }
   // Quiz-specific state
   quiz?: {

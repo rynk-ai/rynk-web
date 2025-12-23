@@ -1,8 +1,9 @@
 /**
- * Guide Surface Inline Component
+ * Guide Surface Inline Component (Legacy/Deprecated)
  * 
- * Renders a step-by-step guide inside the message bubble.
- * User can track progress and generate step details on-demand.
+ * Note: This is a simplified inline version. The main GuideSurface component
+ * is now a full checklist experience. This component is kept for backward
+ * compatibility but may be removed in the future.
  */
 
 "use client";
@@ -17,7 +18,7 @@ import {
   PiCheck,
   PiClock,
   PiSpinner,
-  PiSkipForward,
+  PiLock,
 } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -27,34 +28,35 @@ import { Markdown } from "@/components/prompt-kit/markdown";
 interface GuideSurfaceInlineProps {
   metadata: GuideMetadata;
   surfaceState?: SurfaceState;
-  onGenerateStep: (stepIndex: number) => Promise<void>;
-  onMarkComplete: (stepIndex: number) => void;
-  onSkipStep: (stepIndex: number) => void;
+  onGenerateCheckpoint: (checkpointIndex: number) => Promise<void>;
+  onMarkComplete: (checkpointIndex: number) => void;
   isGenerating: boolean;
   className?: string;
 }
 
-const StepItem = memo(function StepItem({
-  step,
+type CheckpointType = GuideMetadata['checkpoints'][0];
+
+const CheckpointItem = memo(function CheckpointItem({
+  checkpoint,
+  index,
   isActive,
   isCompleted,
-  isSkipped,
+  isLocked,
   content,
   isGenerating,
   onExpand,
   onComplete,
-  onSkip,
   onGenerate,
 }: {
-  step: GuideMetadata['steps'][0];
+  checkpoint: CheckpointType;
+  index: number;
   isActive: boolean;
   isCompleted: boolean;
-  isSkipped: boolean;
+  isLocked: boolean;
   content: string | null;
   isGenerating: boolean;
   onExpand: () => void;
   onComplete: () => void;
-  onSkip: () => void;
   onGenerate: () => void;
 }) {
   const showContent = isActive && (content || isGenerating);
@@ -64,22 +66,23 @@ const StepItem = memo(function StepItem({
       "border border-border/40 rounded-lg overflow-hidden transition-all",
       isActive && "border-primary/30 bg-primary/5",
       isCompleted && "opacity-70",
-      isSkipped && "opacity-50"
+      isLocked && "opacity-50 cursor-not-allowed"
     )}>
-      {/* Step Header */}
+      {/* Header */}
       <button
-        onClick={onExpand}
+        onClick={isLocked ? undefined : onExpand}
+        disabled={isLocked}
         className={cn(
           "w-full flex items-center gap-3 px-4 py-3 text-left",
-          "hover:bg-muted/30 transition-colors"
+          !isLocked && "hover:bg-muted/30 transition-colors"
         )}
       >
-        {/* Status Indicator */}
+        {/* Status */}
         <div className={cn(
           "flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center",
           isCompleted 
             ? "bg-green-500 border-green-500" 
-            : isSkipped
+            : isLocked
               ? "bg-muted border-muted-foreground/30"
               : isActive
                 ? "border-primary bg-primary/10"
@@ -87,37 +90,41 @@ const StepItem = memo(function StepItem({
         )}>
           {isCompleted ? (
             <PiCheck className="h-3.5 w-3.5 text-white" />
+          ) : isLocked ? (
+            <PiLock className="h-3 w-3 text-muted-foreground/50" />
           ) : (
-            <span className="text-xs font-medium">{step.index + 1}</span>
+            <span className="text-xs font-medium">{index + 1}</span>
           )}
         </div>
 
-        {/* Step Info */}
+        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className={cn(
             "font-medium text-sm",
             isCompleted && "line-through",
-            isSkipped && "line-through text-muted-foreground"
+            isLocked && "text-muted-foreground"
           )}>
-            {step.title}
+            {checkpoint.title}
           </div>
-          {step.estimatedTime > 0 && (
+          {checkpoint.estimatedTime > 0 && (
             <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
               <PiClock className="h-3 w-3" />
-              {step.estimatedTime} min
+              {checkpoint.estimatedTime} min
             </span>
           )}
         </div>
 
-        {/* Expand Icon */}
-        {isActive ? (
-          <PiCaretDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <PiCaretRight className="h-4 w-4 text-muted-foreground" />
+        {/* Expand */}
+        {!isLocked && (
+          isActive ? (
+            <PiCaretDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <PiCaretRight className="h-4 w-4 text-muted-foreground" />
+          )
         )}
       </button>
 
-      {/* Expanded Content */}
+      {/* Content */}
       {showContent && (
         <div className="px-4 pb-4 pt-0 border-t border-border/30">
           <div className="pl-9">
@@ -125,7 +132,7 @@ const StepItem = memo(function StepItem({
               <div className="flex items-center py-4">
                 <PiSpinner className="h-4 w-4 animate-spin text-primary" />
                 <span className="ml-2 text-sm text-muted-foreground">
-                  Generating step details...
+                  Loading details...
                 </span>
               </div>
             ) : content ? (
@@ -133,20 +140,18 @@ const StepItem = memo(function StepItem({
                 <div className="prose prose-sm dark:prose-invert max-w-none py-3">
                   <Markdown>{content}</Markdown>
                 </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <Button size="sm" onClick={onComplete}>
-                    <PiCheck className="h-3.5 w-3.5 mr-1" />
-                    Mark Complete
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={onSkip}>
-                    <PiSkipForward className="h-3.5 w-3.5 mr-1" />
-                    Skip
-                  </Button>
-                </div>
+                {!isCompleted && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button size="sm" onClick={onComplete}>
+                      <PiCheck className="h-3.5 w-3.5 mr-1" />
+                      Mark Complete
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
               <Button size="sm" onClick={onGenerate} className="my-3">
-                Generate Step Details
+                Learn More
               </Button>
             )}
           </div>
@@ -159,46 +164,37 @@ const StepItem = memo(function StepItem({
 export const GuideSurfaceInline = memo(function GuideSurfaceInline({
   metadata,
   surfaceState,
-  onGenerateStep,
+  onGenerateCheckpoint,
   onMarkComplete,
-  onSkipStep,
   isGenerating,
   className,
 }: GuideSurfaceInlineProps) {
-  const [activeStepIndex, setActiveStepIndex] = useState(
-    surfaceState?.guide?.currentStep ?? 0
+  const [activeIndex, setActiveIndex] = useState(
+    surfaceState?.guide?.currentCheckpoint ?? 0
   );
 
-  const steps = metadata.steps || [];
-  const completedSteps = surfaceState?.guide?.completedSteps || [];
-  const skippedSteps = surfaceState?.guide?.skippedSteps || [];
-  const stepsContent = surfaceState?.guide?.stepsContent || {};
+  const checkpoints = metadata.checkpoints || [];
+  const currentCheckpoint = surfaceState?.guide?.currentCheckpoint ?? 0;
+  const completedCheckpoints = surfaceState?.guide?.completedCheckpoints || [];
+  const checkpointContent = surfaceState?.guide?.checkpointContent || {};
   
-  const totalComplete = completedSteps.length + skippedSteps.length;
-  const progress = steps.length > 0 
-    ? Math.round((totalComplete / steps.length) * 100) 
+  const progress = checkpoints.length > 0 
+    ? Math.round((completedCheckpoints.length / checkpoints.length) * 100) 
     : 0;
 
-  const handleStepClick = useCallback((index: number) => {
-    setActiveStepIndex(index);
-    if (!stepsContent[index] && !completedSteps.includes(index) && !skippedSteps.includes(index)) {
-      onGenerateStep(index);
+  const handleClick = useCallback((index: number) => {
+    const isLocked = index > currentCheckpoint && !completedCheckpoints.includes(index);
+    if (isLocked) return;
+    
+    setActiveIndex(index);
+    if (!checkpointContent[index]) {
+      onGenerateCheckpoint(index);
     }
-  }, [stepsContent, completedSteps, skippedSteps, onGenerateStep]);
+  }, [checkpointContent, currentCheckpoint, completedCheckpoints, onGenerateCheckpoint]);
 
   const handleComplete = useCallback((index: number) => {
     onMarkComplete(index);
-    // Auto-advance to next incomplete step
-    const nextIncomplete = steps.findIndex((_, i) => 
-      i > index && !completedSteps.includes(i) && !skippedSteps.includes(i)
-    );
-    if (nextIncomplete !== -1) {
-      setActiveStepIndex(nextIncomplete);
-      if (!stepsContent[nextIncomplete]) {
-        onGenerateStep(nextIncomplete);
-      }
-    }
-  }, [steps, completedSteps, skippedSteps, stepsContent, onMarkComplete, onGenerateStep]);
+  }, [onMarkComplete]);
 
   return (
     <div className={cn("rounded-xl border border-border/50 overflow-hidden bg-card", className)}>
@@ -222,29 +218,34 @@ export const GuideSurfaceInline = memo(function GuideSurfaceInline({
         <div className="flex items-center gap-3 mt-2">
           <Progress value={progress} className="flex-1 h-1.5" />
           <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {totalComplete}/{steps.length} steps
+            {completedCheckpoints.length}/{checkpoints.length} done
           </span>
         </div>
       </div>
 
-      {/* Steps List */}
+      {/* List */}
       <ScrollArea style={{ maxHeight: '450px' }}>
         <div className="p-3 space-y-2">
-          {steps.map((step) => (
-            <StepItem
-              key={step.index}
-              step={step}
-              isActive={activeStepIndex === step.index}
-              isCompleted={completedSteps.includes(step.index)}
-              isSkipped={skippedSteps.includes(step.index)}
-              content={stepsContent[step.index] || null}
-              isGenerating={isGenerating && activeStepIndex === step.index}
-              onExpand={() => handleStepClick(step.index)}
-              onComplete={() => handleComplete(step.index)}
-              onSkip={() => onSkipStep(step.index)}
-              onGenerate={() => onGenerateStep(step.index)}
-            />
-          ))}
+          {checkpoints.map((checkpoint, index) => {
+            const isCompleted = completedCheckpoints.includes(index);
+            const isLocked = index > currentCheckpoint && !isCompleted;
+            
+            return (
+              <CheckpointItem
+                key={checkpoint.id}
+                checkpoint={checkpoint}
+                index={index}
+                isActive={activeIndex === index}
+                isCompleted={isCompleted}
+                isLocked={isLocked}
+                content={checkpointContent[index] || null}
+                isGenerating={isGenerating && activeIndex === index}
+                onExpand={() => handleClick(index)}
+                onComplete={() => handleComplete(index)}
+                onGenerate={() => onGenerateCheckpoint(index)}
+              />
+            );
+          })}
         </div>
       </ScrollArea>
     </div>

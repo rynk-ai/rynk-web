@@ -1659,11 +1659,11 @@ ${baseFormat}
 Requirements: 8-12 chapters (items), specific descriptive titles.`
         
       case 'guide':
-        return `Create a step-by-step guide outline for: "${query}"
+        return `Create a checklist guide outline for: "${query}"
 
 ${baseFormat}
 
-Requirements: 10-15 steps, each title starts with action verb.`
+Requirements: Create as many checkpoints as genuinely needed. Each title starts with action verb.`
         
       case 'quiz':
         return `Create a quiz outline for: "${query}"
@@ -1765,19 +1765,19 @@ Requirements: 6-8 main sections with Wikipedia-style headings that cover the key
             description: skeleton.description || 'Loading details...',
             difficulty: 'intermediate',
             estimatedTime: items.length * 5,
-            steps: items.map((item: any, i: number) => ({
-              index: i,
-              title: item.title || `Step ${i + 1}`,
+            checkpoints: items.map((item: any, i: number) => ({
+              id: item.id || `cp${i + 1}`,
+              title: item.title || `Checkpoint ${i + 1}`,
+              description: '',
+              substeps: [],
               estimatedTime: 5,
-              status: 'pending'
+              status: i === 0 ? 'current' : 'locked'
             }))
           },
           guide: {
-            currentStep: 0,
-            completedSteps: [],
-            skippedSteps: [],
-            stepsContent: {},
-            questionsAsked: []
+            currentCheckpoint: 0,
+            completedCheckpoints: [],
+            checkpointContent: {}
           }
         }
         
@@ -2302,64 +2302,37 @@ Return ONLY valid JSON.`
 
       case 'guide':
         return {
-          systemPrompt: webContext 
-            ? 'You are a world-class technical documentation writer with access to current research data. Use the provided web search results to ensure your guide is accurate and up-to-date. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.'
-            : 'You are a world-class technical documentation writer who has created guides for companies like Google, Apple, and Stripe. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.',
-          userPrompt: `You are a senior technical documentation expert creating the definitive guide for this task.
+          systemPrompt: 'You are a clear, practical guide writer. You break complex tasks into achievable checkpoints. Each checkpoint is a concrete milestone with actionable substeps. You never add filler - every checkpoint serves a purpose.',
+          userPrompt: `Create a sequential checklist guide for this task.
 
 TASK: "${query}"
 ${topicContext}
 ${webResearchContext}
-Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow to achieve success. Think: What would a professional documentation writer at a top tech company create?
 
-Generate a guide structure as JSON:
+Generate checkpoints as JSON:
 {
-  "title": "Professional, clear title (e.g., 'Complete Guide to...', 'How to... From Start to Finish')",
-  "subtitle": "Clarifying subtitle with scope",
-  "description": "2-3 sentences explaining what this guide covers and what success looks like",
+  "title": "Clear, action-oriented title",
+  "description": "1-2 sentences explaining what this guide accomplishes",
   "difficulty": "beginner|intermediate|advanced",
-  "estimatedTime": <total minutes - be realistic, include potential troubleshooting time>,
-  "prerequisites": [
-    "Specific hardware/software requirement 1",
-    "Prior knowledge requirement",
-    "Account/access requirement"
-  ],
-  "toolsRequired": [
-    "Specific tool 1",
-    "Specific tool 2"
-  ],
-  "outcomes": [
-    "Specific outcome 1 - what will be working/completed",
-    "Specific outcome 2",
-    "Specific outcome 3"
-  ],
-  "safetyWarnings": ["Any data loss risks or irreversible actions to be aware of"],
-  "steps": [
+  "estimatedTime": <total minutes>,
+  "checkpoints": [
     {
-      "index": 0,
-      "title": "Clear, specific step title (start with strong action verb)",
-      "description": "1-2 sentences explaining what this step accomplishes",
-      "estimatedTime": <minutes>,
-      "category": "preparation|setup|configuration|action|verification|cleanup|optional",
-      "substeps": [
-        "Specific substep 1",
-        "Specific substep 2"
-      ],
-      "criticalNotes": ["Important warnings or tips for this step"],
-      "successCriteria": "How to know this step was completed correctly"
+      "id": "cp1",
+      "title": "Action verb checkpoint title",
+      "description": "1-2 sentences explaining what this checkpoint accomplishes",
+      "substeps": ["Concrete action 1", "Concrete action 2", "Concrete action 3"],
+      "estimatedTime": <minutes>
     }
-  ],
-  "troubleshooting": [
-    {
-      "problem": "Common problem description",
-      "solution": "How to fix it"
-    }
-  ],
-  "nextSteps": ["What to do after completing this guide"]
+  ]
 }
 
-REQUIREMENTS: 10-15 steps (2 prep, 3 setup, 7 action, 3 verification). Each step has 2-5 substeps. Include safety warnings and time estimates.
-${webContext ? 'Use provided research data for accuracy.' : ''}
+REQUIREMENTS:
+- Create as many checkpoints as genuinely needed - do NOT pad or compress
+- Each checkpoint is a meaningful milestone
+- Substeps are concrete, actionable items (3-6 per checkpoint)
+- Use strong action verbs
+- Order checkpoints sequentially
+
 Return ONLY valid JSON.`
         }
 
@@ -2752,19 +2725,19 @@ Return JSON with appropriate structure for the topic.`
             description: structure.description || '',
             difficulty: structure.difficulty || 'intermediate',
             estimatedTime: structure.estimatedTime || 20,
-            steps: (structure.steps || []).map((s: any, i: number) => ({
-              index: i,
-              title: s.title || `Step ${i + 1}`,
-              estimatedTime: s.estimatedTime || 5,
-              status: 'pending'
+            checkpoints: (structure.checkpoints || []).map((cp: any, i: number) => ({
+              id: cp.id || `cp${i + 1}`,
+              title: cp.title || `Checkpoint ${i + 1}`,
+              description: cp.description || '',
+              substeps: cp.substeps || [],
+              estimatedTime: cp.estimatedTime || 5,
+              status: i === 0 ? 'current' : 'locked'
             }))
           },
           guide: {
-            currentStep: 0,
-            completedSteps: [],
-            skippedSteps: [],
-            stepsContent: {},
-            questionsAsked: []
+            currentCheckpoint: 0,
+            completedCheckpoints: [],
+            checkpointContent: {}
           }
         }
         

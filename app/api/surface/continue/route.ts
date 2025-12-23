@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       content = result.content
       updatedState = result.updatedState
     } else if (surfaceType === 'guide') {
-      const result = await generateStepContent(
+      const result = await generateCheckpointContent(
         aiProvider,
         targetIndex,
         surfaceState,
@@ -241,73 +241,71 @@ Write the complete chapter content now:`
   return { content, updatedState }
 }
 
-async function generateStepContent(
+async function generateCheckpointContent(
   aiProvider: any,
-  stepIndex: number,
+  checkpointIndex: number,
   state: SurfaceState,
   originalQuery: string,
   action: string
 ): Promise<{ content: string; updatedState: SurfaceState }> {
   const metadata = state.metadata as GuideMetadata
-  const step = metadata.steps[stepIndex]
+  const checkpoint = metadata.checkpoints[checkpointIndex]
   
-  if (!step) {
-    return { content: 'Step not found', updatedState: state }
+  if (!checkpoint) {
+    return { content: 'Checkpoint not found', updatedState: state }
   }
 
-  // Build context from previous steps
-  const previousSteps = metadata.steps
-    .slice(0, stepIndex)
-    .map((s) => `Step ${s.index + 1}: ${s.title}`)
+  // Sequential lock check - only allow current or completed checkpoints
+  const currentCheckpoint = state.guide?.currentCheckpoint ?? 0
+  const completedCheckpoints = state.guide?.completedCheckpoints ?? []
+  
+  if (checkpointIndex > currentCheckpoint && !completedCheckpoints.includes(checkpointIndex)) {
+    return { content: 'This checkpoint is locked. Complete previous checkpoints first.', updatedState: state }
+  }
+
+  // Build context from previous checkpoints
+  const previousCheckpoints = metadata.checkpoints
+    .slice(0, checkpointIndex)
+    .map((cp, i) => `Checkpoint ${i + 1}: ${cp.title}`)
     .join('\n')
 
-  // Build available images context
-  const availableImages = state.availableImages || []
-  const imageContext = availableImages.length > 0
-    ? `\nAVAILABLE IMAGES (embed if relevant to this step):
-${availableImages.slice(0, 3).map((img, i) => `[Image ${i + 1}] "${img.title}": ${img.url}`).join('\n')}
-
-- If an image illustrates this step, embed it using: ![description](url)
-- Only use images that directly help understand the instructions\n`
+  // Build substeps context
+  const substepsContext = checkpoint.substeps.length > 0
+    ? `\nSUBSTEPS TO COVER:\n${checkpoint.substeps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n`
     : ''
 
   const prompt = action === 'simplify'
-    ? `Simplify these instructions. Use clearer language, add visual cues, and break down complex actions:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nMake it foolproof for complete beginners.`
+    ? `Simplify these instructions. Use clearer language, add visual cues, and break down complex actions:\n\n${state.guide?.checkpointContent[checkpointIndex] || ''}\n\nMake it foolproof for complete beginners.`
     : action === 'expand'
-    ? `Expand these instructions with more detail:\n\n${state.guide?.stepsContent[stepIndex] || ''}\n\nAdd:\n- Troubleshooting for common problems\n- Alternative approaches\n- Edge cases to watch for\n- Pro tips from experience`
-    : `You are writing Step ${stepIndex + 1} of a practical guide.
+    ? `Expand these instructions with more detail:\n\n${state.guide?.checkpointContent[checkpointIndex] || ''}\n\nAdd:\n- Troubleshooting for common problems\n- Alternative approaches\n- Edge cases to watch for\n- Pro tips from experience`
+    : `You are expanding a checkpoint in a practical checklist guide.
 
 GUIDE: ${metadata.title}
 GOAL: ${originalQuery}
-STEP: ${step.title}
-DIFFICULTY: ${metadata.difficulty}
+CHECKPOINT: ${checkpoint.title}
+DESCRIPTION: ${checkpoint.description}
+${substepsContext}
+${previousCheckpoints ? `COMPLETED CHECKPOINTS:\n${previousCheckpoints}\n\nAssume these are done.\n` : 'This is the first checkpoint.\n'}
 
-${previousSteps ? `COMPLETED STEPS:\n${previousSteps}\n\nAssume these are done. Reference them if needed.\n` : 'This is the first step. Set the context clearly.\n'}${imageContext}
+Write detailed "Learn more" content for this checkpoint.
 
-Write clear, actionable instructions that ANYONE can follow.
+INCLUDE:
+1. **Overview** - Why this checkpoint matters (1-2 sentences)
+2. **Detailed Instructions** - Expand each substep with specifics
+3. **Verification** - How to know you did it correctly
+4. **Common Issues** - 2-3 potential problems and quick fixes
 
-REQUIRED SECTIONS:
-1. **What You'll Do** (1 sentence summary)
-2. **Instructions** (numbered steps with exact details)
-3. **Verification** (how to know you did it right)
-4. **Troubleshooting** (2-3 common issues and fixes)
+STYLE:
+- Be specific: exact commands, button names, file paths
+- Use code blocks for commands
+- Use ⚠️ for warnings, ✅ for verification, 💡 for tips
+- Friendly, supportive tone
 
-CONTENT REQUIREMENTS:
-- Be SPECIFIC: "Click the blue 'Save' button" not "save your work"
-- Use code blocks (\`\`\`) for commands with expected output
-- Include [optional] markers for non-essential substeps
-- Add ⚠️ warnings for risky or irreversible actions
-- Use ✅ for verification checkpoints
-- Add "💡 Tip:" for helpful shortcuts
-
-TONE: Friendly, confident, supportive. Like a senior colleague helping out.
-TARGET LENGTH: 300-600 words.
-
-Write the step content now:`
+TARGET LENGTH: 300-500 words.`
 
   const response = await aiProvider.sendMessage({
     messages: [
-      { role: 'system', content: 'You are a patient, experienced mentor who writes guides that work the first time. You anticipate problems, provide clear verification steps, and never leave users guessing. Your instructions are tested and reliable.' },
+      { role: 'system', content: 'You are a clear, practical guide writer who helps users complete tasks successfully.' },
       { role: 'user', content: prompt }
     ]
   })
@@ -319,11 +317,9 @@ Write the step content now:`
 
   // Update state
   const guide = state.guide || {
-    currentStep: 0,
-    completedSteps: [],
-    skippedSteps: [],
-    stepsContent: {},
-    questionsAsked: [],
+    currentCheckpoint: 0,
+    completedCheckpoints: [],
+    checkpointContent: {},
   }
 
   const updatedState: SurfaceState = {
@@ -331,13 +327,13 @@ Write the step content now:`
     updatedAt: Date.now(),
     guide: {
       ...guide,
-      currentStep: stepIndex,
-      stepsContent: {
-        ...guide.stepsContent,
-        [stepIndex]: content,
+      checkpointContent: {
+        ...guide.checkpointContent,
+        [checkpointIndex]: content,
       },
     },
   }
 
   return { content, updatedState }
 }
+

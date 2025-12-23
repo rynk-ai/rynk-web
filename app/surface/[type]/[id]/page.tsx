@@ -529,9 +529,8 @@ export default function SurfacePage() {
     // Save after marking complete
     saveState(updatedState);
   }, [surfaceState, saveState]);
-
-  // Generate step content
-  const handleGenerateStep = useCallback(async (stepIndex: number) => {
+  // Generate checkpoint content
+  const handleGenerateCheckpoint = useCallback(async (checkpointIndex: number) => {
     if (!surfaceState) return;
     setIsGenerating(true);
 
@@ -542,13 +541,13 @@ export default function SurfacePage() {
         body: JSON.stringify({
           surfaceType: 'guide',
           action: 'generate_step',
-          targetIndex: stepIndex,
+          targetIndex: checkpointIndex,
           surfaceState,
           originalQuery,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate step");
+      if (!response.ok) throw new Error("Failed to generate checkpoint");
       
       const data = await response.json() as { updatedState: SurfaceState; content: string };
       
@@ -560,9 +559,9 @@ export default function SurfacePage() {
           updatedAt: Date.now(),
           guide: {
             ...prev.guide,
-            stepsContent: {
-              ...prev.guide.stepsContent,
-              [stepIndex]: data.content,
+            checkpointContent: {
+              ...prev.guide.checkpointContent,
+              [checkpointIndex]: data.content,
             },
           },
         };
@@ -572,46 +571,31 @@ export default function SurfacePage() {
         return updated;
       });
     } catch (err) {
-      console.error('[SurfacePage] Error generating step:', err);
+      console.error('[SurfacePage] Error generating checkpoint:', err);
     } finally {
       setIsGenerating(false);
     }
   }, [surfaceState, originalQuery, saveState]);
 
-  // Mark step complete
-  const handleMarkStepComplete = useCallback((stepIndex: number) => {
+  // Mark checkpoint complete
+  const handleMarkCheckpointComplete = useCallback((checkpointIndex: number) => {
     if (!surfaceState?.guide) return;
     
-    const completedSteps = [...(surfaceState.guide.completedSteps || [])];
-    if (!completedSteps.includes(stepIndex)) {
-      completedSteps.push(stepIndex);
+    const completedCheckpoints = [...(surfaceState.guide.completedCheckpoints || [])];
+    if (!completedCheckpoints.includes(checkpointIndex)) {
+      completedCheckpoints.push(checkpointIndex);
     }
+    
+    // Advance current checkpoint to next
+    const metadata = surfaceState.metadata as GuideMetadata;
+    const nextCheckpoint = Math.min(checkpointIndex + 1, metadata.checkpoints.length - 1);
 
     const updatedState = {
       ...surfaceState,
       guide: {
         ...surfaceState.guide,
-        completedSteps,
-      },
-    };
-    setSurfaceState(updatedState);
-    saveState(updatedState);
-  }, [surfaceState, saveState]);
-
-  // Skip step
-  const handleSkipStep = useCallback((stepIndex: number) => {
-    if (!surfaceState?.guide) return;
-    
-    const skippedSteps = [...(surfaceState.guide.skippedSteps || [])];
-    if (!skippedSteps.includes(stepIndex)) {
-      skippedSteps.push(stepIndex);
-    }
-
-    const updatedState = {
-      ...surfaceState,
-      guide: {
-        ...surfaceState.guide,
-        skippedSteps,
+        completedCheckpoints,
+        currentCheckpoint: nextCheckpoint,
       },
     };
     setSurfaceState(updatedState);
@@ -1015,14 +999,9 @@ export default function SurfacePage() {
               <GuideSurface
                 metadata={surfaceState.metadata as GuideMetadata}
                 surfaceState={surfaceState}
-                content={(surfaceState.guide?.stepsContent) || {}}
-                completedSteps={surfaceState.guide?.completedSteps || []}
-                skippedSteps={surfaceState.guide?.skippedSteps || []}
-                onGenerateStep={handleGenerateStep}
-                onMarkComplete={handleMarkStepComplete}
-                onSkipStep={handleSkipStep}
+                onGenerateCheckpoint={handleGenerateCheckpoint}
+                onMarkComplete={handleMarkCheckpointComplete}
                 isGenerating={isGenerating}
-                conversationId={conversationId}
                 surfaceId={currentSurfaceId || undefined}
                 onSubChatSelect={handleOpenSubChat}
                 sectionIdsWithSubChats={sectionIdsWithSubChats}

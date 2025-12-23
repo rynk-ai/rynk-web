@@ -73,9 +73,8 @@ interface UseSurfaceReturn {
   switchSurfaceVersion: (messageId: string, version: SurfaceType, originalQuery: string, conversationId?: string) => Promise<void>;
   generateChapterContent: (messageId: string, chapterIndex: number, originalQuery: string) => Promise<void>;
   markChapterComplete: (messageId: string, chapterIndex: number) => void;
-  generateStepContent: (messageId: string, stepIndex: number, originalQuery: string) => Promise<void>;
-  markStepComplete: (messageId: string, stepIndex: number) => void;
-  skipStep: (messageId: string, stepIndex: number) => void;
+  generateCheckpointContent: (messageId: string, checkpointIndex: number, originalQuery: string) => Promise<void>;
+  markCheckpointComplete: (messageId: string, checkpointIndex: number) => void;
 }
 
 export function useSurface(): UseSurfaceReturn {
@@ -293,13 +292,13 @@ export function useSurface(): UseSurfaceReturn {
     });
   }, []);
 
-  // Generate step content
-  const generateStepContent = useCallback(async (
+  // Generate checkpoint content
+  const generateCheckpointContent = useCallback(async (
     messageId: string,
-    stepIndex: number,
+    checkpointIndex: number,
     originalQuery: string
   ) => {
-    console.log(`[useSurface] Generating step ${stepIndex} for message ${messageId}`);
+    console.log(`[useSurface] Generating checkpoint ${checkpointIndex} for message ${messageId}`);
     
     const current = messageSurfaceStates[messageId];
     if (!current?.surfaceState) return;
@@ -316,14 +315,14 @@ export function useSurface(): UseSurfaceReturn {
         body: JSON.stringify({
           surfaceType: 'guide',
           action: 'generate_step',
-          targetIndex: stepIndex,
+          targetIndex: checkpointIndex,
           surfaceState: current.surfaceState,
           originalQuery,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate step');
+        throw new Error('Failed to generate checkpoint');
       }
 
       const data = await response.json() as { updatedState: SurfaceState };
@@ -337,7 +336,7 @@ export function useSurface(): UseSurfaceReturn {
         }
       }));
     } catch (error) {
-      console.error('[useSurface] Error generating step:', error);
+      console.error('[useSurface] Error generating checkpoint:', error);
       setMessageSurfaceStates(prev => ({
         ...prev,
         [messageId]: { ...prev[messageId], isGenerating: false }
@@ -345,16 +344,19 @@ export function useSurface(): UseSurfaceReturn {
     }
   }, [messageSurfaceStates]);
 
-  // Mark step complete
-  const markStepComplete = useCallback((messageId: string, stepIndex: number) => {
+  // Mark checkpoint complete
+  const markCheckpointComplete = useCallback((messageId: string, checkpointIndex: number) => {
     setMessageSurfaceStates(prev => {
       const current = prev[messageId];
       if (!current?.surfaceState?.guide) return prev;
 
-      const completedSteps = [...(current.surfaceState.guide.completedSteps || [])];
-      if (!completedSteps.includes(stepIndex)) {
-        completedSteps.push(stepIndex);
+      const completedCheckpoints = [...(current.surfaceState.guide.completedCheckpoints || [])];
+      if (!completedCheckpoints.includes(checkpointIndex)) {
+        completedCheckpoints.push(checkpointIndex);
       }
+      
+      const metadata = current.surfaceState.metadata as GuideMetadata;
+      const nextCheckpoint = Math.min(checkpointIndex + 1, metadata.checkpoints.length - 1);
 
       return {
         ...prev,
@@ -364,34 +366,8 @@ export function useSurface(): UseSurfaceReturn {
             ...current.surfaceState,
             guide: {
               ...current.surfaceState.guide,
-              completedSteps,
-            },
-          }
-        }
-      };
-    });
-  }, []);
-
-  // Skip step
-  const skipStep = useCallback((messageId: string, stepIndex: number) => {
-    setMessageSurfaceStates(prev => {
-      const current = prev[messageId];
-      if (!current?.surfaceState?.guide) return prev;
-
-      const skippedSteps = [...(current.surfaceState.guide.skippedSteps || [])];
-      if (!skippedSteps.includes(stepIndex)) {
-        skippedSteps.push(stepIndex);
-      }
-
-      return {
-        ...prev,
-        [messageId]: {
-          ...current,
-          surfaceState: {
-            ...current.surfaceState,
-            guide: {
-              ...current.surfaceState.guide,
-              skippedSteps,
+              completedCheckpoints,
+              currentCheckpoint: nextCheckpoint,
             },
           }
         }
@@ -405,8 +381,7 @@ export function useSurface(): UseSurfaceReturn {
     switchSurfaceVersion,
     generateChapterContent,
     markChapterComplete,
-    generateStepContent,
-    markStepComplete,
-    skipStep,
+    generateCheckpointContent,
+    markCheckpointComplete,
   };
 }

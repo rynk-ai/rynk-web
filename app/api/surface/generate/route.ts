@@ -755,92 +755,47 @@ TOPIC ANALYSIS:
 - Depth level: ${analysis.depth}
 ` : ''
 
-  const prompt = `You are a senior technical documentation expert creating the definitive guide for this task.
+  const prompt = `You are creating a sequential checklist guide for a specific task.
 
 TASK: "${query}"
 ${topicContext}
 ${webResearchContext}
 ${contextSection}
-Create a COMPREHENSIVE, FOOLPROOF guide that someone with zero prior experience can follow to achieve success. Think: What would a professional documentation writer at a top tech company create?
 
-Generate a guide structure as JSON:
+Create a checklist that breaks this task into clear, sequential checkpoints. Each checkpoint is a meaningful milestone with concrete substeps.
+
+Generate the checklist as JSON:
 {
-  "title": "Professional, clear title (e.g., 'Complete Guide to...', 'How to... From Start to Finish')",
-  "subtitle": "Clarifying subtitle with scope",
-  "description": "2-3 sentences explaining what this guide covers and what success looks like",
+  "title": "Clear, action-oriented title",
+  "description": "1-2 sentences explaining what this guide accomplishes",
   "difficulty": "beginner|intermediate|advanced",
-  "estimatedTime": <total minutes - be realistic, include potential troubleshooting time>,
-  "prerequisites": [
-    "Specific hardware/software requirement 1",
-    "Prior knowledge requirement",
-    "Account/access requirement"
-  ],
-  "toolsRequired": [
-    "Specific tool 1",
-    "Specific tool 2"
-  ],
-  "outcomes": [
-    "Specific outcome 1 - what will be working/completed",
-    "Specific outcome 2",
-    "Specific outcome 3"
-  ],
-  "safetyWarnings": ["Any data loss risks or irreversible actions to be aware of"],
-  "steps": [
+  "estimatedTime": <total minutes>,
+  "checkpoints": [
     {
-      "index": 0,
-      "title": "Clear, specific step title (start with strong action verb)",
-      "description": "1-2 sentences explaining what this step accomplishes",
-      "estimatedTime": <minutes>,
-      "category": "preparation|setup|configuration|action|verification|cleanup|optional",
+      "id": "cp1",
+      "title": "Action verb checkpoint title (e.g., 'Set up your environment')",
+      "description": "1-2 sentences explaining what this checkpoint accomplishes",
       "substeps": [
-        "Specific substep 1",
-        "Specific substep 2"
+        "Concrete action 1",
+        "Concrete action 2",
+        "Concrete action 3"
       ],
-      "criticalNotes": ["Important warnings or tips for this step"],
-      "successCriteria": "How to know this step was completed correctly"
+      "estimatedTime": <minutes>
     }
-  ],
-  "troubleshooting": [
-    {
-      "problem": "Common problem description",
-      "solution": "How to fix it"
-    }
-  ],
-  "nextSteps": ["What to do after completing this guide"]
+  ]
 }
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS:
+1. Create as many checkpoints as genuinely needed - do NOT pad or compress artificially
+2. Each checkpoint should be a meaningful milestone, not artificially split
+3. Substeps should be concrete, actionable items (3-6 per checkpoint)
+4. Use strong action verbs: "Install", "Configure", "Create", "Verify", "Test"
+5. Order checkpoints sequentially - each builds on the previous
+6. Include verification checkpoints where appropriate
 
-1. STEP COUNT: Create 10-15 steps. This is a COMPLETE guide, not a quick overview.
+Return ONLY valid JSON.`
 
-2. STEP STRUCTURE - Include these types:
-   - 1-2 PREPARATION steps (prerequisites check, environment setup)
-   - 2-3 SETUP steps (installations, configurations)
-   - 5-8 ACTION steps (the main work, broken into manageable chunks)
-   - 2-3 VERIFICATION steps (confirm things are working)
-   - 1 CLEANUP/FINALIZATION step
-
-3. SUBSTEPS: Each main step should have 2-5 specific substeps that break down the action.
-
-4. SAFETY: Always include warnings for:
-   - Data loss risks
-   - Breaking changes
-   - Irreversible actions
-   - Admin/sudo requirements
-
-5. VERIFICATION: After major milestones, include a verification step to confirm progress.
-
-6. TIME ESTIMATES:
-   - Preparation: 5-10 minutes
-   - Setup: 10-20 minutes per step
-   - Action: 5-15 minutes per step
-   - Verification: 2-5 minutes
-${webContext ? '\n7. USE THE RESEARCH DATA: Incorporate the current information provided above for accuracy.' : ''}
-Return ONLY valid JSON, no markdown or explanation.`
-
-  const systemPrompt = webContext 
-    ? 'You are a world-class technical documentation writer with access to current research data. Use the provided web search results to ensure your guide is accurate and up-to-date. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.'
-    : 'You are a world-class technical documentation writer who has created guides for companies like Google, Apple, and Stripe. Your guides are famous for being so clear that anyone can follow them successfully on the first try. You anticipate every possible confusion and address it proactively. You never skip steps or assume prior knowledge.'
+  const systemPrompt = 'You are a clear, practical guide writer. You break complex tasks into achievable checkpoints. Each checkpoint is a concrete milestone with actionable substeps. You never add filler - every checkpoint serves a purpose.'
 
   const response = await aiProvider.sendMessage({
     messages: [
@@ -868,17 +823,13 @@ Return ONLY valid JSON, no markdown or explanation.`
     // Fallback structure
     structure = {
       title: `How to ${query.slice(0, 40)}`,
-      description: 'Step-by-step instructions to complete this task',
+      description: 'Complete this task step by step',
       difficulty: 'intermediate',
       estimatedTime: 20,
-      prerequisites: [],
-      outcomes: ['Task completed successfully'],
-      steps: [
-        { index: 0, title: 'Gather prerequisites', estimatedTime: 3, category: 'setup' },
-        { index: 1, title: 'Set up your environment', estimatedTime: 5, category: 'setup' },
-        { index: 2, title: 'Perform the main task', estimatedTime: 7, category: 'action' },
-        { index: 3, title: 'Verify your work', estimatedTime: 3, category: 'verification' },
-        { index: 4, title: 'Final cleanup and next steps', estimatedTime: 2, category: 'action' },
+      checkpoints: [
+        { id: 'cp1', title: 'Get started', description: 'Initial setup', substeps: ['Prepare your environment'], estimatedTime: 5 },
+        { id: 'cp2', title: 'Complete the task', description: 'Main work', substeps: ['Follow the steps'], estimatedTime: 10 },
+        { id: 'cp3', title: 'Verify completion', description: 'Check your work', substeps: ['Test the result'], estimatedTime: 5 },
       ]
     }
   }
@@ -889,11 +840,13 @@ Return ONLY valid JSON, no markdown or explanation.`
     description: structure.description || '',
     difficulty: structure.difficulty || 'intermediate',
     estimatedTime: structure.estimatedTime || 15,
-    steps: (structure.steps || []).map((step: any, i: number) => ({
-      index: i,
-      title: step.title || `Step ${i + 1}`,
-      estimatedTime: step.estimatedTime || 3,
-      status: 'pending' as const,
+    checkpoints: (structure.checkpoints || []).map((cp: any, i: number) => ({
+      id: cp.id || `cp${i + 1}`,
+      title: cp.title || `Checkpoint ${i + 1}`,
+      description: cp.description || '',
+      substeps: cp.substeps || [],
+      estimatedTime: cp.estimatedTime || 5,
+      status: i === 0 ? 'current' as const : 'locked' as const,
     })),
   }
 
@@ -903,14 +856,13 @@ Return ONLY valid JSON, no markdown or explanation.`
     createdAt: Date.now(),
     updatedAt: Date.now(),
     guide: {
-      currentStep: 0,
-      completedSteps: [],
-      skippedSteps: [],
-      stepsContent: {},
-      questionsAsked: [],
+      currentCheckpoint: 0,
+      completedCheckpoints: [],
+      checkpointContent: {},
     },
   }
 }
+
 
 async function generateQuizStructure(
   aiProvider: any,
