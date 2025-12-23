@@ -289,12 +289,37 @@ export function WikiSkeleton() {
  */
 export function ComparisonSkeleton() {
   return (
-    <div className="max-w-5xl mx-auto animate-in fade-in duration-300">
+    <div className="max-w-6xl mx-auto animate-in fade-in duration-300">
       {/* Hero */}
-      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-10 p-8 text-center space-y-4">
-        <Skeleton className="h-10 w-10 mx-auto rounded-xl bg-muted dark:bg-muted/50" />
+      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8 p-8 md:p-10 text-center space-y-4">
+        <Skeleton className="h-12 w-12 mx-auto rounded-xl bg-muted dark:bg-muted/50" />
         <Skeleton className="h-9 w-2/3 mx-auto bg-muted dark:bg-muted/50" />
         <Skeleton className="h-5 w-1/2 mx-auto bg-muted dark:bg-muted/50" />
+        <div className="flex justify-center gap-4 pt-2">
+          <Skeleton className="h-8 w-24 rounded-full bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-8 w-24 rounded-full bg-muted dark:bg-muted/50" />
+        </div>
+      </div>
+
+      {/* Verdict Bar */}
+      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 mb-8">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-xl bg-muted dark:bg-muted/50" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-32 bg-muted dark:bg-muted/50" />
+            <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+          </div>
+        </div>
+      </div>
+
+      {/* Scenario Pills */}
+      <div className="mb-8">
+        <Skeleton className="h-4 w-40 mb-3 bg-muted dark:bg-muted/50" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-36 rounded-xl bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-10 w-32 rounded-xl bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-10 w-40 rounded-xl bg-muted dark:bg-muted/50" />
+        </div>
       </div>
 
       {/* Comparison Cards */}
@@ -316,6 +341,21 @@ export function ComparisonSkeleton() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Comparison Table */}
+      <div className="bg-card border border-border/30 rounded-2xl overflow-hidden">
+        <div className="p-6 border-b border-border/30 bg-muted/5">
+          <Skeleton className="h-6 w-48 bg-muted dark:bg-muted/50" />
+        </div>
+        <div className="p-6 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex gap-4">
+              <Skeleton className="h-5 w-1/4 bg-muted dark:bg-muted/50" />
+              <Skeleton className="h-5 w-2/3 bg-muted dark:bg-muted/50" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -268,9 +268,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 3: Fetch web data for wiki/guide surfaces if beneficial
+    // Step 3: Fetch web data for wiki/guide/comparison surfaces if beneficial
     let webContext: WebContext | undefined
-    if (analysis.needsWebSearch && (surfaceType === 'wiki' || surfaceType === 'guide')) {
+    if (analysis.needsWebSearch && ['wiki', 'guide', 'comparison'].includes(surfaceType)) {
       try {
         console.log(`🔍 [surface/generate] Fetching web data...`)
         const orchestrator = new SourceOrchestrator()
@@ -1094,18 +1094,34 @@ Create an EXHAUSTIVE, OBJECTIVE comparison that would help someone make a confid
 Generate a comparison as JSON:
 {
   "title": "Professional comparison title (e.g., 'X vs Y: Complete 2024 Comparison')",
-  "subtitle": "What decision this helps with",
   "description": "2-3 sentences explaining the scope and methodology of this comparison",
-  "lastUpdated": "When this comparison would be most accurate",
+  "lastUpdated": "December 2024",
   "targetAudience": "Who this comparison is for",
+  
+  "verdict": {
+    "winnerId": "item1",
+    "bottomLine": "1-2 sentence definitive answer for someone who just wants the recommendation",
+    "confidence": "high|medium|situational"
+  },
+  
+  "scenarios": [
+    {
+      "label": "Best for [use case]",
+      "itemId": "item1", 
+      "reason": "Why this is best for this scenario"
+    }
+  ],
+  
   "items": [
     {
       "id": "item1",
       "name": "Full, accurate name",
       "tagline": "What it's known for in one line",
       "description": "3-4 sentences comprehensive description",
+      "pricing": "Pricing structure or cost range",
       "idealFor": ["Specific use case 1", "Specific use case 2", "Specific use case 3"],
       "notIdealFor": ["When NOT to choose this"],
+      "uniqueFeatures": ["What sets this apart from alternatives"],
       "pros": [
         "Specific, data-backed advantage 1",
         "Specific advantage 2",
@@ -1118,74 +1134,50 @@ Generate a comparison as JSON:
         "Specific disadvantage 2",
         "Specific disadvantage 3"
       ],
-      "uniqueFeatures": ["What sets this apart from alternatives"],
-      "pricing": "Pricing structure or cost range",
-      "attributes": {
-        "Specific Metric 1": "Quantified value",
-        "Specific Metric 2": "Quantified value",
-        "Specific Feature": true/false
+      "scores": {
+        "criteria_id_1": 85,
+        "criteria_id_2": 70
       }
     }
   ],
+  
   "criteria": [
     {
+      "id": "criteria_id_1",
       "name": "Criteria name",
-      "weight": 0.0-1.0,
+      "weight": 0.8,
       "description": "Why this matters for the decision",
-      "howMeasured": "How we evaluate this criterion"
+      "category": "performance|features|pricing|usability|support|other",
+      "winnerId": "item1 or 'tie'",
+      "analysis": "2-3 sentences comparing all items on this criterion"
     }
   ],
-  "detailedComparison": [
-    {
-      "criterion": "Criterion name",
-      "analysis": "2-3 sentences comparing all items on this criterion",
-      "winner": "item_id or 'tie'"
-    }
-  ],
+  
   "recommendation": {
-    "overallWinner": "item_id for most users",
-    "reason": "3-4 sentences explaining why",
-    "caveats": "Important limitations of this recommendation"
-  },
-  "scenarioGuide": [
-    {
-      "scenario": "If you are a [specific user type/need]...",
-      "recommendation": "item_id",
-      "reason": "Why this is best for this scenario"
-    }
-  ],
-  "bottomLine": "1-2 sentence definitive summary for someone who just wants the answer"
+    "itemId": "item_id for most users",
+    "reason": "3-4 sentences explaining why"
+  }
 }
 
 CRITICAL REQUIREMENTS:
 
 1. ITEM DEPTH: Each item should have 5+ pros and 3+ cons. Be SPECIFIC and HONEST.
 
-2. CRITERIA: Include 8-10 comparison criteria covering:
+2. CRITERIA: Include 6-8 comparison criteria with unique IDs covering:
    - Core functionality/features
    - Performance/speed/quality
    - Ease of use/learning curve
    - Pricing/value
    - Support/community
    - Scalability/future-proofing
-   - Integration/compatibility
-   - Specific domain requirements
 
-3. OBJECTIVITY:
-   - Present facts, not opinions
-   - Acknowledge trade-offs honestly
-   - Note where each option genuinely excels
-   - Don't artificially favor any option
+3. SCORES: Each item gets a 0-100 score per criterion ID.
 
-4. ACTIONABILITY:
-   - Provide clear scenarios for different user needs
-   - Make the "winner" conditional on use case
-   - Include a bottom-line summary
+4. WINNERS: Each criterion has a winnerId matching the item that scores highest.
 
-5. DATA:
-   - Include specific metrics where possible
-   - Use real pricing (or realistic estimates)
-   - Reference specific features, not vague claims
+5. SCENARIOS: Provide 2-4 scenario recommendations (e.g., "Best for beginners", "Best value", "Best for enterprise").
+
+6. VERDICT: Clear winner with confidence level and bottom line summary.
 
 Return ONLY valid JSON, no markdown or explanation.`
 
@@ -1214,11 +1206,13 @@ Return ONLY valid JSON, no markdown or explanation.`
     structure = {
       title: `Comparison: ${query.slice(0, 40)}`,
       description: 'Side-by-side analysis',
+      verdict: { winnerId: 'item1', bottomLine: 'See detailed comparison below.', confidence: 'medium' },
+      scenarios: [],
       items: [
-        { id: 'item1', name: 'Option A', description: 'First option', pros: ['Pro 1'], cons: ['Con 1'], attributes: {} },
-        { id: 'item2', name: 'Option B', description: 'Second option', pros: ['Pro 1'], cons: ['Con 1'], attributes: {} }
+        { id: 'item1', name: 'Option A', description: 'First option', pros: ['Pro 1'], cons: ['Con 1'], scores: {} },
+        { id: 'item2', name: 'Option B', description: 'Second option', pros: ['Pro 1'], cons: ['Con 1'], scores: {} }
       ],
-      criteria: [{ name: 'Overall', weight: 1, description: 'General assessment' }]
+      criteria: [{ id: 'overall', name: 'Overall', weight: 1, description: 'General assessment', category: 'other' }]
     }
   }
 
@@ -1226,9 +1220,43 @@ Return ONLY valid JSON, no markdown or explanation.`
     type: 'comparison',
     title: structure.title || 'Comparison',
     description: structure.description || '',
-    items: structure.items || [],
-    criteria: structure.criteria || [],
-    recommendation: structure.recommendation,
+    lastUpdated: structure.lastUpdated,
+    targetAudience: structure.targetAudience,
+    verdict: structure.verdict ? {
+      winnerId: structure.verdict.winnerId,
+      bottomLine: structure.verdict.bottomLine,
+      confidence: structure.verdict.confidence || 'medium'
+    } : undefined,
+    scenarios: (structure.scenarios || []).map((s: any) => ({
+      label: s.label,
+      itemId: s.itemId,
+      reason: s.reason
+    })),
+    items: (structure.items || []).map((item: any, i: number) => ({
+      id: item.id || `item${i + 1}`,
+      name: item.name || `Item ${i + 1}`,
+      tagline: item.tagline,
+      description: item.description || '',
+      pricing: item.pricing,
+      idealFor: item.idealFor || [],
+      notIdealFor: item.notIdealFor || [],
+      uniqueFeatures: item.uniqueFeatures || [],
+      pros: item.pros || [],
+      cons: item.cons || []
+    })),
+    criteria: (structure.criteria || []).map((c: any, i: number) => ({
+      id: c.id || `criterion${i + 1}`,
+      name: c.name || `Criterion ${i + 1}`,
+      weight: c.weight || 0.5,
+      description: c.description,
+      category: c.category || 'other',
+      winnerId: c.winnerId,
+      analysis: c.analysis
+    })),
+    recommendation: structure.recommendation ? {
+      itemId: structure.recommendation.itemId || structure.recommendation.overallWinner,
+      reason: structure.recommendation.reason
+    } : undefined
   }
 
   return {

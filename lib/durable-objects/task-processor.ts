@@ -395,9 +395,9 @@ class TaskProcessor implements DurableObject {
     const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'comparison']
     const useProgressiveGeneration = PROGRESSIVE_SURFACES.includes(surfaceType)
     
-    // WIKI & TIMELINE: Fetch web context FIRST so skeleton can be informed by sources
+    // WIKI, TIMELINE, COMPARISON: Fetch web context FIRST so skeleton can be informed by sources
     let webContext: any = undefined
-    if (['wiki', 'timeline'].includes(surfaceType)) {
+    if (['wiki', 'timeline', 'comparison'].includes(surfaceType)) {
       onProgress({ current: 1, total: 5, message: 'Researching topic...', step: 'research' })
       webContext = await this.fetchWebContext(query, { suggestedQueries: [query] })
       console.log(`[TaskProcessor] ${surfaceType} web context fetched: ${webContext?.keyFacts?.length || 0} facts, ${webContext?.citations?.length || 0} citations`)
@@ -447,9 +447,17 @@ class TaskProcessor implements DurableObject {
       // Pass webContext for wiki surface to include web research in section generation
       surfaceState = await this.generateSectionsParallel(skeleton, query, surfaceType, jobId, onProgress, webContext)
       
-      // Add web context citations to surfaceState for wiki surface
-      if (surfaceType === 'wiki' && webContext?.citations?.length > 0) {
-        surfaceState.citations = webContext.citations
+      // Add web context citations to surfaceState for wiki and comparison surfaces
+      if (['wiki', 'comparison'].includes(surfaceType) && webContext?.citations?.length > 0) {
+        if (surfaceType === 'comparison') {
+          surfaceState.metadata.sources = webContext.citations.slice(0, 8).map((c: any) => ({
+            url: c.url,
+            title: c.title,
+            snippet: c.snippet
+          }))
+        } else {
+          surfaceState.citations = webContext.citations
+        }
       }
     } else {
       // FALLBACK: Generate full surface structure (main LLM call)
@@ -2388,28 +2396,48 @@ Return ONLY valid JSON.`
 
       case 'comparison':
         return {
-          systemPrompt: 'You are a senior industry analyst known for creating the definitive comparisons in your field. Your analysis is so thorough and fair that both vendors and buyers trust it. You never oversimplify, never show bias, and always provide actionable recommendations with clear reasoning. Your comparisons help people make decisions they won\'t regret.',
+          systemPrompt: webContext 
+            ? 'You are a senior industry analyst with access to current market research data. Use the provided web search results to ensure your comparison contains accurate, up-to-date pricing, features, and specifications. Your analysis is so thorough and fair that both vendors and buyers trust it. You never oversimplify, never show bias, and always provide actionable recommendations with clear reasoning.'
+            : 'You are a senior industry analyst known for creating the definitive comparisons in your field. Your analysis is so thorough and fair that both vendors and buyers trust it. You never oversimplify, never show bias, and always provide actionable recommendations with clear reasoning. Your comparisons help people make decisions they won\'t regret.',
           userPrompt: `You are a senior research analyst creating a definitive comparison report.
 
 TOPIC: "${query}"
 ${topicContext}
-Create an EXHAUSTIVE, OBJECTIVE comparison that would help someone make a confident, well-informed decision. This should feel like a professional analyst's report.
+${webResearchContext}
+${realReferences}
+Create an EXHAUSTIVE, OBJECTIVE comparison that would help someone make a confident, well-informed decision. This should feel like a professional analyst's report. ${webContext ? 'USE THE PROVIDED RESEARCH DATA for accurate pricing, features, and current information.' : ''}
 
 Generate a comparison as JSON:
 {
   "title": "Professional comparison title (e.g., 'X vs Y: Complete 2024 Comparison')",
-  "subtitle": "What decision this helps with",
   "description": "2-3 sentences explaining the scope and methodology of this comparison",
-  "lastUpdated": "When this comparison would be most accurate",
+  "lastUpdated": "December 2024",
   "targetAudience": "Who this comparison is for",
+  
+  "verdict": {
+    "winnerId": "item1",
+    "bottomLine": "1-2 sentence definitive answer for someone who just wants the recommendation",
+    "confidence": "high|medium|situational"
+  },
+  
+  "scenarios": [
+    {
+      "label": "Best for [use case]",
+      "itemId": "item1",
+      "reason": "Why this is best for this scenario"
+    }
+  ],
+  
   "items": [
     {
       "id": "item1",
       "name": "Full, accurate name",
       "tagline": "What it's known for in one line",
       "description": "3-4 sentences comprehensive description",
+      "pricing": "Pricing structure or cost range",
       "idealFor": ["Specific use case 1", "Specific use case 2", "Specific use case 3"],
       "notIdealFor": ["When NOT to choose this"],
+      "uniqueFeatures": ["What sets this apart from alternatives"],
       "pros": [
         "Specific, data-backed advantage 1",
         "Specific advantage 2",
@@ -2422,46 +2450,38 @@ Generate a comparison as JSON:
         "Specific disadvantage 2",
         "Specific disadvantage 3"
       ],
-      "uniqueFeatures": ["What sets this apart from alternatives"],
-      "pricing": "Pricing structure or cost range",
-      "attributes": {
-        "Specific Metric 1": "Quantified value",
-        "Specific Metric 2": "Quantified value",
-        "Specific Feature": true
+      "scores": {
+        "criteria_id_1": 85,
+        "criteria_id_2": 70
       }
     }
   ],
+  
   "criteria": [
     {
+      "id": "criteria_id_1",
       "name": "Criteria name",
-      "weight": 0.0-1.0,
+      "weight": 0.8,
       "description": "Why this matters for the decision",
-      "howMeasured": "How we evaluate this criterion"
+      "category": "performance|features|pricing|usability|support|other",
+      "winnerId": "item1 or 'tie'",
+      "analysis": "2-3 sentences comparing all items on this criterion"
     }
   ],
-  "detailedComparison": [
-    {
-      "criterion": "Criterion name",
-      "analysis": "2-3 sentences comparing all items on this criterion",
-      "winner": "item_id or 'tie'"
-    }
-  ],
+  
   "recommendation": {
-    "overallWinner": "item_id for most users",
-    "reason": "3-4 sentences explaining why",
-    "caveats": "Important limitations of this recommendation"
-  },
-  "scenarioGuide": [
-    {
-      "scenario": "If you are a [specific user type/need]...",
-      "recommendation": "item_id",
-      "reason": "Why this is best for this scenario"
-    }
-  ],
-  "bottomLine": "1-2 sentence definitive summary for someone who just wants the answer"
+    "itemId": "item_id for most users",
+    "reason": "3-4 sentences explaining why"
+  }
 }
 
-REQUIREMENTS: 5+ pros/3+ cons per item. 8-10 criteria (features, performance, pricing, usability, support, scalability). Be objective, provide use-case recommendations.
+REQUIREMENTS:
+1. ITEMS: 5+ pros/3+ cons per item. Include pricing and tagline.
+2. CRITERIA: 6-8 criteria covering: features, performance, pricing, usability, support, scalability.
+3. SCORES: Each item gets 0-100 score per criterion.
+4. WINNERS: Each criterion has a winnerId (or "tie").
+5. SCENARIOS: Provide 2-4 scenario recommendations (e.g., "Best for beginners", "Best value").
+6. VERDICT: Clear winner with confidence level.
 
 Return ONLY valid JSON.`
         }
@@ -2756,8 +2776,44 @@ Return JSON with appropriate structure for the topic.`
             type: 'comparison',
             title: structure.title || 'Comparison',
             description: structure.description || '',
-            items: structure.items || [],
-            criteria: structure.criteria || []
+            lastUpdated: structure.lastUpdated,
+            targetAudience: structure.targetAudience,
+            verdict: structure.verdict ? {
+              winnerId: structure.verdict.winnerId,
+              bottomLine: structure.verdict.bottomLine,
+              confidence: structure.verdict.confidence || 'medium'
+            } : undefined,
+            scenarios: (structure.scenarios || []).map((s: any) => ({
+              label: s.label,
+              itemId: s.itemId,
+              reason: s.reason
+            })),
+            items: (structure.items || []).map((item: any, i: number) => ({
+              id: item.id || `item${i + 1}`,
+              name: item.name || `Item ${i + 1}`,
+              tagline: item.tagline,
+              description: item.description || '',
+              pricing: item.pricing,
+              idealFor: item.idealFor || [],
+              notIdealFor: item.notIdealFor || [],
+              uniqueFeatures: item.uniqueFeatures || [],
+              pros: item.pros || [],
+              cons: item.cons || [],
+              scores: item.scores || {}
+            })),
+            criteria: (structure.criteria || []).map((c: any, i: number) => ({
+              id: c.id || `criterion${i + 1}`,
+              name: c.name || `Criterion ${i + 1}`,
+              weight: c.weight || 0.5,
+              description: c.description,
+              category: c.category || 'other',
+              winnerId: c.winnerId,
+              analysis: c.analysis
+            })),
+            recommendation: structure.recommendation ? {
+              itemId: structure.recommendation.itemId || structure.recommendation.overallWinner,
+              reason: structure.recommendation.reason
+            } : undefined
           },
           comparison: {
             selectedItems: [],

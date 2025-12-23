@@ -383,29 +383,64 @@ export interface QuizMetadata {
 }
 
 /**
- * Metadata for Comparison surface
+ * Metadata for Comparison surface - Decision Dashboard Style
  */
 export interface ComparisonMetadata {
   type: 'comparison'
   title: string
   description: string
+  lastUpdated?: string
+  targetAudience?: string
+  
+  // Quick verdict section - visible at top
+  verdict?: {
+    winnerId: string
+    bottomLine: string  // 1-2 sentence summary
+    confidence: 'high' | 'medium' | 'situational'
+  }
+  
+  // Scenario-based recommendations ("Best for X")
+  scenarios?: {
+    label: string        // e.g. "Best for startups", "Best value"
+    itemId: string
+    reason: string
+  }[]
+  
   items: {
     id: string
     name: string
+    tagline?: string     // What it's known for
     description: string
+    pricing?: string     // Price or pricing model
+    idealFor?: string[]  // Who should choose this
+    notIdealFor?: string[]  // When not to choose this
+    uniqueFeatures?: string[]  // What sets it apart
     pros: string[]
     cons: string[]
-    attributes: Record<string, string | number | boolean>
+    scores?: Record<string, number>  // criterionId -> 0-100
   }[]
+  
   criteria: {
+    id: string
     name: string
     weight: number  // 0-1 importance
     description?: string
+    category?: 'pricing' | 'performance' | 'features' | 'usability' | 'support' | 'other'
+    winnerId?: string | 'tie'  // Which item wins on this criterion
+    analysis?: string  // 2-3 sentences comparing on this criterion
   }[]
+  
   recommendation?: {
     itemId: string
     reason: string
   }
+  
+  // Web search sources
+  sources?: {
+    url: string
+    title: string
+    snippet?: string
+  }[]
 }
 
 /**
