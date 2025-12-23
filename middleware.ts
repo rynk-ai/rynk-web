@@ -23,7 +23,11 @@ export async function middleware(request: NextRequest) {
 
   // Route ALL unauthenticated users from /chat to /guest-chat
   if (request.nextUrl.pathname.startsWith("/chat") && !session?.user) {
-    return NextResponse.redirect(new URL("/guest-chat", request.url))
+    const url = new URL("/guest-chat", request.url)
+    request.nextUrl.searchParams.forEach((value, key) => {
+      url.searchParams.set(key, value)
+    })
+    return NextResponse.redirect(url)
   }
 
   // Redirect /login to /chat if already authenticated

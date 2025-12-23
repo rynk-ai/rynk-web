@@ -728,6 +728,44 @@ const GuestChatContent = memo(function GuestChatContent({
     ]
   );
 
+  // Handle pending query from URL params (?q=...) or localStorage
+  useEffect(() => {
+    // Check if we've already processed a query in this session
+    const alreadyProcessed = sessionStorage.getItem("pendingQueryProcessed");
+    if (alreadyProcessed || isSending) return;
+
+    // First check URL query parameter
+    const urlQuery = searchParams.get("q");
+
+    // Then check localStorage
+    const localStorageQuery = localStorage.getItem("pendingChatQuery");
+
+    // Use URL param if available, otherwise fall back to localStorage
+    const pendingQuery = urlQuery || localStorageQuery;
+
+    if (!pendingQuery || !pendingQuery.trim()) {
+      return;
+    }
+
+    // Mark as processed
+    sessionStorage.setItem("pendingQueryProcessed", "true");
+
+    // Submit after a small delay
+    setTimeout(() => {
+      handleSubmit(pendingQuery, []);
+
+      // Cleanup
+      if (localStorageQuery) localStorage.removeItem("pendingChatQuery");
+      if (urlQuery) {
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.delete("q");
+        router.replace(`/guest-chat?${newParams.toString()}`);
+      }
+
+      sessionStorage.removeItem("pendingQueryProcessed");
+    }, 100);
+  }, [searchParams, router, handleSubmit, isSending]);
+
   const isLoading = isSending || contextIsLoading;
 
   return (

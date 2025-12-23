@@ -9,14 +9,14 @@ export function LandingBottomCTA() {
   const router = useRouter();
 
   return (
-    <section className="py-32 relative overflow-hidden bg-neutral-950 text-white">
-      {/* Star Field Background Effect */}
+    <section className="py-20 relative overflow-hidden bg-neutral-950 text-white">
+      {/* Star Field Background Effect - subtle */}
       <div className="absolute inset-0 opacity-20">
-         <div className="absolute top-[10%] left-[20%] w-1 h-1 bg-white rounded-full animate-pulse" />
-         <div className="absolute top-[30%] right-[20%] w-1.5 h-1.5 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-         <div className="absolute bottom-[20%] left-[40%] w-1 h-1 bg-white rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-         <div className="absolute top-[50%] right-[40%] w-1 h-1 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 to-transparent" />
+         <div className="absolute top-[10%] left-[20%] w-0.5 h-0.5 bg-white rounded-full animate-pulse" />
+         <div className="absolute top-[30%] right-[20%] w-1 h-1 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+         <div className="absolute bottom-[20%] left-[40%] w-0.5 h-0.5 bg-white rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+         <div className="absolute top-[50%] right-[40%] w-0.5 h-0.5 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/5 to-transparent" />
       </div>
 
       <div className="container px-4 mx-auto relative z-10 text-center">
@@ -26,16 +26,16 @@ export function LandingBottomCTA() {
            viewport={{ once: true }}
            transition={{ duration: 0.8 }}
         >
-            <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-8 text-white">
+            <h2 className="text-4xl md:text-5xl font-bold font-display tracking-tighter mb-8 text-white">
               Modern research <br/>
-              <span className="text-white/70">for everyone.</span>
+              <span className="text-white/60">for everyone.</span>
             </h2>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button 
                     size="lg" 
                     onClick={() => router.push('/chat')}
-                    className="h-12 px-8 rounded-full bg-white text-black hover:bg-white/90 text-base font-medium"
+                    className="h-11 px-8 rounded-full bg-white text-black hover:bg-white/90 text-sm font-medium tracking-tight"
                 >
                     Start for free
                     <PiArrowRight className="ml-2 h-4 w-4" />
@@ -44,13 +44,13 @@ export function LandingBottomCTA() {
                 <Button 
                     size="lg" 
                     variant="outline"
-              className="h-12 px-8 rounded-full border-white/20 text-white hover:bg-white/10 hover:text-white bg-transparent"
+                    className="h-11 px-8 rounded-full border-white/20 text-white hover:bg-white/10 hover:text-white bg-transparent text-sm font-medium tracking-tight"
                 >
                     See the demo
                 </Button>
             </div>
             
-            <p className="mt-8 text-sm text-white/40">
+            <p className="mt-8 text-xs text-white/40 font-medium">
                 No credit card required. Up to 100 searches/month free.
             </p>
         </motion.div>
