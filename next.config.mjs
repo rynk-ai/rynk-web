@@ -7,8 +7,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Externalize large packages from server bundle
-  serverExternalPackages: ['mermaid'],
+  // External packages (no longer needed - all large deps removed)
+  // serverExternalPackages: [],
   experimental: {
     serverActions: {
       bodySizeLimit: '100mb',

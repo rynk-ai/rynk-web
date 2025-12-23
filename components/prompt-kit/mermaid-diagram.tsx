@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useId } from 'react'
+import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { PiCopy, PiCheck, PiWarningCircle, PiArrowsOut, PiX } from "react-icons/pi"
 
@@ -9,111 +9,67 @@ interface MermaidDiagramProps {
   className?: string
 }
 
+// Generate mermaid image URL from code (using self-hosted renderer)
+function getMermaidImageUrl(code: string, theme: 'dark' | 'light' = 'dark'): string {
+  // Encode the mermaid code to base64
+  const encoded = btoa(unescape(encodeURIComponent(code)))
+  // Use self-hosted mermaid renderer (fallback to public mermaid.ink if needed)
+  return `https://mermaid.rynk.io/img/${encoded}?theme=${theme}&bgColor=transparent`
+}
+
 export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
-  const uniqueId = useId().replace(/:/g, '')
-
-  useEffect(() => {
-    async function renderDiagram() {
-      if (!code.trim()) {
-        setError('Empty diagram code')
-        return
-      }
-
-      try {
-        // Dynamically import mermaid to avoid SSR issues
-        const mermaid = (await import('mermaid')).default
-        
-        // Initialize mermaid with dark theme
-        mermaid.initialize({
-          startOnLoad: false,
-          suppressErrorRendering: true, // Prevent mermaid from inserting error messages into DOM
-          theme: 'dark',
-          securityLevel: 'loose',
-          fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-          themeVariables: {
-            primaryColor: '#3b82f6',
-            primaryTextColor: '#f1f5f9',
-            primaryBorderColor: '#3b82f6',
-            lineColor: '#64748b',
-            secondaryColor: '#1e293b',
-            tertiaryColor: '#0f172a',
-            background: '#020617',
-            mainBkg: '#1e293b',
-            nodeBorder: '#3b82f6',
-            clusterBkg: '#1e293b',
-            clusterBorder: '#334155',
-            titleColor: '#f1f5f9',
-            edgeLabelBackground: '#1e293b',
-          }
-        })
-
-        // Render the diagram
-        const { svg: renderedSvg } = await mermaid.render(`mermaid-${uniqueId}`, code)
-        setSvg(renderedSvg)
-        setError(null)
-      } catch (err) {
-        console.error('Mermaid rendering error:', err)
-        setError(err instanceof Error ? err.message : 'Failed to render diagram')
-        setSvg(null)
-      }
-    }
-
-    renderDiagram()
-  }, [code, uniqueId])
+  const [imageLoaded, setImageLoaded] = useState(false)
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
-  // Error state - hide errors completely
+  const imageUrl = getMermaidImageUrl(code.trim())
+
+  // Error state
   if (error) {
-    return null
-  }
-
-  // Loading state
-  if (!svg) {
     return (
-      <div className={cn("my-4 rounded-lg border border-blue-500/30 bg-blue-950/20 overflow-hidden", className)}>
-        <div className="flex items-center justify-between px-4 py-2 bg-blue-950/40 border-b border-blue-500/30">
-          <span className="text-xs font-medium text-blue-400 uppercase tracking-wide flex items-center gap-2">
-            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-              <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-            </svg>
-            Rendering diagram...
-          </span>
+      <div className={cn("my-4 rounded-lg border border-red-500/30 bg-red-900/20 p-4", className)}>
+        <div className="flex items-start gap-2 text-red-400">
+          <PiWarningCircle className="h-5 w-5 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium">Failed to render diagram</p>
+            <p className="text-sm mt-1 text-red-400/80">{error}</p>
+          </div>
         </div>
-        <div className="p-8 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-        </div>
+        <button
+          onClick={handleCopy}
+          className="mt-3 text-xs text-red-400/60 hover:text-red-400 transition-colors"
+        >
+          Copy code to debug
+        </button>
       </div>
     )
   }
 
-  // Expanded modal view - use portal to escape parent stacking contexts
-  if (isExpanded && typeof document !== 'undefined') {
-    const { createPortal } = require('react-dom')
-    
+  // Expanded modal view
+  if (isExpanded) {
     const modal = (
       <div 
-        className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+        className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
         onClick={() => setIsExpanded(false)}
-        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
       >
-        {/* Modal */}
         <div 
-          className="relative bg-zinc-900 rounded-lg border border-zinc-700 w-[90vw] h-[90vh] flex flex-col shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
+          className="relative w-full h-full max-w-6xl max-h-[90vh] bg-zinc-900 rounded-xl border border-zinc-700 overflow-hidden flex flex-col"
+          onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-zinc-900 border-b border-zinc-700">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700 bg-zinc-800/50">
             <span className="text-sm font-medium text-zinc-300">Mermaid Diagram</span>
             <div className="flex items-center gap-2">
               <button
@@ -132,18 +88,22 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
               </button>
             </div>
           </div>
-          {/* Diagram - scrollable vertically only */}
-          <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden p-6 flex items-start justify-center bg-zinc-900"
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
+          {/* Diagram - full size */}
+          <div className="flex-1 overflow-auto p-8 flex items-center justify-center bg-zinc-950">
+            <img 
+              src={imageUrl}
+              alt="Mermaid Diagram"
+              className="max-w-full max-h-full object-contain"
+              onError={() => setError('Failed to load diagram from mermaid.ink')}
+            />
+          </div>
         </div>
       </div>
     )
 
     return (
       <>
-        {createPortal(modal, document.body)}
+        {modal}
         {/* Placeholder in document flow */}
         <div className={cn("my-4 rounded-lg border border-gray-500/30 bg-gray-900/80 p-4 text-center text-gray-400", className)}>
           <PiArrowsOut className="w-5 h-5 mx-auto mb-2 opacity-50" />
@@ -153,38 +113,48 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
     )
   }
 
-  // Normal rendered state
+  // Normal view
   return (
-    <div className={cn("my-4 rounded-lg border border-gray-500/30 bg-gray-900/80 overflow-hidden", className)}>
-      {/* Header */}
-      <div className="absolute right-0 flex items-center justify-between px-4 py-2 ">
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide flex items-center gap-2">
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            className="h-6 w-6 p-0 flex items-center justify-center rounded-md bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
-            onClick={() => setIsExpanded(true)}
-            aria-label="Expand diagram"
-            title="Expand"
-          >
-            <PiArrowsOut className="h-4 w-4" />
-          </button>
-          <button
-            className="h-6 w-6 p-0 flex items-center justify-center rounded-md bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
-            onClick={handleCopy}
-            aria-label="Copy code"
-            title="Copy code"
-          >
-            {copied ? <PiCheck className="h-4 w-4 text-emerald-400" /> : <PiCopy className="h-4 w-4" />}
-          </button>
-        </div>
+    <div className={cn("my-4 rounded-lg border border-zinc-700/50 bg-zinc-900/80 overflow-hidden group relative", className)}>
+      {/* Toolbar */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          className="h-6 w-6 p-0 flex items-center justify-center rounded-md bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
+          onClick={() => setIsExpanded(true)}
+          aria-label="Expand diagram"
+          title="Expand"
+        >
+          <PiArrowsOut className="h-4 w-4" />
+        </button>
+        <button
+          className="h-6 w-6 p-0 flex items-center justify-center rounded-md bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
+          onClick={handleCopy}
+          aria-label="Copy code"
+          title="Copy code"
+        >
+          {copied ? <PiCheck className="h-4 w-4 text-emerald-400" /> : <PiCopy className="h-4 w-4" />}
+        </button>
       </div>
       {/* Diagram */}
       <div 
         ref={containerRef}
-        className="pt-10 pb-4 overflow-x-auto flex items-center justify-center [&_svg]:max-w-full"
-        dangerouslySetInnerHTML={{ __html: svg }}
-      />
+        className="pt-10 pb-4 overflow-x-auto flex items-center justify-center min-h-[150px]"
+      >
+        {!imageLoaded && (
+          <div className="text-zinc-500 text-sm">Loading diagram...</div>
+        )}
+        <img 
+          src={imageUrl}
+          alt="Mermaid Diagram"
+          className={cn(
+            "max-w-full object-contain transition-opacity",
+            imageLoaded ? "opacity-100" : "opacity-0"
+          )}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setError('Failed to load diagram from mermaid.ink')}
+          style={{ minHeight: imageLoaded ? 'auto' : 0 }}
+        />
+      </div>
     </div>
   )
 }

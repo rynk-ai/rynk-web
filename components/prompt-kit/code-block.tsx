@@ -1,21 +1,10 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import React, { useEffect, useState, useRef } from "react"
+import React from "react"
 
-// Import Prism core and languages we need
-import Prism from "prismjs"
-// Import languages (order matters for dependencies)
-import "prismjs/components/prism-javascript"
-import "prismjs/components/prism-typescript"
-import "prismjs/components/prism-jsx"
-import "prismjs/components/prism-tsx"
-import "prismjs/components/prism-css"
-import "prismjs/components/prism-json"
-import "prismjs/components/prism-markdown"
-import "prismjs/components/prism-python"
-import "prismjs/components/prism-bash"
-import "prismjs/components/prism-sql"
+// Simple code block component - no syntax highlighting to minimize bundle size
+// Cloudflare Workers free tier has 3MB limit
 
 export type CodeBlockProps = {
   children?: React.ReactNode
@@ -49,52 +38,6 @@ function CodeBlockCode({
   className,
   ...props
 }: CodeBlockCodeProps) {
-  const codeRef = useRef<HTMLElement>(null)
-  const [highlighted, setHighlighted] = useState(false)
-
-  // Normalize language aliases
-  const normalizeLanguage = (lang: string): string => {
-    const aliases: Record<string, string> = {
-      'sh': 'bash',
-      'shell': 'bash',
-      'ts': 'typescript',
-      'js': 'javascript',
-      'text': 'plaintext',
-      'txt': 'plaintext',
-      'plaintext': 'plaintext',
-    }
-    return aliases[lang.toLowerCase()] || lang.toLowerCase()
-  }
-
-  const normalizedLang = normalizeLanguage(language)
-  
-  // Check if language is supported by Prism
-  const supportedLanguages = ['javascript', 'typescript', 'jsx', 'tsx', 'css', 'json', 'markdown', 'python', 'bash', 'sql', 'html', 'plaintext']
-  const langToUse = supportedLanguages.includes(normalizedLang) ? normalizedLang : 'plaintext'
-
-  useEffect(() => {
-    if (codeRef.current && code) {
-      // For plaintext, just show as-is
-      if (langToUse === 'plaintext') {
-        setHighlighted(true)
-        return
-      }
-      
-      // Use Prism to highlight
-      try {
-        const grammar = Prism.languages[langToUse]
-        if (grammar) {
-          const html = Prism.highlight(code, grammar, langToUse)
-          codeRef.current.innerHTML = html
-        }
-        setHighlighted(true)
-      } catch (err) {
-        console.error("Prism highlighting error:", err)
-        setHighlighted(true)
-      }
-    }
-  }, [code, langToUse])
-
   const classNames = cn(
     "w-full overflow-x-auto text-[13px] leading-relaxed",
     className
@@ -103,11 +46,8 @@ function CodeBlockCode({
   return (
     <div className={classNames} {...props}>
       <pre className="px-4 py-5 bg-transparent overflow-x-auto">
-        <code 
-          ref={codeRef}
-          className={`language-${langToUse} block`}
-        >
-          {!highlighted && code}
+        <code className={`language-${language} block text-zinc-300`}>
+          {code}
         </code>
       </pre>
     </div>

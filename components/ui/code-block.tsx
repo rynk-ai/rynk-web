@@ -1,16 +1,9 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import React, { useEffect, useRef, useState } from "react"
+import React from "react"
 
-// Import Prism core and languages we need
-import Prism from "prismjs"
-import "prismjs/components/prism-javascript"
-import "prismjs/components/prism-typescript"
-import "prismjs/components/prism-jsx"
-import "prismjs/components/prism-tsx"
-import "prismjs/components/prism-css"
-import "prismjs/components/prism-json"
+// Simple code block without syntax highlighting to minimize bundle size
 
 export type CodeBlockProps = {
   children?: React.ReactNode
@@ -53,30 +46,6 @@ function CodeBlockCode({
   className,
   ...props
 }: CodeBlockCodeProps) {
-  const codeRef = useRef<HTMLElement>(null)
-  const [highlighted, setHighlighted] = useState(false)
-
-  const supportedLanguages = ['javascript', 'typescript', 'jsx', 'tsx', 'css', 'json', 'html']
-  const langToUse = supportedLanguages.includes(language.toLowerCase()) ? language.toLowerCase() : 'plaintext'
-
-  useEffect(() => {
-    if (codeRef.current && code && langToUse !== 'plaintext') {
-      try {
-        const grammar = Prism.languages[langToUse]
-        if (grammar) {
-          const html = Prism.highlight(code, grammar, langToUse)
-          codeRef.current.innerHTML = html
-        }
-        setHighlighted(true)
-      } catch (err) {
-        console.error("Prism error:", err)
-        setHighlighted(true)
-      }
-    } else {
-      setHighlighted(true)
-    }
-  }, [code, langToUse])
-
   const classNames = cn(
     "w-full overflow-x-auto text-[13px] [&>pre]:px-4 [&>pre]:py-4",
     className
@@ -85,8 +54,8 @@ function CodeBlockCode({
   return (
     <div className={classNames} {...props}>
       <pre>
-        <code ref={codeRef} className={`language-${langToUse}`}>
-          {!highlighted && code}
+        <code className={`language-${language} text-zinc-300`}>
+          {code}
         </code>
       </pre>
     </div>
