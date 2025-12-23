@@ -2209,16 +2209,33 @@ TOPIC ANALYSIS:
     // Build web research context (matching sync route exactly)
     let webResearchContext = ''
     let realReferences = ''
-    if (webContext && webContext.keyFacts?.length > 0) {
-      webResearchContext = `
+    // Check for any web data available - keyFacts, summary, or citations
+    if (webContext && (webContext.keyFacts?.length > 0 || webContext.summary || webContext.citations?.length > 0)) {
+      // Include web research summary for LLM context
+      if (webContext.summary) {
+        webResearchContext = `
 
-CURRENT RESEARCH DATA (use this information to enhance accuracy):
-${webContext.summary?.substring(0, 3000) || ''}
+CURRENT RESEARCH DATA (use this information for accurate, up-to-date facts):
+${webContext.summary.substring(0, 4000)}
 `
+      } else if (webContext.keyFacts?.length > 0) {
+        webResearchContext = `
+
+CURRENT RESEARCH DATA (use this information for accurate, up-to-date facts):
+${webContext.keyFacts.slice(0, 10).join('\n\n')}
+`
+      }
+      
+      // Include source references
       if (webContext.citations?.length > 0) {
         realReferences = `
-USE THESE REAL SOURCES for the references section:
-${webContext.citations.map((c: any) => `- "${c.title}" - ${c.url}`).join('\n')}
+
+VERIFIED SOURCES - Use these for accurate information:
+${webContext.citations.slice(0, 8).map((c: any) => `
+SOURCE: "${c.title}"
+URL: ${c.url}
+${c.snippet ? `KEY INFO: ${c.snippet.substring(0, 300)}` : ''}
+`).join('\n')}
 `
       }
     }
