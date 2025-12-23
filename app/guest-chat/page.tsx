@@ -848,7 +848,7 @@ const GuestChatContent = memo(function GuestChatContent({
               {!isScrolledUp && messages.length > 0 && (
                 <Button
                   variant="ghost"
-                  className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border border-border transition-all duration-300 px-4 py-2.5 flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in"
+                  className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background hover:bg-accent border border-border transition-all duration-300 px-4 py-2.5 flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in"
                   onClick={() => virtuosoRef.current?.scrollToBottom()}
                   title="Scroll to bottom"
                 >
@@ -857,7 +857,7 @@ const GuestChatContent = memo(function GuestChatContent({
                 </Button>
               )}
             </div>
-            <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100]"></div>
+            <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100] pointer-events-none"></div>
           </div>
         </div>
 

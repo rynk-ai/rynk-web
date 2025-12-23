@@ -1980,23 +1980,8 @@ const ChatContent = memo(
                     conversationTitle={currentConversation?.title}
                   />
                 )}
-
-                {/* Scroll to Bottom Button */}
-                {!isScrolledUp && messages.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-md bg-background hover:bg-accent border border-border transition-all duration-300 h-8 px-3 gap-1.5 animate-in slide-in-from-bottom-2 fade-in"
-                    onClick={() => virtuosoRef.current?.scrollToBottom()}
-                    title="Scroll to bottom"
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">
-                      Scroll to Bottom
-                    </span>
-                  </Button>
-                )}
               </div>
-              <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100]"></div>
+              <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100] pointer-events-none"></div>
             </div>
           </div>
 
@@ -2062,6 +2047,21 @@ const ChatContent = memo(
               </div>
             </div>
           </div>
+
+          {/* Scroll to Bottom Button - positioned as sibling to input for correct z-index stacking */}
+          {!isScrolledUp && messages.length > 0 && currentConversationId && (
+            <Button
+              variant="ghost"
+              className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-md bg-background hover:bg-accent border border-border transition-all duration-300 h-8 px-3 gap-1.5 animate-in slide-in-from-bottom-2 fade-in"
+              onClick={() => virtuosoRef.current?.scrollToBottom()}
+              title="Scroll to bottom"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">
+                Scroll to Bottom
+              </span>
+            </Button>
+          )}
         </div>
 
         {/* Sub-Chat Sheet */}
