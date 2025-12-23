@@ -1,7 +1,7 @@
 "use client"
 
 import {useState, useEffect, useCallback} from 'react'
-import { Menu, X } from "lucide-react"
+import { PiList, PiX } from "react-icons/pi"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -29,7 +29,7 @@ export function MobileNav({ children, title = "Menu", open, onOpenChange }: Mobi
           className="md:hidden h-10 w-10"
           aria-label="Open menu"
         >
-          <Menu className="h-5 w-5" />
+          <PiList className="h-5 w-5" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
@@ -57,7 +57,7 @@ export function MobileTrigger({ className }: MobileTriggerProps) {
         className={cn("md:hidden h-10 w-10", className)}
         aria-label="Open menu"
       >
-        <Menu className="h-5 w-5" />
+        <PiList className="h-5 w-5" />
       </Button>
     </SheetTrigger>
   )

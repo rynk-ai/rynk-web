@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import {
-  Check,
-  Sparkles,
-  Zap,
-  Crown,
-  Loader2,
-  MoveLeftIcon,
-  ArrowLeft,
-} from "lucide-react";
+import { PiCheck, PiSparkle, PiLightning, PiCrown, PiSpinner, PiArrowLeft } from "react-icons/pi";
 import Link from "next/link";
 
 type Tier = "free" | "standard" | "standard_plus";
@@ -29,7 +21,7 @@ const tierConfig: any = {
     name: "Free",
     price: 0,
     queries: 100,
-    icon: Sparkles,
+    icon: PiSparkle,
     color: "text-muted-foreground",
     bgColor: "bg-muted",
     features: [
@@ -43,7 +35,7 @@ const tierConfig: any = {
     name: "Rynk+",
     price: 5.99,
     queries: 2500,
-    icon: Zap,
+    icon: PiLightning,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     features: [
@@ -142,7 +134,7 @@ export default function SubscriptionPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <PiSpinner className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -157,7 +149,7 @@ export default function SubscriptionPage() {
           href="/chat"
           className="flex items-center gap-1 border w-min px-3 py-1 rounded-lg hover:bg-muted-foreground/50"
         >
-          <ArrowLeft className="font-thin h-4 w-4" />
+          <PiArrowLeft className="font-thin h-4 w-4" />
           Chat
         </Link>
         {/* Header */}
@@ -206,7 +198,7 @@ export default function SubscriptionPage() {
                   className="inline-flex items-center gap-2  bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   {checkoutLoading === 'extra' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <PiSpinner className="h-4 w-4 animate-spin" />
                   ) : (
                     <>Buy Credits</>
                   )}
@@ -254,7 +246,7 @@ export default function SubscriptionPage() {
                   <ul className="mt-6 space-y-3">
                     {config.features.map((feature: any, i: any) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
-                        <Check className={`h-4 w-4 mt-0.5 ${config.color}`} />
+                        <PiCheck className={`h-4 w-4 mt-0.5 ${config.color}`} />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -270,7 +262,7 @@ export default function SubscriptionPage() {
                     }`}
                   >
                     {checkoutLoading === tier ? (
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                      <PiSpinner className="h-4 w-4 animate-spin mx-auto" />
                     ) : isCurrentPlan ? (
                       "Current Plan"
                     ) : config.price > (tierConfig[currentTier]?.price || 0) ? (

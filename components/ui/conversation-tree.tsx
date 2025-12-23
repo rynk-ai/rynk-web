@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { GitBranch, GitCommit, History } from "lucide-react"
+import { PiGitBranch, PiGitCommit, PiClockCounterClockwise } from "react-icons/pi"
 import { cn } from "@/lib/utils"
 import type { Message, Conversation } from "@/lib/services/indexeddb"
 import { dbService } from "@/lib/services/indexeddb"
@@ -145,7 +145,7 @@ export function ConversationTree({
   return (
     <div className={cn("border rounded-lg", className)}>
       <div className="flex items-center gap-2 p-3 border-b bg-muted/20">
-        <GitBranch size={16} />
+        <PiGitBranch size={16} />
         <span className="text-sm font-medium">Conversation Tree</span>
         <Badge variant="secondary" className="ml-auto">
           {treeNodes.length} branches
@@ -155,7 +155,7 @@ export function ConversationTree({
       <ScrollArea className="h-[400px] p-2">
         {treeNodes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <GitCommit size={32} className="mb-2 opacity-50"            />
+            <PiGitCommit size={32} className="mb-2 opacity-50"            />
             <p className="text-sm">No message versions yet</p>
             <p className="text-xs">Edit a message to create branches</p>
           </div>

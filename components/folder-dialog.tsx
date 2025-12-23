@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { MessageSquare } from "lucide-react"
+import { PiChatCircle } from "react-icons/pi"
 
 interface FolderDialogProps {
   open: boolean
@@ -150,7 +150,7 @@ export function FolderDialog({
                       checked={selectedConversationIds.includes(conversation.id)}
                       onCheckedChange={() => handleToggleConversation(conversation.id)}
                     />
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <PiChatCircle className="h-4 w-4 text-muted-foreground" />
                     <Label
                       htmlFor={`conversation-${conversation.id}`}
                       className="flex-1 cursor-pointer text-sm font-normal"

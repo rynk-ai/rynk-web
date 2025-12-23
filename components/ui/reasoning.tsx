@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { ChevronDownIcon } from "lucide-react"
+import { PiCaretDown } from "react-icons/pi"
 import React, {
   createContext,
   useContext,
@@ -106,7 +106,7 @@ function ReasoningTrigger({
           isOpen ? "rotate-180" : ""
         )}
       >
-        <ChevronDownIcon className="size-4" />
+        <PiCaretDown className="size-4" />
       </div>
     </button>
   )

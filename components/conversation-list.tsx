@@ -11,10 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import {
-  PinIcon,
-  MoreHorizontal,
-} from "lucide-react"
+import { PiPushPin, PiDotsThree } from "react-icons/pi"
 import {
   Tooltip,
   TooltipContent,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Award, Lock, CheckCircle2 } from "lucide-react";
+import { PiMedal, PiLock, PiCheckCircle } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import type { CourseBadge } from "@/lib/services/domain-types";
 
@@ -125,7 +125,7 @@ export function BadgesPanel({ earnedBadges, className, compact = false }: Badges
     
     return (
       <div className={cn("flex items-center gap-2", className)}>
-        <Award className="h-4 w-4 text-yellow-500" />
+        <PiMedal className="h-4 w-4 text-yellow-500" />
         <span className="text-sm font-medium">{earnedBadges.length} badges</span>
         <div className="flex -space-x-2">
           {recentBadges.map(badge => (
@@ -146,7 +146,7 @@ export function BadgesPanel({ earnedBadges, className, compact = false }: Badges
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
         <h3 className="font-semibold flex items-center gap-2">
-          <Award className="h-5 w-5 text-yellow-500" />
+          <PiMedal className="h-5 w-5 text-yellow-500" />
           Achievements
         </h3>
         <span className="text-sm text-muted-foreground">
@@ -188,14 +188,14 @@ export function BadgesPanel({ earnedBadges, className, compact = false }: Badges
               {/* Lock overlay for unearned */}
               {!isEarned && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Lock className="h-6 w-6 text-muted-foreground/50" />
+                  <PiLock className="h-6 w-6 text-muted-foreground/50" />
                 </div>
               )}
               
               {/* Earned check */}
               {isEarned && (
                 <div className="absolute top-1 right-1">
-                  <CheckCircle2 className="h-4 w-4 text-white/80" />
+                  <PiCheckCircle className="h-4 w-4 text-white/80" />
                 </div>
               )}
             </div>

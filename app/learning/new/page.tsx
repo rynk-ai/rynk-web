@@ -3,19 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { 
-  GraduationCap, 
-  ArrowLeft,
-  ArrowRight,
-  Clock,
-  Users,
-  BookOpen,
-  CheckCircle2,
-  Loader2,
-  Sparkles,
-  Code,
-  Lightbulb
-} from "lucide-react";
+import { PiGraduationCap, PiArrowLeft, PiArrowRight, PiClock, PiUsers, PiBookOpen, PiCheckCircle, PiSpinner, PiSparkle, PiCode, PiLightbulb } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SubjectInterpretation } from "@/lib/services/domain-types";
@@ -39,11 +27,11 @@ interface PromptAnalysis {
 
 // Approach icons and colors
 const approachConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-  conceptual: { icon: <BookOpen className="h-5 w-5" />, color: "text-blue-500", label: "Conceptual" },
-  practical: { icon: <Sparkles className="h-5 w-5" />, color: "text-green-500", label: "Practical" },
-  theoretical: { icon: <BookOpen className="h-5 w-5" />, color: "text-purple-500", label: "Theoretical" },
-  applied: { icon: <Sparkles className="h-5 w-5" />, color: "text-emerald-500", label: "Applied" },
-  historical: { icon: <Clock className="h-5 w-5" />, color: "text-amber-500", label: "Historical" },
+  conceptual: { icon: <PiBookOpen className="h-5 w-5" />, color: "text-blue-500", label: "Conceptual" },
+  practical: { icon: <PiSparkle className="h-5 w-5" />, color: "text-green-500", label: "Practical" },
+  theoretical: { icon: <PiBookOpen className="h-5 w-5" />, color: "text-purple-500", label: "Theoretical" },
+  applied: { icon: <PiSparkle className="h-5 w-5" />, color: "text-emerald-500", label: "Applied" },
+  historical: { icon: <PiClock className="h-5 w-5" />, color: "text-amber-500", label: "Historical" },
 };
 
 function InterpretationCard({
@@ -79,7 +67,7 @@ function InterpretationCard({
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-lg line-clamp-1">{interpretation.title}</h3>
             {isSelected && (
-              <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+              <PiCheckCircle className="h-5 w-5 text-primary shrink-0" />
             )}
           </div>
           
@@ -92,11 +80,11 @@ function InterpretationCard({
               {approach.label}
             </span>
             <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-secondary">
-              <Clock className="h-3 w-3" />
+              <PiClock className="h-3 w-3" />
               {interpretation.estimatedDuration}
             </span>
             <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-secondary">
-              <Users className="h-3 w-3" />
+              <PiUsers className="h-3 w-3" />
               {interpretation.targetAudience?.split(' ').slice(0, 3).join(' ')}...
             </span>
           </div>
@@ -211,7 +199,7 @@ function NewCourseContent() {
   if (status === "loading" || interpretations.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <PiSpinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -226,12 +214,12 @@ function NewCourseContent() {
             onClick={() => router.push("/learning")}
             className="gap-2"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <PiArrowLeft className="h-4 w-4" />
             Back
           </Button>
           
           <div className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5 text-primary" />
+            <PiGraduationCap className="h-5 w-5 text-primary" />
             <span className="font-medium">New Course</span>
           </div>
           
@@ -242,13 +230,13 @@ function NewCourseContent() {
           >
             {isGenerating ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <PiSpinner className="h-4 w-4 animate-spin" />
                 Generating...
               </>
             ) : (
               <>
                 Continue
-                <ArrowRight className="h-4 w-4" />
+                <PiArrowRight className="h-4 w-4" />
               </>
             )}
           </Button>
@@ -269,7 +257,7 @@ function NewCourseContent() {
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border/40">
               {analysis.recommendedApproach === 'hands-on' ? (
                 <>
-                  <Code className="h-4 w-4 text-green-500" />
+                  <PiCode className="h-4 w-4 text-green-500" />
                   <span className="text-sm">
                     <span className="text-green-600 dark:text-green-400 font-medium">Hands-on recommended</span>
                     <span className="text-muted-foreground"> · {analysis.modalityMix.practice}% practice</span>
@@ -277,7 +265,7 @@ function NewCourseContent() {
                 </>
               ) : analysis.recommendedApproach === 'reading' ? (
                 <>
-                  <BookOpen className="h-4 w-4 text-blue-500" />
+                  <PiBookOpen className="h-4 w-4 text-blue-500" />
                   <span className="text-sm">
                     <span className="text-blue-600 dark:text-blue-400 font-medium">Reading-focused</span>
                     <span className="text-muted-foreground"> · {analysis.modalityMix.reading}% content</span>
@@ -285,7 +273,7 @@ function NewCourseContent() {
                 </>
               ) : (
                 <>
-                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  <PiLightbulb className="h-4 w-4 text-amber-500" />
                   <span className="text-sm">
                     <span className="text-amber-600 dark:text-amber-400 font-medium">Hybrid approach</span>
                     <span className="text-muted-foreground"> · {analysis.modalityMix.reading}% reading, {analysis.modalityMix.practice}% practice</span>
@@ -317,13 +305,13 @@ function NewCourseContent() {
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <PiSpinner className="h-5 w-5 animate-spin" />
                   Generating Course Structure...
                 </>
               ) : (
                 <>
                   Generate Course
-                  <ArrowRight className="h-5 w-5" />
+                  <PiArrowRight className="h-5 w-5" />
                 </>
               )}
             </Button>
@@ -341,7 +329,7 @@ export default function NewCoursePage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <PiSpinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     }>
       <NewCourseContent />

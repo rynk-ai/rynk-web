@@ -15,13 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import {
-  ChevronRight,
-  Folder as FolderIcon,
-  MoreHorizontal,
-  Pencil,
-  Trash,
-} from "lucide-react";
+import { PiCaretRight, PiFolder as FolderIcon, PiDotsThree, PiPencilSimple, PiTrash } from "react-icons/pi";
 import { ConversationListItem } from "./conversation-list-item";
 
 interface FolderListItemProps {
@@ -62,7 +56,7 @@ export const FolderListItem = memo(function FolderListItem({
     <Collapsible className="group/collapsible">
       <div className="mb-0.5 flex items-center justify-between px-2 py-1 group/folder hover:bg-muted/50 rounded-md transition-colors">
         <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+          <PiCaretRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
           <FolderIcon className="h-3.5 w-3.5" />
           <span className="truncate">{folder.name}</span>
           <span className="text-[10px] text-muted-foreground/50 ml-auto mr-2">
@@ -73,12 +67,12 @@ export const FolderListItem = memo(function FolderListItem({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-6 w-6">
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <PiDotsThree className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={(e) => onEditFolder(folder, e)}>
-                <Pencil className="mr-2 h-4 w-4" />
+                <PiPencilSimple className="mr-2 h-4 w-4" />
                 Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -86,7 +80,7 @@ export const FolderListItem = memo(function FolderListItem({
                 onClick={(e) => onDeleteFolder(folder.id, e)}
                 className="text-destructive focus:text-destructive"
               >
-                <Trash className="mr-2 h-4 w-4" />
+                <PiTrash className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

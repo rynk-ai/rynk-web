@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Flame, Calendar, Trophy } from "lucide-react";
+import { PiFire, PiCalendar, PiTrophy } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,7 +56,7 @@ export function StreakDisplay({
             ? "bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-orange-500" 
             : "bg-secondary text-muted-foreground"
         )}>
-          <Flame className={cn(
+          <PiFire className={cn(
             "h-5 w-5",
             currentStreak > 0 && "animate-pulse"
           )} />
@@ -85,7 +85,7 @@ export function StreakDisplay({
               ? "bg-gradient-to-br from-orange-500 to-yellow-500" 
               : "bg-secondary"
           )}>
-            <Flame className={cn(
+            <PiFire className={cn(
               "h-8 w-8",
               currentStreak > 0 ? "text-white" : "text-muted-foreground"
             )} />
@@ -100,7 +100,7 @@ export function StreakDisplay({
         
         <div className="text-right">
           <div className="flex items-center gap-1 text-yellow-500">
-            <Trophy className="h-4 w-4" />
+            <PiTrophy className="h-4 w-4" />
             <span className="font-semibold">{longestStreak}</span>
           </div>
           <div className="text-xs text-muted-foreground">best streak</div>
@@ -117,7 +117,7 @@ export function StreakDisplay({
       {/* Calendar heatmap */}
       <div>
         <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
+          <PiCalendar className="h-3.5 w-3.5" />
           <span>Last 30 days</span>
         </div>
         <div className="flex gap-1 flex-wrap">

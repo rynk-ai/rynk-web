@@ -1,7 +1,21 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useRef } from "react"
+
+// Import Prism core and languages we need
+import Prism from "prismjs"
+// Import languages (order matters for dependencies)
+import "prismjs/components/prism-javascript"
+import "prismjs/components/prism-typescript"
+import "prismjs/components/prism-jsx"
+import "prismjs/components/prism-tsx"
+import "prismjs/components/prism-css"
+import "prismjs/components/prism-json"
+import "prismjs/components/prism-markdown"
+import "prismjs/components/prism-python"
+import "prismjs/components/prism-bash"
+import "prismjs/components/prism-sql"
 
 export type CodeBlockProps = {
   children?: React.ReactNode
@@ -12,7 +26,7 @@ function CodeBlock({ children, className, ...props }: CodeBlockProps) {
   return (
     <div
       className={cn(
-        "not-prose flex w-full flex-col overflow-x-auto border border-zinc-800",
+        "not-prose flex w-full flex-col overflow-clip border border-zinc-800",
         "bg-zinc-900/50 text-zinc-100 rounded-lg",
         className
       )}
@@ -26,136 +40,75 @@ function CodeBlock({ children, className, ...props }: CodeBlockProps) {
 export type CodeBlockCodeProps = {
   code: string
   language?: string
-  theme?: string
   className?: string
 } & React.HTMLProps<HTMLDivElement>
 
 function CodeBlockCode({
   code,
-  language = "tsx",
-  theme = "tokyo-night",
+  language = "typescript",
   className,
   ...props
 }: CodeBlockCodeProps) {
-  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const codeRef = useRef<HTMLElement>(null)
+  const [highlighted, setHighlighted] = useState(false)
 
-  // List of languages we have loaded
-  const SUPPORTED_LANGUAGES = [
-    'typescript', 'javascript', 'tsx', 'jsx', 'json', 'css', 'html', 
-    'markdown', 'python', 'bash', 'sql', 'sh', 'shell', 'ts', 'js',
-    'plaintext', 'text', 'txt'
-  ]
+  // Normalize language aliases
+  const normalizeLanguage = (lang: string): string => {
+    const aliases: Record<string, string> = {
+      'sh': 'bash',
+      'shell': 'bash',
+      'ts': 'typescript',
+      'js': 'javascript',
+      'text': 'plaintext',
+      'txt': 'plaintext',
+      'plaintext': 'plaintext',
+    }
+    return aliases[lang.toLowerCase()] || lang.toLowerCase()
+  }
+
+  const normalizedLang = normalizeLanguage(language)
+  
+  // Check if language is supported by Prism
+  const supportedLanguages = ['javascript', 'typescript', 'jsx', 'tsx', 'css', 'json', 'markdown', 'python', 'bash', 'sql', 'html', 'plaintext']
+  const langToUse = supportedLanguages.includes(normalizedLang) ? normalizedLang : 'plaintext'
 
   useEffect(() => {
-    async function highlight() {
-      if (!code) {
-        setHighlightedHtml("<pre><code></code></pre>")
+    if (codeRef.current && code) {
+      // For plaintext, just show as-is
+      if (langToUse === 'plaintext') {
+        setHighlighted(true)
         return
       }
-
-      // Normalize language aliases
-      let normalizedLang = language.toLowerCase()
-      const langAliases: Record<string, string> = {
-        'sh': 'bash',
-        'shell': 'bash',
-        'ts': 'typescript',
-        'js': 'javascript',
-        'text': 'plaintext',
-        'txt': 'plaintext',
-      }
-      if (langAliases[normalizedLang]) {
-        normalizedLang = langAliases[normalizedLang]
-      }
-
-      // Check if language is supported, fallback to plaintext if not
-      const isSupported = SUPPORTED_LANGUAGES.includes(normalizedLang)
-      const langToUse = isSupported ? normalizedLang : 'plaintext'
-
+      
+      // Use Prism to highlight
       try {
-        setError(null)
-        // Use createHighlighterCore for better tree-shaking
-        const { createHighlighterCore } = await import('shiki/core')
-        const { createOnigurumaEngine } = await import('shiki/engine/oniguruma')
-        
-        const highlighter = await createHighlighterCore({
-          themes: [
-            import('shiki/themes/tokyo-night.mjs'),
-            import('shiki/themes/vitesse-dark.mjs')
-          ],
-          langs: [
-            import('shiki/langs/typescript.mjs'),
-            import('shiki/langs/javascript.mjs'),
-            import('shiki/langs/tsx.mjs'),
-            import('shiki/langs/jsx.mjs'),
-            import('shiki/langs/json.mjs'),
-            import('shiki/langs/css.mjs'),
-            import('shiki/langs/html.mjs'),
-            import('shiki/langs/markdown.mjs'),
-            import('shiki/langs/python.mjs'),
-            import('shiki/langs/bash.mjs'),
-            import('shiki/langs/sql.mjs')
-          ],
-          engine: createOnigurumaEngine(() => import('shiki/wasm'))
-        })
-
-        const html = highlighter.codeToHtml(code, {
-          lang: langToUse,
-          theme: theme || 'tokyo-night',
-          transformers: [
-            {
-              pre(node) {
-                // Remove the default background from shiki
-                node.properties.style = ""
-              },
-              code(node) {
-                // Add custom styling
-                node.properties.class = `language-${language}`
-              },
-            },
-          ],
-        })
-        setHighlightedHtml(html)
-        highlighter.dispose()
+        const grammar = Prism.languages[langToUse]
+        if (grammar) {
+          const html = Prism.highlight(code, grammar, langToUse)
+          codeRef.current.innerHTML = html
+        }
+        setHighlighted(true)
       } catch (err) {
-        console.error("Syntax highlighting error:", err)
-        setError(String(err))
-        // Fallback to plain text
-        setHighlightedHtml(null)
+        console.error("Prism highlighting error:", err)
+        setHighlighted(true)
       }
     }
-    highlight()
-  }, [code, language, theme])
+  }, [code, langToUse])
 
   const classNames = cn(
     "w-full overflow-x-auto text-[13px] leading-relaxed",
-    "[&>pre]:px-4 [&>pre]:py-5",
-    "[&>pre]:bg-transparent",
-    "[&>code]:block",
     className
   )
 
-  // SSR fallback: render plain code if not hydrated yet
-  if (error) {
-    return (
-      <div className={classNames} {...props}>
-        <pre className="bg-zinc-900 p-4 rounded">
-          <code className="text-zinc-300">{code}</code>
-        </pre>
-      </div>
-    )
-  }
-
-  return highlightedHtml ? (
-    <div
-      className={classNames}
-      dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-      {...props}
-    />
-  ) : (
+  return (
     <div className={classNames} {...props}>
-      <pre className="bg-zinc-900 p-4 rounded">
-        <code>{code}</code>
+      <pre className="px-4 py-5 bg-transparent overflow-x-auto">
+        <code 
+          ref={codeRef}
+          className={`language-${langToUse} block`}
+        >
+          {!highlighted && code}
+        </code>
       </pre>
     </div>
   )

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, ArrowRight, Lightbulb, Code2, Send, Sparkles } from "lucide-react";
+import { PiCheckCircle, PiXCircle, PiArrowRight, PiLightbulb, PiCode, PiPaperPlaneTilt, PiSparkle } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -103,9 +103,9 @@ export function AssessmentPanel({ assessment, onComplete, onSkip }: AssessmentPa
             passed ? "bg-green-500/20" : "bg-red-500/20"
           )}>
             {passed ? (
-              <CheckCircle2 className="h-10 w-10 text-green-500" />
+              <PiCheckCircle className="h-10 w-10 text-green-500" />
             ) : (
-              <XCircle className="h-10 w-10 text-red-500" />
+              <PiXCircle className="h-10 w-10 text-red-500" />
             )}
           </div>
           
@@ -126,7 +126,7 @@ export function AssessmentPanel({ assessment, onComplete, onSkip }: AssessmentPa
           
           {passed && (
             <div className="flex items-center justify-center gap-2 text-green-500 animate-bounce mt-4">
-              <Sparkles className="h-5 w-5" />
+              <PiSparkle className="h-5 w-5" />
               <span className="font-bold">+{assessment.xpReward} XP</span>
             </div>
           )}
@@ -197,7 +197,7 @@ export function AssessmentPanel({ assessment, onComplete, onSkip }: AssessmentPa
             onClick={() => setShowExplanation(question.id)}
             className="gap-2"
           >
-            <Lightbulb className="h-4 w-4" />
+            <PiLightbulb className="h-4 w-4" />
             Show Explanation
           </Button>
         )}
@@ -208,7 +208,7 @@ export function AssessmentPanel({ assessment, onComplete, onSkip }: AssessmentPa
           className="ml-auto gap-2"
         >
           {isLastQuestion ? "Finish" : "Next"}
-          <ArrowRight className="h-4 w-4" />
+          <PiArrowRight className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -252,7 +252,7 @@ function QuizQuestionUI({
       {showExplanation && (
         <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
           <div className="flex items-start gap-2">
-            <Lightbulb className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+            <PiLightbulb className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
             <div>
               <span className="font-medium">Correct answer: </span>
               {String.fromCharCode(65 + question.correctIndex)}. {question.options[question.correctIndex]}
@@ -308,7 +308,7 @@ function CodingChallengeUI({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Code2 className="h-5 w-5 text-primary" />
+        <PiCode className="h-5 w-5 text-primary" />
         <h3 className="text-lg font-semibold">{challenge.title}</h3>
       </div>
       
@@ -328,7 +328,7 @@ function CodingChallengeUI({
       
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setShowHints(!showHints)}>
-          <Lightbulb className="h-4 w-4 mr-1" />
+          <PiLightbulb className="h-4 w-4 mr-1" />
           {showHints ? "Hide Hints" : "Show Hints"}
         </Button>
       </div>

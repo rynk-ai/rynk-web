@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle } from "lucide-react"
+import { PiWarning } from "react-icons/pi"
 
 interface DeleteConversationDialogProps {
   open: boolean
@@ -39,7 +39,7 @@ export function DeleteConversationDialog({
       <DialogContent className="sm:max-w-[425px] border border-border/40 shadow-xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <PiWarning className="h-5 w-5 text-destructive" />
             <DialogTitle>Delete Conversation</DialogTitle>
           </div>
           <DialogDescription className="pt-2">

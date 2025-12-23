@@ -8,7 +8,7 @@ import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { CodeBlock, CodeBlockCode } from "./code-block"
 import { MermaidDiagram } from "./mermaid-diagram"
-import { Copy, Check } from "lucide-react"
+import { PiCopy, PiCheck } from "react-icons/pi"
 import type { Citation } from "@/lib/types/citation"
 import { InlineCitation } from "@/components/chat/inline-citation"
 
@@ -55,9 +55,9 @@ function CopyButton({ code }: { code: string }) {
       title="Copy code"
     >
       {copied ? (
-        <Check className="h-4 w-4 text-emerald-400" />
+        <PiCheck className="h-4 w-4 text-emerald-400" />
       ) : (
-        <Copy className="h-4 w-4" />
+        <PiCopy className="h-4 w-4" />
       )}
     </button>
   )

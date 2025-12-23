@@ -10,17 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Copy, 
-  Check, 
-  Loader2, 
-  Link2, 
-  Eye, 
-  Users, 
-  Trash2,
-  ExternalLink,
-  Share2
-} from "lucide-react";
+import { PiCopy, PiCheck, PiSpinner, PiLink, PiEye, PiUsers, PiTrash, PiArrowSquareOut, PiShareNetwork } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -145,7 +135,7 @@ export function ShareDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5 text-primary" />
+            <PiShareNetwork className="h-5 w-5 text-primary" />
             Share Conversation
           </DialogTitle>
           <DialogDescription>
@@ -158,7 +148,7 @@ export function ShareDialog({
         <div className="space-y-4 pt-2">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <PiSpinner className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : share ? (
             <>
@@ -176,9 +166,9 @@ export function ShareDialog({
                   className="shrink-0"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <PiCheck className="h-4 w-4 text-green-500" />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <PiCopy className="h-4 w-4" />
                   )}
                 </Button>
                 <Button
@@ -187,18 +177,18 @@ export function ShareDialog({
                   onClick={() => window.open(shareUrl, "_blank")}
                   className="shrink-0"
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <PiArrowSquareOut className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* Stats */}
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Eye className="h-4 w-4" />
+                  <PiEye className="h-4 w-4" />
                   {share.viewCount} views
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Users className="h-4 w-4" />
+                  <PiUsers className="h-4 w-4" />
                   {share.cloneCount} clones
                 </span>
               </div>
@@ -213,9 +203,9 @@ export function ShareDialog({
                   className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
                 >
                   {deleting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <PiSpinner className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Trash2 className="h-4 w-4" />
+                    <PiTrash className="h-4 w-4" />
                   )}
                   Revoke Share Link
                 </Button>
@@ -227,7 +217,7 @@ export function ShareDialog({
               <div className="p-4 rounded-lg bg-muted/50 border">
                 <div className="flex items-start gap-3">
                   <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Link2 className="h-5 w-5 text-primary" />
+                    <PiLink className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <p className="font-medium text-sm">
@@ -247,9 +237,9 @@ export function ShareDialog({
                 className="w-full gap-2"
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <PiSpinner className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Link2 className="h-4 w-4" />
+                  <PiLink className="h-4 w-4" />
                 )}
                 Create Share Link
               </Button>

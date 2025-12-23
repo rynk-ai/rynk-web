@@ -19,16 +19,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Plus,
-  Search,
-  FolderPlus,
-  Folder as FolderIcon,
-  ChevronRight,
-  LogIn,
-  Sparkles,
-  HelpCircle,
-} from "lucide-react";
+import { PiPlus, PiMagnifyingGlass, PiFolderPlus, PiFolder as FolderIcon, PiCaretRight, PiSignIn, PiSparkle, PiQuestion } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { useGuestChatContext, type GuestConversation, type GuestFolder } from "@/lib/hooks/guest-chat-context";
 import { ConversationList } from "@/components/conversation-list";
@@ -216,7 +207,7 @@ const GuestSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) =>
             className="w-full"
             onClick={handleSignIn}
           >
-            <LogIn className="mr-2 h-4 w-4" />
+            <PiSignIn className="mr-2 h-4 w-4" />
             Sign in to continue
           </Button>
         </div>
@@ -231,7 +222,7 @@ const GuestSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) =>
               className="flex-1 justify-start gap-2 px-3 shadow-none border-border/50 bg-background/50"
               onClick={() => handleSelectConversation(null)}
             >
-              <Plus className="size-4 text-muted-foreground" />
+              <PiPlus className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">New Chat</span>
             </Button>
             <Tooltip>
@@ -242,7 +233,7 @@ const GuestSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) =>
                   className="shrink-0 text-muted-foreground hover:text-foreground"
                   onClick={handleCreateFolder}
                 >
-                  <FolderPlus className="size-4" />
+                  <PiFolderPlus className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>New Folder</TooltipContent>
@@ -259,7 +250,7 @@ const GuestSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) =>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-4 w-4">
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      <PiQuestion className="h-3 w-3 text-muted-foreground" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-sm">
@@ -268,7 +259,7 @@ const GuestSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) =>
                 </Tooltip>
               </div>
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateFolder}>
-                <Plus className="h-4 w-4" />
+                <PiPlus className="h-4 w-4" />
               </Button>
             </div>
           </div>

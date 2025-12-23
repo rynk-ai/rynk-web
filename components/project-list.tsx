@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Folder, MoreVertical, Pencil, Trash2, FolderOpen, HelpCircle } from "lucide-react"
+import { PiPlus, PiFolder, PiDotsThreeVertical, PiPencilSimple, PiTrash, PiFolderOpen, PiQuestion } from "react-icons/pi"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -101,7 +101,7 @@ export function ProjectList({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-4 w-4">
-                <HelpCircle className="h-2 w-2  text-muted-foreground" />
+                <PiQuestion className="h-2 w-2  text-muted-foreground" />
                 <span className="sr-only">What are projects?</span>
               </Button>
             </TooltipTrigger>
@@ -115,7 +115,7 @@ export function ProjectList({
           </Tooltip>
         </div>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4" />
+          <PiPlus className="h-4 w-4" />
           <span className="sr-only">New Project</span>
         </Button>
       </div>
@@ -141,9 +141,9 @@ export function ProjectList({
                 onClick={() => router.push(`/project/${project.id}`)}
               >
                 {activeProjectId === project.id ? (
-                  <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
+                  <PiFolderOpen className="h-4 w-4 shrink-0 text-primary" />
                 ) : (
-                  <Folder className="h-4 w-4 shrink-0 text-primary" />
+                  <PiFolder className="h-4 w-4 shrink-0 text-primary" />
                 )}
                 <span className="flex-1 truncate min-w-0">{project.name}</span>
                 
@@ -155,19 +155,19 @@ export function ProjectList({
                       className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <MoreVertical className="h-3 w-3" />
+                      <PiDotsThreeVertical className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={(e) => handleEdit(project, e)}>
-                      <Pencil className="mr-2 h-3 w-3" />
+                      <PiPencilSimple className="mr-2 h-3 w-3" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="text-destructive focus:text-destructive"
                       onClick={(e) => handleDelete(project.id, e)}
                     >
-                      <Trash2 className="mr-2 h-3 w-3" />
+                      <PiTrash className="mr-2 h-3 w-3" />
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>

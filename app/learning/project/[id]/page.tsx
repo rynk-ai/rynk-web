@@ -2,16 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { 
-  ArrowLeft, 
-  Flame, 
-  Zap, 
-  Target,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Loader2
-} from "lucide-react";
+import { PiArrowLeft, PiFire, PiLightning, PiTarget, PiCheckCircle, PiCaretLeft, PiCaretRight, PiSpinner } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { ProjectList } from "@/components/learning/project-card";
 import { TaskEditor } from "@/components/learning/task-editor";
@@ -170,7 +161,7 @@ export default function ProjectCoursePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <PiSpinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -207,7 +198,7 @@ export default function ProjectCoursePage() {
               size="icon" 
               onClick={() => router.push('/learning')}
             >
-              <ArrowLeft className="h-4 w-4" />
+              <PiArrowLeft className="h-4 w-4" />
             </Button>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
@@ -219,7 +210,7 @@ export default function ProjectCoursePage() {
               size="icon"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
-              {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              {sidebarCollapsed ? <PiCaretRight className="h-4 w-4" /> : <PiCaretLeft className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -229,21 +220,21 @@ export default function ProjectCoursePage() {
           <div className="p-4 border-b border-border/40 grid grid-cols-3 gap-2">
             <div className="text-center p-2 rounded-lg bg-background/50">
               <div className="flex items-center justify-center gap-1 text-orange-500">
-                <Flame className="h-4 w-4" />
+                <PiFire className="h-4 w-4" />
                 <span className="font-bold">{course.stats.currentStreak}</span>
               </div>
               <p className="text-xs text-muted-foreground">Streak</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-background/50">
               <div className="flex items-center justify-center gap-1 text-yellow-500">
-                <Zap className="h-4 w-4" />
+                <PiLightning className="h-4 w-4" />
                 <span className="font-bold">{course.stats.xp}</span>
               </div>
               <p className="text-xs text-muted-foreground">XP</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-background/50">
               <div className="flex items-center justify-center gap-1 text-green-500">
-                <CheckCircle2 className="h-4 w-4" />
+                <PiCheckCircle className="h-4 w-4" />
                 <span className="font-bold">{course.stats.completedProjects}/{course.stats.totalProjects}</span>
               </div>
               <p className="text-xs text-muted-foreground">Done</p>
@@ -275,7 +266,7 @@ export default function ProjectCoursePage() {
             <div className="p-6 border-b border-border/40 bg-gradient-to-b from-primary/5 to-transparent">
               <div className="max-w-3xl mx-auto">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Target className="h-4 w-4" />
+                  <PiTarget className="h-4 w-4" />
                   Project {(course.projects.findIndex(p => p.id === currentProjectId) || 0) + 1} of {course.projects.length}
                 </div>
                 <h2 className="text-2xl font-bold mb-2">{currentProject.title}</h2>
@@ -305,7 +296,7 @@ export default function ProjectCoursePage() {
                           : "bg-secondary hover:bg-secondary/80"
                       )}
                     >
-                      {task.status === 'passed' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                      {task.status === 'passed' && <PiCheckCircle className="h-3.5 w-3.5" />}
                       <span>Task {idx + 1}</span>
                     </button>
                   ))}
@@ -318,7 +309,7 @@ export default function ProjectCoursePage() {
               <div className="max-w-3xl mx-auto p-6">
                 {generatingTasks ? (
                   <div className="text-center py-12">
-                    <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
+                    <PiSpinner className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
                     <p className="text-lg font-medium">Preparing your tasks...</p>
                     <p className="text-sm text-muted-foreground mt-2">
                       Creating hands-on challenges with rubrics and hints
@@ -333,7 +324,7 @@ export default function ProjectCoursePage() {
                   />
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
-                    <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <PiTarget className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Select a task to get started</p>
                   </div>
                 )}
@@ -346,7 +337,7 @@ export default function ProjectCoursePage() {
                       onClick={goToPrevTask}
                       disabled={currentTaskIndex === 0}
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      <PiCaretLeft className="h-4 w-4 mr-1" />
                       Previous Task
                     </Button>
                     <Button
@@ -357,7 +348,7 @@ export default function ProjectCoursePage() {
                       }
                     >
                       Next Task
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      <PiCaretRight className="h-4 w-4 ml-1" />
                     </Button>
                   </div>
                 )}
@@ -369,7 +360,7 @@ export default function ProjectCoursePage() {
         {!currentProject && (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <Target className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <PiTarget className="h-16 w-16 mx-auto mb-4 opacity-50" />
               <p className="text-lg">Select a project to start learning</p>
             </div>
           </div>

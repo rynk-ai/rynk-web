@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { FileIcon, Trash } from "lucide-react";
+import { PiFile, PiTrash } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 
 export type Attachment = {
@@ -52,7 +52,7 @@ export function FilePreview({
         <div className="relative overflow-hidden rounded-lg border bg-muted/20 w-fit max-w-[300px]">
           <div className="flex items-center gap-3 p-3">
             <div className="flex size-12 items-center justify-center rounded-md bg-muted">
-              <FileIcon size={24} className="text-muted-foreground" />
+              <PiFile size={24} className="text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium">{file.name}</p>
@@ -74,7 +74,7 @@ export function FilePreview({
                 className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                 onClick={handleRemove}
               >
-                <Trash size={16} />
+                <PiTrash size={16} />
               </Button>
             )}
           </div>
@@ -100,7 +100,7 @@ export function FilePreview({
               className="absolute right-1 top-1 h-5 w-5 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
               onClick={handleRemove}
             >
-              <Trash size={12} />
+              <PiTrash size={12} />
             </Button>
           )}
         </div>

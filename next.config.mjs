@@ -7,11 +7,12 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  // Externalize large packages from server bundle
+  serverExternalPackages: ['mermaid'],
   experimental: {
     serverActions: {
       bodySizeLimit: '100mb',
     },
-    serverExternalPackages: ['mermaid', 'shiki'],
   },
 };
 

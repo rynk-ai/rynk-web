@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { MessageSquarePlus } from "lucide-react";
+import { PiChatCircle } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -114,7 +114,7 @@ export function SelectableContent({
             onClick={handleButtonClick}
             onMouseDown={(e) => e.preventDefault()}
           >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
+            <PiChatCircle className="h-3.5 w-3.5" />
             <span className="text-xs font-medium">Deep dive</span>
           </Button>,
           document.body

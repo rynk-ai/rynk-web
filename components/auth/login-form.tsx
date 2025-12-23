@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react"
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Loader2, Mail, ArrowLeft } from "lucide-react"
+import { PiSpinner, PiEnvelope, PiArrowLeft } from "react-icons/pi"
 
 export function LoginForm() {
   const searchParams = useSearchParams()
@@ -53,7 +53,7 @@ export function LoginForm() {
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex w-full max-w-sm flex-col items-center space-y-6 rounded-lg border bg-card p-8 shadow-lg">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Mail className="h-6 w-6 text-primary" />
+            <PiEnvelope className="h-6 w-6 text-primary" />
           </div>
           <div className="flex flex-col items-center space-y-2 text-center">
             <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
@@ -71,7 +71,7 @@ export function LoginForm() {
             }}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <PiArrowLeft className="h-4 w-4" />
             Use a different email
           </button>
         </div>
@@ -122,12 +122,12 @@ export function LoginForm() {
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <PiSpinner className="h-4 w-4 animate-spin" />
                 Sending magic link...
               </>
             ) : (
               <>
-                <Mail className="h-4 w-4" />
+                <PiEnvelope className="h-4 w-4" />
                 Continue with email
               </>
             )}
@@ -153,7 +153,7 @@ export function LoginForm() {
           className="flex w-full items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
         >
           {isGoogleLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <PiSpinner className="h-4 w-4 animate-spin" />
           ) : (
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path

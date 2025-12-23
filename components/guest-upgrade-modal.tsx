@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, UserPlus, Zap } from "lucide-react";
+import { PiCheck, PiSparkle, PiUserPlus, PiLightning } from "react-icons/pi";
 import { useRouter } from "next/navigation";
 
 interface GuestUpgradeModalProps {
@@ -39,7 +39,7 @@ export function GuestUpgradeModal({
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <div className="p-2 bg-primary/10 rounded-xl">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <PiSparkle className="h-5 w-5 text-primary" />
             </div>
             <DialogTitle className="text-xl">
               Guest credits exhausted
@@ -54,7 +54,7 @@ export function GuestUpgradeModal({
           {/* Benefits list */}
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+              <PiCheck className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium">Continue this conversation</p>
                 <p className="text-sm text-muted-foreground">
@@ -64,7 +64,7 @@ export function GuestUpgradeModal({
             </div>
 
             <div className="flex items-start gap-3">
-              <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+              <PiCheck className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium">95 more free messages</p>
                 <p className="text-sm text-muted-foreground">
@@ -74,7 +74,7 @@ export function GuestUpgradeModal({
             </div>
 
             <div className="flex items-start gap-3">
-              <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+              <PiCheck className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium">Unlimited features</p>
                 <p className="text-sm text-muted-foreground">
@@ -84,7 +84,7 @@ export function GuestUpgradeModal({
             </div>
 
             <div className="flex items-start gap-3">
-              <Zap className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <PiLightning className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium">Fast AI responses</p>
                 <p className="text-sm text-muted-foreground">
@@ -128,7 +128,7 @@ export function GuestUpgradeModal({
             className="w-full sm:w-auto bg-primary hover:bg-primary/90"
             size="lg"
           >
-            <UserPlus className="h-4 w-4 mr-2" />
+            <PiUserPlus className="h-4 w-4 mr-2" />
             Sign up to continue chatting
           </Button>
           <Button

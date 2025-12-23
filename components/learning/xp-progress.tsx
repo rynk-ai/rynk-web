@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, Star, TrendingUp } from "lucide-react";
+import { PiSparkle, PiStar, PiTrendUp } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 
 /**
@@ -60,7 +60,7 @@ export function XPProgress({ xp, level: providedLevel, className, showGain }: XP
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600">
-            <Star className="h-4 w-4 text-white" />
+            <PiStar className="h-4 w-4 text-white" />
           </div>
           <div>
             <div className="text-sm font-semibold">Level {progress.level}</div>
@@ -73,7 +73,7 @@ export function XPProgress({ xp, level: providedLevel, className, showGain }: XP
         {/* XP gain animation */}
         {animatingGain && (
           <div className="animate-bounce text-green-500 font-bold flex items-center gap-1">
-            <Sparkles className="h-4 w-4" />
+            <PiSparkle className="h-4 w-4" />
             +{animatingGain} XP
           </div>
         )}
@@ -81,7 +81,7 @@ export function XPProgress({ xp, level: providedLevel, className, showGain }: XP
         {/* Total XP */}
         <div className="text-right text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <TrendingUp className="h-3 w-3" />
+            <PiTrendUp className="h-3 w-3" />
             {xp.toLocaleString()} total XP
           </div>
         </div>
@@ -130,7 +130,7 @@ export function XPReward({ amount, reason, onComplete }: XPRewardProps) {
     <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
       <div className="animate-in zoom-in-50 fade-in duration-300 bg-gradient-to-br from-purple-500 to-indigo-600 text-white px-6 py-4 rounded-2xl shadow-2xl">
         <div className="flex items-center gap-3">
-          <Sparkles className="h-8 w-8 animate-spin" />
+          <PiSparkle className="h-8 w-8 animate-spin" />
           <div>
             <div className="text-3xl font-bold">+{amount} XP</div>
             <div className="text-sm opacity-90">{reason}</div>

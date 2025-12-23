@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, Lightbulb, ChevronDown } from "lucide-react";
+import { PiCheckCircle, PiXCircle, PiLightbulb, PiCaretDown } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -90,9 +90,9 @@ export function QuickCheck({ questions, onComplete }: QuickCheckProps) {
             correctCount === questions.length ? "bg-green-500/10" : "bg-amber-500/10"
           )}>
             {correctCount === questions.length ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <PiCheckCircle className="h-5 w-5 text-green-500" />
             ) : (
-              <Lightbulb className="h-5 w-5 text-amber-500" />
+              <PiLightbulb className="h-5 w-5 text-amber-500" />
             )}
           </div>
           <div>
@@ -115,7 +115,7 @@ export function QuickCheck({ questions, onComplete }: QuickCheckProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 text-amber-500" />
+          <PiLightbulb className="h-4 w-4 text-amber-500" />
           <span className="text-sm font-medium">Quick Check</span>
         </div>
         <span className="text-xs text-muted-foreground">
@@ -170,9 +170,9 @@ export function QuickCheck({ questions, onComplete }: QuickCheckProps) {
                   hasAnswered && userAnswer === idx && idx !== currentQuestion.correctAnswer && "border-red-500 text-red-500 bg-red-500/10"
                 )}>
                   {hasAnswered && idx === currentQuestion.correctAnswer ? (
-                    <CheckCircle2 className="h-4 w-4" />
+                    <PiCheckCircle className="h-4 w-4" />
                   ) : hasAnswered && userAnswer === idx && idx !== currentQuestion.correctAnswer ? (
-                    <XCircle className="h-4 w-4" />
+                    <PiXCircle className="h-4 w-4" />
                   ) : (
                     String.fromCharCode(65 + idx)
                   )}
@@ -192,9 +192,9 @@ export function QuickCheck({ questions, onComplete }: QuickCheckProps) {
         )}>
           <div className="flex items-start gap-2">
             {isCorrect ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+              <PiCheckCircle className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
             ) : (
-              <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+              <PiLightbulb className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
             )}
             <p className="text-sm">{currentQuestion.explanation}</p>
           </div>
@@ -216,7 +216,7 @@ export function QuickCheck({ questions, onComplete }: QuickCheckProps) {
             {currentIndex < questions.length - 1 ? (
               <>
                 Next Question
-                <ChevronDown className="h-4 w-4 ml-1 rotate-[-90deg]" />
+                <PiCaretDown className="h-4 w-4 ml-1 rotate-[-90deg]" />
               </>
             ) : (
               "Complete"
@@ -246,9 +246,9 @@ export function QuickCheckSection({
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
-        <Lightbulb className="h-4 w-4 text-amber-500" />
+        <PiLightbulb className="h-4 w-4 text-amber-500" />
         Test Your Understanding
-        <ChevronDown className={cn(
+        <PiCaretDown className={cn(
           "h-4 w-4 transition-transform",
           isExpanded && "rotate-180"
         )} />

@@ -6,7 +6,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
-import { ExternalLink } from "lucide-react"
+import { PiArrowSquareOut } from "react-icons/pi"
 
 export type Source = {
   url: string
@@ -83,7 +83,7 @@ function SourceComponent({ sources, className, showAsCards = false }: SourceProp
                     />
                   )}
                   <span>{getDomainName(source.url)}</span>
-                  <ExternalLink className="h-3 w-3 opacity-50" />
+                  <PiArrowSquareOut className="h-3 w-3 opacity-50" />
                 </a>
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
@@ -124,7 +124,7 @@ function SourceComponent({ sources, className, showAsCards = false }: SourceProp
                 "dark:hover:text-blue-300"
               )}
             >
-              <ExternalLink className="h-3 w-3" />
+              <PiArrowSquareOut className="h-3 w-3" />
               Source {index + 1}
             </a>
           </HoverCardTrigger>

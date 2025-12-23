@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { UserPlus, Sparkles } from "lucide-react";
+import { PiUserPlus, PiSparkle } from "react-icons/pi";
 import { useRouter } from "next/navigation";
 
 interface GuestStatus {
@@ -53,7 +53,7 @@ export function GuestBanner() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
-            <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <PiSparkle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <h3 className="font-semibold text-foreground">
@@ -91,7 +91,7 @@ export function GuestBanner() {
             className="bg-blue-600 hover:bg-blue-700 text-white"
             size="sm"
           >
-            <UserPlus className="h-4 w-4 mr-2" />
+            <PiUserPlus className="h-4 w-4 mr-2" />
             Sign up to continue
           </Button>
         </div>

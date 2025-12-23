@@ -41,11 +41,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
-import {
-  Plus,
-  Tag,
-  BookmarkPlus, ChevronDown
-} from "lucide-react";
+import { PiPlus, PiTag, PiBookmarkSimple, PiCaretDown } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
@@ -145,9 +141,9 @@ const TagSection = memo(function TagSection({
           title={tags.length > 0 ? "Edit tags" : "Add tags"}
         >
           {tags.length > 0 ? (
-            <Tag className="h-3.5 w-3.5" />
+            <PiTag className="h-3.5 w-3.5" />
           ) : (
-            <BookmarkPlus className="h-3.5 w-3.5" />
+            <PiBookmarkSimple className="h-3.5 w-3.5" />
           )}
         </Button>
       </div>
@@ -1725,7 +1721,7 @@ const ChatContent = memo(
                       onClick={() => virtuosoRef.current?.scrollToBottom()}
                       title="Scroll to bottom"
                     >
-                      <ChevronDown className="h-4 w-4" />
+                      <PiCaretDown className="h-4 w-4" />
                       <span className="text-sm font-medium">
                         Scroll to Bottom
                       </span>
@@ -1997,7 +1993,7 @@ const ChatHeader = memo(function ChatHeader({
           onClick={handleNewChat}
           title="Start new chat"
         >
-          <Plus className="h-5 w-5" />
+          <PiPlus className="h-5 w-5" />
         </Button>
       </div>
     </div>

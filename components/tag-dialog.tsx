@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Tag, Plus } from "lucide-react";
+import { PiMagnifyingGlass, PiTag, PiPlus } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -68,7 +68,7 @@ export function TagDialog({
       <DialogContent className="max-w-lg border border-border/40 shadow-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Tag className="h-4 w-4 text-primary" />
+            <PiTag className="h-4 w-4 text-primary" />
             Manage Tags
           </DialogTitle>
         </DialogHeader>
@@ -84,7 +84,7 @@ export function TagDialog({
                     key={tag}
                     className="flex items-center gap-1 rounded-full bg-primary/5 border border-primary/20 px-3 py-1 text-sm"
                   >
-                    <Tag className="h-3 w-3 text-primary" />
+                    <PiTag className="h-3 w-3 text-primary" />
                     <span>{tag}</span>
                     <button
                       onClick={() => toggleTag(tag)}
@@ -103,7 +103,7 @@ export function TagDialog({
             <div className="text-sm font-medium">Add Tags</div>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <PiMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search or create tag..."
                   value={searchQuery}
@@ -119,7 +119,7 @@ export function TagDialog({
               </div>
               {searchQuery.trim() && !allTags.includes(searchQuery.trim()) && (
                 <Button onClick={addNewTag} size="icon">
-                  <Plus className="h-4 w-4" />
+                  <PiPlus className="h-4 w-4" />
                 </Button>
               )}
             </div>
@@ -139,7 +139,7 @@ export function TagDialog({
                       selectedTags.includes(tag) && "bg-secondary",
                     )}
                   >
-                    <Tag className="h-4 w-4" />
+                    <PiTag className="h-4 w-4" />
                     {tag}
                   </button>
                 ))}

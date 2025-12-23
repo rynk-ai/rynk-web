@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Coins, Sparkles } from "lucide-react";
+import { PiWarning, PiCoins, PiSparkle } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function CreditWarning({ credits, className }: CreditWarningProps) {
       )}
     >
       <div className="flex items-center justify-center h-8 w-8 rounded-full bg-amber-500/20 flex-shrink-0">
-        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <PiWarning className="h-4 w-4 text-amber-500" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
@@ -50,7 +50,7 @@ export function CreditWarning({ credits, className }: CreditWarningProps) {
         className="flex-shrink-0 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50"
         onClick={() => router.push("/subscription")}
       >
-        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+        <PiSparkle className="h-3.5 w-3.5 mr-1.5" />
         Upgrade
       </Button>
     </div>
@@ -77,7 +77,7 @@ export function NoCreditsOverlay({ className }: NoCreditsOverlayProps) {
     >
       <div className="flex items-center gap-4 w-full max-w-lg">
         <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 flex-shrink-0">
-          <Coins className="h-5 w-5 text-primary" />
+          <PiCoins className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">Out of credits</p>
@@ -90,7 +90,7 @@ export function NoCreditsOverlay({ className }: NoCreditsOverlayProps) {
           className="gap-1.5 flex-shrink-0"
           onClick={() => router.push("/subscription")}
         >
-          <Sparkles className="h-3.5 w-3.5" />
+          <PiSparkle className="h-3.5 w-3.5" />
           Subscribe
         </Button>
       </div>
@@ -131,9 +131,9 @@ export function InlineCreditIndicator({ credits, className }: InlineCreditIndica
             )}
           >
             {isOutOfCredits ? (
-              <Coins className="h-3 w-3" />
+              <PiCoins className="h-3 w-3" />
             ) : (
-              <AlertTriangle className="h-3 w-3" />
+              <PiWarning className="h-3 w-3" />
             )}
             <span className="hidden sm:inline">
               {isOutOfCredits ? "No credits" : `${credits} left`}

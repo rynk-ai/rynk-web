@@ -13,18 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import {
-  LogOut,
-  Settings,
-  Coins,
-  Moon,
-  Sun,
-  CreditCard,
-  Sparkles,
-  Zap,
-  Crown,
-  Type,
-} from "lucide-react";
+import { PiSignOut, PiGear, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiTextAa } from "react-icons/pi";
 import { useEffect, useState } from "react";
 import { getUserCredits } from "@/app/actions";
 import { useTheme } from "next-themes";
@@ -33,9 +22,9 @@ import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const tierIcons = {
-  free: Sparkles,
-  standard: Zap,
-  standard_plus: Crown,
+  free: PiSparkle,
+  standard: PiLightning,
+  standard_plus: PiCrown,
 };
 
 const tierColors = {
@@ -152,7 +141,7 @@ export function UserProfileDropdown() {
         {credits !== null && (
           <>
             <DropdownMenuItem disabled className="focus:bg-muted dark:focus:bg-muted/50">
-              <Coins className="mr-2 h-4 w-4" />
+              <PiCoins className="mr-2 h-4 w-4" />
               <span className="flex-1">Credits</span>
               <span className="text-sm font-medium">
                 {credits.toLocaleString()}
@@ -162,21 +151,21 @@ export function UserProfileDropdown() {
           </>
         )}
         <DropdownMenuItem onClick={handleManageSubscription} className="focus:bg-muted dark:focus:bg-muted/50">
-          <CreditCard className="mr-2 h-4 w-4" />
+          <PiCreditCard className="mr-2 h-4 w-4" />
           <span className="flex-1">Subscription</span>
           {tier === "free" && (
             <span className="text-xs text-primary font-medium">Upgrade</span>
           )}
         </DropdownMenuItem>
         <DropdownMenuItem disabled className="focus:bg-muted dark:focus:bg-muted/50">
-          <Settings className="mr-2 h-4 w-4" />
+          <PiGear className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
-            <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <PiSun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <PiMoon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span>Theme</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -193,7 +182,7 @@ export function UserProfileDropdown() {
         </DropdownMenuSub>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
-            <Type className="mr-2 h-4 w-4" />
+            <PiTextAa className="mr-2 h-4 w-4" />
             <span>Font</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -213,7 +202,7 @@ export function UserProfileDropdown() {
           onClick={handleLogout}
           className="text-red-400 focus:text-red-400 focus:bg-muted dark:focus:bg-muted/50"
         >
-          <LogOut className="mr-2 h-4 w-4" />
+          <PiSignOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -2,7 +2,7 @@
 
 import { TextShimmer } from "@/components/prompt-kit/text-shimmer"
 import { cn } from "@/lib/utils"
-import { ChevronRight } from "lucide-react"
+import { PiCaretRight } from "react-icons/pi"
 
 type ThinkingBarProps = {
   className?: string
@@ -28,7 +28,7 @@ export function ThinkingBar({
           className="flex items-center gap-1 text-sm transition-opacity hover:opacity-80"
         >
           <TextShimmer className="font-medium">{text}</TextShimmer>
-          <ChevronRight className="text-muted-foreground size-4" />
+          <PiCaretRight className="text-muted-foreground size-4" />
         </button>
       ) : (
         <TextShimmer className="cursor-default font-medium">{text}</TextShimmer>

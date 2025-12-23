@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown, RefreshCw, ExternalLink } from 'lucide-react'
+import { PiTrendUp, PiTrendDown, PiArrowClockwise, PiArrowSquareOut } from "react-icons/pi"
 
 interface PriceCardProps {
   symbol: string
@@ -102,7 +102,7 @@ export function PriceCard({ symbol, type, showChart = false, compact = false }: 
           onClick={fetchData}
           className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
         >
-          <RefreshCw className="h-3 w-3" /> Retry
+          <PiArrowClockwise className="h-3 w-3" /> Retry
         </button>
       </div>
     )
@@ -142,7 +142,7 @@ export function PriceCard({ symbol, type, showChart = false, compact = false }: 
           rel="noopener noreferrer"
           className="text-muted-foreground hover:text-foreground"
         >
-          <ExternalLink className="h-4 w-4" />
+          <PiArrowSquareOut className="h-4 w-4" />
         </a>
       </div>
 
@@ -152,7 +152,7 @@ export function PriceCard({ symbol, type, showChart = false, compact = false }: 
           ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
         <div className={`flex items-center gap-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-          {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+          {isPositive ? <PiTrendUp className="h-4 w-4" /> : <PiTrendDown className="h-4 w-4" />}
           <span className="text-sm font-medium">
             {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
           </span>

@@ -3,17 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  Search,
-  Plus,
-  FolderOpen,
-  FolderPlus,
-  MessageCircle,
-  Star,
-  ChevronRight,
-  Layers,
-  ArrowRight,
-} from "lucide-react";
+import { PiMagnifyingGlass, PiPlus, PiFolderOpen, PiFolderPlus, PiChatCircle, PiStar, PiCaretRight, PiStack, PiArrowRight } from "react-icons/pi";
 
 // Types
 export interface CommandItem {
@@ -95,7 +85,7 @@ export function CommandBar({
           type: "command" as const,
           title: "New conversation",
           subtitle: "Start a new chat",
-          icon: <Plus className="h-4 w-4" />,
+          icon: <PiPlus className="h-4 w-4" />,
           keywords: ["new", "chat", "create"],
           shortcut: ["N"],
           onSelect: () => {
@@ -108,7 +98,7 @@ export function CommandBar({
           type: "command" as const,
           title: "New project",
           subtitle: "Create a project to organize chats",
-          icon: <Layers className="h-4 w-4" />,
+          icon: <PiStack className="h-4 w-4" />,
           keywords: ["project", "create", "new"],
           shortcut: ["P"],
           onSelect: () => {
@@ -121,7 +111,7 @@ export function CommandBar({
           type: "command" as const,
           title: "New folder",
           subtitle: "Create a folder",
-          icon: <FolderPlus className="h-4 w-4" />,
+          icon: <PiFolderPlus className="h-4 w-4" />,
           keywords: ["folder", "create", "new"],
           shortcut: undefined,
           onSelect: () => {
@@ -159,7 +149,7 @@ export function CommandBar({
           id: c.id,
           type: "conversation" as const,
           title: c.title || "Untitled",
-          icon: <Star className="h-4 w-4 text-amber-500" />,
+          icon: <PiStar className="h-4 w-4 text-amber-500" />,
           onSelect: () => {
             onSelectConversation?.(c.id);
             onOpenChange(false);
@@ -188,7 +178,7 @@ export function CommandBar({
           type: "conversation" as const,
           title: c.title || "Untitled",
           subtitle: formatRelativeTime(c.updatedAt),
-          icon: <MessageCircle className="h-4 w-4 text-muted-foreground" />,
+          icon: <PiChatCircle className="h-4 w-4 text-muted-foreground" />,
           onSelect: () => {
             onSelectConversation?.(c.id);
             onOpenChange(false);
@@ -215,7 +205,7 @@ export function CommandBar({
             id: p.id,
             type: "project" as const,
             title: p.name,
-            icon: <Layers className="h-4 w-4 text-purple-500" />,
+            icon: <PiStack className="h-4 w-4 text-purple-500" />,
             onSelect: () => {
               onSelectProject?.(p.id);
               onOpenChange(false);
@@ -244,7 +234,7 @@ export function CommandBar({
             type: "folder" as const,
             title: f.name,
             subtitle: `${f.conversationIds.length} chats`,
-            icon: <FolderOpen className="h-4 w-4 text-blue-500" />,
+            icon: <PiFolderOpen className="h-4 w-4 text-blue-500" />,
             onSelect: () => {
               // Could open folder or expand in sidebar
               onOpenChange(false);
@@ -361,7 +351,7 @@ export function CommandBar({
           }}
         >
           <div className="flex items-center gap-3 border-b border-border/40 px-4 py-4">
-            <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+            <PiMagnifyingGlass className="h-5 w-5 text-muted-foreground shrink-0" />
             <input
               ref={inputRef}
               type="text"
@@ -437,7 +427,7 @@ export function CommandBar({
                           </div>
                         )}
                         {isSelected && (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <PiCaretRight className="h-4 w-4 text-muted-foreground" />
                         )}
                       </button>
                     );

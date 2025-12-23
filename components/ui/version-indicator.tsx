@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { PiCaretLeft, PiCaretRight } from "react-icons/pi"
 import { cn } from "@/lib/utils"
 import type { Message } from "@/lib/services/indexeddb"
 
@@ -70,7 +70,7 @@ export function VersionIndicator({
         onClick={() => handleSwitch('prev')}
         disabled={currentIndex === 0 || isSwitching || isLoading}
       >
-        <ChevronLeft size={14} />
+        <PiCaretLeft size={14} />
       </Button>
 
       <span className="px-2 text-xs font-mono tabular-nums">
@@ -84,7 +84,7 @@ export function VersionIndicator({
         onClick={() => handleSwitch('next')}
         disabled={currentIndex === totalVersions - 1 || isSwitching || isLoading}
       >
-        <ChevronRight size={14} />
+        <PiCaretRight size={14} />
       </Button>
     </div>
   )

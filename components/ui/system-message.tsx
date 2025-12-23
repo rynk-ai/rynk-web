@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
-import { AlertCircle, AlertTriangle, Info } from "lucide-react"
+import { PiWarningCircle, PiWarning, PiInfo } from "react-icons/pi"
 import React from "react"
 
 const systemMessageVariants = cva(
@@ -85,11 +85,11 @@ export function SystemMessage({
 
     switch (variant) {
       case "error":
-        return <AlertCircle className="size-4" />
+        return <PiWarningCircle className="size-4" />
       case "warning":
-        return <AlertTriangle className="size-4" />
+        return <PiWarning className="size-4" />
       default:
-        return <Info className="size-4" />
+        return <PiInfo className="size-4" />
     }
   }
 

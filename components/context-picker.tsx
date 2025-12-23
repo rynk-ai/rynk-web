@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Search, Check, MessageSquare, Folder as FolderIcon } from "lucide-react";
+import { PiMagnifyingGlass, PiCheck, PiChatCircle, PiFolder as FolderIcon } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader } from "@/components/ui/loader";
@@ -225,7 +225,7 @@ export function ContextPicker({
     <DialogTrigger asChild>
       {trigger || (
         <Button variant="outline" size="sm" className="gap-2">
-          <Search className="h-4 w-4" />
+          <PiMagnifyingGlass className="h-4 w-4" />
           Add your chats
         </Button>
       )}
@@ -261,7 +261,7 @@ export function ContextPicker({
 
         <div className="flex gap-2 py-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <PiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search conversations and folders..."
               value={query}
@@ -280,7 +280,7 @@ export function ContextPicker({
               </div>
             ) : itemsToShow.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border border-dashed border-border/50 rounded-lg bg-muted/20">
-                <Search className="h-8 w-8 mb-3 opacity-20" />
+                <PiMagnifyingGlass className="h-8 w-8 mb-3 opacity-20" />
                 <p className="text-sm font-medium">No results found</p>
                 <p className="text-xs opacity-70 mt-1">Try a different search term</p>
               </div>
@@ -337,7 +337,7 @@ export function ContextPicker({
                         </div>
                         {isSelected && (
                           <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
-                            <Check className="h-3 w-3" />
+                            <PiCheck className="h-3 w-3" />
                           </div>
                         )}
                         <div className="text-[10px] text-muted-foreground/70 flex items-center h-full">

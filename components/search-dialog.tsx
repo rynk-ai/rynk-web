@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Tag, X } from "lucide-react";
+import { PiMagnifyingGlass, PiTag, PiX } from "react-icons/pi";
 import { type CloudConversation as Conversation } from "@/lib/services/cloud-db";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/hooks/chat-context";
@@ -147,7 +147,7 @@ export function SearchDialog({
       <DialogContent className="sm:max-w-[600px] p-0 gap-0 bg-card border border-border/40 shadow-2xl overflow-hidden">
         <div className="flex flex-col h-[60vh]">
           <div className="flex items-center border-b border-border/40 px-4 py-4">
-            <Search className="mr-3 h-5 w-5 text-muted-foreground" />
+            <PiMagnifyingGlass className="mr-3 h-5 w-5 text-muted-foreground" />
             <input
               placeholder="Search conversations..."
               value={searchQuery}
@@ -175,7 +175,7 @@ export function SearchDialog({
                     onClick={() => toggleTag(tag)}
                   >
                     {tag}
-                    {isSelected && <X className="ml-1 h-3 w-3" />}
+                    {isSelected && <PiX className="ml-1 h-3 w-3" />}
                   </Badge>
                 );
               })}
@@ -191,7 +191,7 @@ export function SearchDialog({
               </div>
             ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground">
-                <Search className="h-12 w-12 mb-4 opacity-20" />
+                <PiMagnifyingGlass className="h-12 w-12 mb-4 opacity-20" />
                 <p className="text-sm">
                   {searchQuery.trim() ? "No results found" : "No conversations"}
                 </p>

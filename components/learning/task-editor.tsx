@@ -1,17 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  Play, 
-  Send, 
-  Lightbulb, 
-  CheckCircle2, 
-  XCircle, 
-  ChevronDown,
-  Code2,
-  FileText,
-  Loader2
-} from "lucide-react";
+import { PiPlay, PiPaperPlaneTilt, PiLightbulb, PiCheckCircle, PiXCircle, PiCaretDown, PiCode, PiFileText, PiSpinner } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ProjectTask, TaskEvaluation, TaskRubric } from "@/lib/services/project-types";
@@ -79,9 +69,9 @@ export function TaskEditor({
       {/* Task Header */}
       <div className="flex items-start gap-3">
         {task.type === "coding" ? (
-          <Code2 className="h-6 w-6 text-blue-500 mt-1" />
+          <PiCode className="h-6 w-6 text-blue-500 mt-1" />
         ) : (
-          <FileText className="h-6 w-6 text-purple-500 mt-1" />
+          <PiFileText className="h-6 w-6 text-purple-500 mt-1" />
         )}
         <div>
           <h2 className="text-xl font-bold">{task.title}</h2>
@@ -110,7 +100,7 @@ export function TaskEditor({
           <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-2">
             📊 How You'll Be Graded
           </span>
-          <ChevronDown className={cn(
+          <PiCaretDown className={cn(
             "h-5 w-5 transition-transform",
             showRubric && "rotate-180"
           )} />
@@ -152,19 +142,19 @@ export function TaskEditor({
           <span className="text-sm font-mono flex items-center gap-2">
             {task.type === "coding" ? (
               <>
-                <Code2 className="h-4 w-4" />
+                <PiCode className="h-4 w-4" />
                 solution.ts
               </>
             ) : (
               <>
-                <FileText className="h-4 w-4" />
+                <PiFileText className="h-4 w-4" />
                 Your Response
               </>
             )}
           </span>
           {task.type === "coding" && (
             <Button variant="ghost" size="sm" className="gap-1 text-xs">
-              <Play className="h-3 w-3" />
+              <PiPlay className="h-3 w-3" />
               Run (preview)
             </Button>
           )}
@@ -193,7 +183,7 @@ export function TaskEditor({
             onClick={() => setShowHints(!showHints)}
             className="gap-2"
           >
-            <Lightbulb className="h-4 w-4" />
+            <PiLightbulb className="h-4 w-4" />
             {showHints ? "Hide Hints" : "Need Help?"}
           </Button>
           
@@ -243,11 +233,11 @@ export function TaskEditor({
           <div className="flex items-center gap-4 mb-4">
             {evaluation.passed ? (
               <div className="h-14 w-14 rounded-full bg-green-500/20 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                <PiCheckCircle className="h-8 w-8 text-green-500" />
               </div>
             ) : (
               <div className="h-14 w-14 rounded-full bg-orange-500/20 flex items-center justify-center">
-                <XCircle className="h-8 w-8 text-orange-500" />
+                <PiXCircle className="h-8 w-8 text-orange-500" />
               </div>
             )}
             <div>
@@ -339,17 +329,17 @@ export function TaskEditor({
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <PiSpinner className="h-5 w-5 animate-spin" />
             Evaluating...
           </>
         ) : evaluation?.passed ? (
           <>
-            <CheckCircle2 className="h-5 w-5" />
+            <PiCheckCircle className="h-5 w-5" />
             Resubmit for Review
           </>
         ) : (
           <>
-            <Send className="h-5 w-5" />
+            <PiPaperPlaneTilt className="h-5 w-5" />
             Submit for Review
           </>
         )}

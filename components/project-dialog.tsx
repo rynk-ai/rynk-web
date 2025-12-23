@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { X, Upload, FileText, Image as ImageIcon, Loader2, CheckCircle2 } from "lucide-react"
+import { PiX, PiUploadSimple, PiFileText, PiImage as ImageIcon, PiSpinner, PiCheckCircle } from "react-icons/pi"
 import { IndexingJob } from "@/lib/hooks/use-indexing-queue"
 import { Project } from "@/lib/services/indexeddb"
 
@@ -155,11 +155,11 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
     switch (status) {
       case 'uploading':
       case 'processing':
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+        return <PiSpinner className="h-4 w-4 animate-spin text-blue-500" />
       case 'complete':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />
+        return <PiCheckCircle className="h-4 w-4 text-green-500" />
       case 'error':
-        return <X className="h-4 w-4 text-red-500" />
+        return <PiX className="h-4 w-4 text-red-500" />
       default:
         return null
     }
@@ -244,7 +244,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
                   disabled={isSubmitting}
                 />
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Upload className="h-8 w-8" />
+                  <PiUploadSimple className="h-8 w-8" />
                   <span className="text-sm">Click or drag files to attach project context</span>
                   <span className="text-xs">PDFs, code files, markdown, JSON, etc.</span>
                 </div>
@@ -264,7 +264,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
                         {fileType.startsWith('image/') ? (
                           <ImageIcon className="h-4 w-4 text-blue-500" />
                         ) : (
-                          <FileText className="h-4 w-4 text-orange-500" />
+                          <PiFileText className="h-4 w-4 text-orange-500" />
                         )}
                         <span className="truncate flex-1">{fileName}</span>
                         <span className="text-xs text-muted-foreground">
@@ -276,7 +276,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
                           className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-all"
                           disabled={isSubmitting}
                         >
-                          <X className="h-3 w-3" />
+                          <PiX className="h-3 w-3" />
                         </button>
                       </div>
                     )
@@ -299,7 +299,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
         {currentStep === 'uploading' && (
           <div className="py-6 space-y-4">
             <div className="text-center space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+              <PiSpinner className="h-8 w-8 animate-spin mx-auto text-primary" />
               <h3 className="font-semibold">Creating project...</h3>
               <p className="text-sm text-muted-foreground">
                 Uploading files and preparing for vectorization
@@ -335,7 +335,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
         {currentStep === 'processing' && (
           <div className="py-6 space-y-4">
             <div className="text-center space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+              <PiSpinner className="h-8 w-8 animate-spin mx-auto text-primary" />
               <h3 className="font-semibold">Indexing files...</h3>
               <p className="text-sm text-muted-foreground">
                 Processing content for AI context
@@ -370,7 +370,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
 
         {currentStep === 'complete' && (
           <div className="py-8 text-center space-y-3">
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+            <PiCheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <h3 className="font-semibold text-lg">Project created!</h3>
             <p className="text-sm text-muted-foreground">
               Files are being indexed in the background

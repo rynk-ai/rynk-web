@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Folder as FolderIcon } from "lucide-react"
+import { PiFolder as FolderIcon } from "react-icons/pi"
 import { cn } from "@/lib/utils"
 
 interface AddToFolderDialogProps {

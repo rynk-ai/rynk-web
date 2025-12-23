@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { ArrowRight } from "lucide-react";
+import { PiArrowRight } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -38,7 +38,7 @@ export function LandingBottomCTA() {
                     className="h-12 px-8 rounded-full bg-white text-black hover:bg-white/90 text-base font-medium"
                 >
                     Start for free
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <PiArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 
                 <Button 

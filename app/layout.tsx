@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { FontProviderWrapper } from "@/components/providers/font-provider-wrapper";
 import { Toaster } from "sonner";
 import "./globals.css";
+import "@/styles/prism-dark.css";
 
 const outfit = Outfit({ // [MODIFIED]
   subsets: ["latin"],

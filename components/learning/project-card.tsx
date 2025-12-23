@@ -1,13 +1,6 @@
 "use client";
 
-import { 
-  CheckCircle2, 
-  Lock, 
-  Play, 
-  Clock,
-  Target,
-  ChevronRight
-} from "lucide-react";
+import { PiCheckCircle, PiLock, PiPlay, PiClock, PiTarget, PiCaretRight } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/lib/services/project-types";
 
@@ -62,13 +55,13 @@ export function ProjectCard({
           !isCompleted && !isInProgress && !isLocked && "bg-secondary"
         )}>
           {isCompleted ? (
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
+            <PiCheckCircle className="h-6 w-6 text-green-500" />
           ) : isLocked ? (
-            <Lock className="h-5 w-5 text-muted-foreground" />
+            <PiLock className="h-5 w-5 text-muted-foreground" />
           ) : isInProgress ? (
-            <Play className="h-5 w-5 text-primary" />
+            <PiPlay className="h-5 w-5 text-primary" />
           ) : (
-            <Target className="h-5 w-5 text-muted-foreground" />
+            <PiTarget className="h-5 w-5 text-muted-foreground" />
           )}
         </div>
         
@@ -94,7 +87,7 @@ export function ProjectCard({
           
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
+              <PiClock className="h-3.5 w-3.5" />
               {project.estimatedHours}h
             </span>
             <span className={cn(
@@ -115,7 +108,7 @@ export function ProjectCard({
         
         {/* Arrow */}
         {!isLocked && (
-          <ChevronRight className={cn(
+          <PiCaretRight className={cn(
             "h-5 w-5 text-muted-foreground shrink-0",
             isActive && "text-primary"
           )} />

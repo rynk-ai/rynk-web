@@ -35,10 +35,6 @@ binding = "VECTORIZE_INDEX"
 index_name = "simplechat-index"
 remote=true
 
-# Environment variables for local development only
-# Production environment variables should be set in Cloudflare Dashboard
-# Do NOT put sensitive values here - use .dev.vars instead
-
 [observability]
 [observability.logs]
 enabled = true
@@ -62,7 +58,3 @@ NEXTAUTH_URL = "https://rynk.io"
 
 [triggers]
 crons = ["0 0 * * *"]
-
-
-[limits]
-cpu_ms = 300_000

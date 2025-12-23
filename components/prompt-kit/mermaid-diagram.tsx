@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useId } from 'react'
 import { cn } from '@/lib/utils'
-import { Copy, Check, AlertCircle, Maximize2, X } from 'lucide-react'
+import { PiCopy, PiCheck, PiWarningCircle, PiArrowsOut, PiX } from "react-icons/pi"
 
 interface MermaidDiagramProps {
   code: string
@@ -121,14 +121,14 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
                 onClick={handleCopy}
                 aria-label="Copy code"
               >
-                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                {copied ? <PiCheck className="h-4 w-4 text-emerald-400" /> : <PiCopy className="h-4 w-4" />}
               </button>
               <button
                 className="h-8 w-8 p-0 flex items-center justify-center rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
                 onClick={() => setIsExpanded(false)}
                 aria-label="Close"
               >
-                <X className="h-4 w-4" />
+                <PiX className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -146,7 +146,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
         {createPortal(modal, document.body)}
         {/* Placeholder in document flow */}
         <div className={cn("my-4 rounded-lg border border-gray-500/30 bg-gray-900/80 p-4 text-center text-gray-400", className)}>
-          <Maximize2 className="w-5 h-5 mx-auto mb-2 opacity-50" />
+          <PiArrowsOut className="w-5 h-5 mx-auto mb-2 opacity-50" />
           <span className="text-sm">Diagram expanded (click backdrop to close)</span>
         </div>
       </>
@@ -167,7 +167,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
             aria-label="Expand diagram"
             title="Expand"
           >
-            <Maximize2 className="h-4 w-4" />
+            <PiArrowsOut className="h-4 w-4" />
           </button>
           <button
             className="h-6 w-6 p-0 flex items-center justify-center rounded-md bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 transition-colors"
@@ -175,7 +175,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
             aria-label="Copy code"
             title="Copy code"
           >
-            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            {copied ? <PiCheck className="h-4 w-4 text-emerald-400" /> : <PiCopy className="h-4 w-4" />}
           </button>
         </div>
       </div>

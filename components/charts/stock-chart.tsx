@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown, RefreshCw, Loader2 } from 'lucide-react'
+import { PiTrendUp, PiTrendDown, PiArrowClockwise, PiSpinner } from "react-icons/pi"
 
 type TimeRange = '1d' | '1w' | '1m' | '3m' | '1y'
 
@@ -76,7 +76,7 @@ export function StockChart({
         className="bg-card border rounded-lg p-4 flex items-center justify-center"
         style={{ height }}
       >
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <PiSpinner className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -92,7 +92,7 @@ export function StockChart({
           onClick={fetchData}
           className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
         >
-          <RefreshCw className="h-4 w-4" /> Retry
+          <PiArrowClockwise className="h-4 w-4" /> Retry
         </button>
       </div>
     )
@@ -137,7 +137,7 @@ export function StockChart({
               ${hoveredPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <div className={`flex items-center gap-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-              {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              {isPositive ? <PiTrendUp className="h-4 w-4" /> : <PiTrendDown className="h-4 w-4" />}
               <span className="text-sm font-medium">
                 {isPositive ? '+' : ''}{percentChange.toFixed(2)}%
               </span>

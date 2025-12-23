@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
+import { PiCheckCircle, PiSparkle, PiArrowRight } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -48,14 +48,14 @@ export function SectionComplete({
         className
       )}>
         <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-          <CheckCircle2 className="h-5 w-5" />
+          <PiCheckCircle className="h-5 w-5" />
           <span className="font-medium">Section Completed</span>
         </div>
         
         {hasNextSection && onNextSection && (
           <Button onClick={onNextSection} variant="ghost" size="sm" className="gap-1">
             Next Section
-            <ArrowRight className="h-4 w-4" />
+            <PiArrowRight className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -68,7 +68,7 @@ export function SectionComplete({
       {showReward && (
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 animate-bounce">
           <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
-            <Sparkles className="h-4 w-4" />
+            <PiSparkle className="h-4 w-4" />
             <span className="font-bold">+{xpReward} XP</span>
           </div>
         </div>
@@ -84,12 +84,12 @@ export function SectionComplete({
       >
         {justCompleted ? (
           <>
-            <CheckCircle2 className="h-5 w-5" />
+            <PiCheckCircle className="h-5 w-5" />
             Completed! +{xpReward} XP
           </>
         ) : (
           <>
-            <CheckCircle2 className="h-5 w-5" />
+            <PiCheckCircle className="h-5 w-5" />
             Mark Section Complete
           </>
         )}
@@ -103,7 +103,7 @@ export function SectionComplete({
           className="w-full mt-2 gap-2"
         >
           Continue to Next Section
-          <ArrowRight className="h-4 w-4" />
+          <PiArrowRight className="h-4 w-4" />
         </Button>
       )}
     </div>

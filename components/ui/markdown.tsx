@@ -5,7 +5,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { CodeBlock, CodeBlockCode } from "./code-block";
 import { Button } from "./button";
-import { Copy, Check } from "lucide-react";
+import { PiCopy, PiCheck } from "react-icons/pi";
 
 export type MarkdownProps = {
   children: string;
@@ -37,9 +37,9 @@ function CopyButton({ code }: { code: string }) {
       onClick={handleCopy}
     >
       {copied ? (
-        <Check className="h-4 w-4 text-green-500" />
+        <PiCheck className="h-4 w-4 text-green-500" />
       ) : (
-        <Copy className="h-4 w-4" />
+        <PiCopy className="h-4 w-4" />
       )}
     </Button>
   );

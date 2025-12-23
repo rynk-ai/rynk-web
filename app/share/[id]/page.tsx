@@ -6,17 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { Loader } from "@/components/ui/loader";
-import { 
-  Copy, 
-  Loader2, 
-  Share2, 
-  LogIn, 
-  MessageSquare,
-  Clock,
-  Eye,
-  Users,
-  ArrowRight
-} from "lucide-react";
+import { PiCopy, PiSpinner, PiShareNetwork, PiSignIn, PiChatCircle, PiClock, PiEye, PiUsers, PiArrowRight } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -153,7 +143,7 @@ export default function SharePage({
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-6 max-w-md text-center px-4">
           <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-            <Share2 className="h-8 w-8 text-destructive" />
+            <PiShareNetwork className="h-8 w-8 text-destructive" />
           </div>
           <div>
             <h1 className="text-xl font-semibold mb-2">Unable to Load</h1>
@@ -189,7 +179,7 @@ export default function SharePage({
               onClick={handleCopyLink}
               className="gap-2"
             >
-              <Copy className="h-4 w-4" />
+              <PiCopy className="h-4 w-4" />
               <span className="hidden sm:inline">Copy Link</span>
             </Button>
             <Button
@@ -199,9 +189,9 @@ export default function SharePage({
               className="gap-2"
             >
               {cloning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <PiSpinner className="h-4 w-4 animate-spin" />
               ) : (
-                <ArrowRight className="h-4 w-4" />
+                <PiArrowRight className="h-4 w-4" />
               )}
               <span>Clone & Continue</span>
             </Button>
@@ -272,9 +262,9 @@ export default function SharePage({
               className="gap-2 shrink-0"
             >
               {cloning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <PiSpinner className="h-4 w-4 animate-spin" />
               ) : (
-                <LogIn className="h-4 w-4" />
+                <PiSignIn className="h-4 w-4" />
               )}
               Clone to My Account
             </Button>
