@@ -392,7 +392,8 @@ class TaskProcessor implements DurableObject {
     }
 
     // Surfaces that benefit from parallel section generation
-    const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard', 'comparison']
+    // NOTE: Comparison NOT included - it uses single-pass generation for coherent verdict/items/criteria
+    const PROGRESSIVE_SURFACES = ['wiki', 'quiz', 'flashcard']
     const useProgressiveGeneration = PROGRESSIVE_SURFACES.includes(surfaceType)
     
     // WIKI, TIMELINE, COMPARISON: Fetch web context FIRST so skeleton can be informed by sources
@@ -467,6 +468,15 @@ class TaskProcessor implements DurableObject {
         analysis,
         webContext
       )
+      
+      // Add web context sources for comparison (generated in single pass)
+      if (surfaceType === 'comparison' && webContext?.citations?.length > 0) {
+        surfaceState.metadata.sources = webContext.citations.slice(0, 8).map((c: any) => ({
+          url: c.url,
+          title: c.title,
+          snippet: c.snippet
+        }))
+      }
     }
     
     onProgress({ current: 5, total: 5, message: 'Complete!', step: 'complete' })
