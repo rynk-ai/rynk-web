@@ -58,36 +58,53 @@ export async function getOrCreateGuestSession(
   const ipHash = await hashIP(ip)
   const userAgent = request.headers.get('user-agent') || ''
 
-  if (!guestId) {
-    return null
-  }
-
-  // Check if guest session exists
-  const existing = await db
-    .prepare(
-      'SELECT * FROM guest_sessions WHERE guest_id = ? LIMIT 1'
-    )
-    .bind(guestId)
-    .first<GuestSession>()
-
-  if (existing) {
-    // Update last_active
-    await db
+  if (guestId) {
+    // Check if guest session exists
+    const existing = await db
       .prepare(
-        'UPDATE guest_sessions SET last_active = CURRENT_TIMESTAMP WHERE guest_id = ?'
+        'SELECT * FROM guest_sessions WHERE guest_id = ? LIMIT 1'
       )
       .bind(guestId)
-      .run()
+      .first<GuestSession>()
 
-    return existing
+    if (existing) {
+      // Update last_active
+      await db
+        .prepare(
+          'UPDATE guest_sessions SET last_active = CURRENT_TIMESTAMP WHERE guest_id = ?'
+        )
+        .bind(guestId)
+        .run()
+
+      return existing
+    }
   }
+
+  // Check IP verification for daily limit across ALL sessions for this IP
+  // User feedback: 24h is too short, extending to 7 days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  
+  const ipUsage = await db
+    .prepare(
+      `SELECT SUM(message_count) as total_messages 
+       FROM guest_sessions 
+       WHERE ip_hash = ? AND created_at > ?`
+    )
+    .bind(ipHash, sevenDaysAgo)
+    .first<{ total_messages: number }>()
+
+  const usedMessages = ipUsage?.total_messages || 0
+  const remainingDailyCredits = Math.max(0, GUEST_CREDITS_LIMIT - usedMessages)
+
+  // Generate new guest ID if one wasn't provided or didn't exist
+  const newGuestId = guestId || generateGuestId()
 
   // Create new guest session
   const newSession: GuestSession = {
-    guest_id: guestId,
+    guest_id: newGuestId,
     ip_hash: ipHash,
     user_agent: userAgent,
-    credits_remaining: GUEST_CREDITS_LIMIT,
+    credits_remaining: remainingDailyCredits, // Give only what's left for this IP
     message_count: 0,
     created_at: new Date().toISOString(),
     last_active: new Date().toISOString()
