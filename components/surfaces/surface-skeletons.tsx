@@ -290,71 +290,94 @@ export function WikiSkeleton() {
 export function ComparisonSkeleton() {
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in duration-300">
-      {/* Hero */}
-      <div className="bg-card border border-border/40 rounded-2xl shadow-lg mb-8 p-8 md:p-10 text-center space-y-4">
-        <Skeleton className="h-12 w-12 mx-auto rounded-xl bg-muted dark:bg-muted/50" />
-        <Skeleton className="h-9 w-2/3 mx-auto bg-muted dark:bg-muted/50" />
-        <Skeleton className="h-5 w-1/2 mx-auto bg-muted dark:bg-muted/50" />
-        <div className="flex justify-center gap-4 pt-2">
-          <Skeleton className="h-8 w-24 rounded-full bg-muted dark:bg-muted/50" />
-          <Skeleton className="h-8 w-24 rounded-full bg-muted dark:bg-muted/50" />
+      {/* Hero - Wiki style, no card wrapper */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
+          <Skeleton className="h-6 w-24 rounded-md bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-6 w-32 rounded-md bg-muted dark:bg-muted/50" />
+        </div>
+        <Skeleton className="h-12 w-3/4 mb-6 bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-6 w-full mb-2 bg-muted dark:bg-muted/50" />
+        <Skeleton className="h-6 w-2/3 bg-muted dark:bg-muted/50" />
+        <div className="flex items-center gap-6 mt-6">
+          <Skeleton className="h-5 w-32 bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-5 w-28 bg-muted dark:bg-muted/50" />
         </div>
       </div>
 
-      {/* Verdict Bar */}
-      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 mb-8">
+      {/* Verdict Banner */}
+      <div className="mb-10 p-6 rounded-xl border border-border/30 bg-muted/10">
         <div className="flex items-center gap-4">
-          <Skeleton className="h-12 w-12 rounded-xl bg-muted dark:bg-muted/50" />
+          <Skeleton className="h-14 w-14 rounded-xl bg-muted dark:bg-muted/50" />
           <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-32 bg-muted dark:bg-muted/50" />
-            <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+            <Skeleton className="h-4 w-20 bg-muted dark:bg-muted/50" />
+            <Skeleton className="h-6 w-48 bg-muted dark:bg-muted/50" />
           </div>
+          <Skeleton className="h-5 w-64 hidden md:block bg-muted dark:bg-muted/50" />
         </div>
       </div>
 
-      {/* Scenario Pills */}
-      <div className="mb-8">
-        <Skeleton className="h-4 w-40 mb-3 bg-muted dark:bg-muted/50" />
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-36 rounded-xl bg-muted dark:bg-muted/50" />
-          <Skeleton className="h-10 w-32 rounded-xl bg-muted dark:bg-muted/50" />
-          <Skeleton className="h-10 w-40 rounded-xl bg-muted dark:bg-muted/50" />
+      {/* Scenario Cards */}
+      <div className="mb-10">
+        <Skeleton className="h-4 w-40 mb-4 bg-muted dark:bg-muted/50" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-4 rounded-lg border border-border/30">
+              <div className="flex justify-between mb-2">
+                <Skeleton className="h-5 w-32 bg-muted dark:bg-muted/50" />
+                <Skeleton className="h-5 w-20 bg-muted dark:bg-muted/50" />
+              </div>
+              <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Comparison Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-        {[1, 2].map((i) => (
-          <div key={i} className="bg-card rounded-2xl border p-6 space-y-4">
-            <Skeleton className="h-6 w-1/2 mx-auto bg-muted dark:bg-muted/50" />
-            <Skeleton className="h-4 w-3/4 mx-auto bg-muted dark:bg-muted/50" />
-            <div className="space-y-3 pt-4">
-              <div className="bg-green-500/5 rounded-xl p-3 space-y-2">
-                <Skeleton className="h-4 w-20 bg-muted dark:bg-muted/50" />
-                <Skeleton className="h-3 w-full bg-muted dark:bg-muted/50" />
-                <Skeleton className="h-3 w-4/5 bg-muted dark:bg-muted/50" />
+      <div className="mb-12">
+        <Skeleton className="h-4 w-36 mb-6 bg-muted dark:bg-muted/50" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="rounded-xl border border-border/30 overflow-hidden">
+              <div className="p-5 border-b border-border/30">
+                <Skeleton className="h-6 w-32 mb-2 bg-muted dark:bg-muted/50" />
+                <Skeleton className="h-4 w-48 bg-muted dark:bg-muted/50" />
               </div>
-              <div className="bg-red-500/5 rounded-xl p-3 space-y-2">
-                <Skeleton className="h-4 w-20 bg-muted dark:bg-muted/50" />
-                <Skeleton className="h-3 w-full bg-muted dark:bg-muted/50" />
+              <div className="p-5 space-y-4">
+                <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-20 bg-muted dark:bg-muted/50" />
+                  <Skeleton className="h-3 w-full bg-muted dark:bg-muted/50" />
+                  <Skeleton className="h-3 w-4/5 bg-muted dark:bg-muted/50" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-20 bg-muted dark:bg-muted/50" />
+                  <Skeleton className="h-3 w-full bg-muted dark:bg-muted/50" />
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Comparison Table */}
-      <div className="bg-card border border-border/30 rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-border/30 bg-muted/5">
-          <Skeleton className="h-6 w-48 bg-muted dark:bg-muted/50" />
-        </div>
-        <div className="p-6 space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex gap-4">
-              <Skeleton className="h-5 w-1/4 bg-muted dark:bg-muted/50" />
-              <Skeleton className="h-5 w-2/3 bg-muted dark:bg-muted/50" />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Analysis Section */}
+      <div>
+        <Skeleton className="h-4 w-36 mb-6 bg-muted dark:bg-muted/50" />
+        <div className="rounded-xl border border-border/30 overflow-hidden">
+          <div className="px-5 py-3 bg-muted/20 border-b border-border/30">
+            <Skeleton className="h-5 w-24 bg-muted dark:bg-muted/50" />
+          </div>
+          <div className="divide-y divide-border/20">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="px-5 py-4">
+                <div className="flex justify-between mb-2">
+                  <Skeleton className="h-5 w-32 bg-muted dark:bg-muted/50" />
+                  <Skeleton className="h-5 w-20 bg-muted dark:bg-muted/50" />
+                </div>
+                <Skeleton className="h-4 w-full bg-muted dark:bg-muted/50" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
