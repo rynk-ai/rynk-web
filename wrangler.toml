@@ -62,6 +62,3 @@ NEXTAUTH_URL = "https://rynk.io"
 
 [triggers]
 crons = ["0 0 * * *"]
-
-[limits]
-cpu_ms = 300_000

@@ -2052,12 +2052,12 @@ const ChatContent = memo(
           {!isScrolledUp && messages.length > 0 && currentConversationId && (
             <Button
               variant="ghost"
-              className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-md bg-background hover:bg-accent border border-border transition-all duration-300 h-8 px-3 gap-1.5 animate-in slide-in-from-bottom-2 fade-in"
+              className="absolute bottom-32 z-30 rounded-full shadow-md bg-background hover:bg-accent border border-border transition-all duration-300 animate-in slide-in-from-bottom-2 fade-in right-4 h-9 w-9 p-0 md:right-auto md:left-1/2 md:-translate-x-1/2 md:h-8 md:w-auto md:px-3 md:gap-1.5"
               onClick={() => virtuosoRef.current?.scrollToBottom()}
               title="Scroll to bottom"
             >
-              <ChevronDown className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium">
+              <ChevronDown className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              <span className="hidden md:inline text-xs font-medium">
                 Scroll to Bottom
               </span>
             </Button>

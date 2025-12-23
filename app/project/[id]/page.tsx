@@ -1717,12 +1717,12 @@ const ChatContent = memo(
                   {!isScrolledUp && messages.length > 0 && (
                     <Button
                       variant="outline"
-                      className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border border-border/50 hover:border-border transition-all duration-300 px-4 py-2.5 flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in"
+                      className="absolute bottom-32 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border border-border/50 hover:border-border transition-all duration-300 flex items-center animate-in slide-in-from-bottom-4 fade-in right-4 h-9 w-9 p-0 justify-center md:right-auto md:left-1/2 md:-translate-x-1/2 md:h-auto md:w-auto md:px-4 md:py-2.5 md:gap-2"
                       onClick={() => virtuosoRef.current?.scrollToBottom()}
                       title="Scroll to bottom"
                     >
                       <PiCaretDown className="h-4 w-4" />
-                      <span className="text-sm font-medium">
+                      <span className="hidden md:inline text-sm font-medium">
                         Scroll to Bottom
                       </span>
                     </Button>
