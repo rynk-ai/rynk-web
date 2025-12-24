@@ -15,8 +15,19 @@ import { InlineCitation } from "@/components/chat/inline-citation"
 // Citation Context for passing citations deep into components
 const CitationContext = createContext<Citation[]>([])
 
+// Message Context for passing message info (for Mermaid fix persistence)
+interface MessageContextValue {
+  messageId?: string
+  conversationId?: string
+}
+const MessageContext = createContext<MessageContextValue>({})
+
 export function useCitations() {
   return useContext(CitationContext)
+}
+
+export function useMessageContext() {
+  return useContext(MessageContext)
 }
 
 export type MarkdownProps = {
@@ -25,6 +36,9 @@ export type MarkdownProps = {
   className?: string
   components?: Partial<Components>
   citations?: Citation[]
+  // For Mermaid diagram fix persistence
+  messageId?: string
+  conversationId?: string
 }
 
 function parseMarkdownIntoBlocks(markdown: string): string[] {
@@ -36,6 +50,18 @@ function extractLanguage(className?: string): string {
   if (!className) return "plaintext"
   const match = className.match(/language-(\w+)/)
   return match ? match[1] : "plaintext"
+}
+
+// Wrapper component to pass MessageContext to MermaidDiagram
+function MermaidDiagramWithContext({ code }: { code: string }) {
+  const { messageId, conversationId } = useMessageContext()
+  return (
+    <MermaidDiagram 
+      code={code} 
+      messageId={messageId} 
+      conversationId={conversationId} 
+    />
+  )
 }
 
 function CopyButton({ code }: { code: string }) {
@@ -341,7 +367,8 @@ function createCitationAwareComponents(citations: Citation[]): Partial<Component
 
       // Special handling for mermaid diagrams - render as actual diagrams
       if (language === 'mermaid') {
-        return <MermaidDiagram code={codeString} />
+        // MermaidDiagram will get messageId/conversationId from MessageContext
+        return <MermaidDiagramWithContext code={codeString} />
       }
 
       return (
@@ -411,24 +438,33 @@ function MarkdownComponent({
   className,
   components,
   citations = [],
+  messageId,
+  conversationId,
 }: MarkdownProps) {
   const generatedId = useId()
   const blockId = id ?? generatedId
   const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children])
+  
+  const messageContextValue = useMemo(
+    () => ({ messageId, conversationId }),
+    [messageId, conversationId]
+  )
 
   return (
-    <CitationContext.Provider value={citations}>
-      <div className={className}>
-        {blocks.map((block, index) => (
-          <MemoizedMarkdownBlock
-            key={`${blockId}-block-${index}`}
-            content={block}
-            components={components}
-            citations={citations}
-          />
-        ))}
-      </div>
-    </CitationContext.Provider>
+    <MessageContext.Provider value={messageContextValue}>
+      <CitationContext.Provider value={citations}>
+        <div className={className}>
+          {blocks.map((block, index) => (
+            <MemoizedMarkdownBlock
+              key={`${blockId}-block-${index}`}
+              content={block}
+              components={components}
+              citations={citations}
+            />
+          ))}
+        </div>
+      </CitationContext.Provider>
+    </MessageContext.Provider>
   )
 }
 

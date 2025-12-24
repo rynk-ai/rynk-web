@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { PiCopy, PiCheck, PiWarningCircle, PiArrowsOut, PiX } from "react-icons/pi"
+import { PiCopy, PiCheck, PiWarningCircle, PiArrowsOut, PiX, PiSpinner } from "react-icons/pi"
 
 interface MermaidDiagramProps {
   code: string
   className?: string
+  // Optional: for persisting fixes to DB
+  messageId?: string
+  conversationId?: string
 }
 
 // Generate mermaid image URL from code (using self-hosted renderer)
@@ -17,16 +20,21 @@ function getMermaidImageUrl(code: string, theme: 'dark' | 'light' = 'dark'): str
   return `https://mermaid.rynk.io/img/${encoded}?theme=${theme}&bgColor=transparent`
 }
 
-export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
+export function MermaidDiagram({ code, className, messageId, conversationId }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
+  
+  // Auto-fix state
+  const [isFixing, setIsFixing] = useState(false)
+  const [fixedCode, setFixedCode] = useState<string | null>(null)
+  const [fixAttempted, setFixAttempted] = useState(false)
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(fixedCode || code)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
@@ -34,7 +42,66 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
     }
   }
 
-  const imageUrl = getMermaidImageUrl(code.trim())
+  // Auto-fix handler
+  const attemptFix = useCallback(async () => {
+    if (fixAttempted || isFixing) return
+    
+    setIsFixing(true)
+    setFixAttempted(true)
+    
+    try {
+      const response = await fetch('/api/mermaid/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code.trim(),
+          messageId,
+          conversationId
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json() as { fixed: boolean; code?: string }
+        if (data.fixed && data.code) {
+          setFixedCode(data.code)
+          setError(null)
+          setImageLoaded(false)
+        } else {
+          // LLM couldn't fix it or code was unchanged
+          setError('Diagram syntax error - could not auto-fix')
+        }
+      } else {
+        setError('Failed to render diagram')
+      }
+    } catch (err) {
+      console.error('Failed to fix mermaid:', err)
+      setError('Failed to render diagram')
+    } finally {
+      setIsFixing(false)
+    }
+  }, [code, messageId, conversationId, fixAttempted, isFixing])
+
+  // Handle image load error
+  const handleImageError = useCallback(() => {
+    if (!fixAttempted && !isFixing) {
+      attemptFix()
+    } else {
+      setError('Failed to render diagram')
+    }
+  }, [attemptFix, fixAttempted, isFixing])
+
+  const currentCode = fixedCode || code
+  const imageUrl = getMermaidImageUrl(currentCode.trim())
+
+  // Fixing state
+  if (isFixing) {
+    return (
+      <div className={cn("my-4 rounded-lg border border-zinc-700/50 bg-zinc-900/80 p-6 flex items-center justify-center gap-3", className)}>
+        <PiSpinner className="h-5 w-5 animate-spin text-zinc-400" />
+        <span className="text-zinc-400 text-sm">Fixing diagram syntax...</span>
+      </div>
+    )
+  }
 
   // Error state
   if (error) {
@@ -94,7 +161,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
               src={imageUrl}
               alt="Mermaid Diagram"
               className="max-w-full max-h-full object-contain"
-              onError={() => setError('Failed to load diagram from mermaid.ink')}
+              onError={handleImageError}
             />
           </div>
         </div>
@@ -151,7 +218,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
             imageLoaded ? "opacity-100" : "opacity-0"
           )}
           onLoad={() => setImageLoaded(true)}
-          onError={() => setError('Failed to load diagram from mermaid.ink')}
+          onError={handleImageError}
           style={{ minHeight: imageLoaded ? 'auto' : 0 }}
         />
       </div>
