@@ -543,6 +543,10 @@ const ChatContent = memo(
           optimisticAssistantMessage,
         ]);
 
+        // Start streaming/thinking UI IMMEDIATELY (don't wait for API)
+        // This shows the loading indicator while conversation creation happens
+        startStreaming(tempAssistantMessageId);
+
         // Clear context and quote immediately
         setLocalContext([]);
         setQuotedMessage(null);
@@ -751,7 +755,8 @@ const ChatContent = memo(
             replaceMessage(tempAssistantMessageId, realAssistantMessage);
           }
 
-          // Start streaming
+          // Update streaming to use REAL message ID (for proper message updates later)
+          // Streaming was already started with temp ID above for immediate UI feedback
           if (assistantMessageId) {
             startStreaming(assistantMessageId);
           }
