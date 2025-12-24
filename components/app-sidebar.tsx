@@ -99,20 +99,18 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
     loadMoreConversations,
     hasMoreConversations,
     isLoadingMoreConversations,
+    isLoadingProjects,
+    isLoadingFolders,
+    isLoadingConversations,
     selectProject,
     loadingConversations,
   } = useChatContext();
-
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const [isLoadingFolders, setIsLoadingFolders] = useState(true);
-
-  const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<any>(null);
   const [addToFolderDialogOpen, setAddToFolderDialogOpen] = useState(false);
@@ -141,30 +139,10 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
     }
   }, [getAllTags]);
 
+  // Load tags on mount
   useEffect(() => {
-    const initProjects = async () => {
-      setIsLoadingProjects(true);
-      await loadProjects();
-      setIsLoadingProjects(false);
-    };
-    initProjects();
-  }, [loadProjects]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoadingConversations(true);
-      setIsLoadingFolders(true);
-      try {
-        const tags = await getAllTags();
-        setAllTags(tags);
-      } catch (err) {
-        console.error("Failed to load tags:", err);
-      }
-      setIsLoadingConversations(false);
-      setIsLoadingFolders(false);
-    };
-    fetchData();
-  }, [getAllTags]);
+    loadTags();
+  }, [loadTags]);
 
   // Listen for command bar trigger to open folder dialog
   useEffect(() => {

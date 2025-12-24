@@ -9,6 +9,9 @@ interface ChatContextValue {
   currentConversation: Conversation | null
   currentConversationId: string | null
   isLoading: boolean
+  isLoadingConversations: boolean
+  isLoadingFolders: boolean
+  isLoadingProjects: boolean
   loadingConversations: Set<string>
   error: string | null
   createConversation: (projectId?: string) => Promise<string>
@@ -134,6 +137,9 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
     chatHook.currentConversation,
     chatHook.currentConversationId,
     chatHook.isLoading,
+    chatHook.isLoadingProjects,
+    chatHook.isLoadingFolders,
+    chatHook.isLoadingConversations,
     chatHook.error,
     chatHook.folders,
     chatHook.projects,

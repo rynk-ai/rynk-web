@@ -120,7 +120,7 @@ export function useChat(initialConversationId?: string | null) {
 
   // --- Queries ---
 
-  const { data: conversations = [] } = useQuery({
+  const { data: conversations = [], isPending: isLoadingConversations } = useQuery({
     queryKey: ['conversations', effectiveProjectId], // Add projectId to query key to trigger refetch on change
     queryFn: () => getConversations(50, 0, effectiveProjectId || undefined), // Fetch more initially for better cache coverage
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -132,13 +132,13 @@ export function useChat(initialConversationId?: string | null) {
     [conversations, currentConversationId]
   )
 
-  const { data: folders = [] } = useQuery({
+  const { data: folders = [], isPending: isLoadingFolders } = useQuery({
     queryKey: ['folders'],
     queryFn: () => getFoldersAction(),
     staleTime: 1000 * 60 * 60, // 1 hour (folders change less often)
   })
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isPending: isLoadingProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjectsAction(),
     staleTime: 1000 * 60 * 60, // 1 hour
@@ -969,6 +969,7 @@ export function useChat(initialConversationId?: string | null) {
     currentConversation,
     currentConversationId,
     isLoading,
+    isLoadingConversations,
     loadingConversations,
     error,
     createConversation,
@@ -990,6 +991,7 @@ export function useChat(initialConversationId?: string | null) {
     getMessages,
     // Folders
     folders,
+    isLoadingFolders,
     createFolder,
     updateFolder,
     deleteFolder,
@@ -998,6 +1000,7 @@ export function useChat(initialConversationId?: string | null) {
     loadFolders,
     // Projects
     projects,
+    isLoadingProjects,
     createProject,
     updateProject,
     deleteProject,
