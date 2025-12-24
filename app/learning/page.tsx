@@ -380,9 +380,10 @@ export default function LearningPage() {
         )}
         
         {/* Content */}
-        {!hasActiveCourses && !showCreateInput ? (
-          <EmptyState onCreateCourse={() => setShowCreateInput(true)} />
-        ) : hasActiveCourses ? (
+        {!hasActiveCourses ? (
+          /* When user has no courses, show EmptyState or nothing (input is shown above via showCreateInput) */
+          !showCreateInput && <EmptyState onCreateCourse={() => setShowCreateInput(true)} />
+        ) : (
           <>
             {/* In Progress Section */}
             {courses.filter(c => c.progress < 100).length > 0 && (
@@ -428,13 +429,6 @@ export default function LearningPage() {
               </section>
             )}
           </>
-        ) : (
-          <div className="text-center py-12">
-            <CreateCourseInput 
-              onSubmit={handleCreateCourse} 
-              isLoading={isCreating} 
-            />
-          </div>
         )}
       </main>
         </div>
