@@ -11,8 +11,10 @@
 
 "use client";
 
-import { memo } from "react";
+import { memo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { FinanceMetadata, SurfaceState } from "@/lib/services/domain-types";
 import {
   PiTrendUp,
@@ -30,6 +32,8 @@ import {
   PiCircleFill,
   PiTarget,
   PiShield,
+  PiBookmarkSimpleFill,
+  PiBookmarkSimple,
 } from "react-icons/pi";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { StockChart } from "@/components/charts/stock-chart";
@@ -56,6 +60,30 @@ function CompactHeader({ asset, liveData, summary }: {
 }) {
   const isPositive = liveData.changePercent24h >= 0;
   
+  // Watchlist state (localStorage-based)
+  const [isWatched, setIsWatched] = useState(false);
+  
+  useEffect(() => {
+    const watchlist = JSON.parse(localStorage.getItem('finance_watchlist') || '[]') as string[];
+    setIsWatched(watchlist.includes(asset.symbol));
+  }, [asset.symbol]);
+  
+  const toggleWatchlist = () => {
+    const watchlist = JSON.parse(localStorage.getItem('finance_watchlist') || '[]') as string[];
+    let newWatchlist: string[];
+    
+    if (isWatched) {
+      newWatchlist = watchlist.filter((s: string) => s !== asset.symbol);
+      toast.success(`${asset.symbol} removed from watchlist`);
+    } else {
+      newWatchlist = [...watchlist, asset.symbol];
+      toast.success(`${asset.symbol} added to watchlist`);
+    }
+    
+    localStorage.setItem('finance_watchlist', JSON.stringify(newWatchlist));
+    setIsWatched(!isWatched);
+  };
+  
   return (
     <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8 bg-card border border-border/40 rounded-2xl p-6 shadow-sm">
       {/* Left: Price info */}
@@ -70,6 +98,26 @@ function CompactHeader({ asset, liveData, summary }: {
               {asset.type}
             </span>
           )}
+          
+          {/* Watchlist Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleWatchlist}
+            className={cn(
+              "h-8 w-8 rounded-lg transition-all",
+              isWatched 
+                ? "text-yellow-500 hover:text-yellow-600" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={isWatched ? "Remove from watchlist" : "Add to watchlist"}
+          >
+            {isWatched ? (
+              <PiBookmarkSimpleFill className="h-5 w-5" />
+            ) : (
+              <PiBookmarkSimple className="h-5 w-5" />
+            )}
+          </Button>
         </div>
         
         {asset.sector && (
@@ -109,6 +157,19 @@ function StatItem({ label, value, valueClass }: { label: string; value: string; 
     <div className="text-left">
       <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 opacity-70">{label}</div>
       <div className={cn("text-sm font-bold font-mono", valueClass)}>{value}</div>
+    </div>
+  );
+}
+
+// Financial Disclaimer Banner (persistent, legally required)
+function DisclaimerBanner() {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-700 dark:text-amber-400">
+      <PiWarning className="h-5 w-5 flex-shrink-0 mt-0.5" />
+      <div className="text-xs leading-relaxed">
+        <span className="font-semibold">Not Financial Advice.</span>{" "}
+        This analysis is AI-generated for informational purposes only. Do not rely solely on this data for investment decisions. Always consult a qualified financial advisor.
+      </div>
     </div>
   );
 }
@@ -471,6 +532,9 @@ export const FinanceSurface = memo(function FinanceSurface({
         liveData={metadata.liveData} 
         summary={metadata.summary}
       />
+      
+      {/* Financial Disclaimer - Always visible */}
+      <DisclaimerBanner />
       
       {/* Key Signals Row */}
       <SignalsRow metadata={metadata} />

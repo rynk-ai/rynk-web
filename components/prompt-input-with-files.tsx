@@ -22,8 +22,6 @@ import {
   PiPlus, 
   PiX, 
   PiQuotes, 
-  PiBrain, 
-  PiGlobe, 
   PiBookOpen, 
   PiListChecks, 
   PiCaretDown, 
@@ -105,9 +103,7 @@ type PromptInputWithFilesProps = {
     authorRole: 'user' | 'assistant';
   } | null;
   onClearQuote?: () => void;
-  // Reasoning mode props
-  reasoningMode?: boolean | "online" | "off" | "on" | "auto";
-  onToggleReasoningMode?: () => void;
+
   // Surface mode props
   surfaceMode?: SurfaceType | 'chat';
   onSurfaceModeChange?: (mode: SurfaceType | 'chat') => void;
@@ -115,52 +111,7 @@ type PromptInputWithFilesProps = {
   isGuest?: boolean;
 };
 
-// Slash Commands Configuration
-const SLASH_COMMANDS = [
-  { 
-    id: 'web', 
-    label: '/web', 
-    description: 'Enable web search', 
-    icon: PiGlobe,
-    action: (setText: (t: string) => void, current: string) => {
-      // For now, just prepend "Search the web for: " as a hint
-      // or we could add a specific prop later. 
-      // User said it's auto-determined, so a strong text hint is good.
-      const hint = "Search the web for: ";
-      // Check if already starts with it
-      if (current.startsWith(hint)) return current;
-      return hint + current;
-    }
-  },
-  { 
-    id: 'deep', 
-    label: '/deep', 
-    description: 'Toggle deep thinking', 
-    icon: PiBrain,
-    action: (setText: (t: string) => void, current: string, toggleReasoning?: () => void) => {
-      toggleReasoning?.();
-      return current; // No text change, just toggle
-    } 
-  },
-  { 
-    id: 'code', 
-    label: '/code', 
-    description: 'Optimize for code', 
-    icon: PiPlus, // Using Plus as placeholder, maybe Code xml tag?
-    action: (setText: (t: string) => void, current: string) => {
-      return current + "\n\nProvide a code solution.";
-    }
-  },
-  { 
-    id: 'brief', 
-    label: '/brief', 
-    description: 'Keep it concise', 
-    icon: PiChatCircle,
-    action: (setText: (t: string) => void, current: string) => {
-      return current + "\n\nBe brief.";
-    }
-  },
-];
+
 
 export const PromptInputWithFiles = memo(function
   PromptInputWithFiles({
@@ -187,8 +138,6 @@ export const PromptInputWithFiles = memo(function
   hideFileUpload = false,
   quotedMessage,
   onClearQuote,
-  reasoningMode,
-  onToggleReasoningMode,
   surfaceMode = 'chat',
   onSurfaceModeChange,
   isGuest = false,
@@ -197,14 +146,14 @@ export const PromptInputWithFiles = memo(function
   const [files, setFiles] = useState<(File | Attachment)[]>([]);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Slash Command State
-  const [slashQuery, setSlashQuery] = useState<string | null>(null);
-  const [slashIndex, setSlashIndex] = useState(0);
-
   // Surface Mode dropdown state
   const [surfaceModeOpen, setSurfaceModeOpen] = useState(false);
   const currentSurfaceMode = SURFACE_MODES.find(m => m.type === surfaceMode) || SURFACE_MODES[0];
   const surfaceDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Plus dropdown state (unified file/context menu)
+  const [plusDropdownOpen, setPlusDropdownOpen] = useState(false);
+  const plusDropdownRef = useRef<HTMLDivElement>(null);
   
   // Smart surface suggestion state
   const [suggestedSurface, setSuggestedSurface] = useState<{
@@ -218,17 +167,20 @@ export const PromptInputWithFiles = memo(function
 
   // Close surface dropdown when clicking outside
   useEffect(() => {
-    if (!surfaceModeOpen) return;
+    if (!surfaceModeOpen && !plusDropdownOpen) return;
     
     const handleClickOutside = (event: MouseEvent) => {
-      if (surfaceDropdownRef.current && !surfaceDropdownRef.current.contains(event.target as Node)) {
+      if (surfaceModeOpen && surfaceDropdownRef.current && !surfaceDropdownRef.current.contains(event.target as Node)) {
         setSurfaceModeOpen(false);
+      }
+      if (plusDropdownOpen && plusDropdownRef.current && !plusDropdownRef.current.contains(event.target as Node)) {
+        setPlusDropdownOpen(false);
       }
     };
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [surfaceModeOpen]);
+  }, [surfaceModeOpen, plusDropdownOpen]);
 
   // Detect if device is mobile
   useEffect(() => {
@@ -355,25 +307,7 @@ export const PromptInputWithFiles = memo(function
     
     // Find key triggers
     const lastAt = value.lastIndexOf('@');
-    const lastSlash = value.lastIndexOf('/');
-    const cursor = value.length; // Approximate detection at end, ideally we use selectionStart but for simple typing this is ok
-
-    // Handle Slash Commands
-    if (lastSlash !== -1) {
-      const isValidStart = lastSlash === 0 || value[lastSlash - 1] === ' ' || value[lastSlash - 1] === '\n';
-      if (isValidStart) {
-        const textAfterSlash = value.slice(lastSlash + 1);
-        // Stop at space or newline
-        if (!textAfterSlash.includes(' ') && !textAfterSlash.includes('\n')) {
-          setSlashQuery(textAfterSlash);
-          setSlashIndex(0); // Reset selection
-          setQuery(""); // Clear @ query if active
-          return;
-        }
-      }
-    }
-    setSlashQuery(null); // Clear if no valid slash command
-
+    
     // Handle Context Search (@)
     if (lastAt !== -1) {
       // Check if it's a valid mention start (start of string or preceded by space)
@@ -393,7 +327,7 @@ export const PromptInputWithFiles = memo(function
     
     // Smart surface suggestion detection using AI API (debounced)
     // Only suggest if user hasn't manually selected a surface (surfaceMode === 'chat')
-    if (surfaceMode === 'chat' && value.length > 10 && !slashQuery && !query) {
+    if (surfaceMode === 'chat' && value.length > 10 && !query) {
       // Clear existing timeout
       if (suggestionTimeoutRef.current) {
         clearTimeout(suggestionTimeoutRef.current);
@@ -457,37 +391,6 @@ export const PromptInputWithFiles = memo(function
     }
   };
 
-  const handleSelectSlashCommand = (cmd: typeof SLASH_COMMANDS[0]) => {
-    if (!slashQuery && slashQuery !== "") return;
-    
-    // Remove the command text (e.g. /w)
-    const lastSlash = prompt.lastIndexOf('/');
-    if (lastSlash === -1) return;
-
-    const beforeSlash = prompt.slice(0, lastSlash);
-    // const afterSlash = prompt.slice(lastSlash + 1 + slashQuery!.length); // Should be empty/cursor
-    
-    // Apply action
-    const newText = cmd.action(
-      (t) => {
-        setPrompt(t);
-        onValueChange?.(t);
-      }, 
-      beforeSlash, 
-      onToggleReasoningMode
-    );
-
-    setPrompt(newText);
-    onValueChange?.(newText);
-    setSlashQuery(null);
-
-    // Refocus
-    setTimeout(() => {
-      const textarea = document.getElementById("main-chat-input");
-      if (textarea) textarea.focus();
-    }, 0);
-  };
-
   const handleSelectContext = (item: SearchResultItem) => {
     if (!onContextChange) return;
 
@@ -536,38 +439,9 @@ export const PromptInputWithFiles = memo(function
     }, 0);
   };
 
-  // Filter slash commands
-  const filteredSlashCommands = slashQuery !== null 
-    ? SLASH_COMMANDS.filter(c => c.label.toLowerCase().includes('/' + slashQuery.toLowerCase()) || c.description.toLowerCase().includes(slashQuery.toLowerCase()))
-    : [];
-
   // Handle keyboard navigation for suggestions and platform-specific Enter behavior
   const handleKeyDown = (e: React.KeyboardEvent) => {
     
-    // Slash Command Navigation
-    if (slashQuery !== null && filteredSlashCommands.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSlashIndex(prev => Math.min(prev + 1, filteredSlashCommands.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSlashIndex(prev => Math.max(prev - 1, 0));
-        return;
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        handleSelectSlashCommand(filteredSlashCommands[slashIndex]);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setSlashQuery(null);
-        return;
-      }
-    }
-
     // Context Navigation (@)
     if (query && results.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -788,45 +662,6 @@ export const PromptInputWithFiles = memo(function
         </div>
       )}
 
-      {/* Slash Command Dropdown */}
-      {slashQuery !== null && filteredSlashCommands.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-2 mx-2 z-[200]">
-          <div className="bg-popover border border-border rounded-lg shadow-md overflow-hidden min-w-[200px] animate-in slide-in-from-bottom-2 duration-200">
-             <div className="p-1">
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Commands
-                </div>
-                {filteredSlashCommands.map((cmd, index) => (
-                  <button
-                    key={cmd.id}
-                    onClick={() => handleSelectSlashCommand(cmd)}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-2 py-2 text-sm rounded-lg transition-colors text-left",
-                      index === slashIndex
-                        ? "bg-primary/10 text-primary" 
-                        : "text-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-                      index === slashIndex ? "bg-primary/20" : "bg-muted"
-                    )}>
-                      <cmd.icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium leading-none">{cmd.label}</div>
-                       <div className="text-[10px] text-muted-foreground mt-0.5 opacity-80">{cmd.description}</div>
-                    </div>
-                    {cmd.id === 'deep' && (reasoningMode === true || reasoningMode === 'on' || reasoningMode === 'online') && (
-                      <div className="text-[10px] font-medium text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">ON</div>
-                    )}
-                  </button>
-                ))}
-             </div>
-          </div>
-        </div>
-      )}
-
       {/* @ Mention Dropdown */}
       {query && (
         <div className="absolute bottom-full left-0 right-0 mb-2 mx-2 z-[200]">
@@ -917,9 +752,9 @@ export const PromptInputWithFiles = memo(function
                   <div className="relative flex items-center gap-1" ref={surfaceDropdownRef}>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       className={cn(
-                        "h-8 gap-1.5 px-2 text-xs font-medium rounded-lg transition-all",
+                        "size-8 rounded-lg transition-all",
                         surfaceMode !== 'chat' 
                           ? [currentSurfaceMode.color, "bg-secondary/80"]
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary/80",
@@ -928,10 +763,9 @@ export const PromptInputWithFiles = memo(function
                       )}
                       onClick={() => setSurfaceModeOpen(!surfaceModeOpen)}
                       disabled={isLoading || isSubmittingEdit || disabled}
+                      title={`Mode: ${currentSurfaceMode.label}`}
                     >
-                      <currentSurfaceMode.icon className="h-3.5 w-3.5" />
-                      {currentSurfaceMode.label}
-                      <PiCaretDown className={cn("h-3 w-3 transition-transform", surfaceModeOpen && "rotate-180")} />
+                      <currentSurfaceMode.icon className="h-4 w-4" />
                     </Button>
                     
                     {/* Inline Surface Suggestion */}
@@ -1007,45 +841,90 @@ export const PromptInputWithFiles = memo(function
                     )}
                   </div>
                 )}
-                {!hideActions && !hideFileUpload && (
-                  <PromptInputAction tooltip="Attach files">
-                    <FileUploadTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all"
-                        disabled={isLoading || isSubmittingEdit || disabled}
-                      >
-                        <PiPaperclip size={16} />
-                      </Button>
-                    </FileUploadTrigger>
-                  </PromptInputAction>
-                )}
                 
+                {/* Unified Plus Button Dropdown */}
                 {!hideActions && (
-                  <ContextPicker
-                    selectedItems={context}
-                    onSelectionChange={onContextChange || (() => {})}
-                    conversations={conversations}
-                    folders={folders}
-                    currentConversationId={currentConversationId}
-                    tooltip="Add context (@ to type)"
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "size-8 rounded-lg transition-all",
-                          context.length > 0 
-                            ? "text-primary hover:text-primary hover:bg-primary/10" 
-                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-                        )}
-                        disabled={isLoading || isSubmittingEdit || disabled}
-                      >
-                        <PiPlus size={16} />
-                      </Button>
-                    }
-                  />
+                  <div className="relative" ref={plusDropdownRef}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "size-8 rounded-lg transition-all",
+                        (context.length > 0 || files.length > 0)
+                          ? "text-primary hover:text-primary hover:bg-primary/10" 
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                      )}
+                      onClick={() => setPlusDropdownOpen(!plusDropdownOpen)}
+                      disabled={isLoading || isSubmittingEdit || disabled}
+                      title="Add attachments"
+                    >
+                      <PiPlus size={16} />
+                    </Button>
+                    
+                    {/* Plus Dropdown Menu */}
+                    {plusDropdownOpen && (
+                      <div className="absolute bottom-full left-0 mb-2 z-[200] animate-in slide-in-from-bottom-2 duration-150">
+                        <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                          <div className="p-1">
+                            {/* File Upload Option */}
+                            {!hideFileUpload && (
+                              <FileUploadTrigger asChild>
+                                <button
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
+                                  onClick={() => setPlusDropdownOpen(false)}
+                                >
+                                  <PiPaperclip className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">Attach files</span>
+                                </button>
+                              </FileUploadTrigger>
+                            )}
+                            
+                            {/* Context Picker - Conversations */}
+                            <ContextPicker
+                              selectedItems={context}
+                              onSelectionChange={(items) => {
+                                onContextChange?.(items);
+                                setPlusDropdownOpen(false);
+                              }}
+                              conversations={conversations}
+                              folders={folders}
+                              currentConversationId={currentConversationId}
+                              tooltip=""
+                              trigger={
+                                <button
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
+                                >
+                                  <PiChatCircle className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">Add conversation</span>
+                                </button>
+                              }
+                            />
+                            
+                            {/* Context Picker - Folders */}
+                            <ContextPicker
+                              selectedItems={context}
+                              onSelectionChange={(items) => {
+                                onContextChange?.(items);
+                                setPlusDropdownOpen(false);
+                              }}
+                              conversations={conversations}
+                              folders={folders}
+                              currentConversationId={currentConversationId}
+                              tooltip=""
+                              trigger={
+                                <button
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
+                                >
+                                  <PiFolder className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">Add folder</span>
+                                </button>
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1089,7 +968,6 @@ export const PromptInputWithFiles = memo(function
     prevProps.hideActions === nextProps.hideActions &&
     prevProps.quotedMessage?.messageId === nextProps.quotedMessage?.messageId &&
     prevProps.quotedMessage?.quotedText === nextProps.quotedMessage?.quotedText &&
-    prevProps.reasoningMode === nextProps.reasoningMode &&
     prevProps.surfaceMode === nextProps.surfaceMode
   ); 
 });

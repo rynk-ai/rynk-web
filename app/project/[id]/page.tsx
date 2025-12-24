@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
 import { NoCreditsOverlay } from "@/components/credit-warning";
+import { FocusModeToggle } from "@/components/focus-mode";
 import { SavedSurfacesPill } from "@/components/surfaces";
 
 // Helper function to filter messages to show only active versions
@@ -1793,8 +1794,6 @@ const ChatContent = memo(
                   // Quote props
                   quotedMessage={quotedMessage}
                   onClearQuote={handleClearQuote}
-                  reasoningMode={reasoningMode}
-                  onToggleReasoningMode={toggleReasoningMode}
                   className={cn(
                     "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                     !currentConversationId
@@ -1958,6 +1957,7 @@ function ChatContentWithProvider({ projectId }: { projectId: string }) {
           <ChatHeader projectId={projectId} />
           <ChatContent />
         </SidebarInset>
+        <FocusModeToggle />
       </SidebarProvider>
     </>
   );

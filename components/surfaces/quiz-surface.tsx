@@ -29,7 +29,11 @@ import {
   PiArrowRight,
   PiKeyboard,
   PiQuestion,
+  PiShareNetwork,
+  PiXLogo,
+  PiCopy,
 } from "react-icons/pi";
+import { toast } from "sonner";
 import type { QuizMetadata, SurfaceState } from "@/lib/services/domain-types";
 import { QuestionSkeleton } from "@/components/surfaces/surface-skeletons";
 
@@ -205,10 +209,46 @@ export const QuizSurface = memo(function QuizSurface({
         </div>
         
         {/* Actions */}
-        <Button onClick={onRestartQuiz} variant="outline" size="lg" className="rounded-xl h-12 px-8 gap-2 hover:bg-muted/50 transition-all hover:scale-105 active:scale-95">
-          <PiArrowCounterClockwise className="h-4 w-4" />
-          Retake Quiz
-        </Button>
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <Button onClick={onRestartQuiz} variant="outline" size="lg" className="rounded-xl h-12 px-6 gap-2 hover:bg-muted/50 transition-all hover:scale-105 active:scale-95">
+            <PiArrowCounterClockwise className="h-4 w-4" />
+            Retake Quiz
+          </Button>
+          
+          {/* Share Buttons */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="rounded-xl h-12 px-4 gap-2 hover:bg-muted/50 transition-all hover:scale-105 active:scale-95"
+            onClick={() => {
+              const text = `🎯 I scored ${percentage}% (${score}/${total}) on the "${metadata.topic}" quiz! Can you beat my score?`;
+              const url = window.location.href;
+              window.open(
+                `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+                '_blank',
+                'width=550,height=420'
+              );
+            }}
+            title="Share on X"
+          >
+            <PiXLogo className="h-4 w-4" />
+            Share
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="lg"
+            className="rounded-xl h-12 px-4 gap-2 hover:bg-muted/50 transition-all hover:scale-105 active:scale-95"
+            onClick={() => {
+              const text = `🎯 Quiz: ${metadata.topic}\n📊 Score: ${score}/${total} (${percentage}%)\n\nTake the quiz: ${window.location.href}`;
+              navigator.clipboard.writeText(text);
+              toast.success("Copied to clipboard!");
+            }}
+            title="Copy results"
+          >
+            <PiCopy className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     );
   }

@@ -100,6 +100,8 @@ import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
 import { ShareDialog } from "@/components/share-dialog";
 import { NoCreditsOverlay } from "@/components/credit-warning";
+import { OnboardingTour } from "@/components/onboarding-tour";
+import { FocusModeToggle } from "@/components/focus-mode";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -2038,8 +2040,6 @@ const ChatContent = memo(
                   // Quote props
                   quotedMessage={quotedMessage}
                   onClearQuote={handleClearQuote}
-                  reasoningMode={reasoningMode}
-                  onToggleReasoningMode={toggleReasoningMode}
                   surfaceMode={surfaceMode}
                   onSurfaceModeChange={(mode) => setSurfaceMode(mode as 'chat' | 'learning' | 'guide' | 'research')}
                   className={cn(
@@ -2140,20 +2140,24 @@ function ChatContentWithProvider() {
   }, [chatId, currentConversationId, selectConversation]);
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <ChatHeaderWithCommandBar 
-          commandBarOpen={commandBarOpen}
-          setCommandBarOpen={setCommandBarOpen}
-        />
-        <ChatContent />
-        <CommandBarWrapper 
-          open={commandBarOpen} 
-          onOpenChange={setCommandBarOpen} 
-        />
-      </SidebarInset>
-    </SidebarProvider>
+    <>
+      <OnboardingTour />
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <ChatHeaderWithCommandBar 
+            commandBarOpen={commandBarOpen}
+            setCommandBarOpen={setCommandBarOpen}
+          />
+          <ChatContent />
+          <CommandBarWrapper 
+            open={commandBarOpen} 
+            onOpenChange={setCommandBarOpen} 
+          />
+        </SidebarInset>
+        <FocusModeToggle />
+      </SidebarProvider>
+    </>
   );
 }
 

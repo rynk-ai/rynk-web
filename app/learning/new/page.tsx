@@ -3,10 +3,10 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { PiGraduationCap, PiArrowLeft, PiArrowRight, PiClock, PiUsers, PiBookOpen, PiCheckCircle, PiSpinner, PiSparkle, PiCode, PiLightbulb } from "react-icons/pi";
+import { PiGraduationCap, PiArrowLeft, PiArrowRight, PiClock, PiUsers, PiBookOpen, PiCheckCircle, PiSpinner, PiSparkle, PiCode, PiLightbulb, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { SubjectInterpretation } from "@/lib/services/domain-types";
+import type { SubjectInterpretation, CourseMetadata } from "@/lib/services/domain-types";
 
 // Prompt analysis type
 interface PromptAnalysis {
@@ -121,7 +121,12 @@ function NewCourseContent() {
   const [analysis, setAnalysis] = useState<PromptAnalysis | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [prompt, setPrompt] = useState("");
+  
+  // Preview state
+  const [preview, setPreview] = useState<CourseMetadata | null>(null);
+  const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   
   // Parse interpretations from URL
   useEffect(() => {
@@ -160,7 +165,7 @@ function NewCourseContent() {
     }
   }, [status, router]);
   
-  // Handle continue to course generation
+  // Handle continue to preview generation
   const handleContinue = async () => {
     if (!selectedId) return;
     
@@ -170,8 +175,8 @@ function NewCourseContent() {
     setIsGenerating(true);
     
     try {
-      // Call ToC generation API (enhanced v1)
-      const response = await fetch("/api/learning/generate-toc", {
+      // Call preview-toc API (doesn't save to DB)
+      const response = await fetch("/api/learning/preview-toc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,25 +186,246 @@ function NewCourseContent() {
       });
       
       if (response.ok) {
-        const data = await response.json() as { courseId?: string };
+        const data = await response.json() as { preview: CourseMetadata };
+        if (data.preview) {
+          setPreview(data.preview);
+          // Expand first unit by default
+          if (data.preview.units?.length > 0) {
+            setExpandedUnits(new Set([data.preview.units[0].id]));
+          }
+        }
+      } else {
+        const error = await response.json();
+        console.error("Failed to generate preview:", error);
+      }
+    } catch (error) {
+      console.error("Error generating preview:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  // Handle confirm - save course to DB
+  const handleConfirm = async () => {
+    if (!preview) return;
+    
+    setIsConfirming(true);
+    
+    try {
+      const response = await fetch("/api/learning/confirm-toc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: preview })
+      });
+      
+      if (response.ok) {
+        const data = await response.json() as { courseId: string };
         if (data.courseId) {
           router.push(`/learning/${data.courseId}`);
         }
       } else {
         const error = await response.json();
-        console.error("Failed to generate course:", error);
+        console.error("Failed to save course:", error);
       }
     } catch (error) {
-      console.error("Error generating course:", error);
+      console.error("Error saving course:", error);
     } finally {
-      setIsGenerating(false);
+      setIsConfirming(false);
     }
+  };
+  
+  // Go back to interpretation selection
+  const handleBackToSelection = () => {
+    setPreview(null);
+    setExpandedUnits(new Set());
+  };
+  
+  // Toggle unit expansion
+  const toggleUnit = (unitId: string) => {
+    setExpandedUnits(prev => {
+      const next = new Set(prev);
+      if (next.has(unitId)) {
+        next.delete(unitId);
+      } else {
+        next.add(unitId);
+      }
+      return next;
+    });
   };
   
   if (status === "loading" || interpretations.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <PiSpinner className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  // Show preview step if we have a preview
+  if (preview) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <Button 
+              variant="ghost" 
+              onClick={handleBackToSelection}
+              className="gap-2"
+            >
+              <PiArrowLeft className="h-4 w-4" />
+              Change Selection
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <PiGraduationCap className="h-5 w-5 text-primary" />
+              <span className="font-medium">Preview Course</span>
+            </div>
+            
+            <Button
+              onClick={handleConfirm}
+              disabled={isConfirming}
+              className="gap-2"
+            >
+              {isConfirming ? (
+                <>
+                  <PiSpinner className="h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  Start Learning
+                  <PiArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </header>
+        
+        {/* Preview Content */}
+        <main className="max-w-4xl mx-auto px-4 py-8">
+          {/* Course Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold mb-2">{preview.title}</h1>
+            {preview.subtitle && (
+              <p className="text-lg text-muted-foreground mb-4">{preview.subtitle}</p>
+            )}
+            <p className="text-muted-foreground max-w-2xl mx-auto">{preview.description}</p>
+            
+            {/* Stats */}
+            <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-sm">
+                <PiBookOpen className="h-4 w-4" />
+                {preview.totalUnits} Units
+              </span>
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-sm">
+                {preview.totalChapters} Chapters
+              </span>
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-sm">
+                <PiClock className="h-4 w-4" />
+                ~{Math.round(preview.totalEstimatedTime / 60)}h total
+              </span>
+              <span className={cn(
+                "px-3 py-1.5 rounded-full text-sm font-medium",
+                preview.difficulty === 'beginner' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                preview.difficulty === 'intermediate' && "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+                preview.difficulty === 'advanced' && "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+              )}>
+                {preview.difficulty}
+              </span>
+            </div>
+          </div>
+          
+          {/* Learning Outcomes */}
+          {preview.learningOutcomes && preview.learningOutcomes.length > 0 && (
+            <div className="mb-8 p-6 bg-primary/5 border border-primary/20 rounded-xl">
+              <h3 className="font-semibold mb-3">What you'll learn</h3>
+              <ul className="grid md:grid-cols-2 gap-2">
+                {preview.learningOutcomes.map((outcome, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm">
+                    <PiCheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    {outcome}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Course Outline */}
+          <div className="mb-8">
+            <h3 className="font-semibold mb-4 text-lg">Course Outline</h3>
+            <div className="space-y-3">
+              {preview.units?.map((unit, unitIdx) => (
+                <div key={unit.id} className="border border-border/40 rounded-xl overflow-hidden">
+                  {/* Unit Header */}
+                  <button
+                    onClick={() => toggleUnit(unit.id)}
+                    className="w-full flex items-center gap-3 p-4 text-left hover:bg-secondary/30 transition-colors"
+                  >
+                    {expandedUnits.has(unit.id) ? (
+                      <PiCaretDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                    ) : (
+                      <PiCaretRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium">Unit {unitIdx + 1}: {unit.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {unit.chapters.length} chapters · {unit.description}
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Chapter List */}
+                  {expandedUnits.has(unit.id) && (
+                    <div className="border-t border-border/40 bg-secondary/10">
+                      {unit.chapters.map((chapter, chapterIdx) => (
+                        <div 
+                          key={chapter.id}
+                          className="flex items-start gap-3 p-4 border-b border-border/20 last:border-b-0"
+                        >
+                          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded shrink-0">
+                            {unitIdx + 1}.{chapterIdx + 1}
+                          </span>
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{chapter.title}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {chapter.sections?.length || 0} sections · ~{chapter.estimatedTime}min
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Confirm Button */}
+          <div className="text-center">
+            <Button
+              size="lg"
+              onClick={handleConfirm}
+              disabled={isConfirming}
+              className="gap-2"
+            >
+              {isConfirming ? (
+                <>
+                  <PiSpinner className="h-5 w-5 animate-spin" />
+                  Creating Course...
+                </>
+              ) : (
+                <>
+                  <PiCheckCircle className="h-5 w-5" />
+                  Looks Good - Start Learning
+                </>
+              )}
+            </Button>
+            <p className="mt-2 text-sm text-muted-foreground">
+              You can always adjust your pace as you go
+            </p>
+          </div>
+        </main>
       </div>
     );
   }
