@@ -337,7 +337,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
       </SidebarHeader>
 
       <SidebarContent className="">
-        <div className="flex flex-col gap-2 p-4">
+        <div className="flex flex-col gap-2 p-3">
           {/* Action Area: Search & New Chat in one row */}
           <div className="flex items-center gap-1.5">
             <button

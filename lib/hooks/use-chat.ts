@@ -123,7 +123,10 @@ export function useChat(initialConversationId?: string | null) {
   const { data: conversations = [], isPending: isLoadingConversations } = useQuery({
     queryKey: ['conversations', effectiveProjectId], // Add projectId to query key to trigger refetch on change
     queryFn: () => getConversations(50, 0, effectiveProjectId || undefined), // Fetch more initially for better cache coverage
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5, // 5 minutes - data considered fresh
+    gcTime: 1000 * 60 * 30, // 30 minutes - keep in cache even when unmounted
+    refetchOnMount: false, // Don't refetch if data exists in cache (fresh or stale)
+    refetchOnWindowFocus: false, // Don't refetch when user returns to window
   })
 
   // Memoize currentConversation to prevent unnecessary recalculations

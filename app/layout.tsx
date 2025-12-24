@@ -7,6 +7,7 @@ import { ChatProvider } from "@/lib/hooks/chat-context";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { FontProviderWrapper } from "@/components/providers/font-provider-wrapper";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -209,7 +210,9 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <QueryProvider>
-                <ChatProvider>{children}</ChatProvider>
+                <ChatProvider>
+                  <SidebarProvider>{children}</SidebarProvider>
+                </ChatProvider>
                 <Toaster
                   position="top-center"
                   richColors

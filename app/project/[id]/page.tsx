@@ -51,6 +51,7 @@ import { NoCreditsOverlay } from "@/components/credit-warning";
 import { FocusModeToggle } from "@/components/focus-mode";
 import { SavedSurfacesPill } from "@/components/surfaces";
 import { processStreamChunk } from "@/lib/utils/stream-parser";
+import { FreePlanToast } from "@/components/free-plan-toast";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -1837,7 +1838,7 @@ function FullChatApp({ projectId }: { projectId: string }) {
   return (
     <Suspense
       fallback={
-        <SidebarProvider>
+        <>
           <AppSidebar />
           <SidebarInset>
             <div className="flex h-full flex-col overflow-hidden relative">
@@ -1855,7 +1856,7 @@ function FullChatApp({ projectId }: { projectId: string }) {
               </div>
             </div>
           </SidebarInset>
-        </SidebarProvider>
+        </>
       }
     >
       <ChatContentWithProvider projectId={projectId} />
@@ -1956,14 +1957,15 @@ function ChatContentWithProvider({ projectId }: { projectId: string }) {
   return (
     <>
       <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
-      <SidebarProvider>
+      <FreePlanToast />
+      <>
         <AppSidebar />
         <SidebarInset>
           <ChatHeader projectId={projectId} />
           <ChatContent />
         </SidebarInset>
         <FocusModeToggle />
-      </SidebarProvider>
+      </>
     </>
   );
 }

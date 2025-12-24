@@ -380,21 +380,21 @@ export default function LearningPage() {
   
   if (status === "loading" || isLoading) {
     return (
-      <SidebarProvider>
+      <>
         <AppSidebar />
         <SidebarInset>
           <div className="flex items-center justify-center min-h-screen">
             <PiSpinner className="h-8 w-8 animate-spin text-primary" />
           </div>
         </SidebarInset>
-      </SidebarProvider>
+      </>
     );
   }
   
   const hasActiveCourses = courses.length > 0;
   
   return (
-    <SidebarProvider>
+    <>
       <AppSidebar />
       <SidebarInset>
         <div className="min-h-screen bg-background">
@@ -511,6 +511,6 @@ export default function LearningPage() {
       </main>
         </div>
       </SidebarInset>
-    </SidebarProvider>
+    </>
   );
 }

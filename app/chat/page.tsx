@@ -103,6 +103,7 @@ import { NoCreditsOverlay } from "@/components/credit-warning";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { FocusModeToggle } from "@/components/focus-mode";
 import { processStreamChunk } from "@/lib/utils/stream-parser";
+import { FreePlanToast } from "@/components/free-plan-toast";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -2078,7 +2079,7 @@ function FullChatApp() {
   return (
     <Suspense
       fallback={
-        <SidebarProvider>
+        <>
           <AppSidebar />
           <SidebarInset>
             <div className="flex h-full flex-col overflow-hidden relative">
@@ -2096,7 +2097,7 @@ function FullChatApp() {
               </div>
             </div>
           </SidebarInset>
-        </SidebarProvider>
+        </>
       }
     >
       <ChatContentWithProvider />
@@ -2125,7 +2126,8 @@ function ChatContentWithProvider() {
   return (
     <>
       <OnboardingTour />
-      <SidebarProvider>
+      <FreePlanToast />
+      <>
         <AppSidebar />
         <SidebarInset>
           <ChatHeaderWithCommandBar 
@@ -2139,7 +2141,7 @@ function ChatContentWithProvider() {
           />
         </SidebarInset>
         <FocusModeToggle />
-      </SidebarProvider>
+      </>
     </>
   );
 }
