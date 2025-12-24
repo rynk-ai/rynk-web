@@ -50,7 +50,9 @@ export class SourceOrchestrator {
         citations: data.results?.map((r: any) => ({
           url: r.url,
           title: r.title,
-          snippet: r.highlights?.[0] || r.text?.substring(0, 200),
+          // Use full text content (up to 2000 chars) for comprehensive LLM context
+          // Fall back to multiple highlights if text is not available
+          snippet: r.text?.substring(0, 2000) || r.highlights?.slice(0, 3).join('\n\n') || '',
           image: r.image,                        // Primary image from Exa
           images: r.extras?.imageLinks || []     // Additional images from page
         })) || []

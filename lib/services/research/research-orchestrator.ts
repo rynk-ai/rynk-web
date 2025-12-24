@@ -151,7 +151,8 @@ export async function searchVertical(
           citations: data.results?.map((r: any) => ({
             url: r.url,
             title: r.title,
-            snippet: r.highlights?.[0] || r.text?.substring(0, 200),
+            // Use full text content (up to 2000 chars) for comprehensive context
+            snippet: r.text?.substring(0, 2000) || r.highlights?.slice(0, 3).join('\n\n') || '',
             image: r.image
           })) || []
         })
@@ -463,10 +464,11 @@ export async function generateSectionContent(
     }
     if (source.source === 'exa' && Array.isArray(source.data)) {
       for (const item of source.data.slice(0, 3)) {
-        if (item.highlights?.[0]) {
-          sourceContext += item.highlights[0] + '\n'
-        } else if (item.text) {
-          sourceContext += item.text.substring(0, 400) + '\n'
+        // Use full text content (up to 1500 chars per item) for comprehensive section content
+        if (item.text) {
+          sourceContext += item.text.substring(0, 1500) + '\n\n'
+        } else if (item.highlights?.length > 0) {
+          sourceContext += item.highlights.slice(0, 3).join('\n') + '\n'
         }
       }
     }

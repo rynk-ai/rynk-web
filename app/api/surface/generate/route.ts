@@ -370,13 +370,14 @@ function synthesizeWebResults(results: SourceResult[]): WebContext {
       keyFacts.push(String(result.data).substring(0, 2000))
     }
     
-    // Extract highlights from Exa
+    // Extract highlights from Exa - use full text content for comprehensive context
     if (result.source === 'exa' && Array.isArray(result.data)) {
       for (const item of result.data.slice(0, 3)) {
-        if (item.highlights?.[0]) {
-          keyFacts.push(item.highlights[0])
-        } else if (item.text) {
-          keyFacts.push(item.text.substring(0, 500))
+        // Prioritize full text content over highlights
+        if (item.text) {
+          keyFacts.push(item.text.substring(0, 1500))
+        } else if (item.highlights?.length > 0) {
+          keyFacts.push(item.highlights.slice(0, 3).join('\n'))
         }
       }
     }
