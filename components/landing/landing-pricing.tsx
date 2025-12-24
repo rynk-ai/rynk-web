@@ -43,7 +43,7 @@ const PLANS = [
       "Priority support",
     ],
     cta: "Start Free Trial",
-    href: "/login?plan=pro",
+    href: "/login?callbackUrl=https://rynk.io/subscription",
     highlighted: true,
     badge: "Most Popular",
   },
@@ -158,7 +158,7 @@ export function LandingPricing() {
           className="text-center mt-12"
         >
           <p className="text-sm text-muted-foreground">
-            Need more? <Link href="mailto:hello@rynk.io" className="text-primary hover:underline">Contact us</Link> for team & enterprise plans.
+            Need more? <Link href="mailto:farseenmanekhan1232@gmail.com" className="text-primary hover:underline">Contact us</Link> for team & enterprise plans.
           </p>
         </motion.div>
       </div>
