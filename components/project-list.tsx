@@ -133,7 +133,7 @@ export function ProjectList({
               <div
                 key={project.id}
                 className={cn(
-                  "group flex items-center gap-2 px-2 py-1 text-sm font-medium rounded-md cursor-pointer transition-colors",
+                  "group flex items-center gap-2 px-2 py-1 text-sm font-medium rounded-md cursor-pointer transition-colors overflow-hidden min-w-0",
                   activeProjectId === project.id
                     ? "bg-secondary text-secondary-foreground"
                     : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
