@@ -344,19 +344,34 @@ const ChatContent = memo(
     const isLoading =
       isSending || isSavingEdit || !!isDeleting || contextIsLoading;
 
-    // Simple state reset when starting a new chat
-    // This clears messages when currentConversationId becomes null
+    // Clear messages when switching conversations or starting new chat
+    // Track the previous conversation ID to detect switches
+    const prevConversationIdForClearRef = useRef<string | null>(currentConversationId);
+    
     useEffect(() => {
-      // CRITICAL: Don't clear messages if we're currently sending!
-      // This prevents wiping out optimistic messages during new conversation creation
-      if (isSending) {
-        console.log("[ProjectPage] Skipping message clear - currently sending");
+      const prevId = prevConversationIdForClearRef.current;
+      prevConversationIdForClearRef.current = currentConversationId;
+      
+      // Case 1: Switching FROM one conversation TO ANOTHER
+      // ALWAYS clear old messages immediately - this takes priority
+      if (prevId !== null && currentConversationId !== null && prevId !== currentConversationId) {
+        console.log("[ProjectPage] Switching conversations, clearing old messages immediately", 
+          { from: prevId, to: currentConversationId });
+        messageState.setMessages([]);
+        messageState.setMessageVersions(new Map());
+        setQuotedMessage(null);
+        setLocalContext([]);
         return;
       }
       
+      // Case 2: Going to new chat (currentConversationId becomes null)
+      // ONLY clear if we're not currently sending (to protect optimistic messages during creation)
       if (!currentConversationId) {
+        if (isSending) {
+          console.log("[ProjectPage] Skipping message clear - currently sending new conversation");
+          return;
+        }
         console.log("[ProjectPage] New chat - clearing state");
-        // Clear all state to show fresh empty state
         messageState.setMessages([]);
         messageState.setMessageVersions(new Map());
         setQuotedMessage(null);

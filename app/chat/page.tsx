@@ -403,15 +403,25 @@ const ChatContent = memo(
       const prevId = prevConversationIdForClearRef.current;
       prevConversationIdForClearRef.current = currentConversationId;
       
-      // CRITICAL: Don't clear messages if we're currently sending!
-      // This prevents wiping out optimistic messages during new conversation creation
-      if (isSending) {
-        console.log("[ChatPage] Skipping message clear - currently sending");
+      // Case 1: Switching FROM one conversation TO ANOTHER
+      // ALWAYS clear old messages immediately - this takes priority
+      if (prevId !== null && currentConversationId !== null && prevId !== currentConversationId) {
+        console.log("[ChatPage] Switching conversations, clearing old messages immediately", 
+          { from: prevId, to: currentConversationId });
+        messageState.setMessages([]);
+        messageState.setMessageVersions(new Map());
+        setQuotedMessage(null);
+        setLocalContext([]);
         return;
       }
       
-      // Case 1: Going to new chat (currentConversationId becomes null)
+      // Case 2: Going to new chat (currentConversationId becomes null)
+      // ONLY clear if we're not currently sending (to protect optimistic messages during creation)
       if (!currentConversationId) {
+        if (isSending) {
+          console.log("[ChatPage] Skipping message clear - currently sending new conversation");
+          return;
+        }
         if (!chatId) {
           console.log("[ChatPage] New chat - clearing state");
           messageState.setMessages([]);
@@ -422,17 +432,6 @@ const ChatContent = memo(
           console.log("[ChatPage] Waiting for conversation to load from URL:", chatId);
         }
         return;
-      }
-      
-      // Case 2: Switching FROM one conversation TO ANOTHER
-      // Clear old messages immediately to prevent flash
-      if (prevId !== null && prevId !== currentConversationId) {
-        console.log("[ChatPage] Switching conversations, clearing old messages immediately", 
-          { from: prevId, to: currentConversationId });
-        messageState.setMessages([]);
-        messageState.setMessageVersions(new Map());
-        setQuotedMessage(null);
-        setLocalContext([]);
       }
     }, [currentConversationId, chatId, isSending]);
 
