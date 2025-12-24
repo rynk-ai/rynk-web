@@ -102,8 +102,8 @@ export function LandingHero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-4xl md:text-7xl font-bold font-display tracking-tighter mb-6 text-foreground"
           >
-            Choose how your <br />
-            <span className="text-foreground/90">AI responds.</span>
+            Ask once. <br />
+            <span className="text-foreground/90">Get it your way.</span>
           </motion.h1>
 
           {/* Subheadline */}
@@ -113,8 +113,8 @@ export function LandingHero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-lg md:text-xl text-muted-foreground mb-8 max-w-xl mx-auto leading-relaxed text-balance"
           >
-             The perfect interface for your <br/>
-             <span className="text-foreground">research, studies, and exploration.</span>
+             Timelines, comparisons, quizzes, courses—<br/>
+             <span className="text-foreground">pick the format that fits your brain.</span>
           </motion.p>
           
           {/* Hero CTA */}

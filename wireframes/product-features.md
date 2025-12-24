@@ -56,6 +56,7 @@ Transform any AI response into specialized interactive formats:
 | **Timeline** | 📅 | Chronological event visualization |
 | **Wiki** | 📖 | Wikipedia-style structured articles |
 | **Research** | 🔍 | Deep-dive reports with executive summary & citations |
+| **Finance** | 💹 | Stock/crypto analysis with live data & charts |
 
 ### **Surface Features**
 
@@ -362,3 +363,72 @@ User Query
 ### **Data Sources**
 - **Yahoo Finance**: For stocks, ETFs, and indices.
 - **CoinGecko**: For cryptocurrency prices and metadata.
+
+---
+
+### **12. Learning Page (Education Machine)**
+
+A dedicated section for structured, long-form learning separate from chat surfaces.
+
+### **Learning Dashboard (`/learning`)**
+
+- **Course Creation**: Natural language prompts to generate full courses
+- **Course Discovery**: View all in-progress and completed courses
+- **Streak Banner**: Global streak display across all courses
+- **Difficulty Levels**: Beginner, Intermediate, Advanced, Expert
+- **Progress Visualization**: Per-course progress bars and completion tracking
+
+### **Course View Page (`/learning/[id]`)**
+
+- **Collapsible Table of Contents**: Unit → Chapter → Section hierarchy
+- **Progressive Content Loading**: Sections generated on-demand with caching
+- **Mobile-Responsive Sidebar**: Slide-out navigation on mobile
+- **Breadcrumb Navigation**: Current position in course structure
+
+### **Learning Content Features**
+
+| **Feature** | **Description** |
+| --- | --- |
+| **Academic Sources** | Content backed by Semantic Scholar, Crossref |
+| **Selectable Deep-Dive** | Highlight any text to start a sub-chat |
+| **Quick Checks** | Inline knowledge checks after each section |
+| **Assessments** | Chapter-end quizzes with pass/fail scoring |
+| **Section Completion** | Mark sections complete with XP rewards |
+
+### **Gamification System**
+
+**XP (Experience Points)**
+
+- +10 XP per section completed
+- +10 XP for perfect quick check scores
+- +100 XP for passing chapter assessments
+- Visual XP progress tracking
+
+**Streaks**
+
+- Daily activity streak tracking per course
+- Streak fire indicator in header
+- Global streak banner for active streaks
+- Motivation to maintain daily learning
+
+### **Course Structure**
+
+```
+Course
+├── Unit 1
+│   ├── Chapter 1.1
+│   │   ├── Section A (content + quick checks)
+│   │   ├── Section B
+│   │   └── [Chapter Assessment]
+│   └── Chapter 1.2
+│       └── ...
+└── Unit 2
+    └── ...
+```
+
+### **Content Generation**
+
+- **Course Interpretation**: AI analyzes learning intent for optimal structure
+- **Lazy Section Generation**: Content generated only when accessed
+- **Cached Content**: Previously loaded sections stored for instant access
+- **Chapter Assessments**: Auto-generated quizzes upon chapter completion

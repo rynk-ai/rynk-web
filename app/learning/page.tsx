@@ -47,9 +47,39 @@ interface UserCourse {
     lastActivityDate: string;
   };
 }
+// Featured course examples for empty state preview
+const FEATURED_COURSES = [
+  {
+    title: "Master TypeScript",
+    description: "From basics to advanced type systems",
+    difficulty: "intermediate" as const,
+    chapters: 8,
+    icon: "💻",
+    color: "from-blue-500/20 to-cyan-500/20",
+  },
+  {
+    title: "Intro to Machine Learning",
+    description: "Neural networks, training, and real-world applications",
+    difficulty: "beginner" as const,
+    chapters: 10,
+    icon: "🤖",
+    color: "from-purple-500/20 to-pink-500/20",
+  },
+  {
+    title: "Philosophy of Mind",
+    description: "Consciousness, free will, and what makes us human",
+    difficulty: "advanced" as const,
+    chapters: 6,
+    icon: "🧠",
+    color: "from-amber-500/20 to-orange-500/20",
+  },
+];
 
-// Empty state component
-function EmptyState({ onCreateCourse }: { onCreateCourse: () => void }) {
+// Empty state component  
+function EmptyState({ onCreateCourse, onSelectSample }: { 
+  onCreateCourse: () => void; 
+  onSelectSample: (topic: string) => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
       <div className="relative mb-6">
@@ -72,6 +102,47 @@ function EmptyState({ onCreateCourse }: { onCreateCourse: () => void }) {
         Create Your First Course
       </Button>
       
+      {/* Featured Course Examples */}
+      <div className="mt-12 w-full max-w-3xl">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+          Or try one of these examples
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {FEATURED_COURSES.map((course) => (
+            <button
+              key={course.title}
+              onClick={() => onSelectSample(course.title)}
+              className="group text-left p-4 rounded-xl bg-card border border-border/40 hover:border-primary/30 hover:shadow-lg transition-all duration-200"
+            >
+              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${course.color} flex items-center justify-center text-xl mb-3`}>
+                {course.icon}
+              </div>
+              <h4 className="font-semibold group-hover:text-primary transition-colors mb-1">
+                {course.title}
+              </h4>
+              <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                {course.description}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={cn(
+                  "px-2 py-0.5 rounded-full capitalize",
+                  course.difficulty === 'beginner' && "bg-green-500/10 text-green-600 dark:text-green-400",
+                  course.difficulty === 'intermediate' && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                  course.difficulty === 'advanced' && "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+                )}>
+                  {course.difficulty}
+                </span>
+                <span className="flex items-center gap-1">
+                  <PiBookOpenText className="h-3.5 w-3.5" />
+                  ~{course.chapters} chapters
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Features Grid */}
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-3xl">
         <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
           <PiBookOpenText className="h-8 w-8 text-primary mb-3" />
@@ -382,7 +453,14 @@ export default function LearningPage() {
         {/* Content */}
         {!hasActiveCourses ? (
           /* When user has no courses, show EmptyState or nothing (input is shown above via showCreateInput) */
-          !showCreateInput && <EmptyState onCreateCourse={() => setShowCreateInput(true)} />
+          !showCreateInput && (
+            <EmptyState 
+              onCreateCourse={() => setShowCreateInput(true)} 
+              onSelectSample={(topic) => {
+                handleCreateCourse(topic);
+              }}
+            />
+          )
         ) : (
           <>
             {/* In Progress Section */}

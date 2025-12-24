@@ -9,10 +9,10 @@ export function LandingComparison() {
       <div className="container px-4 mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="text-3xl md:text-5xl font-bold font-display tracking-tighter mb-4 text-foreground">
-            Structured data beats <br/> walls of text.
+            Stop reading walls of text.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-             Standard AIs give you paragraphs. We give you citations, visual timelines, and verified data.
+             Other AIs dump paragraphs. We give you <span className="text-foreground font-medium">tables, timelines, and cited sources</span>—ready to use.
           </p>
         </div>
 

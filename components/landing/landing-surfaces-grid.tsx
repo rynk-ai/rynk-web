@@ -7,10 +7,10 @@ export function LandingSurfacesGrid() {
       <div className="container px-4 mx-auto">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-bold font-display tracking-tighter mb-4 text-foreground">
-             Every answer gets <br/> its own interface.
+             Pick your format. <br/>We'll build the interface.
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-             Why read a paragraph when you can interact? We generate custom UI components based on what you ask.
+             Quizzes, timelines, comparisons, research reports—just pick what you need and it's generated instantly.
           </p>
         </div>
 

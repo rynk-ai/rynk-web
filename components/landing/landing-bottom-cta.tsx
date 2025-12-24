@@ -30,8 +30,8 @@ export function LandingBottomCTA() {
            transition={{ duration: 0.8 }}
         >
             <h2 className="text-4xl md:text-5xl font-bold font-display tracking-tighter mb-8 text-white">
-              Modern research <br/>
-              <span className="text-white/60">for everyone.</span>
+              Your research. <br/>
+              <span className="text-white/60">Your format.</span>
             </h2>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

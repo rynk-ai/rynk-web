@@ -69,6 +69,9 @@ const SURFACE_MODES: Array<{
 // Surfaces allowed for guest users (no authentication required)
 const GUEST_ALLOWED_SURFACES: (SurfaceType | 'chat')[] = ['chat', 'wiki', 'quiz'];
 
+// Debounce delay for surface suggestion API calls
+const SURFACE_SUGGESTION_DEBOUNCE_MS = 600;
+
 type PromptInputWithFilesProps = {
   onSubmit?: (text: string, files: File[]) => void;
   isLoading?: boolean;
@@ -202,6 +205,16 @@ export const PromptInputWithFiles = memo(function
   const [surfaceModeOpen, setSurfaceModeOpen] = useState(false);
   const currentSurfaceMode = SURFACE_MODES.find(m => m.type === surfaceMode) || SURFACE_MODES[0];
   const surfaceDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Smart surface suggestion state
+  const [suggestedSurface, setSuggestedSurface] = useState<{
+    type: SurfaceType;
+    message: string;
+  } | null>(null);
+  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
+  const [isFetchingSuggestion, setIsFetchingSuggestion] = useState(false);
+  const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionAbortRef = useRef<AbortController | null>(null);
 
   // Close surface dropdown when clicking outside
   useEffect(() => {
@@ -378,7 +391,70 @@ export const PromptInputWithFiles = memo(function
       }
     }
     
-    
+    // Smart surface suggestion detection using AI API (debounced)
+    // Only suggest if user hasn't manually selected a surface (surfaceMode === 'chat')
+    if (surfaceMode === 'chat' && value.length > 10 && !slashQuery && !query) {
+      // Clear existing timeout
+      if (suggestionTimeoutRef.current) {
+        clearTimeout(suggestionTimeoutRef.current);
+      }
+      
+      // Abort any in-flight request
+      if (suggestionAbortRef.current) {
+        suggestionAbortRef.current.abort();
+      }
+      
+      // Debounced API call
+      suggestionTimeoutRef.current = setTimeout(async () => {
+        try {
+          setIsFetchingSuggestion(true);
+          suggestionAbortRef.current = new AbortController();
+          
+          const response = await fetch('/api/suggest-surface', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: value }),
+            signal: suggestionAbortRef.current.signal
+          });
+          
+          if (!response.ok) {
+            setSuggestedSurface(null);
+            return;
+          }
+          
+          const data = await response.json() as { 
+            suggestedSurface?: SurfaceType | null; 
+            reason?: string; 
+          };
+          
+          if (data.suggestedSurface && data.suggestedSurface !== dismissedSuggestion) {
+            // Check if guest can use this surface
+            if (!isGuest || GUEST_ALLOWED_SURFACES.includes(data.suggestedSurface)) {
+              const surfaceInfo = SURFACE_MODES.find(m => m.type === data.suggestedSurface);
+              setSuggestedSurface({
+                type: data.suggestedSurface,
+                message: data.reason || `Try ${surfaceInfo?.label || 'this format'}`
+              });
+            }
+          } else {
+            setSuggestedSurface(null);
+          }
+        } catch (error: any) {
+          if (error.name !== 'AbortError') {
+            console.error('Surface suggestion error:', error);
+          }
+          setSuggestedSurface(null);
+        } finally {
+          setIsFetchingSuggestion(false);
+        }
+      }, SURFACE_SUGGESTION_DEBOUNCE_MS);
+    } else if (value.length <= 10) {
+      // Clear suggestion for short queries
+      if (suggestionTimeoutRef.current) {
+        clearTimeout(suggestionTimeoutRef.current);
+      }
+      setSuggestedSurface(null);
+    }
   };
 
   const handleSelectSlashCommand = (cmd: typeof SLASH_COMMANDS[0]) => {
@@ -568,6 +644,23 @@ export const PromptInputWithFiles = memo(function
       handleFilesAdded([textFile]);
     }
     // If text is short, allow normal paste (don't prevent default)
+  };
+
+  // Handle accepting surface suggestion
+  const handleAcceptSuggestion = () => {
+    if (suggestedSurface && onSurfaceModeChange) {
+      onSurfaceModeChange(suggestedSurface.type);
+      setSuggestedSurface(null);
+      setDismissedSuggestion(null);
+    }
+  };
+  
+  // Handle dismissing surface suggestion
+  const handleDismissSuggestion = () => {
+    if (suggestedSurface) {
+      setDismissedSuggestion(suggestedSurface.type);
+      setSuggestedSurface(null);
+    }
   };
 
   return (
@@ -821,7 +914,7 @@ export const PromptInputWithFiles = memo(function
               <div className="flex items-center gap-1">
                 {/* Surface Mode Dropdown */}
                 {!hideActions && onSurfaceModeChange && (
-                  <div className="relative" ref={surfaceDropdownRef}>
+                  <div className="relative flex items-center gap-1" ref={surfaceDropdownRef}>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -829,7 +922,9 @@ export const PromptInputWithFiles = memo(function
                         "h-8 gap-1.5 px-2 text-xs font-medium rounded-lg transition-all",
                         surfaceMode !== 'chat' 
                           ? [currentSurfaceMode.color, "bg-secondary/80"]
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80",
+                        // Subtle highlight when suggestion is active
+                        suggestedSurface && surfaceMode === 'chat' && !editMode && "bg-primary/5 border border-primary/30 text-primary"
                       )}
                       onClick={() => setSurfaceModeOpen(!surfaceModeOpen)}
                       disabled={isLoading || isSubmittingEdit || disabled}
@@ -838,6 +933,35 @@ export const PromptInputWithFiles = memo(function
                       {currentSurfaceMode.label}
                       <PiCaretDown className={cn("h-3 w-3 transition-transform", surfaceModeOpen && "rotate-180")} />
                     </Button>
+                    
+                    {/* Inline Surface Suggestion */}
+                    {suggestedSurface && !editMode && surfaceMode === 'chat' && (() => {
+                      const surfaceInfo = SURFACE_MODES.find(m => m.type === suggestedSurface.type);
+                      const Icon = surfaceInfo?.icon || PiChatCircle;
+                      return (
+                        <div className="hidden sm:flex items-center gap-1.5 animate-in slide-in-from-left-2 fade-in duration-200">
+                          <span className="text-muted-foreground/50 text-xs">→</span>
+                          <button
+                            onClick={handleAcceptSuggestion}
+                            className={cn(
+                              "flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-lg transition-all",
+                              "bg-secondary/80 hover:bg-secondary border border-border/50 hover:border-primary/30",
+                              surfaceInfo?.color || 'text-primary'
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            <span>Try {surfaceInfo?.label}</span>
+                          </button>
+                          <button
+                            onClick={handleDismissSuggestion}
+                            className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors rounded"
+                            aria-label="Dismiss suggestion"
+                          >
+                            <PiX className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })()}
                     
                     {/* Dropdown Menu */}
                     {surfaceModeOpen && (
