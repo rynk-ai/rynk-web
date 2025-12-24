@@ -194,31 +194,39 @@ export class ChatService {
             // Continue without embedding - fallback to individual computation
           }
 
-          // Retrieve Context from Knowledge Base (pass pre-computed embedding)
-          let kbContext = ''
-          try {
-            kbContext = await knowledgeBase.getContext(
+          // === OPTIMIZATION: Run KB context and buildContext in PARALLEL ===
+          // These are independent operations - no need to wait for one before starting the other
+          console.log('⚡ [chatService] Starting parallel context retrieval...')
+          
+          const [kbContextResult, buildContextResult] = await Promise.all([
+            // KB Context (with error handling)
+            knowledgeBase.getContext(
               conversationId, 
               messageContent,
               undefined, 
               project?.id,
               queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
+            ).catch(error => {
+              console.error('❌ [chatService] Failed to retrieve KB context:', error)
+              return '' // Return empty on error
+            }),
+            
+            // Build legacy context
+            this.buildContext(
+              userId,
+              conversationId,
+              messageContent,
+              messageRefs.referencedConversations,
+              messageRefs.referencedFolders,
+              project?.id,
+              undefined,  // onProgress
+              queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
             )
-          } catch (error) {
-            console.error('❌ [chatService] Failed to retrieve KB context:', error)
-          }
-
-          // Build legacy context (pass pre-computed embedding)
-          const { contextText: legacyContext, retrievedChunks } = await this.buildContext(
-            userId,
-            conversationId,
-            messageContent,
-            messageRefs.referencedConversations,
-            messageRefs.referencedFolders,
-            project?.id,
-            undefined,  // onProgress
-            queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
-          )
+          ])
+          
+          const kbContext = kbContextResult
+          const { contextText: legacyContext, retrievedChunks } = buildContextResult
+          console.log('✅ [chatService] Parallel context retrieval complete')
           
           // Send context cards to frontend (shows what RAG found)
           if (retrievedChunks.length > 0) {
