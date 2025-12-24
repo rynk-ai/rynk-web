@@ -176,6 +176,30 @@ export function LoginForm() {
           )}
           Google
         </button>
+
+        {/* Divider for guest mode */}
+        <div className="relative w-full">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">
+              Or
+            </span>
+          </div>
+        </div>
+
+        {/* Guest mode */}
+        <a
+          href="/guest-chat"
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-background px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground hover:border-border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          Continue as Guest
+        </a>
+
+        <p className="text-xs text-center text-muted-foreground">
+          Try without an account • Limited features
+        </p>
       </div>
     </div>
   )

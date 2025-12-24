@@ -13,7 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { PiSignOut, PiGear, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiTextAa } from "react-icons/pi";
+import { PiSignOut, PiGear, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiTextAa, PiHouse } from "react-icons/pi";
 import { useEffect, useState } from "react";
 import { getUserCredits } from "@/app/actions";
 import { useTheme } from "next-themes";
@@ -156,6 +156,10 @@ export function UserProfileDropdown() {
           {tier === "free" && (
             <span className="text-xs text-primary font-medium">Upgrade</span>
           )}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/?explicit=true")} className="focus:bg-muted dark:focus:bg-muted/50">
+          <PiHouse className="mr-2 h-4 w-4" />
+          <span>Landing Page</span>
         </DropdownMenuItem>
         <DropdownMenuItem disabled className="focus:bg-muted dark:focus:bg-muted/50">
           <PiGear className="mr-2 h-4 w-4" />

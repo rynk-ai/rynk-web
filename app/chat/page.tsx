@@ -934,6 +934,12 @@ const ChatContent = memo(
 
     // Handle pending query from URL params (?q=...) or localStorage
     useEffect(() => {
+      // CRITICAL: Don't process if already sending - prevents duplicate submissions
+      if (isSending) {
+        console.log("[ChatPage] Skipping query processing - already sending");
+        return;
+      }
+
       // Skip if we're switching conversations (avoid double execution during switch)
       const isSwitching =
         lastConversationIdRef.current !== currentConversationId &&
@@ -1018,7 +1024,7 @@ const ChatContent = memo(
 
       // No cleanup function - let the timer complete even during Fast Refresh
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentConversationId, searchParams, router]);
+    }, [currentConversationId, searchParams, router, isSending]);
 
     // Ref for the input container to handle scroll locking
     const inputContainerRef = useRef<HTMLDivElement>(null);

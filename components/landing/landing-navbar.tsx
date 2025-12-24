@@ -6,7 +6,8 @@ import { useScroll, useMotionValueEvent, AnimatePresence, motion } from "motion/
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { PiSun, PiMoon, PiDesktop, PiList } from "react-icons/pi";
+import { useSession } from "next-auth/react";
+import { PiSun, PiMoon, PiDesktop, PiList, PiArrowRight } from "react-icons/pi";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,8 @@ export function LandingNavbar() {
   const [showCta, setShowCta] = useState(false);
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated" && !!session;
 
   useEffect(() => {
     setMounted(true);
@@ -73,43 +76,63 @@ export function LandingNavbar() {
               </DropdownMenu>
             )}
 
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Log in</Link>
-            </Button>
-            
-            <AnimatePresence>
-                {showCta && (
-                    <motion.div
-                        initial={{ opacity: 0, width: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, width: "auto", scale: 1 }}
-                        exit={{ opacity: 0, width: 0, scale: 0.9 }}
-                        transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-                        className="overflow-hidden"
-                    >
-                        <Button size="sm" className="rounded-full px-5 font-medium whitespace-nowrap ml-2" asChild>
-                           <Link href="/chat">Get Started</Link>
-                        </Button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {isAuthenticated ? (
+              <Button size="sm" className="rounded-full px-5 font-medium" asChild>
+                <Link href="/chat">
+                  Go to Chat
+                  <PiArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/login">Log in</Link>
+                </Button>
+                
+                <AnimatePresence>
+                    {showCta && (
+                        <motion.div
+                            initial={{ opacity: 0, width: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, width: "auto", scale: 1 }}
+                            exit={{ opacity: 0, width: 0, scale: 0.9 }}
+                            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                            className="overflow-hidden"
+                        >
+                            <Button size="sm" className="rounded-full px-5 font-medium whitespace-nowrap ml-2" asChild>
+                               <Link href="/chat">Get Started</Link>
+                            </Button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu */}
           <div className="flex md:hidden items-center gap-2">
-             <AnimatePresence>
-                {showCta && (
-                    <motion.div
-                        initial={{ opacity: 0, width: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, width: "auto", scale: 1 }}
-                        exit={{ opacity: 0, width: 0, scale: 0.9 }}
-                        className="overflow-hidden mr-1"
-                    >
-                        <Button size="sm" className="rounded-full px-4 h-8 text-xs font-medium" asChild>
-                           <Link href="/chat">Get Started</Link>
-                        </Button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {isAuthenticated ? (
+              <Button size="sm" className="rounded-full px-4 h-8 text-xs font-medium" asChild>
+                <Link href="/chat">
+                  Go to Chat
+                  <PiArrowRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <AnimatePresence>
+                  {showCta && (
+                      <motion.div
+                          initial={{ opacity: 0, width: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, width: "auto", scale: 1 }}
+                          exit={{ opacity: 0, width: 0, scale: 0.9 }}
+                          className="overflow-hidden mr-1"
+                      >
+                          <Button size="sm" className="rounded-full px-4 h-8 text-xs font-medium" asChild>
+                             <Link href="/chat">Get Started</Link>
+                          </Button>
+                      </motion.div>
+                  )}
+              </AnimatePresence>
+            )}
 
             {mounted && (
                 <Button 
@@ -123,25 +146,28 @@ export function LandingNavbar() {
                 </Button>
             )}
 
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-9 w-9">
-                        <PiList className="h-5 w-5" />
-                        <span className="sr-only">Open menu</span>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px] p-2 space-y-1">
-                    <DropdownMenuItem asChild className="p-2 cursor-pointer">
-                        <Link href="#features" className="w-full">Features</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="p-2 cursor-pointer">
-                        <Link href="/login" className="w-full">Log in</Link>
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+            {!isAuthenticated && (
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-9 w-9">
+                          <PiList className="h-5 w-5" />
+                          <span className="sr-only">Open menu</span>
+                      </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[200px] p-2 space-y-1">
+                      <DropdownMenuItem asChild className="p-2 cursor-pointer">
+                          <Link href="#features" className="w-full">Features</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="p-2 cursor-pointer">
+                          <Link href="/login" className="w-full">Log in</Link>
+                      </DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </nav>
       </div>
     </header>
   );
 }
+

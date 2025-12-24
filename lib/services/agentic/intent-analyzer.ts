@@ -99,17 +99,15 @@ export async function deepIntentAnalysis(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://rynk.io',
-        'X-Title': 'Rynk'
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'anthropic/claude-3.5-haiku',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [{
           role: 'system',
           content: `You are an expert research planner. Your job is to determine which information sources to use and what to search for.
@@ -173,7 +171,7 @@ Determine the best sources to use and create specific search queries for each.`
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      throw new Error(`OpenRouter API error: ${response.status}`)
+      throw new Error(`Groq API error: ${response.status}`)
     }
 
     const data = await response.json() as any

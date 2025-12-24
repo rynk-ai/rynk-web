@@ -103,7 +103,7 @@ export class ResponseSynthesizer {
 
 
   /**
-   * Use Claude Haiku to synthesize the final response
+   * Use Groq Kimi K2 to synthesize the final response
    */
   private async synthesizeWithClaude(
     originalQuery: string,
@@ -111,9 +111,9 @@ export class ResponseSynthesizer {
     citations: Array<{ url: string; title: string; source: string }>,
     history: { role: string; content: string }[] = []
   ): Promise<string> {
-    const apiKey = process.env.OPENROUTER_API_KEY
+    const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured')
+      throw new Error('GROQ_API_KEY not configured')
     }
     
     // Format recent history (last 5 messages) for context
@@ -123,17 +123,15 @@ export class ResponseSynthesizer {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout for synthesis
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://rynk.io',
-        'X-Title': 'Rynk'
+        'Content-Type': 'application/json'
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'anthropic/claude-3.5-haiku',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [{
           role: 'system',
           content: `You are an expert research synthesizer. Your task is to:
@@ -172,7 +170,7 @@ Please provide a comprehensive answer using inline citations.`
     clearTimeout(timeoutId)
     
     if (!response.ok) {
-      throw new Error(`Claude synthesis error: ${response.status}`)
+      throw new Error(`Groq synthesis error: ${response.status}`)
     }
     
     const data = await response.json() as any

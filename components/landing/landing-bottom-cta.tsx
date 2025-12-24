@@ -4,9 +4,12 @@ import { motion } from "motion/react";
 import { PiArrowRight } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export function LandingBottomCTA() {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated" && !!session;
 
   return (
     <section className="py-20 relative overflow-hidden bg-neutral-950 text-white">
@@ -37,7 +40,7 @@ export function LandingBottomCTA() {
                     onClick={() => router.push('/chat')}
                     className="h-11 px-8 rounded-full bg-white text-black hover:bg-white/90 text-sm font-medium tracking-tight"
                 >
-                    Start for free
+                    {isAuthenticated ? "Back to Chat" : "Start for free"}
                     <PiArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 
@@ -50,11 +53,14 @@ export function LandingBottomCTA() {
                 </Button>
             </div>
             
-            <p className="mt-8 text-xs text-white/40 font-medium">
-                No credit card required. Up to 100 searches/month free.
-            </p>
+            {!isAuthenticated && (
+              <p className="mt-8 text-xs text-white/40 font-medium">
+                  No credit card required. Up to 100 searches/month free.
+              </p>
+            )}
         </motion.div>
       </div>
     </section>
   );
 }
+

@@ -1673,11 +1673,20 @@ ${baseFormat}
 Requirements: 15-20 questions, items are topic hints.`
         
       case 'comparison':
-        return `Create a comparison outline for: "${query}"
+        // Build web research context for better comparison items
+        let comparisonResearch = ''
+        if (webContext?.summary || webContext?.keyFacts?.length) {
+          const researchContent = webContext.summary || webContext.keyFacts.slice(0, 5).join('\n')
+          comparisonResearch = `\n\nWEB RESEARCH SUMMARY (use this for accurate information):\n${researchContent.substring(0, 2500)}\n\nBase the comparison on real specs, pricing, and features from the research above.`
+        }
+        if (webContext?.citations?.length) {
+          comparisonResearch += `\n\nSOURCES:\n${webContext.citations.slice(0, 5).map((c: any) => `- ${c.title}${c.snippet ? ': ' + c.snippet.substring(0, 150) : ''}`).join('\n')}`
+        }
+        return `Create a comparison outline for: "${query}"${comparisonResearch}
 
 ${baseFormat}
 
-Requirements: 2-5 items to compare.`
+Requirements: 2-4 items to compare. Use actual product/option names from the research.`
         
       case 'flashcard':
         return `Create a flashcard deck outline for: "${query}"
