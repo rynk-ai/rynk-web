@@ -17,7 +17,7 @@ export class GroqProvider implements AIProvider {
     );
 
     const model = hasImages 
-      ? "llama-3.2-90b-vision-preview" 
+      ? "meta-llama/llama-guard-4-12b" 
       : "moonshotai/kimi-k2-instruct-0905";
 
     if (hasImages) {
@@ -114,7 +114,7 @@ export class GroqProvider implements AIProvider {
     );
 
     const model = hasImages 
-      ? "llama-3.2-90b-vision-preview" 
+      ? "meta-llama/llama-guard-4-12b" 
       : "moonshotai/kimi-k2-instruct-0905";
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {

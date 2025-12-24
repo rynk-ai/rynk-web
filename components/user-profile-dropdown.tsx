@@ -13,11 +13,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { PiSignOut, PiGear, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiTextAa, PiHouse } from "react-icons/pi";
+import { PiSignOut, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiHouse, PiDiscordLogo, PiXLogo } from "react-icons/pi";
 import { useEffect, useState } from "react";
 import { getUserCredits } from "@/app/actions";
 import { useTheme } from "next-themes";
-import { useFont } from "@/components/providers/font-provider";
+
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -57,7 +57,7 @@ function UserProfileSkeleton() {
 export function UserProfileDropdown() {
   const { data: session, status } = useSession();
   const { setTheme } = useTheme();
-  const { font, setFont, options } = useFont();
+
   const router = useRouter();
   const [credits, setCredits] = useState<number | null>(null);
 
@@ -161,10 +161,7 @@ export function UserProfileDropdown() {
           <PiHouse className="mr-2 h-4 w-4" />
           <span>Landing Page</span>
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="focus:bg-muted dark:focus:bg-muted/50">
-          <PiGear className="mr-2 h-4 w-4" />
-          <span>Settings</span>
-        </DropdownMenuItem>
+
         <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
@@ -184,23 +181,19 @@ export function UserProfileDropdown() {
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
-            <PiTextAa className="mr-2 h-4 w-4" />
-            <span>Font</span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {options.map((option) => (
-              <DropdownMenuItem
-                key={option.name}
-                onClick={() => setFont(option.name)}
-                className={`focus:bg-muted dark:focus:bg-muted/50 ${font === option.name ? "bg-muted dark:bg-muted/50" : ""}`}
-              >
-                {option.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
+          Contact
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => window.open("https://discord.gg/dq7U4Ydx", "_blank")} className="focus:bg-muted dark:focus:bg-muted/50">
+          <PiDiscordLogo className="mr-2 h-4 w-4" />
+          <span>Discord</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => window.open("https://x.com/farsn_", "_blank")} className="focus:bg-muted dark:focus:bg-muted/50">
+          <PiXLogo className="mr-2 h-4 w-4" />
+          <span>X (Twitter)</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleLogout}

@@ -35,6 +35,8 @@ interface ContextPickerProps {
   trigger?: React.ReactNode;
   currentConversationId?: string | null;
   tooltip?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ContextPicker({
@@ -44,10 +46,24 @@ export function ContextPicker({
   folders,
   trigger,
   currentConversationId,
-  tooltip
+  tooltip,
+  open: controlledOpen,
+  onOpenChange
 }: ContextPickerProps) {
   const { searchConversations } = useChatContext();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  }, [isControlled, onOpenChange]);
+
   const [query, setQuery] = useState("");
 
   // Pagination state
@@ -221,19 +237,14 @@ export function ContextPicker({
     return [...selected, ...unselected];
   }, [filteredData, selectedItems]);
 
-  const triggerContent = (
+  const triggerContent = trigger ? (
     <DialogTrigger asChild>
-      {trigger || (
-        <Button variant="outline" size="sm" className="gap-2">
-          <PiMagnifyingGlass className="h-4 w-4" />
-          Add your chats
-        </Button>
-      )}
+      {trigger}
     </DialogTrigger>
-  );
+  ) : null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       {tooltip ? (
         <TooltipProvider>
           <Tooltip>
@@ -253,7 +264,7 @@ export function ContextPicker({
         <DialogHeader>
           <DialogTitle className="flex justify-between items-center">
             <span>Select chats</span>
-            <Button size="sm" onClick={() => setOpen(false)}>
+            <Button size="sm" onClick={() => handleOpenChange(false)}>
               Done
             </Button>
           </DialogTitle>

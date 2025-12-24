@@ -155,6 +155,9 @@ export const PromptInputWithFiles = memo(function
   const [plusDropdownOpen, setPlusDropdownOpen] = useState(false);
   const plusDropdownRef = useRef<HTMLDivElement>(null);
   
+  // Context Picker state
+  const [contextPickerOpen, setContextPickerOpen] = useState(false);
+  
   // Smart surface suggestion state
   const [suggestedSurface, setSuggestedSurface] = useState<{
     type: SurfaceType;
@@ -879,47 +882,29 @@ export const PromptInputWithFiles = memo(function
                               </FileUploadTrigger>
                             )}
                             
-                            {/* Context Picker - Conversations */}
-                            <ContextPicker
-                              selectedItems={context}
-                              onSelectionChange={(items) => {
-                                onContextChange?.(items);
-                                setPlusDropdownOpen(false);
-                              }}
-                              conversations={conversations}
-                              folders={folders}
-                              currentConversationId={currentConversationId}
-                              tooltip=""
-                              trigger={
-                                <button
-                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
-                                >
-                                  <PiChatCircle className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">Add conversation</span>
-                                </button>
-                              }
-                            />
                             
-                            {/* Context Picker - Folders */}
-                            <ContextPicker
-                              selectedItems={context}
-                              onSelectionChange={(items) => {
-                                onContextChange?.(items);
+                            {/* Context Picker Options */}
+                            <button
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
+                              onClick={() => {
+                                setContextPickerOpen(true);
                                 setPlusDropdownOpen(false);
                               }}
-                              conversations={conversations}
-                              folders={folders}
-                              currentConversationId={currentConversationId}
-                              tooltip=""
-                              trigger={
-                                <button
-                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
-                                >
-                                  <PiFolder className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">Add folder</span>
-                                </button>
-                              }
-                            />
+                            >
+                              <PiChatCircle className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">Add conversation</span>
+                            </button>
+                            
+                            <button
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-lg transition-colors text-left text-foreground hover:bg-muted/50"
+                              onClick={() => {
+                                setContextPickerOpen(true);
+                                setPlusDropdownOpen(false);
+                              }}
+                            >
+                              <PiFolder className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">Add folder</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -927,6 +912,22 @@ export const PromptInputWithFiles = memo(function
                   </div>
                 )}
               </div>
+
+               {/* Controlled Context Picker */}
+              <ContextPicker
+                open={contextPickerOpen}
+                onOpenChange={setContextPickerOpen}
+                selectedItems={context}
+                onSelectionChange={(items) => {
+                  onContextChange?.(items);
+                }}
+                conversations={conversations}
+                folders={folders}
+                currentConversationId={currentConversationId}
+                tooltip=""
+                trigger={null}
+              />
+
 
               <Button
                 type="button"
