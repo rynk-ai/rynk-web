@@ -1,53 +1,67 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SubChat } from "@/lib/services/cloud-db";
 import { toast } from "sonner";
+
+/**
+ * Fetch sub-chats for a conversation
+ */
+async function fetchSubChats(conversationId: string): Promise<SubChat[]> {
+  const response = await fetch(
+    `/api/sub-chats?conversationId=${conversationId}`
+  );
+  if (!response.ok) {
+    throw new Error("Failed to fetch sub-chats");
+  }
+  const data = (await response.json()) as { subChats?: SubChat[] };
+  return data.subChats || [];
+}
 
 /**
  * Custom hook to manage sub-chat state independently from parent component.
  * This extracts ~400 lines of sub-chat logic from ChatContent for better
  * separation of concerns and reduced component complexity.
+ * 
+ * Uses React Query for caching and automatic background refetching.
  */
 export function useSubChats(currentConversationId: string | null) {
-  // Sub-chat state
-  const [subChats, setSubChats] = useState<SubChat[]>([]);
+  const queryClient = useQueryClient();
+
+  // Sub-chat state (local UI state, not server state)
   const [activeSubChat, setActiveSubChat] = useState<SubChat | null>(null);
   const [subChatSheetOpen, setSubChatSheetOpen] = useState(false);
   const [subChatLoading, setSubChatLoading] = useState(false);
   const [subChatStreamingContent, setSubChatStreamingContent] = useState("");
   const [subChatSearchResults, setSubChatSearchResults] = useState<any>(null);
 
+  // React Query for sub-chats - provides caching and deduplication
+  const { data: subChats = [], isLoading: isLoadingSubChats } = useQuery({
+    queryKey: ["sub-chats", currentConversationId],
+    queryFn: () => fetchSubChats(currentConversationId!),
+    enabled: !!currentConversationId,
+    staleTime: 1000 * 60 * 2, // 2 minutes - sub-chats don't change often
+    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false,
+  });
+
   // Set of message IDs that have sub-chats (for quick lookup)
   const messageIdsWithSubChats = useMemo(() => {
     return new Set(subChats.map((sc) => sc.sourceMessageId));
   }, [subChats]);
 
-  // Load sub-chats for a conversation
-  const loadSubChats = useCallback(async (conversationId: string) => {
-    try {
-      const response = await fetch(
-        `/api/sub-chats?conversationId=${conversationId}`
+  // Helper: Update sub-chats cache
+  const updateSubChatsCache = useCallback(
+    (updater: (prev: SubChat[]) => SubChat[]) => {
+      if (!currentConversationId) return;
+      queryClient.setQueryData<SubChat[]>(
+        ["sub-chats", currentConversationId],
+        (old) => updater(old || [])
       );
-      if (response.ok) {
-        const data = (await response.json()) as { subChats?: SubChat[] };
-        setSubChats(data.subChats || []);
-      }
-    } catch (err) {
-      console.error("Failed to load sub-chats:", err);
-    }
-  }, []);
-
-  // Load sub-chats when conversation changes
-  useEffect(() => {
-    if (currentConversationId) {
-      loadSubChats(currentConversationId);
-    } else {
-      setSubChats([]);
-      setActiveSubChat(null);
-      setSubChatSheetOpen(false);
-    }
-  }, [currentConversationId, loadSubChats]);
+    },
+    [currentConversationId, queryClient]
+  );
 
   // Open or create a sub-chat for selected text
   const handleOpenSubChat = useCallback(
@@ -87,7 +101,8 @@ export function useSubChats(currentConversationId: string | null) {
           const data = (await response.json()) as { subChat?: SubChat };
           const newSubChat = data.subChat;
           if (newSubChat) {
-            setSubChats((prev) => [newSubChat, ...prev]);
+            // Update cache with new sub-chat
+            updateSubChatsCache((prev) => [newSubChat, ...prev]);
             setActiveSubChat(newSubChat);
             setSubChatSheetOpen(true);
           }
@@ -97,7 +112,7 @@ export function useSubChats(currentConversationId: string | null) {
         toast.error("Failed to create sub-chat");
       }
     },
-    [currentConversationId, subChats]
+    [currentConversationId, subChats, updateSubChatsCache]
   );
 
   // View existing sub-chats for a message
@@ -131,8 +146,8 @@ export function useSubChats(currentConversationId: string | null) {
         });
 
         if (response.ok) {
-          // Remove from local state
-          setSubChats((prev) => prev.filter((sc) => sc.id !== subChatId));
+          // Remove from cache
+          updateSubChatsCache((prev) => prev.filter((sc) => sc.id !== subChatId));
 
           // Close sheet if this sub-chat was active
           if (activeSubChat?.id === subChatId) {
@@ -149,7 +164,7 @@ export function useSubChats(currentConversationId: string | null) {
         toast.error("Failed to delete sub-chat");
       }
     },
-    [activeSubChat]
+    [activeSubChat, updateSubChatsCache]
   );
 
   // Send a message in the active sub-chat
@@ -182,10 +197,10 @@ export function useSubChats(currentConversationId: string | null) {
             subChat?: SubChat;
           };
 
-        // Update local state with user message
+        // Update cache with user message
         if (updatedSubChat) {
           setActiveSubChat(updatedSubChat);
-          setSubChats((prev) =>
+          updateSubChatsCache((prev) =>
             prev.map((sc) =>
               sc.id === updatedSubChat.id ? updatedSubChat : sc
             )
@@ -248,7 +263,7 @@ export function useSubChats(currentConversationId: string | null) {
           };
           if (finalSubChat) {
             setActiveSubChat(finalSubChat);
-            setSubChats((prev) =>
+            updateSubChatsCache((prev) =>
               prev.map((sc) => (sc.id === finalSubChat.id ? finalSubChat : sc))
             );
           }
@@ -261,7 +276,7 @@ export function useSubChats(currentConversationId: string | null) {
         setSubChatStreamingContent("");
       }
     },
-    [activeSubChat]
+    [activeSubChat, updateSubChatsCache]
   );
 
   return {
@@ -274,6 +289,7 @@ export function useSubChats(currentConversationId: string | null) {
     subChatStreamingContent,
     subChatSearchResults,
     messageIdsWithSubChats,
+    isLoadingSubChats,
 
     // Handlers
     handleOpenSubChat,

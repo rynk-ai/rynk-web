@@ -58,6 +58,7 @@ import {
 import { toast } from "sonner"
 import { chunkText } from '@/lib/utils/chunking'
 import { usePathname } from "next/navigation"
+import { processStreamChunk } from "@/lib/utils/stream-parser"
 
 export function useChat(initialConversationId?: string | null) {
   const queryClient = useQueryClient()
@@ -564,63 +565,24 @@ export function useChat(initialConversationId?: string | null) {
 
               const text = decoder.decode(value, { stream: true })
 
-              // Check for status messages (JSON format)
-              // We split by newline in case multiple chunks came together
-              const lines = text.split('\n')
+              // Use shared stream parser utility
               let contentChunk = ''
-
-              for (let i = 0; i < lines.length; i++) {
-                const line = lines[i]
-
-                try {
-                  // Try to parse as JSON status, search results, or context cards message
-                  if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"') || line.startsWith('{"type":"context_cards"')) {
-                    const parsed = JSON.parse(line)
-
-                    if (parsed.type === 'status') {
-                      console.log('[useChat] Parsed status pill:', parsed)
-                      setStatusPills(prev => {
-                        const updated = [...prev, {
-                          status: parsed.status,
-                          message: parsed.message,
-                          timestamp: parsed.timestamp
-                        }]
-                        console.log('[useChat] Updated status pills:', updated)
-                        return updated
-                      })
-                      continue // Don't pass this to the content stream
-                    }
-
-                    if (parsed.type === 'search_results') {
-                      setSearchResults({
-                        query: parsed.query,
-                        sources: parsed.sources,
-                        strategy: parsed.strategy,
-                        totalResults: parsed.totalResults
-                      })
-                      continue // Don't pass this to the content stream
-                    }
-
-                    if (parsed.type === 'context_cards') {
-                      console.log('[useChat] Parsed context cards:', parsed.cards?.length)
-                      setContextCards(parsed.cards || [])
-                      continue // Don't pass this to the content stream
-                    }
-                  }
-                } catch (e) {
-                  // Not a JSON object, treat as content
+              processStreamChunk(text, {
+                onStatus: (pill) => {
+                  console.log('[useChat] Parsed status pill:', pill)
+                  setStatusPills(prev => [...prev, pill])
+                },
+                onSearchResults: (results) => {
+                  setSearchResults(results)
+                },
+                onContextCards: (cards) => {
+                  console.log('[useChat] Parsed context cards:', cards?.length)
+                  setContextCards(cards || [])
+                },
+                onContent: (text) => {
+                  contentChunk += text
                 }
-
-                // If not a status message, it's content
-                if (line.trim()) {
-                  contentChunk += line
-                }
-                // Add newline after each line (including empty ones) to preserve structure
-                // This is critical because split('\n') removes the newlines
-                if (i < lines.length - 1) {
-                  contentChunk += '\n'
-                }
-              }
+              })
 
               if (contentChunk) {
                 controller.enqueue(new TextEncoder().encode(contentChunk))

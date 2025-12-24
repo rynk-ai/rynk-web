@@ -50,6 +50,7 @@ import { CommandBar } from "@/components/ui/command-bar";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 import { FocusModeToggle } from "@/components/focus-mode";
 import { SavedSurfacesPill } from "@/components/surfaces";
+import { processStreamChunk } from "@/lib/utils/stream-parser";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -1169,58 +1170,25 @@ const ChatContent = memo(
 
                     const text = decoder.decode(value, { stream: true });
                     
-                    // Parse stream for JSON events (status pills, search results, context cards)
-                    const lines = text.split('\n');
+                    // Use shared stream parser utility
                     let contentChunk = '';
-
-                    for (let i = 0; i < lines.length; i++) {
-                      const line = lines[i];
-
-                      try {
-                        // Try to parse as JSON status, search results, or context cards message
-                        if (line.startsWith('{"type":"status"') || line.startsWith('{"type":"search_results"') || line.startsWith('{"type":"context_cards"')) {
-                          const parsed = JSON.parse(line);
-
-                          if (parsed.type === 'status') {
-                            console.log('[handleSaveEdit] Parsed status pill:', parsed);
-                            setStatusPills(prev => [...prev, {
-                              status: parsed.status,
-                              message: parsed.message,
-                              timestamp: parsed.timestamp
-                            }]);
-                            continue; // Don't pass this to the content stream
-                          }
-
-                          if (parsed.type === 'search_results') {
-                            console.log('[handleSaveEdit] Parsed search results:', parsed.sources?.length);
-                            setSearchResults({
-                              query: parsed.query,
-                              sources: parsed.sources,
-                              strategy: parsed.strategy,
-                              totalResults: parsed.totalResults
-                            });
-                            continue; // Don't pass this to the content stream
-                          }
-
-                          if (parsed.type === 'context_cards') {
-                            console.log('[handleSaveEdit] Parsed context cards:', parsed.cards?.length);
-                            setContextCards(parsed.cards || []);
-                            continue; // Don't pass this to the content stream
-                          }
-                        }
-                      } catch (e) {
-                        // Not a JSON object, treat as content
+                    processStreamChunk(text, {
+                      onStatus: (pill) => {
+                        console.log('[handleSaveEdit] Parsed status pill:', pill);
+                        setStatusPills(prev => [...prev, pill]);
+                      },
+                      onSearchResults: (results) => {
+                        console.log('[handleSaveEdit] Parsed search results:', results.sources?.length);
+                        setSearchResults(results);
+                      },
+                      onContextCards: (cards) => {
+                        console.log('[handleSaveEdit] Parsed context cards:', cards?.length);
+                        setContextCards(cards || []);
+                      },
+                      onContent: (text) => {
+                        contentChunk += text;
                       }
-
-                      // If not a status message, it's content
-                      if (line.trim()) {
-                        contentChunk += line;
-                      }
-                      // Add newline after each line to preserve structure
-                      if (i < lines.length - 1) {
-                        contentChunk += '\n';
-                      }
-                    }
+                    });
 
                     if (contentChunk) {
                       fullContent += contentChunk;
@@ -1391,16 +1359,23 @@ const ChatContent = memo(
           // Prepend older messages
           setMessages((prev) => [...filteredOlder, ...prev]);
 
-          // Load versions for older messages
+          // Load versions for older messages - PARALLEL FETCH
           const currentVersionsMap = new Map<string, ChatMessage[]>(
             messageVersions,
           );
-          for (const message of olderMessages) {
-            const rootId = message.versionOf || message.id;
-            if (!currentVersionsMap.has(rootId)) {
+          const rootIds = [...new Set(
+            olderMessages.map((m) => m.versionOf || m.id)
+          )].filter((rootId) => !currentVersionsMap.has(rootId));
+          
+          const versionResults = await Promise.all(
+            rootIds.map(async (rootId) => {
               const versions = await getMessageVersions(rootId);
-              currentVersionsMap.set(rootId, versions);
-            }
+              return [rootId, versions] as const;
+            })
+          );
+          
+          for (const [rootId, versions] of versionResults) {
+            currentVersionsMap.set(rootId, versions);
           }
           setMessageVersions(currentVersionsMap);
 
@@ -1552,20 +1527,30 @@ const ChatContent = memo(
         // Reload messages to reflect the switched version
         await reloadMessages();
 
-        // Reload versions map for all messages with versions
-        console.log("🔄 [handleSwitchVersion] Refreshing versions map...");
+        // Reload versions map for all messages with versions - PARALLEL FETCH
+        console.log("🔄 [handleSwitchVersion] Refreshing versions map (parallel)...");
         const { messages: reloadedMessages } = await getMessages(
           currentConversationId,
         );
-        const versionsMap = new Map<string, ChatMessage[]>();
-
-        for (const msg of reloadedMessages) {
-          const rootId = msg.versionOf || msg.id;
-          if (!versionsMap.has(rootId)) {
+        
+        // Get unique root IDs to avoid duplicate fetches
+        const rootIds = [...new Set(
+          reloadedMessages.map((m) => m.versionOf || m.id)
+        )];
+        
+        // Fetch all versions in parallel
+        const versionResults = await Promise.all(
+          rootIds.map(async (rootId) => {
             const versions = await getMessageVersions(rootId);
-            if (versions.length > 1) {
-              versionsMap.set(rootId, versions);
-            }
+            return [rootId, versions] as const;
+          })
+        );
+        
+        // Build the map from parallel results
+        const versionsMap = new Map<string, ChatMessage[]>();
+        for (const [rootId, versions] of versionResults) {
+          if (versions.length > 1) {
+            versionsMap.set(rootId, versions);
           }
         }
 
