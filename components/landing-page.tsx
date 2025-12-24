@@ -11,6 +11,7 @@ import { LandingModelRouting } from "@/components/landing/landing-model-routing"
 import { LandingBottomCTA } from "@/components/landing/landing-bottom-cta";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingBento } from "@/components/landing/landing-bento";
+import { LandingPricing } from "@/components/landing/landing-pricing";
 
 export function LandingPage() {
   const { data: session, status } = useSession();
@@ -40,6 +41,7 @@ export function LandingPage() {
         <LandingSurfacesGrid />
         <LandingBento />
         <LandingModelRouting />
+        <LandingPricing />
         <LandingBottomCTA />
       </main>
       <LandingFooter />
