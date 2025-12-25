@@ -129,7 +129,7 @@ export default function SharePage({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader className="h-8 w-8" />
           <p className="text-muted-foreground">Loading shared conversation...</p>
@@ -140,7 +140,7 @@ export default function SharePage({
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-6 max-w-md text-center px-4">
           <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
             <PiShareNetwork className="h-8 w-8 text-destructive" />
@@ -160,7 +160,7 @@ export default function SharePage({
   if (!data) return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">

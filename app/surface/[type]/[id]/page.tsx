@@ -860,7 +860,7 @@ export default function SurfacePage() {
   // Error state
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <div className="flex items-center justify-center min-h-screen w-full bg-background p-4">
         <div className="bg-card border rounded-2xl p-8 flex flex-col items-center gap-4 text-center max-w-md shadow-lg">
           <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
             <PiXCircle className="h-6 w-6 text-red-500" />
@@ -879,7 +879,7 @@ export default function SurfacePage() {
   // No surface state
   if (!surfaceState) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen w-full bg-background">
         <div className="flex flex-col items-center gap-4">
           <p className="text-muted-foreground">No surface data found</p>
           <Button onClick={handleBackToChat} variant="outline">
@@ -898,7 +898,7 @@ export default function SurfacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
+    <div className="min-h-screen w-full bg-background flex flex-col font-sans">
       {/* Header - Compact and Technical */}
       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur-[2px] supports-[backdrop-filter]:bg-background/80">
         <div className="h-14 max-w-[1400px] mx-auto px-4 flex items-center justify-between gap-4">

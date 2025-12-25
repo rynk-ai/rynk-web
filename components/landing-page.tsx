@@ -33,7 +33,7 @@ export function LandingPage() {
     return null;
   }
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen w-full">
       <LandingNavbar />
       <main className="flex-1">
         <LandingHero />

@@ -123,7 +123,7 @@ export default function SubscriptionPage() {
 
   if (!session?.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen w-full items-center justify-center">
         <p className="text-muted-foreground">
           Please sign in to manage your subscription.
         </p>
@@ -133,7 +133,7 @@ export default function SubscriptionPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen w-full items-center justify-center">
         <PiSpinner className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -143,7 +143,7 @@ export default function SubscriptionPage() {
   const currentConfig = tierConfig[currentTier];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <div className="mx-auto max-w-5xl px-4 py-12">
         <Link
           href="/chat"

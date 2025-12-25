@@ -202,7 +202,7 @@ export default function GuestSurfacePage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen w-full bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
              <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
@@ -219,7 +219,7 @@ export default function GuestSurfacePage() {
   // Error state
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <div className="flex items-center justify-center min-h-screen w-full bg-background p-4">
         <div className="bg-card border rounded-2xl p-8 flex flex-col items-center gap-4 text-center max-w-md shadow-lg">
           <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
             <PiWarningCircle className="h-6 w-6 text-red-500" />
@@ -238,7 +238,7 @@ export default function GuestSurfacePage() {
   // No surface state
   if (!surfaceState) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen w-full bg-background">
         <div className="flex flex-col items-center gap-4">
           <p className="text-muted-foreground">No surface data found</p>
           <Button onClick={handleBackToChat} variant="outline">
@@ -251,7 +251,7 @@ export default function GuestSurfacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border/30 bg-card/80 backdrop-blur-md">
         <div className="container max-w-6xl mx-auto flex h-14 items-center justify-between gap-4 px-4 md:px-6">

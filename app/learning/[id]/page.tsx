@@ -498,7 +498,7 @@ export default function CourseViewPage() {
   
   if (status === "loading" || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen w-full">
         <PiSpinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -506,7 +506,7 @@ export default function CourseViewPage() {
   
   if (!metadata || !progress) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen w-full">
         <p className="text-muted-foreground mb-4">Course not found</p>
         <Button onClick={() => router.push("/learning")}>
           Back to Learning
@@ -516,7 +516,7 @@ export default function CourseViewPage() {
   }
   
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen w-full bg-background flex overflow-hidden">
       {/* Sidebar overlay for mobile */}
       {isSidebarOpen && (
         <div 
