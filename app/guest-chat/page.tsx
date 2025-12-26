@@ -789,7 +789,7 @@ const GuestChatContent = memo(function GuestChatContent({
           <div
             className={cn(
               "absolute inset-0 transition-opacity duration-500 ease-in-out",
-              currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10"
+              (currentConversationId || isSending || messages.length > 0) ? "opacity-100 z-10" : "opacity-0 -z-10"
             )}
           >
             <div className="relative h-full flex flex-col">
@@ -866,7 +866,7 @@ const GuestChatContent = memo(function GuestChatContent({
           ref={inputContainerRef}
           className={cn(
             "absolute left-0 right-0 w-full transition-all duration-300 ease-out z-20",
-            !currentConversationId 
+            (!currentConversationId && !isSending && messages.length === 0)
               ? "bottom-1/3 sm:bottom-3/7" 
               : "bottom-0"
           )}
@@ -877,9 +877,9 @@ const GuestChatContent = memo(function GuestChatContent({
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
             <PromptInputWithFiles
               onSubmit={handleSubmit}
-              isLoading={currentConversationId ? loadingConversations.has(currentConversationId) : false}
+              isLoading={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
               placeholder="Ask anything..."
-              disabled={currentConversationId ? loadingConversations.has(currentConversationId) : false}
+              disabled={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
               context={activeContext}
               onContextChange={handleContextChange}
               currentConversationId={currentConversationId}

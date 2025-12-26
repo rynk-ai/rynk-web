@@ -190,6 +190,7 @@ export class GuestChatService {
           }
 
           // Retrieve context from guest conversation history
+          streamManager.sendStatus('building_context', 'Building context...')
           const guestMessages = await this.getGuestMessages(db, conversationId, 1000)
 
           // Build context from guest conversation history and references
@@ -202,6 +203,11 @@ export class GuestChatService {
             messageRefs.referencedFolders,
             guestMessages
           )
+          
+          // Report context status
+          if (contextText) {
+            streamManager.sendStatus('building_context', 'Context ready', { contextChunks: 1 })
+          }
 
           // Prepare messages for AI
           const messages = await this.prepareGuestMessagesForAI(guestMessages, contextText)
@@ -300,12 +306,22 @@ export class GuestChatService {
                   totalResults: searchResults.totalResults
                 })
 
-                // Update status with domains
+                // Update status with detailed metadata
                 const { getDomainName } = await import('@/lib/types/citation')
-                const domains = searchResults.sources.slice(0, 3).map((s: any) => getDomainName(s.url))
+                const domains = searchResults.sources.slice(0, 4).map((s: any) => getDomainName(s.url))
                 const uniqueDomains = [...new Set(domains)]
-                const searchMessage = `Reading ${uniqueDomains.join(', ')}${searchResults.sources.length > 3 ? ' and more...' : '...'}`
-                streamManager.sendStatus('searching', searchMessage)
+                const sourceCount = searchResults.sources.length
+                
+                // Send reading_sources status with metadata
+                streamManager.sendStatus(
+                  'reading_sources', 
+                  `Reading ${uniqueDomains.join(', ')}${sourceCount > 4 ? ` and ${sourceCount - 4} more` : ''}...`,
+                  { 
+                    sourceCount, 
+                    sourcesRead: sourceCount,
+                    currentSource: uniqueDomains[0] as string
+                  }
+                )
               }
             } catch (searchError) {
               console.error('⚠️ [GuestChatService] Search failed, continuing without:', searchError)

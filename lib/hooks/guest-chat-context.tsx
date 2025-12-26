@@ -82,9 +82,17 @@ interface GuestChatContextValue {
   reasoningMode: 'auto' | 'on' | 'online' | 'off'
   toggleReasoningMode: () => void
   statusPills: Array<{
-    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
     message: string
     timestamp: number
+    metadata?: {
+      sourceCount?: number
+      sourcesRead?: number
+      currentSource?: string
+      contextChunks?: number
+      filesProcessed?: number
+      totalFiles?: number
+    }
   }>
   searchResults: any
   streamingMessageId: string | null
@@ -101,9 +109,17 @@ const GuestChatContext = createContext<GuestChatContextValue | null>(null);
 // Separate context for frequently-changing streaming state
 const GuestStreamingContext = createContext<{
   statusPills: Array<{
-    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
     message: string
     timestamp: number
+    metadata?: {
+      sourceCount?: number
+      sourcesRead?: number
+      currentSource?: string
+      contextChunks?: number
+      filesProcessed?: number
+      totalFiles?: number
+    }
   }>
   searchResults: any
 } | null>(null);

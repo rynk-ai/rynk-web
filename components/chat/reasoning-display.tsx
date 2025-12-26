@@ -4,9 +4,7 @@ import { useMemo } from "react";
 import { LiveSourcePills, type DiscoveredSource } from "@/components/chat/live-source-pills";
 import { ProcessingTimeline } from "@/components/chat/processing-timeline";
 import { getFaviconUrl, getDomainName } from "@/lib/types/citation";
-import { PiGlobe, PiCheckCircle } from "react-icons/pi";
 import { cn } from "@/lib/utils";
-import { Loader } from "@/components/prompt-kit/loader"
 import type { StatusPill } from "@/lib/utils/stream-parser";
 import type { IndexingJob } from "@/lib/hooks/use-indexing-queue";
 
@@ -39,45 +37,6 @@ interface ReasoningDisplayProps {
   hasContent?: boolean;
 }
 
-// User-friendly status message translations
-const STATUS_MESSAGES: Record<string, string> = {
-  "analyzing": "Thinking",
-  "building_context": "Building context",
-  "searching": "Searching",
-  "reading_sources": "Reading sources",
-  "synthesizing": "Writing",
-  "complete": "Done",
-};
-
-// Get the best user-facing status message
-function getCurrentPhase(statuses: StatusPill[]): { message: string; status: string } {
-  if (!statuses || statuses.length === 0) {
-    return { message: "Thinking", status: "analyzing" };
-  }
-  
-  const current = statuses[statuses.length - 1];
-  const lowerMessage = current.message.toLowerCase();
-  
-  // Map internal messages to simple phases
-  if (lowerMessage.includes("context")) {
-    return { message: "Building context", status: "building_context" };
-  }
-  if (lowerMessage.includes("exa") || lowerMessage.includes("perplexity") || lowerMessage.includes("searching")) {
-    return { message: "Searching", status: "searching" };
-  }
-  if (lowerMessage.includes("reading") || current.status === "reading_sources") {
-    return { message: "Reading sources", status: "reading_sources" };
-  }
-  if (lowerMessage.includes("synthesizing") || lowerMessage.includes("crafting")) {
-    return { message: "Writing", status: "synthesizing" };
-  }
-  if (current.status === "complete") {
-    return { message: "Done", status: "complete" };
-  }
-  
-  return { message: STATUS_MESSAGES[current.status] || "Thinking", status: current.status };
-}
-
 export function ReasoningDisplay({
   statuses,
   searchResults,
@@ -86,7 +45,7 @@ export function ReasoningDisplay({
   isStreaming = false,
   hasContent = false,
 }: ReasoningDisplayProps) {
-  // Extract discovered sources for live pills
+  // Extract discovered sources for live pills display
   const discoveredSources = useMemo(() => {
     if (!searchResults?.sources) return [];
 
@@ -103,73 +62,24 @@ export function ReasoningDisplay({
     );
   }, [searchResults]);
 
-  // Don't render if no status or if complete with no sources
+  // Don't render anything if no statuses yet - AssistantSkeleton handles initial "Thinking" state
   if (!statuses || statuses.length === 0) return null;
   
-  const { message, status } = getCurrentPhase(statuses);
-  const isThinking = !isComplete && status !== "complete";
   const sourceCount = discoveredSources.length;
   
   // If complete and no sources, don't show anything
   if (isComplete && sourceCount === 0) return null;
 
-  // Determine if we should show the enhanced timeline or simple status
-  const hasMultipleStages = statuses.length > 1 || indexingJobs.length > 0 || sourceCount > 0;
-
+  // Always use ProcessingTimeline for status display (ChainOfThought UI)
   return (
     <div className="w-full max-w-3xl mx-auto mb-3 animate-in fade-in duration-200">
-      {/* Enhanced Processing Timeline for multi-stage operations */}
-      {hasMultipleStages && isThinking && (
-        <ProcessingTimeline
-          statusPills={statuses}
-          indexingJobs={indexingJobs}
-          isStreaming={isStreaming}
-          hasContent={hasContent}
-          searchResults={searchResults}
-          className="mb-2"
-        />
-      )}
-      
-      {/* Simple status for single-stage or fallback */}
-      {!hasMultipleStages && (
-        <div className="flex items-center gap-3">
-          {isThinking ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader variant="typing" size="sm" />
-              <span className="font-medium">{message}</span>
-              
-              {/* Show source count while searching */}
-              {sourceCount > 0 && (
-                <span className="flex items-center gap-1 text-xs bg-secondary/50 px-2 py-0.5 rounded-md">
-                  <PiGlobe className="h-3 w-3" />
-                  {sourceCount}
-                </span>
-              )}
-            </div>
-          ) : (
-            // Complete state - just show sources if any
-            sourceCount > 0 && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <PiCheckCircle className="h-4 w-4 text-primary" />
-                <span className="font-medium">{sourceCount} sources found</span>
-              </div>
-            )
-          )}
-        </div>
-      )}
-      
-      {/* Live source pills */}
-      {sourceCount > 0 && (
-        <div className={cn(
-          "mt-2 transition-all duration-200",
-          isThinking ? "opacity-80" : "opacity-100"
-        )}>
-          <LiveSourcePills
-            sources={discoveredSources}
-            isSearching={isThinking && (status === "searching" || status === "reading_sources")}
-          />
-        </div>
-      )}
+      <ProcessingTimeline
+        statusPills={statuses}
+        indexingJobs={indexingJobs}
+        isStreaming={isStreaming}
+        hasContent={hasContent}
+        searchResults={searchResults}
+      />
     </div>
   );
 }

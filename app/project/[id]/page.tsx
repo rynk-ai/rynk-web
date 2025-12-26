@@ -1638,11 +1638,11 @@ const ChatContent = memo(
         <div className="flex flex-1 flex-col relative overflow-hidden">
           {/* Top Section: Messages & Title */}
           <div className="flex-1 overflow-y-auto w-full relative">
-            {/* Messages Container - Fades in/Visible when conversation active */}
+            {/* Messages Container - Fades in/Visible when conversation active OR when sending (optimistic messages) */}
             <div
               className={cn(
                 "absolute inset-0 transition-opacity duration-500 ease-in-out",
-                currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10",
+                (currentConversationId || isSending || messages.length > 0) ? "opacity-100 z-10" : "opacity-0 -z-10",
               )}
             >
               <div className="relative h-full flex flex-col">
@@ -1757,7 +1757,7 @@ const ChatContent = memo(
             ref={inputContainerRef}
             className={cn(
               "absolute left-0 right-0 w-full transition-all duration-300 ease-out z-20",
-              !currentConversationId 
+              (!currentConversationId && !isSending && messages.length === 0)
                 ? "bottom-1/3 sm:bottom-3/7" 
                 : "bottom-0",
             )}
