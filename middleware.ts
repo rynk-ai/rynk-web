@@ -35,9 +35,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/chat", request.url))
   }
 
+  // Redirect root / to /chat if already authenticated
+  if (request.nextUrl.pathname === "/" && session?.user) {
+    const isExplicit = request.nextUrl.searchParams.get("explicit") === "true"
+    if (!isExplicit) {
+      return NextResponse.redirect(new URL("/chat", request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/chat/:path*", "/guest-chat/:path*", "/api/files/:path*", "/login", "/share/:path*"],
+  matcher: ["/", "/chat/:path*", "/guest-chat/:path*", "/api/files/:path*", "/login", "/share/:path*"],
 }
