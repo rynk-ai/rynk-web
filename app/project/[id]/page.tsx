@@ -51,7 +51,6 @@ import { NoCreditsOverlay } from "@/components/credit-warning";
 import { FocusModeToggle } from "@/components/focus-mode";
 import { SavedSurfacesPill } from "@/components/surfaces";
 import { processStreamChunk } from "@/lib/utils/stream-parser";
-import { FreePlanToast } from "@/components/free-plan-toast";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -1957,7 +1956,6 @@ function ChatContentWithProvider({ projectId }: { projectId: string }) {
   return (
     <>
       <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
-      <FreePlanToast />
       <>
         <AppSidebar />
         <SidebarInset>

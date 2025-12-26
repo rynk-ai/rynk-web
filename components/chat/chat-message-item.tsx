@@ -50,6 +50,7 @@ import { SurfaceTrigger } from "@/components/surfaces/surface-trigger";
 
 import { VersionIndicator } from "@/components/ui/version-indicator";
 import { InlineCreditIndicator } from "@/components/credit-warning";
+import { UpgradeFooter } from "@/components/chat/upgrade-footer";
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -88,6 +89,8 @@ interface ChatMessageItemProps {
   savedSurfaces?: Record<string, any>;
   // Credit indicator
   userCredits?: number | null;
+  // Upgrade prompt - message index for showing on every 8th message
+  messageIndex?: number;
 }
 
 /**
@@ -153,6 +156,8 @@ export const ChatMessageItem = memo(
     savedSurfaces,
     // Credit indicator
     userCredits,
+    // Upgrade prompt
+    messageIndex,
   }: ChatMessageItemProps) {
     const isAssistant = message.role === "assistant";
 
@@ -595,6 +600,11 @@ export const ChatMessageItem = memo(
                     role={message.role}
                     conversationId={conversationId}
                   />
+                )}
+
+                {/* Upgrade Footer - For free users, every 8th message (subscription check is internal) */}
+                {messageIndex !== undefined && messageIndex % 8 === 7 && !isStreaming && (
+                  <UpgradeFooter />
                 )}
               </div>
 

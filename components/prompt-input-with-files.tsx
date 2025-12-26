@@ -542,13 +542,13 @@ export const PromptInputWithFiles = memo(function
 
   return (
     <div className={cn("relative flex flex-col gap-2 relative", className)}>
-       {/* Empty State - Shows when no conversation is active */}
+       {/* Empty State - Shows when no conversation is active and not loading */}
                   <div
                     className={cn(
                       "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
-                      !currentConversationId
+                      (!currentConversationId && !isLoading)
                         ? "opacity-100 translate-y-0 pointer-events-auto -top-50 lg:-top-40"
-                        : "opacity-0 -translate-y-10 pointer-events-auto",
+                        : "opacity-0 -translate-y-10 pointer-events-none",
                     )}
                   >
                     <EmptyStateChat

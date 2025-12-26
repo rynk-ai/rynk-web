@@ -196,6 +196,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
           savedSurfaces={savedSurfaces}
           // Credit indicator
           userCredits={userCredits}
+          // Upgrade prompt
+          messageIndex={index}
         />
       )
     }

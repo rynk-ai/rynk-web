@@ -103,7 +103,6 @@ import { NoCreditsOverlay } from "@/components/credit-warning";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { FocusModeToggle } from "@/components/focus-mode";
 import { processStreamChunk } from "@/lib/utils/stream-parser";
-import { FreePlanToast } from "@/components/free-plan-toast";
 
 // Helper function to filter messages to show only active versions
 function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
@@ -1821,11 +1820,11 @@ const ChatContent = memo(
           <div className="flex-1 overflow-y-auto w-full relative">
            
 
-            {/* Messages Container - Fades in/Visible when conversation active */}
+            {/* Messages Container - Fades in/Visible when conversation active OR when sending (optimistic messages) */}
             <div
               className={cn(
                 "absolute inset-0 transition-opacity duration-500 ease-in-out",
-                currentConversationId ? "opacity-100 z-10" : "opacity-0 -z-10",
+                (currentConversationId || isSending || messages.length > 0) ? "opacity-100 z-10" : "opacity-0 -z-10",
               )}
             >
               <div className="relative h-full flex flex-col">
@@ -1982,7 +1981,7 @@ const ChatContent = memo(
             ref={inputContainerRef}
             className={cn(
               "absolute left-0 right-0 w-full transition-all duration-300 ease-out z-20",
-              !currentConversationId 
+              (!currentConversationId && !isSending && messages.length === 0)
                 ? "bottom-1/3 sm:bottom-3/7" 
                 : "bottom-0",
             )}
@@ -2003,9 +2002,9 @@ const ChatContent = memo(
 
                 <PromptInputWithFiles
                   onSubmit={handleSubmit}
-                  isLoading={currentConversationId ? loadingConversations.has(currentConversationId) : false}
+                  isLoading={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
                   placeholder="Ask anything..."
-                  disabled={(currentConversationId ? loadingConversations.has(currentConversationId) : false) || (userCredits !== null && userCredits <= 0)}
+                  disabled={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false) || (userCredits !== null && userCredits <= 0)}
                   context={activeContext}
                   onContextChange={handleContextChange}
                   currentConversationId={currentConversationId}
@@ -2126,7 +2125,6 @@ function ChatContentWithProvider() {
   return (
     <>
       <OnboardingTour />
-      <FreePlanToast />
       <>
         <AppSidebar />
         <SidebarInset>
