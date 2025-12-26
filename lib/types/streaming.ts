@@ -7,9 +7,17 @@
  * Status pill displayed during AI response processing.
  */
 export interface StatusPill {
-  status: "analyzing" | "searching" | "synthesizing" | "complete";
+  status: "analyzing" | "building_context" | "searching" | "reading_sources" | "synthesizing" | "complete";
   message: string;
   timestamp: number;
+  metadata?: {
+    sourceCount?: number;
+    sourcesRead?: number;
+    currentSource?: string;
+    contextChunks?: number;
+    filesProcessed?: number;
+    totalFiles?: number;
+  };
 }
 
 /**

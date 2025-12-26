@@ -3,10 +3,20 @@
  * Extracts status pills, search results, context cards, and content from the stream.
  */
 
+export interface StatusMetadata {
+  sourceCount?: number
+  sourcesRead?: number
+  currentSource?: string
+  contextChunks?: number
+  filesProcessed?: number
+  totalFiles?: number
+}
+
 export interface StatusPill {
-  status: "analyzing" | "searching" | "synthesizing" | "complete";
+  status: "analyzing" | "building_context" | "searching" | "reading_sources" | "synthesizing" | "complete";
   message: string;
   timestamp: number;
+  metadata?: StatusMetadata;
 }
 
 export interface SearchSource {
@@ -62,6 +72,7 @@ export function parseStreamChunk(chunk: string): StreamEvent[] {
             status: parsed.status,
             message: parsed.message,
             timestamp: parsed.timestamp,
+            ...(parsed.metadata && { metadata: parsed.metadata }),
           },
         });
         continue;

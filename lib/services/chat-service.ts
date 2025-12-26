@@ -197,6 +197,7 @@ export class ChatService {
           // === OPTIMIZATION: Run KB context and buildContext in PARALLEL ===
           // These are independent operations - no need to wait for one before starting the other
           console.log('⚡ [chatService] Starting parallel context retrieval...')
+          streamManager.sendStatus('building_context', 'Building context...')
           
           const [kbContextResult, buildContextResult] = await Promise.all([
             // KB Context (with error handling)
@@ -227,6 +228,12 @@ export class ChatService {
           const kbContext = kbContextResult
           const { contextText: legacyContext, retrievedChunks } = buildContextResult
           console.log('✅ [chatService] Parallel context retrieval complete')
+          
+          // Send status update with context chunk count
+          const totalContextChunks = retrievedChunks.length + (kbContext ? 1 : 0)
+          if (totalContextChunks > 0) {
+            streamManager.sendStatus('building_context', `Found ${totalContextChunks} relevant context chunks`, { contextChunks: totalContextChunks })
+          }
           
           // Send context cards to frontend (shows what RAG found)
           if (retrievedChunks.length > 0) {
@@ -381,11 +388,21 @@ export class ChatService {
                 totalResults: searchResults.totalResults
               })
 
-              // Update status to show what we found
-              const domains = searchResults.sources.slice(0, 3).map((s: any) => getDomainName(s.url))
+              // Update status to show what we found with detailed metadata
+              const domains = searchResults.sources.slice(0, 4).map((s: any) => getDomainName(s.url))
               const uniqueDomains = [...new Set(domains)]
-              const searchMessage = `Reading ${uniqueDomains.join(', ')}${searchResults.sources.length > 3 ? ' and more...' : '...'}`
-              streamManager.sendStatus('searching', searchMessage)
+              const sourceCount = searchResults.sources.length
+              
+              // Send reading_sources status with metadata
+              streamManager.sendStatus(
+                'reading_sources', 
+                `Reading ${uniqueDomains.join(', ')}${sourceCount > 4 ? ` and ${sourceCount - 4} more` : ''}...`,
+                { 
+                  sourceCount, 
+                  sourcesRead: sourceCount,
+                  currentSource: uniqueDomains[0] as string
+                }
+              )
             }
           }
 

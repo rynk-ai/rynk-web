@@ -89,9 +89,17 @@ interface ChatContextValue {
   reasoningMode: 'auto' | 'on' | 'online' | 'off'
   toggleReasoningMode: () => void
   statusPills: Array<{
-    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
     message: string
     timestamp: number
+    metadata?: {
+      sourceCount?: number
+      sourcesRead?: number
+      currentSource?: string
+      contextChunks?: number
+      filesProcessed?: number
+      totalFiles?: number
+    }
   }>
   searchResults: any
   streamingMessageId: string | null
@@ -104,9 +112,17 @@ const ChatContext = createContext<ChatContextValue | null>(null)
 
 // Type for status pills
 type StatusPill = {
-  status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+  status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
   message: string
   timestamp: number
+  metadata?: {
+    sourceCount?: number
+    sourcesRead?: number
+    currentSource?: string
+    contextChunks?: number
+    filesProcessed?: number
+    totalFiles?: number
+  }
 }
 
 // Type for context cards

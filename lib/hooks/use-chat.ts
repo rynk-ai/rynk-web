@@ -88,9 +88,17 @@ export function useChat(initialConversationId?: string | null) {
   const [agenticMode, setAgenticMode] = useState<boolean>(false)
   const [reasoningMode, setReasoningMode] = useState<'auto' | 'on' | 'online' | 'off'>('auto')
   const [statusPills, setStatusPills] = useState<Array<{
-    status: 'analyzing' | 'searching' | 'synthesizing' | 'complete'
+    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
     message: string
     timestamp: number
+    metadata?: {
+      sourceCount?: number
+      sourcesRead?: number
+      currentSource?: string
+      contextChunks?: number
+      filesProcessed?: number
+      totalFiles?: number
+    }
   }>>([])
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
 

@@ -1,9 +1,19 @@
 
+export interface StatusMetadata {
+  sourceCount?: number
+  sourcesRead?: number
+  currentSource?: string
+  contextChunks?: number
+  filesProcessed?: number
+  totalFiles?: number
+}
+
 export interface StatusUpdate {
   type: 'status'
-  status: 'analyzing' | 'searching' | 'synthesizing' | 'complete' | 'error'
+  status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete' | 'error'
   message: string
   timestamp: number
+  metadata?: StatusMetadata
 }
 
 export interface SearchResultsUpdate {
@@ -41,12 +51,13 @@ export class StreamManager {
   /**
    * Send a status update to the client
    */
-  sendStatus(status: StatusUpdate['status'], message: string) {
+  sendStatus(status: StatusUpdate['status'], message: string, metadata?: StatusMetadata) {
     const update: StatusUpdate = {
       type: 'status',
       status,
       message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      ...(metadata && { metadata })
     }
     this.enqueue(JSON.stringify(update) + '\n')
   }

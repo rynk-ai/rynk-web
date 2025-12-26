@@ -559,7 +559,8 @@ export const ChatMessageItem = memo(
                   statuses={effectiveStatusPills || []}
                   searchResults={streamingSearchResults || effectiveSearchResults}
                   isComplete={!isStreaming}
-                  defaultCollapsed={true}
+                  isStreaming={isStreaming}
+                  hasContent={!!displayContent}
                 />
 
                 {/* Hero Images - Show before content if available */}
