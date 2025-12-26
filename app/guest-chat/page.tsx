@@ -663,8 +663,6 @@ const GuestChatContent = memo(function GuestChatContent({
     }, 100);
   }, [searchParams, router, handleSubmit, isSending]);
 
-  const isLoading = isSending || contextIsLoading;
-
   return (
     <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
       {/* Guest Upgrade Modal */}

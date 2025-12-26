@@ -14,7 +14,6 @@ import {
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
-import { ChatProvider } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useStreaming } from "@/lib/hooks/use-streaming";
@@ -56,7 +55,6 @@ import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
 import { TagSection } from "@/components/chat/tag-section";
 import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
 import { IndexingProgressBadge, type IndexingJob } from "@/components/chat/indexing-progress-badge";
-import { MessagesLoadingSkeleton } from "@/components/chat/messages-loading-skeleton";
 
 interface ChatContentProps {
   onMenuClick?: () => void;
