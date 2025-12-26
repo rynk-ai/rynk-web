@@ -1,32 +1,22 @@
 "use client";
 
-import { MessageList } from "@/components/chat/message-list";
 import {
   VirtualizedMessageList,
   type VirtualizedMessageListRef,
 } from "@/components/chat/virtualized-message-list";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
-import type { SubChat } from "@/lib/services/cloud-db";
 import type { SurfaceType } from "@/lib/services/domain-types";
-import {
-  Message,
-  MessageContent,
-  MessageActions,
-  MessageAction,
-} from "@/components/ui/message";
 import { Button } from "@/components/ui/button";
 import {
   GuestChatProvider,
   useGuestChatContext,
   useGuestStreamingContext,
-  type GuestMessage,
 } from "@/lib/hooks/guest-chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useStreaming } from "@/lib/hooks/use-streaming";
 import { useLatest } from "@/lib/hooks/use-latest";
 import { useGuestSubChats } from "@/lib/hooks/use-guest-sub-chats";
 import { GuestSidebar } from "@/components/guest/guest-sidebar";
-import { GuestBanner } from "@/components/guest-banner";
 import { GuestUpgradeModal } from "@/components/guest-upgrade-modal";
 import {
   SidebarInset,
@@ -34,16 +24,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  ChatContainerContent,
-  ChatContainerRoot,
-} from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import {
   useRef,
   useState,
   useEffect,
-  useMemo,
   useCallback,
   Suspense,
   memo,
@@ -52,105 +37,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
-import { PiX, PiSpinner, PiBookmarkSimple, PiPlus, PiTag, PiCaretDown } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
 
-// Helper function to filter messages to show only active versions
-function filterActiveVersions(messages: any[]): any[] {
-  const activeMessages: any[] = [];
-  const versionGroups = new Map<string, any[]>();
-
-  messages.forEach((msg) => {
-    const _rootId = msg.versionOf || msg.id;
-    if (!versionGroups.has(_rootId)) {
-      versionGroups.set(_rootId, []);
-    }
-    versionGroups.get(_rootId)!.push(msg);
-  });
-
-  versionGroups.forEach((versions) => {
-    const activeVersion = versions.reduce((latest, current) => {
-      return current.versionNumber > latest.versionNumber ? current : latest;
-    });
-    activeMessages.push(activeVersion);
-  });
-
-  return activeMessages.sort((a, b) => a.timestamp - b.timestamp);
-}
-
-// Memoized TagSection component
-const TagSection = memo(function TagSection({
-  conversationId,
-  tags,
-  onTagClick,
-}: {
-  conversationId: string;
-  tags: string[];
-  onTagClick: () => void;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  const displayTags = showAll ? tags : tags.slice(0, 3);
-  const hasMore = tags.length > 3;
-
-  return (
-    <div className="absolute top-4 right-5 z-30">
-      <div className="flex items-center gap-2">
-        {/* Tags Display */}
-        {tags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[320px]">
-            {displayTags.map((tag, index) => (
-              <button
-                key={index}
-                onClick={onTagClick}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
-              >
-                <span className="text-primary">#</span>
-                {tag}
-              </button>
-            ))}
-            {hasMore && !showAll && (
-              <button
-                onClick={() => setShowAll(true)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-              >
-                +{tags.length - 3} more
-              </button>
-            )}
-            {showAll && hasMore && (
-              <button
-                onClick={() => setShowAll(false)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-              >
-                Show less
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Add Tag Button */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "h-7 w-7 rounded-lg transition-all",
-            tags.length > 0
-              ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              : "bg-primary/10 text-primary hover:bg-primary/20"
-          )}
-          onClick={onTagClick}
-          title={tags.length > 0 ? "Edit tags" : "Add tags"}
-        >
-          {tags.length > 0 ? (
-            <PiTag className="h-3.5 w-3.5" />
-          ) : (
-            <PiBookmarkSimple className="h-3.5 w-3.5" />
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-});
+// Extracted shared components
+import { filterActiveVersionsGeneric } from "@/lib/utils/filter-active-versions";
+import { TagSection } from "@/components/chat/tag-section";
+import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
 
 // Context Item type
 type ContextItem = {
@@ -159,6 +53,9 @@ type ContextItem = {
   title: string;
   status?: "loading" | "loaded";
 };
+
+// Helper to use generic filter with guest messages
+const filterActiveVersions = (messages: any[]) => filterActiveVersionsGeneric(messages);
 
 interface GuestChatContentProps {
   onMenuClick?: () => void;
@@ -845,17 +742,10 @@ const GuestChatContent = memo(function GuestChatContent({
               )}
 
               {/* Scroll to Bottom Button */}
-              {!isScrolledUp && messages.length > 0 && (
-                <Button
-                  variant="ghost"
-                  className="absolute bottom-32 z-30 rounded-full shadow-lg bg-background hover:bg-accent border border-border transition-all duration-300 flex items-center animate-in slide-in-from-bottom-4 fade-in right-4 h-9 w-9 p-0 justify-center md:right-auto md:left-1/2 md:-translate-x-1/2 md:h-auto md:w-auto md:px-4 md:py-2.5 md:gap-2"
-                  onClick={() => virtuosoRef.current?.scrollToBottom()}
-                  title="Scroll to bottom"
-                >
-                  <PiCaretDown className="h-4 w-4" />
-                  <span className="hidden md:inline text-sm font-medium">Scroll to Bottom</span>
-                </Button>
-              )}
+              <ScrollToBottomButton
+                visible={!isScrolledUp && messages.length > 0}
+                onClick={() => virtuosoRef.current?.scrollToBottom()}
+              />
             </div>
             <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100] pointer-events-none"></div>
           </div>

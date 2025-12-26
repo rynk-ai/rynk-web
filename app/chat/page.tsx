@@ -1,7 +1,6 @@
 "use client";
 
 // ChatContainer imports removed as we use VirtualizedMessageList directly
-import { MessageList } from "@/components/chat/message-list";
 import {
   VirtualizedMessageList,
   type VirtualizedMessageListRef,
@@ -12,88 +11,37 @@ import {
   initiateMultipartUpload as initiateMultipartUploadAction,
   uploadPart as uploadPartAction,
   completeMultipartUpload as completeMultipartUploadAction,
-} from "@/app/actions"; // Import direct action
-import {
-  Message,
-  MessageContent,
-  MessageActions,
-  MessageAction,
-} from "@/components/ui/message";
-import { ScrollButton } from "@/components/ui/scroll-button";
+} from "@/app/actions";
 import { Button } from "@/components/ui/button";
-import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
-import { ChatProvider } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useStreaming } from "@/lib/hooks/use-streaming";
 import { useSubChats } from "@/lib/hooks/use-sub-chats";
 import { useLatest } from "@/lib/hooks/use-latest";
-import type { CloudMessage as ChatMessage, SubChat } from "@/lib/services/cloud-db";
+import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   SidebarInset,
-  SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import {
-  ChatContainerContent,
-  ChatContainerRoot,
-} from "@/components/prompt-kit/chat-container";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
-import { EmptyStateChat } from "@/components/chat/empty-state-chat";
 import {
   useRef,
   useState,
   useEffect,
-  useMemo,
   useCallback,
   Suspense,
   memo,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Markdown } from "@/components/ui/markdown";
-import { FilePreviewList } from "@/components/file-preview";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
-import { VersionIndicator } from "@/components/ui/version-indicator";
-import { ContextPicker } from "@/components/context-picker";
 import { TagDialog } from "@/components/tag-dialog";
-import {
-  PiFolder as FolderIcon,
-  PiChatCircle as MessageSquare,
-  PiX as X,
-  PiSpinner as Loader2,
-  PiTag as Tag,
-  PiTag as Tags,
-  PiBookmarkSimple as BookmarkPlus,
-  PiPlus as Plus,
-  PiBookmarkSimple as Bookmark,
-  PiCaretDown as ChevronDown,
-  PiShareNetwork as Share2,
-  PiMagnifyingGlass as Search,
-  PiCommand as Command,
-} from "react-icons/pi";
-import { PiPlus, PiMagnifyingGlass } from "react-icons/pi";
+import { PiPlus, PiMagnifyingGlass, PiCaretDown as ChevronDown } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
-import { Loader } from "@/components/ui/loader";
 import { SavedSurfacesPill } from "@/components/surfaces";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
@@ -104,125 +52,18 @@ import { OnboardingTour } from "@/components/onboarding-tour";
 import { FocusModeToggle } from "@/components/focus-mode";
 import { processStreamChunk } from "@/lib/utils/stream-parser";
 
-// Helper function to filter messages to show only active versions
-function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
-  const activeMessages: ChatMessage[] = [];
-  const versionGroups = new Map<string, ChatMessage[]>();
-
-  // Group messages by their version root
-  messages.forEach((msg) => {
-    const _rootId = msg.versionOf || msg.id;
-    if (!versionGroups.has(_rootId)) {
-      versionGroups.set(_rootId, []);
-    }
-    versionGroups.get(_rootId)!.push(msg);
-  });
-
-  // For each version group, select the active version (highest versionNumber)
-  versionGroups.forEach((versions) => {
-    // Find the active version by looking for the one that appears in the current messages array
-    // or pick the one with the highest versionNumber as fallback
-    const activeVersion = versions.reduce((latest, current) => {
-      return current.versionNumber > latest.versionNumber ? current : latest;
-    });
-    activeMessages.push(activeVersion);
-  });
-
-  // Sort by timestamp to maintain conversation order
-  return activeMessages.sort((a, b) => a.timestamp - b.timestamp);
-}
-
-// Memoized TagSection component to prevent re-renders when parent state changes
-const TagSection = memo(function TagSection({
-  conversationId,
-  tags,
-  onTagClick,
-  onShareClick,
-}: {
-  conversationId: string;
-  tags: string[];
-  onTagClick: () => void;
-  onShareClick: () => void;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  const displayTags = showAll ? tags : tags.slice(0, 3);
-  const hasMore = tags.length > 3;
-
-  return (
-    <div className="absolute top-4 right-5 z-30">
-      <div className="flex items-center gap-2">
-        {/* Tags Display */}
-        {tags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[320px]">
-            {displayTags.map((tag, index) => (
-              <button
-                key={index}
-                onClick={onTagClick}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary/10 text-primary/90 hover:bg-primary/15 rounded-md border border-primary/20 transition-all cursor-pointer"
-              >
-                <span className="text-primary/60">#</span>
-                {tag}
-              </button>
-            ))}
-            {hasMore && !showAll && (
-              <button
-                onClick={() => setShowAll(true)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-              >
-                +{tags.length - 3} more
-              </button>
-            )}
-            {showAll && hasMore && (
-              <button
-                onClick={() => setShowAll(false)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-              >
-                Show less
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Share Button */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 rounded-lg transition-all text-muted-foreground hover:text-foreground hover:bg-secondary"
-          onClick={onShareClick}
-          title="Share conversation"
-        >
-          <Share2 className="h-3.5 w-3.5" />
-        </Button>
-
-        {/* Add Tag Button */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "h-7 w-7 rounded-lg transition-all",
-            tags.length > 0
-              ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              : "bg-primary/10 text-primary hover:bg-primary/20"
-          )}
-          onClick={onTagClick}
-          title={tags.length > 0 ? "Edit tags" : "Add tags"}
-        >
-          {tags.length > 0 ? (
-            <Tag className="h-3.5 w-3.5" />
-          ) : (
-            <BookmarkPlus className="h-3.5 w-3.5" />
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-});
-
-
+// Extracted shared components
+import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
+import { TagSection } from "@/components/chat/tag-section";
+import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
+import { IndexingProgressBadge, type IndexingJob } from "@/components/chat/indexing-progress-badge";
+import { MessagesLoadingSkeleton } from "@/components/chat/messages-loading-skeleton";
+import { ChatInputSection } from "@/components/chat/chat-input-section";
 
 interface ChatContentProps {
   onMenuClick?: () => void;
 }
+
 
 const ChatContent = memo(
   function ChatContent({ onMenuClick }: ChatContentProps = {}) {
@@ -1828,26 +1669,7 @@ const ChatContent = memo(
               )}
             >
               <div className="relative h-full flex flex-col">
-                {jobs.filter(
-                  (j) => j.status === "processing" || j.status === "parsing",
-                ).length > 0 && (
-                  <div className="absolute  top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-foreground">
-                      <Loader
-                        variant="text-shimmer"
-                        size="sm"
-                        text={(() => {
-                          const processingJob = jobs.find(
-                            (j) => j.status === "processing",
-                          );
-                          return processingJob?.fileName
-                            ? `Indexing ${processingJob.fileName}... ${processingJob.progress}%`
-                            : "Preparing PDF...";
-                        })()}
-                      />
-                    </div>
-                  </div>
-                )}
+                <IndexingProgressBadge jobs={jobs as IndexingJob[]} />
 
                 {/* Saved Surfaces Indicator - Show when conversation has saved surfaces */}
                 {currentConversationId  && (
@@ -1874,46 +1696,7 @@ const ChatContent = memo(
                       - Messages already exist - we're mid-stream or have content
                   */}
                   {isLoadingConversation && !isSending && messages.length === 0 ? (
-                    <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto px-3 pt-12 animate-in fade-in duration-300">
-                      {/* User message skeleton */}
-                      <div className="flex justify-end">
-                        <div className="bg-secondary/60 rounded-lg px-4 py-3 max-w-[75%] space-y-2">
-                          <div className="h-3.5 bg-muted-foreground/10 rounded-full w-48 animate-pulse" />
-                          <div className="h-3.5 bg-muted-foreground/10 rounded-full w-32 animate-pulse" />
-                        </div>
-                      </div>
-                      
-                      {/* Assistant message skeleton */}
-                      <div className="flex justify-start">
-                        <div className="space-y-3 max-w-[85%]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="h-2d w-32 rounded-full bg-primary/40 animate-pulse" />
-                            <div className="h-3 bg-muted-foreground/10 rounded-full w-32 animate-pulse" />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-full max-w-md animate-pulse" />
-                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-[90%] max-w-sm animate-pulse" />
-                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-[75%] max-w-xs animate-pulse" />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Optional: Second pair for longer conversations */}
-                      <div className="flex justify-end opacity-60">
-                        <div className="bg-secondary/40 rounded-lg px-4 py-3 max-w-[60%] space-y-2">
-                          <div className="h-3.5 bg-muted-foreground/10 rounded-full w-36 animate-pulse" />
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-start opacity-60">
-                        <div className="space-y-3 max-w-[75%]">
-                          <div className="space-y-2">
-                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-full max-w-sm animate-pulse" />
-                            <div className="h-3.5 bg-muted-foreground/10 rounded-full w-[80%] max-w-xs animate-pulse" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <MessagesLoadingSkeleton />
                   ) : (
                     <VirtualizedMessageList
                       ref={virtuosoRef}
@@ -2038,19 +1821,10 @@ const ChatContent = memo(
           </div>
 
           {/* Scroll to Bottom Button - positioned as sibling to input for correct z-index stacking */}
-          {!isScrolledUp && messages.length > 0 && currentConversationId && (
-            <Button
-              variant="ghost"
-              className="absolute bottom-32 z-30 rounded-full shadow-md bg-background hover:bg-accent border border-border transition-all duration-300 animate-in slide-in-from-bottom-2 fade-in right-4 h-9 w-9 p-0 md:right-auto md:left-1/2 md:-translate-x-1/2 md:h-8 md:w-auto md:px-3 md:gap-1.5"
-              onClick={() => virtuosoRef.current?.scrollToBottom()}
-              title="Scroll to bottom"
-            >
-              <ChevronDown className="h-4 w-4 md:h-3.5 md:w-3.5" />
-              <span className="hidden md:inline text-xs font-medium">
-                Scroll to Bottom
-              </span>
-            </Button>
-          )}
+          <ScrollToBottomButton
+            visible={!isScrolledUp && messages.length > 0 && !!currentConversationId}
+            onClick={() => virtuosoRef.current?.scrollToBottom()}
+          />
         </div>
 
         {/* Sub-Chat Sheet */}

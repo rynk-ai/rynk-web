@@ -11,7 +11,7 @@ import {
   initiateMultipartUpload as initiateMultipartUploadAction,
   uploadPart as uploadPartAction,
   completeMultipartUpload as completeMultipartUploadAction,
-} from "@/app/actions"; // Import direct action
+} from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
 import { ChatProvider } from "@/lib/hooks/chat-context";
@@ -23,7 +23,6 @@ import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   SidebarInset,
-  SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -32,7 +31,8 @@ import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import {
   useRef,
   useState,
-  useEffect, useCallback,
+  useEffect,
+  useCallback,
   Suspense,
   memo,
   use
@@ -41,9 +41,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
-import { PiPlus, PiTag, PiBookmarkSimple, PiCaretDown } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
-import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
@@ -52,108 +51,12 @@ import { FocusModeToggle } from "@/components/focus-mode";
 import { SavedSurfacesPill } from "@/components/surfaces";
 import { processStreamChunk } from "@/lib/utils/stream-parser";
 
-// Helper function to filter messages to show only active versions
-function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
-  const activeMessages: ChatMessage[] = [];
-  const versionGroups = new Map<string, ChatMessage[]>();
-
-  // Group messages by their version root
-  messages.forEach((msg) => {
-    const _rootId = msg.versionOf || msg.id;
-    if (!versionGroups.has(_rootId)) {
-      versionGroups.set(_rootId, []);
-    }
-    versionGroups.get(_rootId)!.push(msg);
-  });
-
-  // For each version group, select the active version (highest versionNumber)
-  versionGroups.forEach((versions) => {
-    // Find the active version by looking for the one that appears in the current messages array
-    // or pick the one with the highest versionNumber as fallback
-    const activeVersion = versions.reduce((latest, current) => {
-      return current.versionNumber > latest.versionNumber ? current : latest;
-    });
-    activeMessages.push(activeVersion);
-  });
-
-  // Sort by timestamp to maintain conversation order
-  return activeMessages.sort((a, b) => a.timestamp - b.timestamp);
-}
-
-// Memoized TagSection component to prevent re-renders when parent state changes
-const TagSection = memo(function TagSection({
-  conversationId,
-  tags,
-  onTagClick,
-}: {
-  conversationId: string;
-  tags: string[];
-  onTagClick: () => void;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  const displayTags = showAll ? tags : tags.slice(0, 3);
-  const hasMore = tags.length > 3;
-
-  return (
-    <div className="absolute top-4 right-5 z-30">
-      <div className="flex items-center gap-2">
-        {/* Tags Display */}
-        {tags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[320px]">
-            {displayTags.map((tag, index) => (
-              <button
-                key={index}
-                onClick={onTagClick}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
-              >
-                <span className="text-primary">#</span>
-                {tag}
-              </button>
-            ))}
-            {hasMore && !showAll && (
-              <button
-                onClick={() => setShowAll(true)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-              >
-                +{tags.length - 3} more
-              </button>
-            )}
-            {showAll && hasMore && (
-              <button
-                onClick={() => setShowAll(false)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-              >
-                Show less
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Add Tag Button */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "h-7 w-7 rounded-lg transition-all duration-150",
-            tags.length > 0
-              ? "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
-              : "bg-[hsl(var(--surface))] text-primary hover:bg-[hsl(var(--surface-hover))] border border-border/30"
-          )}
-          onClick={onTagClick}
-          title={tags.length > 0 ? "Edit tags" : "Add tags"}
-        >
-          {tags.length > 0 ? (
-            <PiTag className="h-3.5 w-3.5" />
-          ) : (
-            <PiBookmarkSimple className="h-3.5 w-3.5" />
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-});
-
-
+// Extracted shared components
+import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
+import { TagSection } from "@/components/chat/tag-section";
+import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
+import { IndexingProgressBadge, type IndexingJob } from "@/components/chat/indexing-progress-badge";
+import { MessagesLoadingSkeleton } from "@/components/chat/messages-loading-skeleton";
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -1646,26 +1549,7 @@ const ChatContent = memo(
               )}
             >
               <div className="relative h-full flex flex-col">
-                {jobs.filter(
-                  (j) => j.status === "processing" || j.status === "parsing",
-                ).length > 0 && (
-                  <div className="absolute  top-2 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-full px-3 py-1.5 shadow-sm text-xs font-medium text-foreground">
-                      <Loader
-                        variant="text-shimmer"
-                        size="sm"
-                        text={(() => {
-                          const processingJob = jobs.find(
-                            (j) => j.status === "processing",
-                          );
-                          return processingJob?.fileName
-                            ? `Indexing ${processingJob.fileName}... ${processingJob.progress}%`
-                            : "Preparing PDF...";
-                        })()}
-                      />
-                    </div>
-                  </div>
-                )}
+                <IndexingProgressBadge jobs={jobs as IndexingJob[]} />
                 {/* Sticky content at top */}
                 <div className="flex-shrink-0 space-y-4">
                   {/* Indexing Progress Badge */}
@@ -1720,19 +1604,10 @@ const ChatContent = memo(
                   />
 
                   {/* Scroll to Bottom Button */}
-                  {!isScrolledUp && messages.length > 0 && (
-                    <Button
-                      variant="outline"
-                      className="absolute bottom-32 z-30 rounded-full shadow-lg bg-background/60 backdrop-blur-sm hover:bg-background/80 border border-border/50 hover:border-border transition-all duration-300 flex items-center animate-in slide-in-from-bottom-4 fade-in right-4 h-9 w-9 p-0 justify-center md:right-auto md:left-1/2 md:-translate-x-1/2 md:h-auto md:w-auto md:px-4 md:py-2.5 md:gap-2"
-                      onClick={() => virtuosoRef.current?.scrollToBottom()}
-                      title="Scroll to bottom"
-                    >
-                      <PiCaretDown className="h-4 w-4" />
-                      <span className="hidden md:inline text-sm font-medium">
-                        Scroll to Bottom
-                      </span>
-                    </Button>
-                  )}
+                  <ScrollToBottomButton
+                    visible={!isScrolledUp && messages.length > 0}
+                    onClick={() => virtuosoRef.current?.scrollToBottom()}
+                  />
                 </div>
 
                 {/* Tag Dialog */}
