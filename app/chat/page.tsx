@@ -232,6 +232,10 @@ const ChatContent = memo(
     // Track conversation ID for message loading optimization
     // NOTE: URL-to-state sync is handled by ChatContentWithProvider, not here
     const lastConversationIdRef = useRef(currentConversationId);
+    
+    // Guard to prevent message clearing during new conversation creation
+    // This prevents the race condition between URL navigation and message state updates
+    const isCreatingConversationRef = useRef(false);
 
     const isLoading =
       isSending || isSavingEdit || !!isDeleting || contextIsLoading;
@@ -246,7 +250,13 @@ const ChatContent = memo(
       
       // Case 1: Switching FROM one conversation TO ANOTHER
       // ALWAYS clear old messages immediately - this takes priority
+      // GUARD: Skip if we're in the middle of creating a new conversation
       if (prevId !== null && currentConversationId !== null && prevId !== currentConversationId) {
+        if (isCreatingConversationRef.current) {
+          console.log("[ChatPage] Skipping message clear - creating new conversation", 
+            { from: prevId, to: currentConversationId });
+          return;
+        }
         console.log("[ChatPage] Switching conversations, clearing old messages immediately", 
           { from: prevId, to: currentConversationId });
         messageState.setMessages([]);
@@ -639,6 +649,8 @@ const ChatContent = memo(
               setSurfaceMode('chat');
               return; // Exit early, surface page will handle generation
             } else {
+              // Set guard to prevent message clearing race condition
+              isCreatingConversationRef.current = true;
               router.push(`/chat?id=${encodeURIComponent(conversationId)}`);
             }
           }
@@ -735,6 +747,8 @@ const ChatContent = memo(
             // This ensures message update has propagated AND both visual state changes happen in the same frame
             // Prevents cascading re-renders that cause flicker
             requestAnimationFrame(() => {
+              // Clear the conversation creation guard
+              isCreatingConversationRef.current = false;
               finishStreamingRef.current(fullContent);
               setIsSending(false);
             });
@@ -762,6 +776,8 @@ const ChatContent = memo(
           // Rollback on error
           removeMessageRef.current(tempUserMessageId);
           removeMessageRef.current(tempAssistantMessageId);
+          // Clear the conversation creation guard on error
+          isCreatingConversationRef.current = false;
           // Also need to clear sending state on error
           setIsSending(false);
         }

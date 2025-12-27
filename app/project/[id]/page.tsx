@@ -226,6 +226,10 @@ const ChatContent = memo(
 
     // Track conversation ID to detect browser navigation
     const lastChatIdRef = useRef(currentConversationId);
+    
+    // Guard to prevent message clearing during new conversation creation
+    // This prevents the race condition between URL navigation and message state updates
+    const isCreatingConversationRef = useRef(false);
 
     // Handle chatId from URL - auto-select conversation when URL changes
     useEffect(() => {
@@ -255,7 +259,13 @@ const ChatContent = memo(
       
       // Case 1: Switching FROM one conversation TO ANOTHER
       // ALWAYS clear old messages immediately - this takes priority
+      // GUARD: Skip if we're in the middle of creating a new conversation
       if (prevId !== null && currentConversationId !== null && prevId !== currentConversationId) {
+        if (isCreatingConversationRef.current) {
+          console.log("[ProjectPage] Skipping message clear - creating new conversation", 
+            { from: prevId, to: currentConversationId });
+          return;
+        }
         console.log("[ProjectPage] Switching conversations, clearing old messages immediately", 
           { from: prevId, to: currentConversationId });
         messageState.setMessages([]);
@@ -626,6 +636,8 @@ const ChatContent = memo(
               "🆕 [ProjectPage] New conversation created, navigating:",
               conversationId,
             );
+            // Set guard to prevent message clearing race condition
+            isCreatingConversationRef.current = true;
             router.push(
               `/project/[id]?id=${encodeURIComponent(conversationId)}`.replace(
                 "[id]",
@@ -692,6 +704,8 @@ const ChatContent = memo(
             // CRITICAL: Batch finishStreaming and setIsSending using requestAnimationFrame
             // This prevents cascading re-renders that cause flicker
             requestAnimationFrame(() => {
+              // Clear the conversation creation guard
+              isCreatingConversationRef.current = false;
               finishStreaming(fullContent);
               setIsSending(false);
             });
@@ -719,6 +733,8 @@ const ChatContent = memo(
           // Rollback on error
           removeMessage(tempUserMessageId);
           removeMessage(tempAssistantMessageId);
+          // Clear the conversation creation guard on error
+          isCreatingConversationRef.current = false;
           setIsSending(false);
         }
       },

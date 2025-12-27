@@ -62,24 +62,48 @@ export function ReasoningDisplay({
     );
   }, [searchResults]);
 
-  // Don't render anything if no statuses yet - AssistantSkeleton handles initial "Thinking" state
-  if (!statuses || statuses.length === 0) return null;
-  
   const sourceCount = discoveredSources.length;
   
-  // If complete and no sources, don't show anything
-  if (isComplete && sourceCount === 0) return null;
+  // Create optimistic "thinking" status when streaming but no statuses yet
+  // This provides immediate feedback before the first server status arrives
+  const effectiveStatuses = useMemo(() => {
+    if (isStreaming && (!statuses || statuses.length === 0)) {
+      return [{
+        status: "analyzing" as const,
+        message: "Thinking...",
+        timestamp: Date.now(),
+      }];
+    }
+    return statuses || [];
+  }, [statuses, isStreaming]);
+  
+  // Determine if we should show the timeline
+  // Show if: streaming (even with optimistic status), or has real statuses (unless complete with no sources)
+  const shouldShow = 
+    (isStreaming && effectiveStatuses.length > 0) ||
+    (effectiveStatuses.length > 0 && !(isComplete && sourceCount === 0));
 
-  // Always use ProcessingTimeline for status display (ChainOfThought UI)
+  // Always render the wrapper to prevent unmount/remount flicker
+  // Use CSS to hide when not needed instead of returning null
   return (
-    <div className="w-full max-w-3xl mx-auto mb-3 animate-in fade-in duration-200">
-      <ProcessingTimeline
-        statusPills={statuses}
-        indexingJobs={indexingJobs}
-        isStreaming={isStreaming}
-        hasContent={hasContent}
-        searchResults={searchResults}
-      />
+    <div 
+      className={cn(
+        "w-full max-w-3xl mx-auto transition-all duration-200",
+        shouldShow 
+          ? "mb-3 opacity-100" 
+          : "mb-0 opacity-0 h-0 overflow-hidden pointer-events-none"
+      )}
+    >
+      {shouldShow && (
+        <ProcessingTimeline
+          statusPills={effectiveStatuses}
+          indexingJobs={indexingJobs}
+          isStreaming={isStreaming}
+          hasContent={hasContent}
+          searchResults={searchResults}
+        />
+      )}
     </div>
   );
 }
+

@@ -128,7 +128,7 @@ export function useChat(initialConversationId?: string | null) {
 
   // --- Queries ---
 
-  const { data: conversations = [], isPending: isLoadingConversations } = useQuery({
+  const { data: conversations = [], isPending: isPendingConversations, isFetching: isFetchingConversations } = useQuery({
     queryKey: ['conversations', effectiveProjectId], // Add projectId to query key to trigger refetch on change
     queryFn: () => getConversations(50, 0, effectiveProjectId || undefined), // Fetch more initially for better cache coverage
     staleTime: 1000 * 60 * 5, // 5 minutes - data considered fresh
@@ -136,6 +136,8 @@ export function useChat(initialConversationId?: string | null) {
     refetchOnMount: false, // Don't refetch if data exists in cache (fresh or stale)
     refetchOnWindowFocus: false, // Don't refetch when user returns to window
   })
+  // Use isPending && isFetching for accurate loading state (true only during active initial fetch)
+  const isLoadingConversations = isPendingConversations && isFetchingConversations
 
   // Memoize currentConversation to prevent unnecessary recalculations
   const currentConversation = useMemo(
@@ -143,17 +145,19 @@ export function useChat(initialConversationId?: string | null) {
     [conversations, currentConversationId]
   )
 
-  const { data: folders = [], isPending: isLoadingFolders } = useQuery({
+  const { data: folders = [], isPending: isPendingFolders, isFetching: isFetchingFolders } = useQuery({
     queryKey: ['folders'],
     queryFn: () => getFoldersAction(),
     staleTime: 1000 * 60 * 60, // 1 hour (folders change less often)
   })
+  const isLoadingFolders = isPendingFolders && isFetchingFolders
 
-  const { data: projects = [], isPending: isLoadingProjects } = useQuery({
+  const { data: projects = [], isPending: isPendingProjects, isFetching: isFetchingProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjectsAction(),
     staleTime: 1000 * 60 * 60, // 1 hour
   })
+  const isLoadingProjects = isPendingProjects && isFetchingProjects
 
   // User credits - fetch on mount and refresh after each message
   const { data: userCredits = null, refetch: refetchCredits } = useQuery({

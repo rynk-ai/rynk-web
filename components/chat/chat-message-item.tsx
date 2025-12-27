@@ -161,43 +161,20 @@ export const ChatMessageItem = memo(
   }: ChatMessageItemProps) {
     const isAssistant = message.role === "assistant";
 
-    // Persist streaming metadata until message has its own
-    // This fixes the race condition between finishStreaming() and message refetch
-    const lastStreamingStatusPills = useRef<any[]>([]);
-    const lastStreamingSearchResults = useRef<any>(null);
+    // Cache streaming content to bridge the gap between stream completion and message update
+    // NOTE: We no longer cache statusPills/searchResults in refs because messages now persist
+    // reasoning_metadata IMMEDIATELY during streaming (see handleSubmit in chat/page.tsx)
     const lastStreamingContentRef = useRef<string>('');
-    
-    // Track if we've ever streamed data for this message
-    const hasStreamedDataRef = useRef(false);
 
-    // Update refs based on streaming state and message metadata
-    // Using useEffect to avoid side effects during render
+    // Update content ref during streaming to prevent flicker during transition
     useEffect(() => {
-      if (isStreaming) {
-        // While streaming, cache the latest values
-        if (streamingStatusPills && streamingStatusPills.length > 0) {
-          lastStreamingStatusPills.current = streamingStatusPills;
-          hasStreamedDataRef.current = true;
-        }
-        if (streamingSearchResults) {
-          lastStreamingSearchResults.current = streamingSearchResults;
-          hasStreamedDataRef.current = true;
-        }
-        // Cache streaming content to prevent flicker during transition  
-        if (streamingContent) {
-          lastStreamingContentRef.current = streamingContent;
-        }
+      if (isStreaming && streamingContent) {
+        lastStreamingContentRef.current = streamingContent;
       } else if (message.content && message.content.length > 0) {
-        // Clear refs once message has actual content persisted
-        // This is the authoritative source after streaming completes
-        lastStreamingStatusPills.current = [];
-        lastStreamingSearchResults.current = null;
+        // Clear once message has persisted content
         lastStreamingContentRef.current = '';
-        hasStreamedDataRef.current = false;
       }
-      // NOTE: If not streaming AND message has no content,
-      // we KEEP the cached refs - this is the transition period!
-    }, [isStreaming, streamingStatusPills, streamingSearchResults, streamingContent, message.content]);
+    }, [isStreaming, streamingContent, message.content]);
 
     // Quote button state
     const [showQuoteButton, setShowQuoteButton] = useState(false);
@@ -508,15 +485,14 @@ export const ChatMessageItem = memo(
     }, [messageSubChats, onOpenExistingSubChat, isStreaming, message.content]);
 
     // Determine effective reasoning metadata - computed before any conditionals to maintain hook order
-    // Priority: 1. streaming props (if streaming) 2. message metadata 3. cached refs (bridge the gap)
+    // Priority: 1. streaming props (if streaming) 2. message metadata (persisted during streaming)
+    // No more ref fallback - messages now persist reasoning_metadata immediately
     const effectiveStatusPills = isStreaming
       ? streamingStatusPills
-      : message.reasoning_metadata?.statusPills ||
-        lastStreamingStatusPills.current;
+      : message.reasoning_metadata?.statusPills;
     const effectiveSearchResults = isStreaming
       ? streamingSearchResults
-      : message.reasoning_metadata?.searchResults ||
-        lastStreamingSearchResults.current;
+      : message.reasoning_metadata?.searchResults;
 
     // Move useMemo before any conditional returns to fix React hooks order
     const citations = useMemo(() => {
