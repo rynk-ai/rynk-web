@@ -3,6 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
  * Mobile Conversation by ID API
+ * Uses same schema as cloud-db.ts
  */
 
 async function getAuthenticatedUser(request: NextRequest, db: any) {
@@ -41,9 +42,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const conversation = await db.prepare(`
-      SELECT * FROM cloud_conversations WHERE id = ? AND userId = ?
-    `).bind(id, user.id).first();
+    const conversation = await db.prepare(
+      'SELECT * FROM conversations WHERE id = ? AND userId = ?'
+    ).bind(id, user.id).first();
     
     if (!conversation) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -58,6 +59,8 @@ export async function GET(
         path: conversation.path ? JSON.parse(String(conversation.path)) : [],
         tags: conversation.tags ? JSON.parse(String(conversation.tags)) : [],
         isPinned: Boolean(conversation.isPinned),
+        branches: conversation.branches ? JSON.parse(String(conversation.branches)) : [],
+        activeBranchId: conversation.activeBranchId,
         createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt,
       }
@@ -84,11 +87,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Delete messages first
-    await db.prepare('DELETE FROM cloud_messages WHERE conversationId = ?').bind(id).run();
-    
-    // Delete conversation
-    await db.prepare('DELETE FROM cloud_conversations WHERE id = ? AND userId = ?')
+    // Match cloud-db.ts deleteConversation - delete messages first
+    await db.prepare('DELETE FROM messages WHERE conversationId = ?').bind(id).run();
+    await db.prepare('DELETE FROM conversations WHERE id = ? AND userId = ?')
       .bind(id, user.id).run();
     
     return NextResponse.json({ success: true });

@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 
 /**
  * Mobile Conversations API
- * Requires mobile session token in Authorization header
+ * Uses the same schema as cloud-db.ts
+ * Tables: conversations, messages
  */
 
 async function getAuthenticatedUser(request: NextRequest, db: any) {
@@ -39,37 +40,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    // Match cloud-db.ts getConversations query
     const conversations = await db.prepare(`
-      SELECT 
-        c.id,
-        c.userId as user_id,
-        c.projectId as project_id,
-        c.title,
-        c.path,
-        c.tags,
-        c.isPinned as is_pinned,
-        c.activeBranchId as active_branch_id,
-        c.createdAt as created_at,
-        c.updatedAt as updated_at,
-        (SELECT COUNT(*) FROM cloud_messages WHERE conversationId = c.id) as message_count
-      FROM cloud_conversations c
-      WHERE c.userId = ?
-      ORDER BY c.updatedAt DESC
+      SELECT * FROM conversations 
+      WHERE userId = ?
+      ORDER BY updatedAt DESC
       LIMIT 50
     `).bind(user.id).all();
     
-    const formattedConversations = (conversations.results || []).map((conv: any) => ({
-      id: conv.id,
-      userId: conv.user_id,
-      projectId: conv.project_id,
-      title: conv.title,
-      path: conv.path ? JSON.parse(conv.path) : [],
-      tags: conv.tags ? JSON.parse(conv.tags) : [],
-      isPinned: Boolean(conv.is_pinned),
-      activeBranchId: conv.active_branch_id,
-      createdAt: conv.created_at,
-      updatedAt: conv.updated_at,
-      messageCount: conv.message_count || 0,
+    // Format like cloud-db.ts does
+    const formattedConversations = (conversations.results || []).map((c: any) => ({
+      id: c.id,
+      userId: c.userId,
+      projectId: c.projectId,
+      title: c.title,
+      path: c.path ? JSON.parse(String(c.path)) : [],
+      tags: c.tags ? JSON.parse(String(c.tags)) : [],
+      isPinned: Boolean(c.isPinned),
+      branches: c.branches ? JSON.parse(String(c.branches)) : [],
+      activeBranchId: c.activeBranchId,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
     }));
     
     return NextResponse.json({ conversations: formattedConversations });
@@ -94,19 +85,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as { title?: string; projectId?: string };
     
     const conversationId = randomUUID();
-    const now = new Date().toISOString();
+    const now = Date.now(); // cloud-db uses ms timestamps
     
+    // Match cloud-db.ts createConversation
     await db.prepare(`
-      INSERT INTO cloud_conversations (id, userId, projectId, title, path, tags, isPinned, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO conversations (id, userId, projectId, title, path, tags, isPinned, branches, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       conversationId,
       user.id,
       body.projectId || null,
-      body.title || null,
-      '[]',
-      '[]',
-      0,
+      body.title || 'New Conversation',
+      '[]', // path - empty initially
+      '[]', // tags
+      0,    // isPinned
+      '[]', // branches
       now,
       now
     ).run();
@@ -117,10 +110,11 @@ export async function POST(request: NextRequest) {
         id: conversationId,
         userId: user.id,
         projectId: body.projectId || null,
-        title: body.title || null,
+        title: body.title || 'New Conversation',
         path: [],
         tags: [],
         isPinned: false,
+        branches: [],
         createdAt: now,
         updatedAt: now,
       }

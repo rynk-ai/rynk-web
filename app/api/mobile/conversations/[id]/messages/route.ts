@@ -3,6 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
  * Mobile Messages API
+ * Uses path-based message ordering like cloud-db.ts
  */
 
 async function getAuthenticatedUser(request: NextRequest, db: any) {
@@ -41,57 +42,59 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Verify conversation belongs to user
+    // cloud-db.ts uses path-based ordering: conversation.path contains message IDs in order
     const conversation = await db.prepare(
-      'SELECT id FROM cloud_conversations WHERE id = ? AND userId = ?'
+      'SELECT path FROM conversations WHERE id = ? AND userId = ?'
     ).bind(conversationId, user.id).first();
     
     if (!conversation) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     
-    const limit = 50;
-    const cursor = new URL(request.url).searchParams.get('cursor');
+    const path = conversation.path ? JSON.parse(String(conversation.path)) : [];
     
-    let query = `
-      SELECT * FROM cloud_messages 
-      WHERE conversationId = ?
-    `;
-    
-    if (cursor) {
-      query += ` AND createdAt < ?`;
+    if (path.length === 0) {
+      return NextResponse.json({ messages: [], nextCursor: null });
     }
     
-    query += ` ORDER BY createdAt DESC LIMIT ?`;
+    // Fetch messages by IDs (matching cloud-db pattern)
+    const placeholders = path.map(() => '?').join(',');
+    const messages = await db.prepare(
+      `SELECT * FROM messages WHERE id IN (${placeholders})`
+    ).bind(...path).all();
     
-    const messages = cursor
-      ? await db.prepare(query).bind(conversationId, cursor, limit).all()
-      : await db.prepare(query).bind(conversationId, limit).all();
+    // Build a map for ordering
+    const msgMap = new Map(
+      (messages.results || []).map((m: any) => [m.id, m])
+    );
     
-    const formattedMessages = (messages.results || []).map((msg: any) => ({
-      id: msg.id,
-      conversationId: msg.conversationId,
-      role: msg.role,
-      content: msg.content,
-      attachments: msg.attachments ? JSON.parse(msg.attachments) : null,
-      parentMessageId: msg.parentMessageId,
-      versionOf: msg.versionOf,
-      versionNumber: msg.versionNumber || 1,
-      branchId: msg.branchId,
-      reasoningContent: msg.reasoningContent,
-      reasoningMetadata: msg.reasoningMetadata ? JSON.parse(msg.reasoningMetadata) : null,
-      webAnnotations: msg.webAnnotations ? JSON.parse(msg.webAnnotations) : null,
-      modelUsed: msg.modelUsed,
-      createdAt: msg.createdAt,
-    })).reverse(); // Reverse to get chronological order
-    
-    const nextCursor = messages.results?.length === limit 
-      ? messages.results[messages.results.length - 1]?.createdAt 
-      : null;
+    // Return messages in path order (matching cloud-db.ts getMessages)
+    const orderedMessages = path
+      .map((id: string) => {
+        const m = msgMap.get(id);
+        if (!m) return null;
+        return {
+          id: m.id,
+          conversationId: m.conversationId,
+          role: m.role,
+          content: m.content,
+          attachments: m.attachments ? JSON.parse(String(m.attachments)) : null,
+          parentMessageId: m.parentMessageId,
+          versionOf: m.versionOf,
+          versionNumber: m.versionNumber || 1,
+          branchId: m.branchId,
+          reasoningContent: m.reasoning_content,
+          reasoningMetadata: m.reasoning_metadata ? JSON.parse(String(m.reasoning_metadata)) : null,
+          webAnnotations: m.web_annotations ? JSON.parse(String(m.web_annotations)) : null,
+          modelUsed: m.model_used,
+          createdAt: m.createdAt,
+        };
+      })
+      .filter(Boolean);
     
     return NextResponse.json({ 
-      messages: formattedMessages,
-      nextCursor,
+      messages: orderedMessages,
+      nextCursor: null, // Simplified - no pagination for mobile initially
     });
     
   } catch (error: any) {
