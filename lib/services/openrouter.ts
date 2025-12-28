@@ -23,7 +23,7 @@ export class OpenRouterService implements AIProvider {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://rynk.io', // Replace with actual site URL
-        'X-Title': 'Rynk',
+        'X-Title': 'rynk',
       },
       body: JSON.stringify({
         model,
@@ -106,7 +106,7 @@ export class OpenRouterService implements AIProvider {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://rynk.io',
-        'X-Title': 'Rynk',
+        'X-Title': 'rynk',
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-lite',

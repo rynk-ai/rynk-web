@@ -251,7 +251,7 @@ export class ChatService {
           // Prepare Messages
           const messages = await this.prepareMessagesForAI(conversationId, finalContext, project)
 
-          // Inject System Identity (Rynk)
+          // Inject System Identity (rynk)
           const identity = ResponseFormatter.getSystemIdentity()
           const systemMsgIndex = messages.findIndex(m => m.role === 'system')
           if (systemMsgIndex >= 0) {

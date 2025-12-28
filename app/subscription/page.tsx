@@ -32,7 +32,7 @@ const tierConfig: any = {
     ],
   },
   standard: {
-    name: "Rynk+",
+    name: "rynk+",
     price: 5.99,
     queries: 2500,
     icon: PiLightning,
@@ -46,7 +46,7 @@ const tierConfig: any = {
     ],
   },
   // standard_plus: {
-  //   name: 'Rynk++',
+  //   name: 'rynk++',
   //   price: 7.99,
   //   queries: 2500,
   //   icon: Crown,
