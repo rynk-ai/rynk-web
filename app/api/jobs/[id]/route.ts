@@ -16,9 +16,33 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth check
+    const { env } = getCloudflareContext()
+    
+    // Auth check - Support both Web (Cookie) and Mobile (Bearer Token)
+    let userId: string | undefined
+
+    // 1. Try Web Session
     const session = await auth()
-    if (!session?.user?.id) {
+    if (session?.user?.id) {
+      userId = session.user.id
+    } else {
+      // 2. Try Mobile Token
+      const authHeader = request.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7)
+        const db = env.DB
+        
+        const mobileSession = await db.prepare(
+          'SELECT user_id FROM mobile_sessions WHERE token = ? AND expires_at > datetime("now")'
+        ).bind(token).first() as { user_id: string } | null
+        
+        if (mobileSession) {
+          userId = mobileSession.user_id
+        }
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -28,8 +52,6 @@ export async function GET(
       return NextResponse.json({ error: 'Job ID required' }, { status: 400 })
     }
 
-    // Get the Durable Object stub
-    const { env } = getCloudflareContext()
     
     // Check if TASK_PROCESSOR binding exists
     if (!env.TASK_PROCESSOR) {
