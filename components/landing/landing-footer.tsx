@@ -15,6 +15,9 @@ export function LandingFooter() {
           </div>
           
           <div className="flex gap-8 text-sm text-muted-foreground">
+             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+             <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+             <Link href="/support" className="hover:text-foreground transition-colors">Support</Link>
              <Link href="https://discord.gg/dq7U4Ydx" target="_blank" className="hover:text-foreground transition-colors">Discord</Link>
              <Link href="https://twitter.com/rynkdotio" target="_blank" className="hover:text-foreground transition-colors">Twitter</Link>
           </div>
@@ -22,7 +25,7 @@ export function LandingFooter() {
 
         <div className="pt-8 border-t border-border/40 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-sm text-muted-foreground">
-            © 2024 rynk. All rights reserved.
+            © {new Date().getFullYear()} rynk. All rights reserved.
           </div>
           <div className="flex items-center gap-2 text-xs font-medium text-green-600 bg-green-500/10 px-3 py-1 rounded-full">
             <span className="w-2 h-2 rounded-full bg-green-600 animate-pulse" />
