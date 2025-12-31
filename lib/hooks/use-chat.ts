@@ -559,63 +559,18 @@ export function useChat(initialConversationId?: string | null) {
       // Setting it here caused split brain (two sources of truth)
 
       // Handle Streaming
+      // NOTE: Return raw reader directly - page.tsx handles stream parsing via createStreamProcessor
+      // The previous wrapped stream approach was causing content to be lost
       const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      
-      // Create a wrapped reader that intercepts status messages
-      // Create a wrapped reader that intercepts status messages
-      const wrappedReader = new ReadableStreamDefaultReader(new ReadableStream({
-        async start(controller) {
-          // Initialize stateful processor
-          const processChunk = createStreamProcessor({
-            onStatus: (pill: any) => {
-              console.log('[useChat] Parsed status pill:', pill)
-              setStatusPills(prev => [...prev, pill])
-            },
-            onSearchResults: (results: any) => {
-              setSearchResults(results)
-            },
-            onContextCards: (cards: any) => {
-              console.log('[useChat] Parsed context cards:', cards?.length)
-              setContextCards(cards || [])
-            },
-            onContent: (text: string) => {
-              // Enqueue content chunks to the stream
-              controller.enqueue(new TextEncoder().encode(text))
-            }
-          });
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) {
-                // Mark reasoning as complete when stream ends
-                setStatusPills(prev => [...prev, {
-                  status: 'complete',
-                  message: 'Reasoning complete',
-                  timestamp: Date.now()
-                }])
-                controller.close()
-                break
-              }
-
-              const text = decoder.decode(value, { stream: true })
-              processChunk(text)
-            }
-          } catch (err) {
-            controller.error(err)
-          }
-        }
-      }))
 
       // Generate title if needed (fire and forget for performance)
       if (shouldGenerateTitle) {
         generateTitle(conversationId, content)
       }
       
-      // Return stream reader, conversationId, REAL message IDs
+      // Return raw stream reader, conversationId, REAL message IDs
       return {
-        streamReader: wrappedReader,
+        streamReader: reader,
         conversationId,
         userMessageId: realUserMessageId,
         assistantMessageId: realAssistantMessageId

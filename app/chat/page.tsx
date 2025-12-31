@@ -722,7 +722,7 @@ const ChatContent = memo(
           try {
             // 🔥 FIX: Use stateful stream processor to separate JSON metadata from content
             // Without this, raw JSON (status pills, search results) gets mixed into content
-            const processChunk = createStreamProcessor({
+            const { processChunk, flush } = createStreamProcessor({
               onStatus: (pill) => {
                 console.log('[handleSubmit] Parsed status pill:', pill);
                 setStatusPills(prev => [...prev, pill]);
@@ -744,6 +744,8 @@ const ChatContent = memo(
             while (true) {
               const { done, value } = await streamReader.read();
               if (done) {
+                // CRITICAL: Flush any remaining content in buffer before finishing
+                flush();
                 console.log(
                   "✅ [handleSubmit] Stream complete, total length:",
                   fullContent.length,
@@ -1181,7 +1183,7 @@ const ChatContent = memo(
 
                 try {
                   // 🔥 FIX: Use stateful stream processor
-                  const processChunk = createStreamProcessor({
+                  const { processChunk, flush } = createStreamProcessor({
                       onStatus: (pill) => {
                         console.log('[handleSaveEdit] Parsed status pill:', pill);
                         setStatusPills(prev => [...prev, pill]);
@@ -1203,6 +1205,8 @@ const ChatContent = memo(
                   while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
+                      // CRITICAL: Flush any remaining content in buffer before finishing
+                      flush();
                       // Mark reasoning as complete when stream ends
                       setStatusPills(prev => [...prev, {
                         status: 'complete',

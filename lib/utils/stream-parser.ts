@@ -66,12 +66,14 @@ export interface StreamProcessor {
 
 /**
  * Creates a stateful stream processor that can handle chunks splitting across lines.
- * Returns a function that should be called with each new chunk of text.
+ * Returns an object with:
+ * - processChunk: function to call with each new chunk of text
+ * - flush: function to call at stream end to emit any remaining buffered content
  */
 export function createStreamProcessor(handlers: StreamProcessor) {
   let buffer = "";
 
-  return function processChunk(chunk: string) {
+  function processChunk(chunk: string) {
     buffer += chunk;
     const lines = buffer.split("\n");
     
@@ -140,7 +142,20 @@ export function createStreamProcessor(handlers: StreamProcessor) {
 
       handlers.onContent?.(line + "\n");
     }
-  };
+  }
+
+  /** Flush any remaining content in the buffer (call at stream end) */
+  function flush() {
+    if (buffer.trim()) {
+      // Don't emit if it looks like incomplete JSON
+      if (!buffer.trim().startsWith('{"type":')) {
+        handlers.onContent?.(buffer);
+      }
+    }
+    buffer = "";
+  }
+
+  return { processChunk, flush };
 }
 
 /**
@@ -151,8 +166,9 @@ export function processStreamChunk(
   chunk: string,
   handlers: StreamProcessor
 ): void {
-  const processor = createStreamProcessor(handlers);
-  processor(chunk);
+  const { processChunk, flush } = createStreamProcessor(handlers);
+  processChunk(chunk);
+  flush(); // Flush immediately since this is stateless
   // Note: this stateless version loses the buffer, so any trailing text is lost/not processed if not terminated
   // This is why users should migrate to createStreamProcessor
 }
