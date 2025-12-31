@@ -44,6 +44,7 @@ import { PiPlus } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
+import { createStreamProcessor } from "@/lib/utils/stream-parser";
 import { CommandBar } from "@/components/ui/command-bar";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 import { FocusModeToggle } from "@/components/focus-mode";
@@ -678,13 +679,43 @@ const ChatContent = memo(
           let fullContent = "";
 
           try {
+            // Use stream parser to separate JSON metadata from content
+            const { processChunk, flush } = createStreamProcessor({
+              onStatus: (pill) => {
+                console.log('[ProjectPage] Parsed status pill:', pill);
+                setStatusPills(prev => [...prev, pill]);
+              },
+              onSearchResults: (results) => {
+                console.log('[ProjectPage] Parsed search results:', results.sources?.length);
+                setSearchResults(results);
+              },
+              onContextCards: (cards) => {
+                console.log('[ProjectPage] Parsed context cards:', cards?.length);
+                setContextCards(cards || []);
+              },
+              onContent: (text) => {
+                fullContent += text;
+                updateStreamContent(fullContent);
+              }
+            });
+
             while (true) {
               const { done, value } = await streamReader.read();
-              if (done) break;
+              if (done) {
+                // CRITICAL: Flush any remaining content in buffer
+                flush();
+                console.log("[ProjectPage] Stream complete, length:", fullContent.length);
+                // Mark reasoning as complete
+                setStatusPills(prev => [...prev, {
+                  status: 'complete',
+                  message: 'Reasoning complete',
+                  timestamp: Date.now()
+                }]);
+                break;
+              }
 
               const chunk = decoder.decode(value, { stream: true });
-              fullContent += chunk;
-              updateStreamContent(fullContent);
+              processChunk(chunk);
             }
           } catch (err) {
             console.error("Error reading stream:", err);

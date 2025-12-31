@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
 import { PiPlus } from "react-icons/pi";
+import { createStreamProcessor } from "@/lib/utils/stream-parser";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
 
@@ -570,16 +571,37 @@ const GuestChatContent = memo(function GuestChatContent({
         let fullContent = "";
 
         try {
+          // Use stream parser to separate JSON metadata from content
+          // Note: Guest context doesn't expose status pill setters, so we just log
+          const { processChunk, flush } = createStreamProcessor({
+            onStatus: (pill) => {
+              console.log('[GuestChat] Parsed status pill:', pill);
+              // Status pill state managed by useGuestChat hook internally
+            },
+            onSearchResults: (results) => {
+              console.log('[GuestChat] Parsed search results:', results.sources?.length);
+              // Search results state managed by useGuestChat hook internally
+            },
+            onContextCards: (cards) => {
+              console.log('[GuestChat] Parsed context cards:', cards?.length);
+            },
+            onContent: (text) => {
+              fullContent += text;
+              updateStreamContentRef.current(fullContent);
+            }
+          });
+
           while (true) {
             const { done, value } = await streamReader.read();
             if (done) {
+              // CRITICAL: Flush any remaining content in buffer
+              flush();
               console.log("[GuestChat] Stream complete, length:", fullContent.length);
               break;
             }
 
             const chunk = decoder.decode(value, { stream: true });
-            fullContent += chunk;
-            updateStreamContentRef.current(fullContent);
+            processChunk(chunk);
           }
         } catch (err) {
           console.error("[GuestChat] Error reading stream:", err);
