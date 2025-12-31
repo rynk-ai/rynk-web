@@ -141,6 +141,7 @@ const ChatContent = memo(
       streamingMessageId,
       streamingContent,
       startStreaming,
+      updateStreamingMessageId,
       updateStreamContent,
       finishStreaming,
     } = streamingState;
@@ -705,12 +706,13 @@ const ChatContent = memo(
 
           // Update streaming to use REAL message ID (for proper message updates later)
           // Streaming was already started with temp ID above for immediate UI feedback
+          // CRITICAL: Use updateStreamingMessageId, NOT startStreaming - we don't want to reset content!
           console.log("🔄 [handleSubmit] Updating streaming to real message ID", {
             from: tempAssistantMessageId,
             to: assistantMessageId,
           });
           if (assistantMessageId) {
-            startStreamingRef.current(assistantMessageId);
+            updateStreamingMessageId(assistantMessageId);
           }
 
           const decoder = new TextDecoder();

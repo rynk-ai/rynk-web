@@ -16,11 +16,21 @@ export function useStreaming() {
   
   /**
    * Start streaming for a specific message.
+   * CAUTION: This resets content - use updateStreamingMessageId if just changing ID
    */
   const startStreaming = useCallback((messageId: string) => {
     setStreamingMessageId(messageId);
     setStreamingContent('');
     contentBufferRef.current = '';
+  }, []);
+  
+  /**
+   * Update the streaming message ID without resetting content.
+   * Used when replacing optimistic message ID with real server ID mid-stream.
+   */
+  const updateStreamingMessageId = useCallback((messageId: string) => {
+    setStreamingMessageId(messageId);
+    // DO NOT reset content - we want to keep what's already been streamed
   }, []);
   
   /**
@@ -89,6 +99,7 @@ export function useStreaming() {
     
     // Actions
     startStreaming,
+    updateStreamingMessageId,
     updateStreamContent,
     flushStreamContent,
     finishStreaming
