@@ -720,6 +720,27 @@ const ChatContent = memo(
           console.log("📖 [handleSubmit] Starting to read stream");
 
           try {
+            // 🔥 FIX: Use stateful stream processor to separate JSON metadata from content
+            // Without this, raw JSON (status pills, search results) gets mixed into content
+            const processChunk = createStreamProcessor({
+              onStatus: (pill) => {
+                console.log('[handleSubmit] Parsed status pill:', pill);
+                setStatusPills(prev => [...prev, pill]);
+              },
+              onSearchResults: (results) => {
+                console.log('[handleSubmit] Parsed search results:', results.sources?.length);
+                setSearchResults(results);
+              },
+              onContextCards: (cards) => {
+                console.log('[handleSubmit] Parsed context cards:', cards?.length);
+                setContextCards(cards || []);
+              },
+              onContent: (text) => {
+                fullContent += text;
+                updateStreamContentRef.current(fullContent);
+              }
+            });
+
             while (true) {
               const { done, value } = await streamReader.read();
               if (done) {
@@ -727,12 +748,17 @@ const ChatContent = memo(
                   "✅ [handleSubmit] Stream complete, total length:",
                   fullContent.length,
                 );
+                // Mark reasoning as complete when stream ends
+                setStatusPills(prev => [...prev, {
+                  status: 'complete',
+                  message: 'Reasoning complete',
+                  timestamp: Date.now()
+                }]);
                 break;
               }
 
               const chunk = decoder.decode(value, { stream: true });
-              fullContent += chunk;
-              updateStreamContentRef.current(fullContent);
+              processChunk(chunk);
             }
           } catch (err) {
             console.error("❌ [handleSubmit] Error reading stream:", err);
