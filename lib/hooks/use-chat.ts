@@ -58,7 +58,7 @@ import {
 import { toast } from "sonner"
 import { chunkText } from '@/lib/utils/chunking'
 import { usePathname } from "next/navigation"
-import { processStreamChunk } from "@/lib/utils/stream-parser"
+import { processStreamChunk, createStreamProcessor } from "@/lib/utils/stream-parser"
 
 export function useChat(initialConversationId?: string | null) {
   const queryClient = useQueryClient()
@@ -562,8 +562,28 @@ export function useChat(initialConversationId?: string | null) {
       const decoder = new TextDecoder()
       
       // Create a wrapped reader that intercepts status messages
+      // Create a wrapped reader that intercepts status messages
       const wrappedReader = new ReadableStreamDefaultReader(new ReadableStream({
         async start(controller) {
+          // Initialize stateful processor
+          const processChunk = createStreamProcessor({
+            onStatus: (pill: any) => {
+              console.log('[useChat] Parsed status pill:', pill)
+              setStatusPills(prev => [...prev, pill])
+            },
+            onSearchResults: (results: any) => {
+              setSearchResults(results)
+            },
+            onContextCards: (cards: any) => {
+              console.log('[useChat] Parsed context cards:', cards?.length)
+              setContextCards(cards || [])
+            },
+            onContent: (text: string) => {
+              // Enqueue content chunks to the stream
+              controller.enqueue(new TextEncoder().encode(text))
+            }
+          });
+
           try {
             while (true) {
               const { done, value } = await reader.read()
@@ -579,29 +599,7 @@ export function useChat(initialConversationId?: string | null) {
               }
 
               const text = decoder.decode(value, { stream: true })
-
-              // Use shared stream parser utility
-              let contentChunk = ''
-              processStreamChunk(text, {
-                onStatus: (pill) => {
-                  console.log('[useChat] Parsed status pill:', pill)
-                  setStatusPills(prev => [...prev, pill])
-                },
-                onSearchResults: (results) => {
-                  setSearchResults(results)
-                },
-                onContextCards: (cards) => {
-                  console.log('[useChat] Parsed context cards:', cards?.length)
-                  setContextCards(cards || [])
-                },
-                onContent: (text) => {
-                  contentChunk += text
-                }
-              })
-
-              if (contentChunk) {
-                controller.enqueue(new TextEncoder().encode(contentChunk))
-              }
+              processChunk(text)
             }
           } catch (err) {
             controller.error(err)

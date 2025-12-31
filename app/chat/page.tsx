@@ -50,7 +50,7 @@ import { ShareDialog } from "@/components/share-dialog";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { FocusModeToggle } from "@/components/focus-mode";
-import { processStreamChunk } from "@/lib/utils/stream-parser";
+import { createStreamProcessor } from "@/lib/utils/stream-parser";
 
 // Extracted shared components
 import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
@@ -598,6 +598,14 @@ const ChatContent = memo(
           }
 
           // 3. Send Chat Request
+          
+          // 🔥 FIX: Set guard immediately if we suspect a new conversation might be created
+          // This protects against the race condition where `sendChatRequest` returns a new ID
+          // and triggers the `useEffect` cleaner before we can navigate.
+          if (!effectiveConversationId) {
+             isCreatingConversationRef.current = true;
+          }
+
           const result = await sendChatRequestRef.current(
             text,
             uploadedAttachments,
@@ -1146,23 +1154,8 @@ const ChatContent = memo(
                 let fullContent = "";
 
                 try {
-                  while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                      // Mark reasoning as complete when stream ends
-                      setStatusPills(prev => [...prev, {
-                        status: 'complete',
-                        message: 'Reasoning complete',
-                        timestamp: Date.now()
-                      }]);
-                      break;
-                    }
-
-                    const text = decoder.decode(value, { stream: true });
-                    
-                    // Use shared stream parser utility
-                    let contentChunk = '';
-                    processStreamChunk(text, {
+                  // 🔥 FIX: Use stateful stream processor
+                  const processChunk = createStreamProcessor({
                       onStatus: (pill) => {
                         console.log('[handleSaveEdit] Parsed status pill:', pill);
                         setStatusPills(prev => [...prev, pill]);
@@ -1176,15 +1169,27 @@ const ChatContent = memo(
                         setContextCards(cards || []);
                       },
                       onContent: (text) => {
-                        contentChunk += text;
+                         fullContent += text;
+                         updateStreamContent(fullContent);
                       }
-                    });
+                  });
 
-                    if (contentChunk) {
-                      fullContent += contentChunk;
-                      updateStreamContent(fullContent);
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                      // Mark reasoning as complete when stream ends
+                      setStatusPills(prev => [...prev, {
+                        status: 'complete',
+                        message: 'Reasoning complete',
+                        timestamp: Date.now()
+                      }]);
+                      break;
                     }
+
+                    const text = decoder.decode(value, { stream: true });
+                    processChunk(text);
                   }
+                  
                   console.log(
                     "✅ [handleSaveEdit] AI response complete, length:",
                     fullContent.length,

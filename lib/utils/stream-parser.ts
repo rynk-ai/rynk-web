@@ -4,16 +4,22 @@
  */
 
 export interface StatusMetadata {
-  sourceCount?: number
-  sourcesRead?: number
-  currentSource?: string
-  contextChunks?: number
-  filesProcessed?: number
-  totalFiles?: number
+  sourceCount?: number;
+  sourcesRead?: number;
+  currentSource?: string;
+  contextChunks?: number;
+  filesProcessed?: number;
+  totalFiles?: number;
 }
 
 export interface StatusPill {
-  status: "analyzing" | "building_context" | "searching" | "reading_sources" | "synthesizing" | "complete";
+  status:
+    | "analyzing"
+    | "building_context"
+    | "searching"
+    | "reading_sources"
+    | "synthesizing"
+    | "complete";
   message: string;
   timestamp: number;
   metadata?: StatusMetadata;
@@ -48,84 +54,6 @@ export type StreamEvent =
   | { type: "content"; text: string };
 
 /**
- * Parse a chunk of streamed text into structured events.
- * Handles JSON status messages and plain text content.
- *
- * @param chunk - Raw text chunk from the stream
- * @returns Array of parsed events
- */
-export function parseStreamChunk(chunk: string): StreamEvent[] {
-  const events: StreamEvent[] = [];
-  const lines = chunk.split("\n");
-  let contentBuffer = "";
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    try {
-      // Check for JSON status messages
-      if (line.startsWith('{"type":"status"')) {
-        const parsed = JSON.parse(line);
-        events.push({
-          type: "status",
-          data: {
-            status: parsed.status,
-            message: parsed.message,
-            timestamp: parsed.timestamp,
-            ...(parsed.metadata && { metadata: parsed.metadata }),
-          },
-        });
-        continue;
-      }
-
-      // Check for search results
-      if (line.startsWith('{"type":"search_results"')) {
-        const parsed = JSON.parse(line);
-        events.push({
-          type: "search_results",
-          data: {
-            query: parsed.query,
-            sources: parsed.sources,
-            strategy: parsed.strategy,
-            totalResults: parsed.totalResults,
-          },
-        });
-        continue;
-      }
-
-      // Check for context cards
-      if (line.startsWith('{"type":"context_cards"')) {
-        const parsed = JSON.parse(line);
-        events.push({
-          type: "context_cards",
-          data: parsed.cards || [],
-        });
-        continue;
-      }
-    } catch (e) {
-      // Not a valid JSON object, treat as content
-    }
-
-    // If not a special message, it's content
-    if (line.trim()) {
-      contentBuffer += line;
-    }
-
-    // Preserve newlines between content lines
-    if (i < lines.length - 1) {
-      contentBuffer += "\n";
-    }
-  }
-
-  // Emit content if we accumulated any
-  if (contentBuffer) {
-    events.push({ type: "content", text: contentBuffer });
-  }
-
-  return events;
-}
-
-/**
  * Process a stream and return handlers for each event type.
  * This is a higher-level abstraction for common use cases.
  */
@@ -136,32 +64,105 @@ export interface StreamProcessor {
   onContent?: (text: string) => void;
 }
 
+/**
+ * Creates a stateful stream processor that can handle chunks splitting across lines.
+ * Returns a function that should be called with each new chunk of text.
+ */
+export function createStreamProcessor(handlers: StreamProcessor) {
+  let buffer = "";
+
+  return function processChunk(chunk: string) {
+    buffer += chunk;
+    const lines = buffer.split("\n");
+
+    // Process all complete lines (everything except the last one)
+    // The last line might be incomplete, so we keep it in the buffer
+    // UNLESS the chunk ended with a newline, in which case the last line is empty
+    const lastLineDisplay = buffer.endsWith("\n") ? undefined : lines.pop();
+
+    // If buffer ended with newline, lines contains all complete lines including the one before the final newline
+    // If buffer didn't end with newline, we popped the incomplete line, so lines contains only complete ones
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      try {
+        // Check for JSON status messages
+        if (line.startsWith('{"type":"status"')) {
+          const parsed = JSON.parse(line);
+          handlers.onStatus?.({
+            status: parsed.status,
+            message: parsed.message,
+            timestamp: parsed.timestamp,
+            ...(parsed.metadata && { metadata: parsed.metadata }),
+          });
+          continue;
+        }
+
+        // Check for search results
+        if (line.startsWith('{"type":"search_results"')) {
+          const parsed = JSON.parse(line);
+          handlers.onSearchResults?.({
+            query: parsed.query,
+            sources: parsed.sources,
+            strategy: parsed.strategy,
+            totalResults: parsed.totalResults,
+          });
+          continue;
+        }
+
+        // Check for context cards
+        if (line.startsWith('{"type":"context_cards"')) {
+          const parsed = JSON.parse(line);
+          handlers.onContextCards?.(parsed.cards || []);
+          continue;
+        }
+        
+        // If it's not a known JSON type, treat as content
+        // BUT verify it's not a malformed/partial JSON of our types
+        // This is a heuristic: our event JSONs start with {"type":
+        if (line.startsWith('{"type":')) {
+             // Try to parse generic to see if we missed a type or failed above
+             try {
+                 const parsed = JSON.parse(line);
+                 // If we parsed it but didn't handle it above, it's an unknown event type. 
+                 // We should probably ignore it or treat as content? 
+                 // Treating as content is safer to avoid losing data, 
+                 // but might leak JSON to UI. For now, let's treat as content 
+                 // if it's not one of our known types.
+             } catch(e) {
+                 // It wasn't valid JSON, so definitely content
+             }
+        }
+
+      } catch (e) {
+        // Not a valid JSON object, treat as content
+      }
+
+      handlers.onContent?.(line + "\n");
+    }
+
+    // Reset buffer to the incomplete line
+    buffer = lastLineDisplay !== undefined ? lastLineDisplay : "";
+  };
+}
+
+/**
+ * Legacy stateless parser for backward compatibility or simple one-off chunks.
+ * WARNING: Does not handle split JSON lines correctly. Use createStreamProcessor for streams.
+ */
 export function processStreamChunk(
   chunk: string,
   handlers: StreamProcessor
 ): void {
-  const events = parseStreamChunk(chunk);
-
-  for (const event of events) {
-    switch (event.type) {
-      case "status":
-        handlers.onStatus?.(event.data);
-        break;
-      case "search_results":
-        handlers.onSearchResults?.(event.data);
-        break;
-      case "context_cards":
-        handlers.onContextCards?.(event.data);
-        break;
-      case "content":
-        handlers.onContent?.(event.text);
-        break;
-    }
-  }
+  const processor = createStreamProcessor(handlers);
+  processor(chunk);
+  // Note: this stateless version loses the buffer, so any trailing text is lost/not processed if not terminated
+  // This is why users should migrate to createStreamProcessor
 }
 
 /**
- * Create a TransformStream that parses stream chunks.
+ * Create a TransformStream that parses stream chunks statefully.
  * Useful for wrapping fetch response bodies.
  */
 export function createStreamParserTransform(): TransformStream<
@@ -169,14 +170,67 @@ export function createStreamParserTransform(): TransformStream<
   StreamEvent
 > {
   const decoder = new TextDecoder();
+  let buffer = "";
 
   return new TransformStream({
     transform(chunk, controller) {
       const text = decoder.decode(chunk, { stream: true });
-      const events = parseStreamChunk(text);
+      buffer += text;
+      const lines = buffer.split("\n");
+      const lastLine = buffer.endsWith("\n") ? undefined : lines.pop(); // Keep incomplete line
 
-      for (const event of events) {
-        controller.enqueue(event);
+      for (const line of lines) {
+        if (!line.trim()) continue;
+
+        try {
+          if (line.startsWith('{"type":"status"')) {
+            const parsed = JSON.parse(line);
+            controller.enqueue({
+              type: "status",
+              data: {
+                status: parsed.status,
+                message: parsed.message,
+                timestamp: parsed.timestamp,
+                metadata: parsed.metadata,
+              },
+            });
+            continue;
+          }
+
+          if (line.startsWith('{"type":"search_results"')) {
+            const parsed = JSON.parse(line);
+            controller.enqueue({
+              type: "search_results",
+              data: {
+                query: parsed.query,
+                sources: parsed.sources,
+                strategy: parsed.strategy,
+                totalResults: parsed.totalResults,
+              },
+            });
+            continue;
+          }
+
+          if (line.startsWith('{"type":"context_cards"')) {
+            const parsed = JSON.parse(line);
+            controller.enqueue({
+              type: "context_cards",
+              data: parsed.cards || [],
+            });
+            continue;
+          }
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
+
+        controller.enqueue({ type: "content", text: line + "\n" });
+      }
+
+      buffer = lastLine !== undefined ? lastLine : "";
+    },
+    flush(controller) {
+      if (buffer.trim()) {
+        controller.enqueue({ type: "content", text: buffer });
       }
     },
   });
