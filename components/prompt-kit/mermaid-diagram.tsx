@@ -46,6 +46,7 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
   const attemptFix = useCallback(async () => {
     if (fixAttempted || isFixing) return
     
+    console.log('[MermaidDiagram] Attempting fix for code:', code.substring(0, 100) + '...')
     setIsFixing(true)
     setFixAttempted(true)
     
@@ -60,21 +61,28 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
         })
       })
       
+      console.log('[MermaidDiagram] Fix API response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json() as { fixed: boolean; code?: string }
+        console.log('[MermaidDiagram] Fix API response:', { fixed: data.fixed, codeLength: data.code?.length })
         if (data.fixed && data.code) {
+          console.log('[MermaidDiagram] Applying fixed code:', data.code.substring(0, 100) + '...')
           setFixedCode(data.code)
           setError(null)
           setImageLoaded(false)
         } else {
           // LLM couldn't fix it or code was unchanged
+          console.log('[MermaidDiagram] LLM returned same code, not fixed')
           setError('Diagram syntax error - could not auto-fix')
         }
       } else {
+        const errorText = await response.text()
+        console.error('[MermaidDiagram] Fix API error:', response.status, errorText)
         setError('Failed to render diagram')
       }
     } catch (err) {
-      console.error('Failed to fix mermaid:', err)
+      console.error('[MermaidDiagram] Failed to fix mermaid:', err)
       setError('Failed to render diagram')
     } finally {
       setIsFixing(false)
@@ -83,9 +91,11 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
 
   // Handle image load error
   const handleImageError = useCallback(() => {
+    console.log('[MermaidDiagram] Image load error, fixAttempted:', fixAttempted, 'isFixing:', isFixing)
     if (!fixAttempted && !isFixing) {
       attemptFix()
     } else {
+      console.log('[MermaidDiagram] Fix already attempted, showing error')
       setError('Failed to render diagram')
     }
   }, [attemptFix, fixAttempted, isFixing])
