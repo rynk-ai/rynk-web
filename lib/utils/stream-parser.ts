@@ -127,7 +127,9 @@ export function createStreamProcessor(handlers: StreamProcessor) {
                  JSON.parse(line);
                  continue; 
              } catch(e) {
-                 // Not valid JSON, process as content
+                 // Partial JSON line - skip it, the buffer will reassemble on next chunk
+                 // DO NOT emit as content or raw JSON will clutter the UI
+                 continue;
              }
           }
 

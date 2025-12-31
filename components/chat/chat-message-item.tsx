@@ -487,12 +487,28 @@ export const ChatMessageItem = memo(
     // Determine effective reasoning metadata - computed before any conditionals to maintain hook order
     // Priority: 1. streaming props (if streaming) 2. message metadata (persisted during streaming)
     // No more ref fallback - messages now persist reasoning_metadata immediately
+    
+    // Parse reasoning_metadata safely - it may be stored as a string in D1 (JSON handling quirk)
+    const parsedMetadata = useMemo(() => {
+      const raw = message.reasoning_metadata;
+      if (!raw) return undefined;
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          console.warn('[ChatMessageItem] Failed to parse reasoning_metadata string');
+          return undefined;
+        }
+      }
+      return raw;
+    }, [message.reasoning_metadata]);
+    
     const effectiveStatusPills = isStreaming
       ? streamingStatusPills
-      : message.reasoning_metadata?.statusPills;
+      : parsedMetadata?.statusPills;
     const effectiveSearchResults = isStreaming
       ? streamingSearchResults
-      : message.reasoning_metadata?.searchResults;
+      : parsedMetadata?.searchResults;
 
     // Move useMemo before any conditional returns to fix React hooks order
     const citations = useMemo(() => {

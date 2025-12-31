@@ -599,12 +599,10 @@ const ChatContent = memo(
 
           // 3. Send Chat Request
           
-          // 🔥 FIX: Set guard immediately if we suspect a new conversation might be created
-          // This protects against the race condition where `sendChatRequest` returns a new ID
-          // and triggers the `useEffect` cleaner before we can navigate.
-          if (!effectiveConversationId) {
-             isCreatingConversationRef.current = true;
-          }
+          // 🔥 FIX: Set guard BEFORE async operation to protect against race conditions
+          // This flag prevents reloadMessages from overwriting optimistic messages
+          // when DB hasn't synced the new conversation yet
+          isCreatingConversationRef.current = !currentConversationId;
 
           const result = await sendChatRequestRef.current(
             text,
@@ -1451,6 +1449,13 @@ const ChatContent = memo(
           setHasMoreMessages(!!nextCursor);
 
           if (!isLoadingSameConversation) {
+            // CRITICAL: Don't replace if we're in the middle of creating a new conversation
+            // The optimistic messages would be lost (DB hasn't synced yet)
+            if (isCreatingConversationRef.current) {
+              console.log("🔄 [reloadMessages] Skipping replacement - conversation being created");
+              setIsLoadingConversation(false);
+              return;
+            }
             // SWITCHING CONVERSATIONS: Complete replacement, no merging with old messages
             console.log("🔄 [reloadMessages] Switching conversations - replacing all messages");
             setMessages(filteredMessages);
