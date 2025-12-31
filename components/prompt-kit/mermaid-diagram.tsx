@@ -192,7 +192,7 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
 
   // Normal view
   return (
-    <div className={cn("my-4 rounded-lg border border-zinc-700/50 bg-zinc-900/80 overflow-hidden group relative", className)}>
+    <div className={cn("my-4 w-full rounded-lg border border-zinc-700/50 bg-zinc-900/80 overflow-hidden group relative", className)}>
       {/* Toolbar */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
@@ -215,7 +215,7 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
       {/* Diagram */}
       <div 
         ref={containerRef}
-        className="pt-10 pb-4 overflow-x-auto flex items-center justify-center min-h-[150px]"
+        className="w-full pt-10 pb-4 px-4 flex items-center justify-center"
       >
         {!imageLoaded && (
           <div className="text-zinc-500 text-sm">Loading diagram...</div>
@@ -224,12 +224,11 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
           src={imageUrl}
           alt="Mermaid Diagram"
           className={cn(
-            "max-w-full object-contain transition-opacity",
+            "max-w-full max-h-[80vh] object-contain transition-opacity",
             imageLoaded ? "opacity-100" : "opacity-0"
           )}
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
-          style={{ minHeight: imageLoaded ? 'auto' : 0 }}
         />
       </div>
     </div>
