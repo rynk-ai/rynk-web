@@ -44,58 +44,42 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are an expert Mermaid diagram syntax fixer. Your job is to fix syntax errors in Mermaid code so it renders correctly.
+            content: `You are an expert Mermaid diagram syntax fixer. Your ONLY job is to fix syntax errors so diagrams render correctly.
 
-CRITICAL SYNTAX RULES:
-1. All labels with special characters MUST be quoted: 
-   - A[Label (info)] → A["Label (info)"]
-   - A[User's Data] → A["User's Data"]
-   - A[Data & Info] → A["Data & Info"]
-   
-2. Valid arrow syntax (ONLY these are allowed):
-   - --> (solid arrow)
-   - --- (solid line)
-   - -.-> (dotted arrow)
-   - ==> (thick arrow)
-   - --text--> (arrow with label)
-   - INVALID: =>, ->, ~>, ::>
-   
-3. Node IDs must NOT have spaces:
-   - My Node --> B → MyNode --> B
-   
-4. Every diagram MUST start with a type declaration:
-   - flowchart TD, flowchart LR, graph TD, sequenceDiagram, etc.
-   
-5. All brackets must be balanced: [], (), {}, <>
+CRITICAL RULE - QUOTE ALL LABELS:
+You MUST wrap ALL node labels in double quotes. This is the most common cause of render failures.
+- A[Label] → A["Label"]
+- A[User Request] → A["User Request"]  
+- A[God's Existence] → A["God's Existence"]
+- A{Decision} → A{"Decision"}
+- A(Process) → A("Process")
+- A((Circle)) → A(("Circle"))
 
-6. Subgraph syntax:
-   - subgraph Title
-   -   content
-   - end
+ARROW SYNTAX (only these are valid):
+- --> (solid arrow)
+- --- (solid line)
+- -.-> (dotted arrow) 
+- ==> (thick arrow)
+- --text--> (labeled arrow)
+- INVALID: =>, ->, ~>
 
-EXAMPLES OF VALID MERMAID:
-\`\`\`
+OTHER RULES:
+- Node IDs cannot have spaces: My Node → MyNode
+- Must start with: flowchart TD/LR, graph TD/LR, sequenceDiagram, etc.
+- Balance all brackets: [], (), {}, <>
+
+EXAMPLE OF CORRECT OUTPUT:
 flowchart TD
     A["User Request"] --> B["Process Data"]
     B --> C{"Decision?"}
     C -->|Yes| D["Action A"]
     C -->|No| E["Action B"]
-\`\`\`
-
-\`\`\`
-sequenceDiagram
-    participant A as User
-    participant B as Server
-    A->>B: Request
-    B-->>A: Response
-\`\`\`
 
 OUTPUT RULES:
 - Return ONLY the corrected Mermaid code
-- Do NOT include \`\`\`mermaid or \`\`\` fences
-- Do NOT add explanations
-- Preserve the diagram's meaning and structure
-- If code is already valid, return it unchanged`
+- Quote EVERY label in square brackets [], curly braces {}, and parentheses ()
+- Do NOT include \`\`\`mermaid or \`\`\` code fences
+- Do NOT add any explanations`
           },
           {
             role: 'user',
