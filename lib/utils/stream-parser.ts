@@ -74,76 +74,70 @@ export function createStreamProcessor(handlers: StreamProcessor) {
   return function processChunk(chunk: string) {
     buffer += chunk;
     const lines = buffer.split("\n");
-
-    // Process all complete lines (everything except the last one)
-    // The last line might be incomplete, so we keep it in the buffer
-    // UNLESS the chunk ended with a newline, in which case the last line is empty
-    const lastLineDisplay = buffer.endsWith("\n") ? undefined : lines.pop();
-
-    // If buffer ended with newline, lines contains all complete lines including the one before the final newline
-    // If buffer didn't end with newline, we popped the incomplete line, so lines contains only complete ones
+    
+    // The last line is always incomplete (or empty if it ended with \n)
+    // We keep it in the buffer for the next chunk
+    const remainingBuffer = lines.pop(); // Mutates lines array
+    buffer = remainingBuffer !== undefined ? remainingBuffer : "";
 
     for (const line of lines) {
-      if (!line.trim()) continue;
+      // Don't skip empty lines here - they are valid content (newlines)!
+      // Only skip checking for JSON on empty lines
+      
+      const trimmedLine = line.trim();
+      if (trimmedLine) {
+        try {
+          // Check for JSON status messages
+          if (line.startsWith('{"type":"status"')) {
+            const parsed = JSON.parse(line);
+            handlers.onStatus?.({
+              status: parsed.status,
+              message: parsed.message,
+              timestamp: parsed.timestamp,
+              ...(parsed.metadata && { metadata: parsed.metadata }),
+            });
+            continue;
+          }
 
-      try {
-        // Check for JSON status messages
-        if (line.startsWith('{"type":"status"')) {
-          const parsed = JSON.parse(line);
-          handlers.onStatus?.({
-            status: parsed.status,
-            message: parsed.message,
-            timestamp: parsed.timestamp,
-            ...(parsed.metadata && { metadata: parsed.metadata }),
-          });
-          continue;
-        }
+          // Check for search results
+          if (line.startsWith('{"type":"search_results"')) {
+            const parsed = JSON.parse(line);
+            handlers.onSearchResults?.({
+              query: parsed.query,
+              sources: parsed.sources,
+              strategy: parsed.strategy,
+              totalResults: parsed.totalResults,
+            });
+            continue;
+          }
 
-        // Check for search results
-        if (line.startsWith('{"type":"search_results"')) {
-          const parsed = JSON.parse(line);
-          handlers.onSearchResults?.({
-            query: parsed.query,
-            sources: parsed.sources,
-            strategy: parsed.strategy,
-            totalResults: parsed.totalResults,
-          });
-          continue;
-        }
-
-        // Check for context cards
-        if (line.startsWith('{"type":"context_cards"')) {
-          const parsed = JSON.parse(line);
-          handlers.onContextCards?.(parsed.cards || []);
-          continue;
-        }
-        
-        // If it's not a known JSON type, treat as content
-        // BUT verify it's not a malformed/partial JSON of our types
-        // This is a heuristic: our event JSONs start with {"type":
-        if (line.startsWith('{"type":')) {
-             // Try to parse generic to see if we missed a type or failed above
+          // Check for context cards
+          if (line.startsWith('{"type":"context_cards"')) {
+            const parsed = JSON.parse(line);
+            handlers.onContextCards?.(parsed.cards || []);
+            continue;
+          }
+          
+          // Heuristic to avoid emitting broken JSON as content
+          if (line.startsWith('{"type":')) {
              try {
-                 const parsed = JSON.parse(line);
-                 // If we parsed it but didn't handle it above, it's an unknown event type. 
-                 // We should probably ignore it or treat as content? 
-                 // Treating as content is safer to avoid losing data, 
-                 // but might leak JSON to UI. For now, let's treat as content 
-                 // if it's not one of our known types.
+                // If it parses as JSON, but wasn't handled above, it's an unknown event.
+                // We implicitly swallow it to match previous behavior/safety, 
+                // effectively acting like "continue"
+                 JSON.parse(line);
+                 continue; 
              } catch(e) {
-                 // It wasn't valid JSON, so definitely content
+                 // Not valid JSON, process as content
              }
-        }
+          }
 
-      } catch (e) {
-        // Not a valid JSON object, treat as content
+        } catch (e) {
+          // Not a valid JSON object, process as content
+        }
       }
 
       handlers.onContent?.(line + "\n");
     }
-
-    // Reset buffer to the incomplete line
-    buffer = lastLineDisplay !== undefined ? lastLineDisplay : "";
   };
 }
 
