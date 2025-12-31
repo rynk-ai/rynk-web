@@ -554,8 +554,9 @@ export function useChat(initialConversationId?: string | null) {
 
       console.log('[sendChatRequest] Message IDs from backend:', { realUserMessageId, realAssistantMessageId })
 
-      // Set streaming message ID immediately so status pills can be displayed
-      setStreamingMessageId(realAssistantMessageId)
+      // NOTE: Removed setStreamingMessageId call here
+      // page.tsx manages streaming state directly via useStreaming() hook
+      // Setting it here caused split brain (two sources of truth)
 
       // Handle Streaming
       const reader = response.body.getReader()
