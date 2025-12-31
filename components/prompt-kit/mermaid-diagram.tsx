@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { PiCopy, PiCheck, PiWarningCircle, PiArrowsOut, PiX, PiSpinner } from "react-icons/pi"
 
@@ -170,7 +171,7 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
             <img 
               src={imageUrl}
               alt="Mermaid Diagram"
-              className="max-w-full max-h-full object-contain"
+              className="w-auto h-auto max-w-full max-h-full object-contain"
               onError={handleImageError}
             />
           </div>
@@ -180,7 +181,7 @@ export function MermaidDiagram({ code, className, messageId, conversationId }: M
 
     return (
       <>
-        {modal}
+        {typeof document !== 'undefined' && createPortal(modal, document.body)}
         {/* Placeholder in document flow */}
         <div className={cn("my-4 rounded-lg border border-gray-500/30 bg-gray-900/80 p-4 text-center text-gray-400", className)}>
           <PiArrowsOut className="w-5 h-5 mx-auto mb-2 opacity-50" />
