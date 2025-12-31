@@ -32,12 +32,17 @@ import {
   PiArrowRight, 
   PiTrendUp, 
   PiLock, 
-  PiMagnifyingGlass 
+  PiMagnifyingGlass,
+  PiFilePdf,
+  PiFileImage,
+  PiFileText,
+  PiFileCode,
+  PiFile
 } from "react-icons/pi";
 import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
 import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
 import { ContextPicker } from "@/components/context-picker";
-import { validateFile } from "@/lib/utils/file-converter";
+import { validateFile, formatFileSize, getFileCategory } from "@/lib/utils/file-converter";
 import { ACCEPTED_FILE_TYPES } from "@/lib/constants/file-config";
 import { textToFile, LONG_TEXT_THRESHOLD } from "@/lib/utils/text-to-file-converter";
 import { toast } from "sonner";
@@ -652,15 +657,46 @@ export const PromptInputWithFiles = memo(function
              ))}
              
              {/* File Pills */}
-             {files.map((file, index) => (
-                <FilePreview
-                  key={`${file.name}-${index}`}
-                  file={file}
-                  onRemove={handleRemoveFile}
-                  showRemove={true}
-                  className="size-12 rounded-xl"
-                />
-             ))}
+             {/* File Pills */}
+             {files.map((file, index) => {
+                const isFile = file instanceof File;
+                const name = file.name;
+                const size = isFile ? formatFileSize(file.size) : '';
+                
+                let Icon = PiFile;
+                if (isFile) {
+                   const category = getFileCategory(file);
+                   if (category === 'pdf') Icon = PiFilePdf;
+                   else if (category === 'image') Icon = PiFileImage;
+                   else if (category === 'text') Icon = PiFileText;
+                   else if (category === 'code') Icon = PiFileCode;
+                }
+
+                return (
+                  <div 
+                    key={`${name}-${index}`}
+                    className="flex items-center gap-2 bg-secondary/50 border border-border/50 rounded-md px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
+                  >
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium truncate text-foreground/90 leading-tight">
+                        {name}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate leading-tight">
+                        {size || 'Attachment'}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 rounded-full hover:bg-background/80 shrink-0 -mr-1"
+                      onClick={() => handleRemoveFile(file)}
+                    >
+                      <PiX className="h-3 w-3" />
+                    </Button>
+                  </div>
+                );
+             })}
           </div>
         </div>
       )}

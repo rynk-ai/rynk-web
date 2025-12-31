@@ -12,7 +12,7 @@ export interface FileSizeLimit {
 
 export const FILE_SIZE_LIMITS: Record<FileCategory, FileSizeLimit> = {
   image: { bytes: 10 * 1024 * 1024, label: '10MB' },
-  pdf: { bytes: 20 * 1024 * 1024, label: '20MB' },
+  pdf: { bytes: 150 * 1024 * 1024, label: '150MB' },
   text: { bytes: 5 * 1024 * 1024, label: '5MB' },
   code: { bytes: 5 * 1024 * 1024, label: '5MB' },
   data: { bytes: 5 * 1024 * 1024, label: '5MB' },

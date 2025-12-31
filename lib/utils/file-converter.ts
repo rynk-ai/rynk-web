@@ -173,14 +173,17 @@ export function validateFile(file: File): ValidationResult {
  * @deprecated Use validateFile instead
  */
 export function validateImageFile(file: File): { valid: boolean; error?: string } {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-
+  // Use shared validation logic
+  const validation = validateFile(file);
+  
+  // For backward compatibility restricted to image/pdf
   if (!isImageFile(file) && !isPDFFile(file)) {
     return { valid: false, error: 'File must be an image or PDF' };
   }
 
-  if (file.size > maxSize) {
-    return { valid: false, error: 'File size must be less than 10MB' };
+  // If validateFile failed (e.g. size limit), return that error
+  if (!validation.valid) {
+    return { valid: false, error: validation.error };
   }
 
   return { valid: true };
