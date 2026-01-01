@@ -70,16 +70,17 @@ npm run dev
 npm run deploy
 ```
 
-### Tech Stack
-
 | Technology | Purpose |
 |------------|---------|
-| Next.js | React Framework |
-| Cloudflare Pages | Hosting & Edge Execution |
-| D1 (SQLite) | Database |
-| R2 | Object Storage |
-| TailwindCSS | Styling |
-| TypeScript | Type Safety |
+| **Next.js 15 (OpenNext)** | React Framework |
+| **Cloudflare Pages** | Edge Execution & Hosting |
+| **Cloudflare D1** | SQLite Database (Relational Data) |
+| **Cloudflare R2** | Object Storage (Files & Assets) |
+| **Cloudflare Vectorize** | Vector Database (Embeddings) |
+| **Cloudflare Workers AI** | AI Inference at the Edge |
+| **Durable Objects** | Task Processing & Coordination |
+| **TailwindCSS 4** | Styling System |
+| **TypeScript** | Type Safety |
 
 ---
 
