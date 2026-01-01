@@ -1980,11 +1980,23 @@ function ChatContentWithProvider() {
   const router = useRouter();
   const { selectConversation, currentConversationId } = useChatContext();
 
+  // Track previous chatId to detect URL-initiated changes only
+  const prevChatIdRef = useRef<string | null>(chatId);
+  
   // Sync URL chatId with context when URL changes
+  // CRITICAL: Only sync when chatId (URL) changes, NOT when currentConversationId changes
+  // This prevents reverting state when sidebar updates state before URL updates
   useEffect(() => {
-    // Only update if chatId differs from current selection
-    if (chatId !== currentConversationId) {
-      selectConversation(chatId);
+    const prevChatId = prevChatIdRef.current;
+    prevChatIdRef.current = chatId;
+    
+    // Only sync if the URL chatId actually changed (not if state changed)
+    if (chatId !== prevChatId) {
+      console.log("[ChatPage] URL changed, syncing state:", { from: prevChatId, to: chatId });
+      // Only update state if it doesn't match the new URL
+      if (chatId !== currentConversationId) {
+        selectConversation(chatId);
+      }
     }
   }, [chatId, currentConversationId, selectConversation]);
 
