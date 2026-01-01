@@ -13,6 +13,9 @@
   <a href="https://github.com/rynk-ai/rynk-web/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" />
   </a>
+  <a href="https://workers.cloudflare.com">
+    <img src="https://img.shields.io/badge/Built%20with-Cloudflare-orange?logo=cloudflare&logoColor=white" alt="Built with Cloudflare" />
+  </a>
 </p>
 
 ---
