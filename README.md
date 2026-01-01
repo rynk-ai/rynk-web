@@ -2,8 +2,6 @@
   <img src="public/icon-192.png" alt="Rynk" width="80" height="80" />
 </p>
 
-<h1 align="center">rynk</h1>
-
 <p align="center">
   <strong>AI chat application with file uploads, message versioning, and context-aware responses.</strong>
 </p>
