@@ -39,8 +39,9 @@ import {
   PiFileCode,
   PiFile
 } from "react-icons/pi";
-import { useContextSearch, SearchResultItem, ContextItem } from "@/lib/hooks/use-context-search";
-import { Conversation, Folder as FolderType } from "@/lib/services/indexeddb";
+import { ContextItem } from "@/lib/hooks/use-context-search";
+import { Folder as FolderType } from "@/lib/services/indexeddb";
+import { InputAttachmentList } from "@/components/chat/input/input-attachment-list";
 import { ContextPicker } from "@/components/context-picker";
 import { validateFile, formatFileSize, getFileCategory } from "@/lib/utils/file-converter";
 import { ACCEPTED_FILE_TYPES } from "@/lib/constants/file-config";
@@ -48,6 +49,7 @@ import { textToFile, LONG_TEXT_THRESHOLD } from "@/lib/utils/text-to-file-conver
 import { toast } from "sonner";
 import type { SurfaceType } from "@/lib/services/domain-types";
 import EmptyStateChat from "./chat/empty-state-chat";
+import { useSmartInput } from "@/lib/hooks/use-smart-input";
 
 // Surface Mode Configuration
 const SURFACE_MODES: Array<{
@@ -125,7 +127,7 @@ export const PromptInputWithFiles = memo(function
   placeholder = "Ask anything",
   disabled = false,
   className,
-  context = [],
+  context: initialContextProp = [],
   onContextChange,
   currentConversationId,
   conversations = [],
@@ -147,9 +149,37 @@ export const PromptInputWithFiles = memo(function
   onSurfaceModeChange,
   isGuest = false,
 }: PromptInputWithFilesProps) {
-  const [prompt, setPrompt] = useState(initialValue);
-  const [files, setFiles] = useState<(File | Attachment)[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
+  // Use the new smart input hook
+  const {
+    prompt,
+    setPrompt,
+    files,
+    setFiles,
+    context,
+    setContext,
+    isMobile,
+    suggestedSurface,
+    isFetchingSuggestion,
+    handlePromptChange,
+    handleFilesAdded,
+    handleRemoveFile,
+    handleRemoveContext,
+    handlePaste,
+    handleAcceptSuggestion,
+    handleDismissSuggestion,
+    handleKeyDown: hookHandleKeyDown
+  } = useSmartInput({
+    initialValue,
+    initialAttachments,
+    initialContext: initialContextProp,
+    onValueChange,
+    onFilesChange,
+    onContextChange,
+    surfaceMode,
+    onSurfaceModeChange,
+    isGuest,
+    currentConversationId
+  });
 
   // Surface Mode dropdown state
   const [surfaceModeOpen, setSurfaceModeOpen] = useState(false);
@@ -162,16 +192,6 @@ export const PromptInputWithFiles = memo(function
   
   // Context Picker state
   const [contextPickerOpen, setContextPickerOpen] = useState(false);
-  
-  // Smart surface suggestion state
-  const [suggestedSurface, setSuggestedSurface] = useState<{
-    type: SurfaceType;
-    message: string;
-  } | null>(null);
-  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
-  const [isFetchingSuggestion, setIsFetchingSuggestion] = useState(false);
-  const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const suggestionAbortRef = useRef<AbortController | null>(null);
 
   // Close surface dropdown when clicking outside
   useEffect(() => {
@@ -190,43 +210,14 @@ export const PromptInputWithFiles = memo(function
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [surfaceModeOpen, plusDropdownOpen]);
 
-  // Detect if device is mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
-      setIsMobile(mobileRegex.test(userAgent.toLowerCase()) || window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
-  // Update prompt and files when initial values change (for edit mode)
-  useEffect(() => {
-    setPrompt(initialValue);
-  }, [initialValue]);
 
-  // Handle entering edit mode or updating attachments while editing
-  useEffect(() => {
-    if (editMode) {
-      setFiles(initialAttachments);
-    }
-  }, [editMode, initialAttachments]);
 
-  // Handle exiting edit mode
-  useEffect(() => {
-    if (!editMode) {
-      setFiles([]);
-    }
-  }, [editMode]);
 
   // Context search state
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const { query, setQuery, results, isLoading: isSearching, allFolders } = useContextSearch(currentConversationId);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+
   
+  // Add quote to input when quotedMessage changes
   // Add quote to input when quotedMessage changes
   useEffect(() => {
     if (quotedMessage && !editMode) {
@@ -235,58 +226,12 @@ export const PromptInputWithFiles = memo(function
       const quoteText = `${quoteLines}\n\n`;
       
       // Add quote to the beginning of the input
-      setPrompt(prev => {
-        const newValue = quoteText + prev;
-        onValueChange?.(newValue);
-        return newValue;
-      });
+      setPrompt(quoteText + prompt);
+      onValueChange?.(quoteText + prompt);
     }
   }, [quotedMessage?.messageId, editMode]); // Only trigger when a new quote is added
 
-  const handleFilesAdded = (newFiles: File[]) => {
-    // Validate each file
-    const results = newFiles.map(file => ({
-      file,
-      validation: validateFile(file)
-    }));
-    
-    const invalidFiles = results.filter(r => !r.validation.valid);
-    
-    if (invalidFiles.length > 0) {
-      // Show error for each invalid file
-      invalidFiles.forEach(({ file, validation }) => {
-        toast.error(`${validation.error}`, {
-          description: file.name,
-        });
-      });
-      
-      // Only add valid files
-      const validFiles = results.filter(r => r.validation.valid).map(r => r.file);
-      if (validFiles.length > 0) {
-        setFiles((prev) => {
-          const updated = [...prev, ...validFiles];
-          onFilesChange?.(updated);
-          return updated;
-        });
-      }
-      return;
-    }
-    
-    // All files valid
-    setFiles((prev) => {
-      const updated = [...prev, ...newFiles];
-      onFilesChange?.(updated);
-      return updated;
-    });
-  };
 
-  const handleRemoveFile = (fileToRemove: File | Attachment) => {
-    setFiles((prev) => {
-      const updated = prev.filter((f) => f !== fileToRemove);
-      onFilesChange?.(updated);
-      return updated;
-    });
-  };
 
   const handleSubmit = async () => {
     if ((!prompt.trim() && files.length === 0) || (isLoading && currentConversationId)) return;
@@ -308,242 +253,26 @@ export const PromptInputWithFiles = memo(function
     }
   };
 
-  // Handle input changes to detect @ and /
-  const handlePromptChange = (value: string) => {
-    setPrompt(value);
-    onValueChange?.(value);
-    
-    // Find key triggers
-    const lastAt = value.lastIndexOf('@');
-    
-    // Handle Context Search (@)
-    if (lastAt !== -1) {
-      // Check if it's a valid mention start (start of string or preceded by space)
-      const isValidStart = lastAt === 0 || value[lastAt - 1] === ' ';
-      
-      if (isValidStart) {
-        const textAfterAt = value.slice(lastAt + 1);
-        // Only show suggestions if there's no space after @ (unless we want multi-word search, which we do)
-        // But typically we stop if there's a newline
-        if (!textAfterAt.includes('\n')) {
-          setQuery(textAfterAt);
-          setSelectedIndex(0);
-          return;
-        }
-      }
-    }
-    
-    // Smart surface suggestion detection using AI API (debounced)
-    // Only suggest if user hasn't manually selected a surface (surfaceMode === 'chat')
-    if (surfaceMode === 'chat' && value.length > 10 && !query) {
-      // Clear existing timeout
-      if (suggestionTimeoutRef.current) {
-        clearTimeout(suggestionTimeoutRef.current);
-      }
-      
-      // Abort any in-flight request
-      if (suggestionAbortRef.current) {
-        suggestionAbortRef.current.abort();
-      }
-      
-      // Debounced API call
-      suggestionTimeoutRef.current = setTimeout(async () => {
-        try {
-          setIsFetchingSuggestion(true);
-          suggestionAbortRef.current = new AbortController();
-          
-          const response = await fetch('/api/suggest-surface', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: value }),
-            signal: suggestionAbortRef.current.signal
-          });
-          
-          if (!response.ok) {
-            setSuggestedSurface(null);
-            return;
-          }
-          
-          const data = await response.json() as { 
-            suggestedSurface?: SurfaceType | null; 
-            reason?: string; 
-          };
-          
-          if (data.suggestedSurface && data.suggestedSurface !== dismissedSuggestion) {
-            // Check if guest can use this surface
-            if (!isGuest || GUEST_ALLOWED_SURFACES.includes(data.suggestedSurface)) {
-              const surfaceInfo = SURFACE_MODES.find(m => m.type === data.suggestedSurface);
-              setSuggestedSurface({
-                type: data.suggestedSurface,
-                message: data.reason || `Try ${surfaceInfo?.label || 'this format'}`
-              });
-            }
-          } else {
-            setSuggestedSurface(null);
-          }
-        } catch (error: any) {
-          if (error.name !== 'AbortError') {
-            console.error('Surface suggestion error:', error);
-          }
-          setSuggestedSurface(null);
-        } finally {
-          setIsFetchingSuggestion(false);
-        }
-      }, SURFACE_SUGGESTION_DEBOUNCE_MS);
-    } else if (value.length <= 10) {
-      // Clear suggestion for short queries
-      if (suggestionTimeoutRef.current) {
-        clearTimeout(suggestionTimeoutRef.current);
-      }
-      setSuggestedSurface(null);
-    }
-  };
+  // NOTE: suggestion logic moved to hook
 
-  const handleSelectContext = (item: SearchResultItem) => {
-    if (!onContextChange) return;
 
-    const contextItem: ContextItem = {
-      type: item.type,
-      id: item.data.id,
-      title: item.type === 'folder' ? (item.data as FolderType).name : (item.data as Conversation).title
-    };
 
-    // Add to context
-    if (item.type === 'folder') {
-      const folder = allFolders.find(f => f.id === item.data.id);
-      if (folder) {
-        // Remove individual conversations that are in the folder
-        const newContext = context.filter(c => !folder.conversationIds.includes(c.id));
-        onContextChange([...newContext, contextItem]);
-      } else {
-        onContextChange([...context, contextItem]);
-      }
-    } else {
-      // Check if already covered by a folder
-      const isCovered = context.some(c => 
-        c.type === 'folder' && 
-        allFolders.find(f => f.id === c.id)?.conversationIds.includes(item.data.id)
-      );
-      
-      if (!isCovered && !context.some(c => c.id === item.data.id)) {
-        onContextChange([...context, contextItem]);
-      }
-    }
-
-    // Remove the @mention text
-    const lastAt = prompt.lastIndexOf('@');
-    if (lastAt !== -1) {
-      const newPrompt = prompt.slice(0, lastAt).trimEnd(); // Remove @ and text after it
-      setPrompt(newPrompt + " "); // Add a space
-      onValueChange?.(newPrompt + " ");
-    }
-    
-    
-    
-    // Refocus input
-    setTimeout(() => {
-      const textarea = document.getElementById("main-chat-input");
-      if (textarea) textarea.focus();
-    }, 0);
-  };
-
-  // Handle keyboard navigation for suggestions and platform-specific Enter behavior
+  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    
-    // Context Navigation (@)
-    if (query && results.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, results.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
-        return;
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        handleSelectContext(results[selectedIndex]);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setQuery("");
-        return;
-      }
-    }
-
     // Call parent's onKeyDown if provided
-    if (onKeyDown) {
-      onKeyDown(e);
-    }
+    onKeyDown?.(e);
 
-    // Don't interfere if parent prevented default
-    if (e.defaultPrevented) {
-      return;
-    }
-
-    // Mobile: Enter inserts newline (send button required to submit)
-    // Desktop: Default behavior - Enter = submit, Shift+Enter = newline
-    if (e.key === 'Enter' && isMobile && !e.shiftKey) {
-      e.preventDefault();
-      // Insert newline at cursor position
-      const textarea = e.target as HTMLTextAreaElement;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newValue = prompt.slice(0, start) + '\n' + prompt.slice(end);
-      setPrompt(newValue);
-      onValueChange?.(newValue);
-      // Move cursor after the newline
-      requestAnimationFrame(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + 1;
-      });
+    if (!e.defaultPrevented) {
+      hookHandleKeyDown(e);
     }
   };
 
   // Handle paste events to auto-convert long text to file
-  const handleRemoveContext = (itemToRemove: ContextItem) => {
-    if (!onContextChange) return;
-    const newContext = context.filter(c => c.id !== itemToRemove.id);
-    onContextChange(newContext);
-  };
 
-  // Handle paste events to auto-convert long text to file
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    // Get pasted text from clipboard
-    const pastedText = e.clipboardData.getData('text/plain');
-    
-    // Check if text exceeds threshold
-    if (pastedText && pastedText.length > LONG_TEXT_THRESHOLD) {
-      // Prevent default paste behavior
-      e.preventDefault();
-      
-      // Convert text to .txt file
-      const textFile = textToFile(pastedText);
-      
-      // Add file to attachments using existing handler
-      handleFilesAdded([textFile]);
-    }
-    // If text is short, allow normal paste (don't prevent default)
-  };
 
-  // Handle accepting surface suggestion
-  const handleAcceptSuggestion = () => {
-    if (suggestedSurface && onSurfaceModeChange) {
-      onSurfaceModeChange(suggestedSurface.type);
-      setSuggestedSurface(null);
-      setDismissedSuggestion(null);
-    }
-  };
-  
-  // Handle dismissing surface suggestion
-  const handleDismissSuggestion = () => {
-    if (suggestedSurface) {
-      setDismissedSuggestion(suggestedSurface.type);
-      setSuggestedSurface(null);
-    }
-  };
+
+
+
 
   return (
     <div className={cn("relative flex flex-col gap-2 relative", className)}>
@@ -607,13 +336,11 @@ export const PromptInputWithFiles = memo(function
                 e.preventDefault();
                 onClearQuote();
                 // Remove quote from input
-                setPrompt(prev => {
-                  const lines = prev.split('\n');
-                  const firstNonQuoteLine = lines.findIndex(line => !line.startsWith('>') && line.trim() !== '');
-                  const newValue = firstNonQuoteLine >= 0 ? lines.slice(firstNonQuoteLine).join('\n') : '';
-                  onValueChange?.(newValue);
-                  return newValue;
-                });
+                // Remove quote from input
+                const lines = prompt.split('\n');
+                const firstNonQuoteLine = lines.findIndex(line => !line.startsWith('>') && line.trim() !== '');
+                const newValue = firstNonQuoteLine >= 0 ? lines.slice(firstNonQuoteLine).join('\n') : '';
+                setPrompt(newValue);
               }}
             >
               <PiX className="h-3.5 w-3.5" />
@@ -623,135 +350,12 @@ export const PromptInputWithFiles = memo(function
       )}
 
       {/* Expanded Context and Files Display */}
-      {(files.length > 0 || context.length > 0) && (
-        <div className="px-3 pt-3 flex flex-col gap-2">
-          <div className="flex flex-wrap gap-2 items-start">
-             {/* Context Pills */}
-             {context.map((item) => (
-                <div 
-                  key={item.id}
-                  className="flex items-center gap-2 bg-secondary/50 border border-border/50 rounded-md px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
-                >
-                  {item.type === 'folder' ? (
-                    <PiFolder className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                  ) : (
-                    <PiChatCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium truncate text-foreground/90 leading-tight">
-                      {item.title}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                      {item.type === 'folder' ? 'Folder' : 'Conversation'}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 rounded-full hover:bg-background/80 shrink-0 -mr-1"
-                    onClick={() => handleRemoveContext(item)}
-                  >
-                    <PiX className="h-3 w-3" />
-                  </Button>
-                </div>
-             ))}
-             
-             {/* File Pills */}
-             {/* File Pills */}
-             {files.map((file, index) => {
-                const isFile = file instanceof File;
-                const name = file.name;
-                const size = isFile ? formatFileSize(file.size) : '';
-                
-                let Icon = PiFile;
-                if (isFile) {
-                   const category = getFileCategory(file);
-                   if (category === 'pdf') Icon = PiFilePdf;
-                   else if (category === 'image') Icon = PiFileImage;
-                   else if (category === 'text') Icon = PiFileText;
-                   else if (category === 'code') Icon = PiFileCode;
-                }
-
-                return (
-                  <div 
-                    key={`${name}-${index}`}
-                    className="flex items-center gap-2 bg-secondary/50 border border-border/50 rounded-md px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
-                  >
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-medium truncate text-foreground/90 leading-tight">
-                        {name}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                        {size || 'Attachment'}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 rounded-full hover:bg-background/80 shrink-0 -mr-1"
-                      onClick={() => handleRemoveFile(file)}
-                    >
-                      <PiX className="h-3 w-3" />
-                    </Button>
-                  </div>
-                );
-             })}
-          </div>
-        </div>
-      )}
-
-      {/* @ Mention Dropdown */}
-      {query && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 mx-2 z-[200]">
-          <div className="bg-popover border border-border rounded-lg shadow-md max-h-[280px] overflow-y-auto overflow-hidden">
-            {isSearching ? (
-              <div className="p-4 text-sm text-muted-foreground text-center">
-                Searching...
-              </div>
-            ) : results.length > 0 ? (
-              <div className="py-1.5">
-                {results.map((item, index) => (
-                  <button
-                    key={`${item.type}-${item.data.id}`}
-                    onClick={() => handleSelectContext(item)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-all text-left",
-                      index === selectedIndex 
-                        ? "bg-primary/10 text-primary" 
-                        : "hover:bg-muted/50 text-foreground"
-                    )}
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/50">
-                      {item.type === 'folder' ? (
-                        <PiFolder className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <PiChatCircle className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">
-                        {item.type === 'folder' 
-                          ? (item.data as FolderType).name 
-                          : (item.data as Conversation).title}
-                      </div>
-                      {item.matchedContent && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {item.matchedContent.slice(0, 60)}...
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 text-sm text-muted-foreground text-center">
-                No results for "{query}"
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <InputAttachmentList
+        files={files}
+        context={context}
+        onRemoveFile={handleRemoveFile}
+        onRemoveContext={handleRemoveContext}
+      />
 
       {/* Prompt input */}
       <FileUpload

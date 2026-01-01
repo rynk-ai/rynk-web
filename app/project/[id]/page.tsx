@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button";
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
-import { useStreaming } from "@/lib/hooks/use-streaming";
+import { useChatStream } from "@/lib/hooks/use-chat-stream";
+import { useChatController } from "@/lib/hooks/use-chat-controller";
+import { useSmartInput } from "@/lib/hooks/use-smart-input";
 import { useSubChats } from "@/lib/hooks/use-sub-chats";
 import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -45,7 +47,7 @@ import { PiPlus } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
-import { createStreamProcessor } from "@/lib/utils/stream-parser";
+// import { createStreamProcessor } from "@/lib/utils/stream-parser"; // Removed
 import { CommandBar } from "@/components/ui/command-bar";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 import { FocusModeToggle } from "@/components/focus-mode";
@@ -102,7 +104,7 @@ const ChatContent = memo(
     // Use custom hooks for separated state management
     const messageState = useMessageState();
     const editState = useMessageEdit();
-    const streamingState = useStreaming();
+    // const streamingState = useStreaming(); // DEPRECATED - Removed in favor of useChatStream
 
     // Keyboard awareness for mobile
     const keyboardHeight = useKeyboardAwarePosition();
@@ -129,31 +131,58 @@ const ChatContent = memo(
       startEdit,
       cancelEdit,
     } = editState;
+    // Get projectId from pathname for routing
+    const projectId = typeof window !== "undefined" 
+        ? window.location.pathname.split("/")[2] 
+        : null;
+    const routePrefix = projectId ? `/project/${projectId}` : "/chat";
+
+    
+    // Use Indexing Queue (Unified instance)
+    const indexingState = useIndexingQueue();
+    const { jobs } = indexingState;
+
+    // Use Controller
     const {
-      streamingMessageId,
-      streamingContent,
-      startStreaming,
-      updateStreamContent,
-      finishStreaming,
+        isSending,
+        isSavingEdit,
+        isDeleting,
+        isCreatingConversationRef,
+        handleSubmit,
+        handleSaveEdit,
+        handleDeleteMessage,
+        handleBranchFromMessage,
+        streamingState,
+    } = useChatController({
+        chatId: currentConversationId || undefined,
+        surfaceMode: 'chat',
+        setSurfaceMode: () => {},
+        localContext: [],
+        setLocalContext: () => {},
+        setQuotedMessage: () => {},
+        messageState,
+        editState,
+        routePrefix,
+        indexingState, // Pass unified instance
+    });
+
+    const {
+        isStreaming,
+        streamingMessageId,
+        streamingContent,
     } = streamingState;
 
-    // Refs for statusPills and searchResults to avoid stale closures in handleSubmit
-    // These values change during streaming, so we need refs to get current values
-    const statusPillsRef = useRef(statusPills);
-    const searchResultsRef = useRef(searchResults);
+    // Unified Stream Handler managed by controller
+    // We access context values for display
+    const activeStatusPills = statusPills;
+    const activeSearchResults = searchResults;
 
-    useEffect(() => {
-      statusPillsRef.current = statusPills;
-    }, [statusPills]);
-
-    useEffect(() => {
-      searchResultsRef.current = searchResults;
-    }, [searchResults]);
+    // Refs for stable access
+    // const statusPillsRef = useRef(statusPills); // Removed
+    // const searchResultsRef = useRef(searchResults); // Removed
 
     // Other local state
-    const [isSending, setIsSending] = useState(false);
-    const [isSavingEdit, setIsSavingEdit] = useState(false);
-    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    // Local State
     const [isScrolledUp, setIsScrolledUp] = useState(false);
 
     // Pagination state
@@ -230,9 +259,7 @@ const ChatContent = memo(
     // Track conversation ID to detect browser navigation
     const lastChatIdRef = useRef(currentConversationId);
     
-    // Guard to prevent message clearing during new conversation creation
-    // This prevents the race condition between URL navigation and message state updates
-    const isCreatingConversationRef = useRef(false);
+
 
     // Handle chatId from URL - auto-select conversation when URL changes
     useEffect(() => {
@@ -346,49 +373,24 @@ const ChatContent = memo(
       }
     }, [currentConversationId]);
 
-    // Indexing Queue for background PDF processing
-    const { jobs, enqueueFile } = useIndexingQueue();
+    // Helper: Wait for PDF indexing
+    // Controller handles this internally now
+    // But we might need to display progress?
+    // Controller uses useIndexingQueue directly.
+    // So UI component IndexingProgressBadge will react to global useIndexingQueue state.
 
-    // Keep a ref to jobs for the polling interval to access latest state
-    const jobsRef = useRef(jobs);
-    useEffect(() => {
-      jobsRef.current = jobs;
-    }, [jobs]);
+    // Local Context State
+    // We need to pass setLocalContext to controller if we want controller to clear it
+    // But ChatContent has `setLocalContext` state.
+    // The controller takes `localContext` and `setLocalContext`.
+    // We need to pass them to controller above.
 
-    // Show toast when indexing starts/progresses
-    useEffect(() => {
-      const processingJobs = jobs.filter((j: any) => j.status === "processing");
-      if (processingJobs.length > 0) {
-        // The hook handles the toast updates internally, but we can add extra UI here if needed
-      }
-    }, [jobs]);
-
-    // Helper: Wait for PDF indexing to complete
-    const waitForIndexing = useCallback((jobId: string): Promise<void> => {
-      return new Promise((resolve, reject) => {
-        const checkInterval = setInterval(() => {
-          // Use ref to get latest jobs state
-          const job = jobsRef.current.find((j) => j.id === jobId);
-
-          if (job?.status === "completed") {
-            clearInterval(checkInterval);
-            resolve();
-          } else if (job?.status === "failed") {
-            clearInterval(checkInterval);
-            reject(new Error(job.error || "Indexing failed"));
-          }
-        }, 500); // Check every 500ms
-
-        // Timeout after 5 minutes
-        setTimeout(
-          () => {
-            clearInterval(checkInterval);
-            reject(new Error("Indexing timeout"));
-          },
-          5 * 60 * 1000,
-        );
-      });
-    }, []);
+    // Let's fix the controller usage call above to pass these.
+    
+    // Quote handlers
+    // Passed to controller above?
+    // Controller takes `setQuotedMessage`.
+    // We have `setQuotedMessage` state.
 
     const handleContextChange = useCallback(
       async (newContext: typeof localContext) => {
@@ -419,390 +421,10 @@ const ChatContent = memo(
 
     // NOTE: Sub-chat handlers are now provided by useSubChats hook above
 
-    const handleSubmit = useCallback(
-      async (text: string, files: File[]) => {
-        if (!text.trim() && files.length === 0) return;
-
-        setIsSending(true);
-
-        // ✅ OPTIMISTIC UI: Create temp IDs and messages
-        const tempUserMessageId = crypto.randomUUID();
-        const tempAssistantMessageId = crypto.randomUUID();
-        const timestamp = Date.now();
-
-        const referencedConversationsList = activeContext
-          .filter((c) => c.type === "conversation")
-          .map((c) => ({ id: c.id, title: c.title }));
-
-        const referencedFoldersList = activeContext
-          .filter((c) => c.type === "folder")
-          .map((c) => ({ id: c.id, name: c.title }));
-
-        const optimisticUserMessage: ChatMessage = {
-          id: tempUserMessageId,
-          conversationId: currentConversationId || crypto.randomUUID(),
-          role: "user",
-          content: text,
-          attachments: files.map((f) => ({
-            name: f.name,
-            type: f.type,
-            size: f.size,
-          })),
-          referencedConversations: referencedConversationsList,
-          referencedFolders: referencedFoldersList,
-          createdAt: timestamp,
-          timestamp,
-          userId: "",
-          versionNumber: 1,
-        };
-
-        const optimisticAssistantMessage: ChatMessage = {
-          id: tempAssistantMessageId,
-          conversationId: currentConversationId || crypto.randomUUID(),
-          role: "assistant",
-          content: "", // Empty content initially (loading state)
-          createdAt: timestamp + 1,
-          timestamp: timestamp + 1,
-          userId: "",
-          versionNumber: 1,
-        };
-
-        // Add optimistic messages IMMEDIATELY
-        messageState.addMessages([
-          optimisticUserMessage,
-          optimisticAssistantMessage,
-        ]);
-
-        // Start streaming/thinking UI IMMEDIATELY (don't wait for API)
-        // This shows the loading indicator while conversation creation happens
-        startStreaming(tempAssistantMessageId);
-
-        // Clear context and quote immediately
-        setLocalContext([]);
-        setQuotedMessage(null);
-
-        try {
-          // 1. Upload files & Start Indexing PARALLEL
-          let uploadedAttachments: any[] = [];
-          let effectiveConversationId = currentConversationId;
-
-          if (files.length > 0) {
-            // Check if we have any large PDFs which require a real conversation ID for indexing
-            const hasLargePDFs = files.some(
-              (f) => f.type === "application/pdf" && f.size >= 500 * 1024,
-            );
-
-            // If we have large PDFs and no conversation ID, create one NOW
-            if (hasLargePDFs && !effectiveConversationId) {
-              console.log(
-                "🆕 [ProjectPage] Creating new conversation for PDF indexing...",
-              );
-              try {
-                const newConversationId = await createConversation();
-                effectiveConversationId = newConversationId;
-                // Update optimistic messages with real ID
-                messageState.updateMessage(tempUserMessageId, {
-                  conversationId: effectiveConversationId,
-                });
-                messageState.updateMessage(tempAssistantMessageId, {
-                  conversationId: effectiveConversationId,
-                });
-                // Navigate to stay in project context
-                router.push(
-                  `/project/[id]?id=${encodeURIComponent(newConversationId)}`.replace(
-                    "[id]",
-                    window.location.pathname.split("/")[2],
-                  ),
-                );
-              } catch (err) {
-                console.error(
-                  "❌ [ProjectPage] Failed to create conversation:",
-                  err,
-                );
-                throw err;
-              }
-            }
-
-            // Process files in parallel
-            const processingPromises = files.map(async (file) => {
-              const isLargePDF =
-                file.type === "application/pdf" && file.size >= 500 * 1024;
-
-              // Start Upload
-              // Use Presigned URL to avoid Worker body limits
-              // Start Upload
-              // Use Multipart Upload (via Worker) to avoid body limits
-              const uploadPromise = (async () => {
-                const CHUNK_SIZE = 6 * 1024 * 1024;
-                if (file.size <= CHUNK_SIZE) {
-                  const fd = new FormData();
-                  fd.append("file", file);
-                  const res = await uploadFileAction(fd);
-                  return res.url;
-                } else {
-                  const { uploadId, key } = await initiateMultipartUploadAction(
-                    file.name,
-                    file.type,
-                  );
-                  const parts = [];
-                  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-                  for (let i = 0; i < totalChunks; i++) {
-                    const start = i * CHUNK_SIZE;
-                    const end = Math.min(start + CHUNK_SIZE, file.size);
-                    const chunk = file.slice(start, end);
-                    const fd = new FormData();
-                    fd.append("chunk", chunk);
-                    const part = await uploadPartAction(
-                      key,
-                      uploadId,
-                      i + 1,
-                      fd,
-                    );
-                    parts.push(part);
-                  }
-                  return await completeMultipartUploadAction(
-                    key,
-                    uploadId,
-                    parts,
-                  );
-                }
-              })();
-
-              // Start Indexing (if large PDF)
-              let indexingPromise: Promise<void> | undefined;
-              if (isLargePDF && effectiveConversationId) {
-                const jobId = await enqueueFile(
-                  file,
-                  effectiveConversationId,
-                  tempUserMessageId,
-                  uploadPromise,
-                );
-                if (jobId) {
-                  indexingPromise = waitForIndexing(jobId);
-                }
-              }
-
-              try {
-                // Wait for upload to complete
-                const url = await uploadPromise;
-
-                return {
-                  attachment: {
-                    file,
-                    url,
-                    name: file.name,
-                    type: file.type,
-                    size: file.size,
-                    isLargePDF,
-                  },
-                  indexingPromise,
-                };
-              } catch (e) {
-                console.error("Upload failed for", file.name, e);
-                return null;
-              }
-            });
-
-            // Wait for all uploads and indexing initiations
-            const results = await Promise.all(processingPromises);
-            const validResults = results.filter(Boolean) as any[];
-
-            // Extract attachments
-            uploadedAttachments = validResults.map((r) => r.attachment);
-
-            // Wait for indexing to complete (so AI has context)
-            const indexingPromises = validResults
-              .map((r) => r.indexingPromise)
-              .filter(Boolean);
-            if (indexingPromises.length > 0) {
-              console.log(
-                `⏳ [ChatPage] Waiting for ${indexingPromises.length} indexing jobs...`,
-              );
-              await Promise.all(indexingPromises);
-              console.log("✅ [ChatPage] Indexing complete");
-            }
-          }
-
-          // 3. Send Chat Request
-          const result = await sendChatRequest(
-            text,
-            uploadedAttachments,
-            referencedConversationsList,
-            referencedFoldersList,
-            effectiveConversationId || undefined,
-            tempUserMessageId,
-            tempAssistantMessageId,
-          );
-
-          if (!result) {
-            removeMessage(tempUserMessageId);
-            removeMessage(tempAssistantMessageId);
-            return;
-          }
-
-          const {
-            streamReader,
-            conversationId,
-            userMessageId,
-            assistantMessageId,
-          } = result;
-
-          // Navigate to new conversation if it was just created
-          // (i.e., if we didn't have a conversation before)
-          if (!currentConversationId && conversationId) {
-            console.log(
-              "🆕 [ProjectPage] New conversation created, navigating:",
-              conversationId,
-            );
-            // Set guard to prevent message clearing race condition
-            isCreatingConversationRef.current = true;
-            router.push(
-              `/project/[id]?id=${encodeURIComponent(conversationId)}`.replace(
-                "[id]",
-                window.location.pathname.split("/")[2],
-              ),
-            );
-          }
-
-          // Replace optimistic messages with real ones
-          if (userMessageId && userMessageId !== tempUserMessageId) {
-            const realUserMessage = {
-              ...optimisticUserMessage,
-              id: userMessageId,
-              conversationId,
-            };
-            replaceMessage(tempUserMessageId, realUserMessage);
-          }
-
-          if (
-            assistantMessageId &&
-            assistantMessageId !== tempAssistantMessageId
-          ) {
-            const realAssistantMessage = {
-              ...optimisticAssistantMessage,
-              id: assistantMessageId,
-              conversationId,
-            };
-            replaceMessage(tempAssistantMessageId, realAssistantMessage);
-          }
-
-          // Update streaming to use REAL message ID (for proper message updates later)
-          // Streaming was already started with temp ID above for immediate UI feedback
-          if (assistantMessageId) {
-            startStreaming(assistantMessageId);
-          }
-
-          const decoder = new TextDecoder();
-          let fullContent = "";
-
-          try {
-            // Use stream parser to separate JSON metadata from content
-            const { processChunk, flush } = createStreamProcessor({
-              onStatus: (pill) => {
-                console.log('[ProjectPage] Parsed status pill:', pill);
-                setStatusPills(prev => [...prev, pill]);
-              },
-              onSearchResults: (results) => {
-                console.log('[ProjectPage] Parsed search results:', results.sources?.length);
-                setSearchResults(results);
-              },
-              onContextCards: (cards) => {
-                console.log('[ProjectPage] Parsed context cards:', cards?.length);
-                setContextCards(cards || []);
-              },
-              onContent: (text) => {
-                fullContent += text;
-                updateStreamContent(fullContent);
-              }
-            });
-
-            while (true) {
-              const { done, value } = await streamReader.read();
-              if (done) {
-                // CRITICAL: Flush any remaining content in buffer
-                flush();
-                console.log("[ProjectPage] Stream complete, length:", fullContent.length);
-                // Mark reasoning as complete
-                setStatusPills(prev => [...prev, {
-                  status: 'complete',
-                  message: 'Reasoning complete',
-                  timestamp: Date.now()
-                }]);
-                break;
-              }
-
-              const chunk = decoder.decode(value, { stream: true });
-              processChunk(chunk);
-            }
-          } catch (err) {
-            console.error("Error reading stream:", err);
-          } finally {
-            // CRITICAL: Update message BEFORE clearing streaming state to prevent flicker
-            if (assistantMessageId) {
-              messageState.updateMessage(assistantMessageId, {
-                content: fullContent,
-                // Persist reasoning metadata so sources display immediately
-                // CRITICAL: Use refs to get current values, not stale closure values!
-                reasoning_metadata: {
-                  statusPills: statusPillsRef.current,
-                  searchResults: searchResultsRef.current,
-                },
-              });
-            }
-            // CRITICAL: Batch finishStreaming and setIsSending using requestAnimationFrame
-            // This prevents cascading re-renders that cause flicker
-            requestAnimationFrame(() => {
-              // Clear the conversation creation guard
-              isCreatingConversationRef.current = false;
-              finishStreaming(fullContent);
-              setIsSending(false);
-            });
-          }
-        } catch (err: any) {
-          console.error("Failed to send message:", err);
-
-          // Check for insufficient credits error
-          if (err?.message?.includes("Insufficient credits")) {
-            toast.error("Insufficient credits", {
-              description:
-                "Please add more credits to continue using the chat.",
-              duration: 5000,
-            });
-          } else {
-            // Generic error toast for other errors
-            toast.error("Failed to send message", {
-              description:
-                err?.message ||
-                "An unexpected error occurred. Please try again.",
-              duration: 4000,
-            });
-          }
-
-          // Rollback on error
-          removeMessage(tempUserMessageId);
-          removeMessage(tempAssistantMessageId);
-          // Clear the conversation creation guard on error
-          isCreatingConversationRef.current = false;
-          setIsSending(false);
-        }
-      },
-      [
-        activeContext,
-        uploadAttachments,
-        sendChatRequest,
-        messageState,
-        startStreaming,
-        updateStreamContent,
-        finishStreaming,
-        currentConversationId,
-        replaceMessage,
-        removeMessage,
-        enqueueFile,
-        waitForIndexing,
-        jobs,
-      ],
-    );
+    // handleSubmit replaced by controller
+    // But controller's handleSubmit takes (text, files).
+    // PromptInputWithFiles sends (text, files).
+    // Perfect.
 
     // Handle pending query from URL params (?q=...) or localStorage
     // Get projectId from pathname (since we're in /project/[id])
@@ -969,352 +591,8 @@ const ChatContent = memo(
       cancelEdit();
     }, [cancelEdit]);
 
-    const handleSaveEdit = async (
-      newContent?: string,
-      newFiles?: (File | any)[],
-    ) => {
-      // Use passed content if available, otherwise fallback to state (for safety)
-      const contentToEdit = newContent ?? editContent;
-      const attachmentsToEdit = newFiles ?? editAttachments;
 
-      if (
-        !editingMessageId ||
-        isSavingEdit ||
-        (!contentToEdit.trim() && attachmentsToEdit.length === 0)
-      )
-        return;
 
-      // ✅ STEP 1: Store edit state in local variables BEFORE resetting state
-      const messageIdToEdit = editingMessageId;
-      const contextToEdit = editContext;
-      const conversationId = currentConversationId;
-
-      console.log("🔧 [handleSaveEdit] Starting edit:", {
-        messageIdToEdit,
-        conversationId,
-        contentLength: contentToEdit.length,
-        contextItems: contextToEdit.length,
-      });
-
-      setIsSavingEdit(true);
-
-      try {
-        // ✅ STEP 2: Extract context from STORED state (not reset state)
-        const referencedConversations = contextToEdit
-          .filter((c) => c.type === "conversation")
-          .map((c) => ({ id: c.id, title: c.title }));
-
-        const referencedFolders = contextToEdit
-          .filter((c) => c.type === "folder")
-          .map((c) => ({ id: c.id, name: c.title }));
-
-        console.log("📦 [handleSaveEdit] Extracted context:", {
-          referencedConversations: referencedConversations.length,
-          referencedFolders: referencedFolders.length,
-        });
-
-        // ✅ STEP 3: Clear edit UI immediately for better UX (but AFTER extracting data)
-        cancelEdit();
-
-        // ✅ STEP 4: Create new message version
-        console.log("💾 [handleSaveEdit] Creating message version...");
-        const result = await editMessage(
-          messageIdToEdit,
-          contentToEdit,
-          attachmentsToEdit,
-          referencedConversations,
-          referencedFolders,
-        );
-
-        if (!result?.newMessage) {
-          throw new Error("Failed to create message version");
-        }
-
-        // ✅ STEP 5: The new message (active version)
-        const newMessage = result.newMessage;
-        console.log("✅ [handleSaveEdit] New message created:", {
-          originalId: messageIdToEdit,
-          newMessageId: newMessage.id,
-          conversationPath: result.conversationPath,
-        });
-
-        // ✅ STEP 6: Fetch updated messages ONCE to get the new conversation state
-        console.log("📥 [handleSaveEdit] Fetching updated messages...");
-        const { messages: updatedMessages } = await getMessages(
-          conversationId!,
-        );
-        const filteredMessages = filterActiveVersions(updatedMessages);
-        setMessages(filteredMessages);
-        console.log("📋 [handleSaveEdit] Messages updated:", {
-          totalMessages: updatedMessages.length,
-          filteredMessages: filteredMessages.length,
-        });
-
-        // ✅ STEP 6.5: Update messageVersions Map for the edited message group
-        // This is critical for showing the version indicator
-        const rootId = messageIdToEdit; // The original message ID (root of versions)
-        const allVersions = await getMessageVersions(rootId);
-
-        console.log("🔄 [handleSaveEdit] Updating versions map:", {
-          rootId,
-          versionCount: allVersions.length,
-        });
-
-        setMessageVersions((prev) => {
-          const updated = new Map(prev);
-          updated.set(rootId, allVersions);
-          return updated;
-        });
-
-        // ✅ STEP 7: Check if we need to generate an AI response
-        // Only generate if the edited message is at the END of the conversation
-        const isEditedMessageLast =
-          newMessage &&
-          filteredMessages[filteredMessages.length - 1]?.id === newMessage.id;
-
-        console.log("🤔 [handleSaveEdit] Should generate AI response?", {
-          isEditedMessageLast,
-          lastMessageId: filteredMessages[filteredMessages.length - 1]?.id,
-          newMessageId: newMessage.id,
-        });
-
-        if (isEditedMessageLast) {
-          // ✅ STEP 8: Generate AI response using the NEW message ID
-          try {
-            console.log("🤖 [handleSaveEdit] Generating AI response for:", {
-              conversationId,
-              messageId: newMessage.id, // ✅ Uses NEW message ID, not old one!
-              useReasoning: reasoningMode,
-            });
-
-            // Clear previous status pills/search results and show initial status
-            setStatusPills([{
-              status: 'analyzing',
-              message: 'Analyzing request...',
-              timestamp: Date.now()
-            }]);
-            setSearchResults(null);
-            setContextCards([]);
-
-            const response = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                conversationId: conversationId,
-                messageId: newMessage.id, // ✅ CRITICAL: Use NEW message ID
-                useReasoning: reasoningMode, // ✅ Pass reasoning mode
-              }),
-            });
-
-            if (response.ok && response.body) {
-              console.log("✅ [handleSaveEdit] AI response started");
-
-              // Extract assistant message ID from headers
-              const assistantMessageId = response.headers.get(
-                "X-Assistant-Message-Id",
-              );
-
-              if (assistantMessageId) {
-                console.log(
-                  "📨 [handleSaveEdit] Assistant message ID:",
-                  assistantMessageId,
-                );
-
-                // Create optimistic assistant placeholder
-                const timestamp = Date.now();
-                const optimisticAssistant: ChatMessage = {
-                  id: assistantMessageId,
-                  conversationId: conversationId!,
-                  role: "assistant",
-                  content: "",
-                  createdAt: timestamp,
-                  timestamp,
-                  userId: "",
-                  versionNumber: 1,
-                };
-
-                messageState.addMessages([optimisticAssistant]);
-                startStreaming(assistantMessageId);
-
-                // Read and display the stream WITH parsing (same as sendChatRequest)
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let fullContent = "";
-
-                try {
-                  while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                      // Mark reasoning as complete when stream ends
-                      setStatusPills(prev => [...prev, {
-                        status: 'complete',
-                        message: 'Reasoning complete',
-                        timestamp: Date.now()
-                      }]);
-                      break;
-                    }
-
-                    const text = decoder.decode(value, { stream: true });
-                    
-                    // Use shared stream parser utility
-                    let contentChunk = '';
-                    processStreamChunk(text, {
-                      onStatus: (pill) => {
-                        console.log('[handleSaveEdit] Parsed status pill:', pill);
-                        setStatusPills(prev => [...prev, pill]);
-                      },
-                      onSearchResults: (results) => {
-                        console.log('[handleSaveEdit] Parsed search results:', results.sources?.length);
-                        setSearchResults(results);
-                      },
-                      onContextCards: (cards) => {
-                        console.log('[handleSaveEdit] Parsed context cards:', cards?.length);
-                        setContextCards(cards || []);
-                      },
-                      onContent: (text) => {
-                        contentChunk += text;
-                      }
-                    });
-
-                    if (contentChunk) {
-                      fullContent += contentChunk;
-                      updateStreamContent(fullContent);
-                    }
-                  }
-                  console.log(
-                    "✅ [handleSaveEdit] AI response complete, length:",
-                    fullContent.length,
-                  );
-                } finally {
-                  // CRITICAL: Update message BEFORE clearing streaming state to prevent flicker
-                  messageState.updateMessage(assistantMessageId, {
-                    content: fullContent,
-                    // Persist reasoning metadata so sources display immediately
-                    // CRITICAL: Use refs to get current values, not stale closure values!
-                    reasoning_metadata: {
-                      statusPills: statusPillsRef.current,
-                      searchResults: searchResultsRef.current,
-                    },
-                  });
-                  // Batch finishStreaming and setIsSavingEdit using requestAnimationFrame
-                  requestAnimationFrame(() => {
-                    finishStreaming(fullContent);
-                    setIsSavingEdit(false);
-                    setIsEditing(false);
-                  });
-                }
-              }
-            } else {
-              console.error(
-                "❌ [handleSaveEdit] AI response error:",
-                response.status,
-                response.statusText,
-              );
-              setIsSavingEdit(false);
-              setIsEditing(false);
-            }
-          } catch (aiError) {
-            console.error(
-              "❌ [handleSaveEdit] Failed to generate AI response:",
-              aiError,
-            );
-            finishStreaming();
-            setIsSavingEdit(false);
-            setIsEditing(false);
-          }
-        }
-      } catch (error: any) {
-        console.error("❌ [handleSaveEdit] Failed to save edit:", error);
-
-        // Check for insufficient credits error
-        if (error?.message?.includes("Insufficient credits")) {
-          toast.error("Insufficient credits", {
-            description:
-              "Please add more credits to continue editing messages.",
-            duration: 5000,
-          });
-        } else {
-          // Generic error toast for other errors
-          toast.error("Failed to save edit", {
-            description:
-              error?.message ||
-              "An unexpected error occurred. Please try again.",
-            duration: 4000,
-          });
-        }
-
-        // Revert optimistic update on error by fetching from server
-        try {
-          const { messages: revertedMessages } = await getMessages(
-            conversationId!,
-          );
-          const filteredRevertedMessages =
-            filterActiveVersions(revertedMessages);
-          setMessages(filteredRevertedMessages);
-        } catch (fetchError) {
-          console.error("Failed to revert after error:", fetchError);
-        }
-        setIsSavingEdit(false);
-        setIsEditing(false);
-      }
-      console.log("🏁 [handleSaveEdit] Edit operation complete");
-    };
-
-    const handleDeleteMessage = useCallback(
-      async (messageId: string) => {
-        if (isLoading || isEditing) return;
-        setIsDeleting(messageId);
-
-        try {
-          // Get the message to find its version root before deleting
-          const message = messages.find((m) => m.id === messageId);
-          const rootId = message ? message.versionOf || message.id : null;
-
-          await deleteMessageAction(messageId);
-
-          // After successful delete, update versions map if this was a versioned message
-          if (rootId) {
-            const remainingVersions = await getMessageVersions(rootId);
-
-            console.log(
-              "🗑️ [handleDeleteMessage] Updating versions map after delete:",
-              {
-                rootId,
-                remainingVersions: remainingVersions.length,
-              },
-            );
-
-            setMessageVersions((prev) => {
-              const updated = new Map(prev);
-              if (remainingVersions.length > 1) {
-                updated.set(rootId, remainingVersions);
-              } else {
-                updated.delete(rootId); // Remove if only 1 version left
-              }
-              return updated;
-            });
-          }
-        } finally {
-          setIsDeleting(null);
-        }
-      },
-      [isLoading, isEditing, messages, deleteMessageAction, getMessageVersions],
-    );
-
-    const handleBranchFromMessage = useCallback(
-      async (messageId: string) => {
-        if (isLoading || isEditing) return;
-
-        if (confirm("Create a new conversation from this point?")) {
-          try {
-            await branchConversation(messageId);
-          } catch (err) {
-            console.error("Failed to branch conversation:", err);
-          }
-        }
-      },
-      [isLoading, branchConversation],
-    );
 
     // Handle keyboard shortcuts
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1771,36 +1049,6 @@ const ChatContent = memo(
   },
 );
 
-function FullChatApp({ projectId }: { projectId: string }) {
-  return (
-    <Suspense
-      fallback={
-        <>
-          <AppSidebar />
-          <SidebarInset>
-            <div className="flex h-full flex-col overflow-hidden relative">
-              <div className="flex-1 overflow-y-auto w-full relative">
-                {/* Empty State - rynk branding */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <TextShimmer
-                    spread={5}
-                    duration={4}
-                    className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
-                  >
-                    rynk.
-                  </TextShimmer>
-                </div>
-              </div>
-            </div>
-          </SidebarInset>
-        </>
-      }
-    >
-      <ChatContentWithProvider projectId={projectId} />
-    </Suspense>
-  );
-}
-
 // Command Bar wrapper that accesses chat context
 function CommandBarWrapper({
   open,
@@ -1812,7 +1060,6 @@ function CommandBarWrapper({
   const {
     conversations,
     selectConversation,
-    currentConversationId,
     folders,
     projects,
   } = useChatContext();
@@ -1868,60 +1115,6 @@ function CommandBarWrapper({
   );
 }
 
-// Separate component that uses useSearchParams
-// This ensures useSearchParams is wrapped in Suspense
-// Uses root-level ChatProvider from layout.tsx for data persistence
-function ChatContentWithProvider({ projectId }: { projectId: string }) {
-  const searchParams = useSearchParams();
-  const chatId = searchParams.get("id") || null;
-  const [commandBarOpen, setCommandBarOpen] = useState(false);
-  const { selectConversation, currentConversationId, selectProject } = useChatContext();
-
-  // Set active project
-  useEffect(() => {
-    selectProject(projectId);
-    return () => selectProject(null); // Clear on unmount
-  }, [projectId, selectProject]);
-
-  // Track previous chatId to detect URL-initiated changes only
-  // Initialize with undefined to ensure first render syncs URL to state
-  const prevChatIdRef = useRef<string | null | undefined>(undefined);
-  
-  // Sync URL chatId with context when URL changes
-  // CRITICAL: Only sync when chatId (URL) changes, NOT when currentConversationId changes
-  // This prevents reverting state when sidebar updates state before URL updates
-  useEffect(() => {
-    const prevChatId = prevChatIdRef.current;
-    prevChatIdRef.current = chatId;
-    
-    // On initial load (prevChatId === undefined), always sync if needed
-    const isInitialLoad = prevChatId === undefined;
-    const urlChanged = chatId !== prevChatId;
-    
-    if (isInitialLoad || urlChanged) {
-      // Only update state if it doesn't already match the URL
-      if (chatId !== currentConversationId) {
-        console.log("[ProjectPage] URL sync:", { from: prevChatId, to: chatId, isInitialLoad });
-        selectConversation(chatId);
-      }
-    }
-  }, [chatId, currentConversationId, selectConversation]);
-
-  return (
-    <>
-      <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
-      <>
-        <AppSidebar />
-        <SidebarInset>
-          <ChatHeader projectId={projectId} />
-          <ChatContent />
-        </SidebarInset>
-        <FocusModeToggle />
-      </>
-    </>
-  );
-}
-
 // Memoized ChatHeader to prevent re-renders when parent state changes
 const ChatHeader = memo(function ChatHeader({
   projectId,
@@ -1929,7 +1122,6 @@ const ChatHeader = memo(function ChatHeader({
   projectId?: string;
 }) {
   const { selectConversation } = useChatContext();
-  const { state } = useSidebar();
   const router = useRouter();
 
   const handleNewChat = useCallback(() => {
@@ -1958,6 +1150,49 @@ const ChatHeader = memo(function ChatHeader({
     </div>
   );
 });
+function ChatContentWithLayout({ projectId }: { projectId: string }) {
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get("id") || null;
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
+  const { selectConversation, currentConversationId, selectProject } = useChatContext();
+
+  // Set active project
+  useEffect(() => {
+    selectProject(projectId);
+    return () => selectProject(null); // Clear on unmount
+  }, [projectId, selectProject]);
+
+  // Track previous chatId to detect URL-initiated changes only
+  const prevChatIdRef = useRef<string | null | undefined>(undefined);
+  
+  // Sync URL chatId with context when URL changes
+  useEffect(() => {
+    const prevChatId = prevChatIdRef.current;
+    prevChatIdRef.current = chatId;
+    
+    const isInitialLoad = prevChatId === undefined;
+    const urlChanged = chatId !== prevChatId;
+    
+    if (isInitialLoad || urlChanged) {
+      if (chatId !== currentConversationId) {
+        console.log("[ProjectPage] URL sync:", { from: prevChatId, to: chatId, isInitialLoad });
+        selectConversation(chatId);
+      }
+    }
+  }, [chatId, currentConversationId, selectConversation]);
+
+  return (
+    <>
+      <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
+      <AppSidebar />
+      <SidebarInset>
+        <ChatHeader projectId={projectId} />
+        <ChatContent />
+      </SidebarInset>
+      <FocusModeToggle />
+    </>
+  );
+}
 
 export default function ChatPage({
   params,
@@ -1965,5 +1200,32 @@ export default function ChatPage({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = use(params);
-  return <FullChatApp projectId={resolvedParams.id} />;
+  
+  return (
+    <Suspense
+      fallback={
+        <>
+          <AppSidebar />
+          <SidebarInset>
+            <div className="flex h-full flex-col overflow-hidden relative">
+              <div className="flex-1 overflow-y-auto w-full relative">
+                {/* Empty State - rynk branding */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <TextShimmer
+                    spread={5}
+                    duration={4}
+                    className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
+                  >
+                    rynk.
+                  </TextShimmer>
+                </div>
+              </div>
+            </div>
+          </SidebarInset>
+        </>
+      }
+    >
+      <ChatContentWithLayout projectId={resolvedParams.id} />
+    </Suspense>
+  );
 }

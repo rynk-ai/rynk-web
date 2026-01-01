@@ -64,6 +64,13 @@ export async function deleteMessage(conversationId: string, messageId: string) {
   revalidatePath('/chat')
 }
 
+export async function updateMessage(messageId: string, updates: any) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error("Unauthorized")
+  await cloudDb.updateMessage(messageId, updates)
+  revalidatePath('/chat')
+}
+
 export async function getAllTags() {
   const session = await auth()
   if (!session?.user?.id) return []

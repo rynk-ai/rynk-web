@@ -13,7 +13,9 @@ import {
   useGuestStreamingContext,
 } from "@/lib/hooks/guest-chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
-import { useStreaming } from "@/lib/hooks/use-streaming";
+import { useMessageEdit } from "@/lib/hooks/use-message-edit";
+import { useChatStream } from "@/lib/hooks/use-chat-stream";
+import { useGuestChatController } from "@/lib/hooks/use-guest-chat-controller";
 import { useLatest } from "@/lib/hooks/use-latest";
 import { useGuestSubChats } from "@/lib/hooks/use-guest-sub-chats";
 import { GuestSidebar } from "@/components/guest/guest-sidebar";
@@ -38,7 +40,7 @@ import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
 import { PiPlus } from "react-icons/pi";
-import { createStreamProcessor } from "@/lib/utils/stream-parser";
+// import { createStreamProcessor } from "@/lib/utils/stream-parser"; // Removed
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
 
@@ -94,7 +96,58 @@ const GuestChatContent = memo(function GuestChatContent({
 
   // Use custom hooks for separated state management
   const messageState = useMessageState();
-  const streamingState = useStreaming();
+  const editState = useMessageEdit(); // Needed for controller
+
+  // Use Controller
+  const {
+      isSending,
+      isSavingEdit,
+      handleSubmit,
+      handleSaveEdit,
+      handleDeleteMessage,
+      streamingState,
+  } = useGuestChatController({
+      messageState,
+      editState
+  });
+
+  const {
+      isStreaming,
+      streamingMessageId,
+      streamingContent,
+  } = streamingState;
+
+  // New Unified Stream Handler (managed by controller now)
+  const { 
+      statusPills: streamStatusPills,
+      searchResults: streamSearchResults,
+      contextCards: streamContextCards,
+  } = useChatStream({
+      // We still need this hook instance just to access the state types correctly?
+      // Wait, the controller returns the state. 
+      // The controller's useChatStream instance is internal.
+      // But we need the values to display.
+      // The controller exposes simple streamingState.
+      // We might need to expose pill/search updates from controller?
+      // Actually, controller updates the Context statusPills/searchResults.
+      // So we can just use the context values!
+      // BUT, for stream-local updates (before persistence), useChatStream updates its own state
+      // AND calls callback.
+      // In GuestChatController, we passed onStatusUpdate/onSearchResultsUpdate to update CONTEXT.
+      // So `statusPills` from context should be live!
+      // Let's verify `useGuestChatController`:
+      // onStatusUpdate: (pills) => setStatusPills(pills) -> global context
+      // So we don't need a local useChatStream here anymore.
+  });
+
+  // Since we rely on context updates now, we can use context values directly.
+  // HOWEVER, previous implementation had `streamStatusPills` separate from global `statusPills`.
+  // GuestChatProvider separates them?
+  // GuestStreamingContext has `statusPills` and `searchResults`.
+  // The controller updates these via `setStatusPills` from context.
+  // so `statusPills` from `useGuestStreamingContext` IS the source of truth now.
+  const activeStatusPills = statusPills;
+  const activeSearchResults = searchResults;
 
   // Keyboard awareness for mobile
   const keyboardHeight = useKeyboardAwarePosition();
@@ -105,22 +158,9 @@ const GuestChatContent = memo(function GuestChatContent({
     setMessages,
     messageVersions,
     setMessageVersions,
-    addMessages,
-    replaceMessage,
-    removeMessage,
-    updateMessage,
   } = messageState;
 
-  const {
-    streamingMessageId,
-    streamingContent,
-    startStreaming,
-    updateStreamContent,
-    finishStreaming,
-  } = streamingState;
-
   // Local state
-  const [isSending, setIsSending] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
@@ -140,7 +180,8 @@ const GuestChatContent = memo(function GuestChatContent({
     authorRole: "user" | "assistant";
   } | null>(null);
 
-  // Context state
+  // Context state (Guest chat doesn't fully support manual context yet inside controller, keeping local for display)
+  // Actually guest input hides file upload and context mainly.
   const [localContext, setLocalContext] = useState<ContextItem[]>([]);
   const activeContext = localContext;
 
@@ -149,20 +190,8 @@ const GuestChatContent = memo(function GuestChatContent({
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Track conversation ID for detecting navigation
-  // Initialize with undefined to ensure first render syncs URL to state
   const lastChatIdRef = useRef<string | undefined>(undefined);
   const lastConversationIdRef = useRef(currentConversationId);
-
-  // Stable refs to avoid stale closures
-  const sendChatRequestRef = useLatest(sendChatRequest);
-  const messageStateRef = useLatest(messageState);
-  const startStreamingRef = useLatest(startStreaming);
-  const updateStreamContentRef = useLatest(updateStreamContent);
-  const finishStreamingRef = useLatest(finishStreaming);
-  const replaceMessageRef = useLatest(replaceMessage);
-  const removeMessageRef = useLatest(removeMessage);
-  const statusPillsRef = useLatest(statusPills);
-  const searchResultsRef = useLatest(searchResults);
 
   // Sub-chat hook
   const {
@@ -229,23 +258,17 @@ const GuestChatContent = memo(function GuestChatContent({
 
   // Reset state for new chat
   useEffect(() => {
-    // CRITICAL: Don't clear messages if we're currently sending!
-    // This prevents wiping out optimistic messages during new conversation creation
-    if (isSending) {
-      console.log("[GuestChat] Skipping message clear - currently sending");
-      return;
-    }
+    if (isSending) return;
     
     if (!currentConversationId) {
       if (!chatId) {
-        console.log("[GuestChat] New chat - clearing state");
         setMessages([]);
         setMessageVersions(new Map());
         setQuotedMessage(null);
         setLocalContext([]);
       }
     }
-  }, [currentConversationId, chatId, isSending]);
+  }, [currentConversationId, chatId, isSending, setMessages, setMessageVersions]);
 
   // Reset context when switching conversations
   useEffect(() => {
@@ -438,249 +461,23 @@ const GuestChatContent = memo(function GuestChatContent({
     }
   }, []);
 
-  // Message submission handler
-  const handleSubmit = useCallback(
-    async (text: string, files: File[]) => {
-      if (!text.trim()) return;
-
-      // Files not supported for guest
-      if (files.length > 0) {
-        toast.info("File uploads require signing in");
-      }
-
-      // Check credits
-      if (creditsRemaining !== null && creditsRemaining <= 0) {
-        setShowUpgradeModal(true);
-        return;
-      }
-
-      setIsSending(true);
-
-      const tempUserMessageId = crypto.randomUUID();
-      const tempAssistantMessageId = crypto.randomUUID();
-      const timestamp = Date.now();
-
-      const referencedConversationsList = activeContext
-        .filter((c) => c.type === "conversation")
-        .map((c) => ({ id: c.id, title: c.title }));
-
-      const referencedFoldersList = activeContext
-        .filter((c) => c.type === "folder")
-        .map((c) => ({ id: c.id, name: c.title }));
-
-      // Optimistic UI
-      const optimisticUserMessage = {
-        id: tempUserMessageId,
-        conversationId: currentConversationId || crypto.randomUUID(),
-        role: "user" as const,
-        content: text,
-        attachments: [],
-        referencedConversations: referencedConversationsList,
-        referencedFolders: referencedFoldersList,
-        timestamp,
-        versionNumber: 1,
-      };
-
-      const optimisticAssistantMessage = {
-        id: tempAssistantMessageId,
-        conversationId: currentConversationId || crypto.randomUUID(),
-        role: "assistant" as const,
-        content: "",
-        attachments: [],
-        timestamp: timestamp + 1,
-        versionNumber: 1,
-      };
-
-      messageStateRef.current.addMessages([
-        optimisticUserMessage as any,
-        optimisticAssistantMessage as any,
-      ]);
-      startStreamingRef.current(tempAssistantMessageId);
-      setLocalContext([]);
-      setQuotedMessage(null);
-
-      try {
-        const result = await sendChatRequestRef.current(
-          text,
-          [],
-          referencedConversationsList,
-          referencedFoldersList,
-          currentConversationId || undefined,
-          tempUserMessageId,
-          tempAssistantMessageId
-        );
-
-        if (!result) {
-          throw new Error("Failed to send message");
-        }
-
-        const { streamReader, conversationId, userMessageId, assistantMessageId } = result;
-
-        // SCENARIO 1: New conversation created
-        if (!currentConversationId && conversationId) {
-          // If surface mode is selected (not chat), navigate to surface page
-          if (surfaceMode !== 'chat') {
-            console.log(
-              `🎯 [GuestChat] Surface mode "${surfaceMode}" selected for new conversation, navigating to surface`
-            );
-            const query = encodeURIComponent(text.slice(0, 500));
-            router.push(`/guest-surface/${surfaceMode}/${conversationId}?q=${query}`);
-            setSurfaceMode('chat');
-            // Clean up optimistic messages
-            removeMessageRef.current(tempUserMessageId);
-            removeMessageRef.current(tempAssistantMessageId);
-            finishStreamingRef.current();
-            setIsSending(false);
-            return; // Exit early, surface page will handle generation
-          } else {
-            // Normal chat - navigate to new conversation
-            router.replace(`/guest-chat?id=${conversationId}`, { scroll: false });
-          }
-        }
-
-        // SCENARIO 2: Existing conversation with surface mode selected
-        if (surfaceMode !== 'chat' && currentConversationId) {
-          console.log(
-            `🎯 [GuestChat] Surface mode "${surfaceMode}" selected mid-conversation, navigating to surface`
-          );
-          const targetConversationId = conversationId || currentConversationId;
-          const query = encodeURIComponent(text.slice(0, 500));
-          router.push(`/guest-surface/${surfaceMode}/${targetConversationId}?q=${query}`);
-          setSurfaceMode('chat');
-          // Remove optimistic messages since surface page will handle its own UI
-          removeMessageRef.current(tempUserMessageId);
-          removeMessageRef.current(tempAssistantMessageId);
-          finishStreamingRef.current();
-          setIsSending(false);
-          return; // Exit early, surface page will handle generation
-        }
-
-        // Replace optimistic message IDs with real ones
-        if (userMessageId && userMessageId !== tempUserMessageId) {
-          replaceMessageRef.current(tempUserMessageId, {
-            ...optimisticUserMessage,
-            id: userMessageId,
-            conversationId,
-          } as any);
-        }
-
-        if (assistantMessageId && assistantMessageId !== tempAssistantMessageId) {
-          replaceMessageRef.current(tempAssistantMessageId, {
-            ...optimisticAssistantMessage,
-            id: assistantMessageId,
-            conversationId,
-          } as any);
-          startStreamingRef.current(assistantMessageId);
-        }
-
-        // Stream response
-        const decoder = new TextDecoder();
-        let fullContent = "";
-
-        try {
-          // Use stream parser to separate JSON metadata from content
-          // Note: Guest context doesn't expose status pill setters, so we just log
-          const { processChunk, flush } = createStreamProcessor({
-            onStatus: (pill) => {
-              console.log('[GuestChat] Parsed status pill:', pill);
-              // Status pill state managed by useGuestChat hook internally
-            },
-            onSearchResults: (results) => {
-              console.log('[GuestChat] Parsed search results:', results.sources?.length);
-              // Search results state managed by useGuestChat hook internally
-            },
-            onContextCards: (cards) => {
-              console.log('[GuestChat] Parsed context cards:', cards?.length);
-            },
-            onContent: (text) => {
-              fullContent += text;
-              updateStreamContentRef.current(fullContent);
-            }
-          });
-
-          while (true) {
-            const { done, value } = await streamReader.read();
-            if (done) {
-              // CRITICAL: Flush any remaining content in buffer
-              flush();
-              console.log("[GuestChat] Stream complete, length:", fullContent.length);
-              break;
-            }
-
-            const chunk = decoder.decode(value, { stream: true });
-            processChunk(chunk);
-          }
-        } catch (err) {
-          console.error("[GuestChat] Error reading stream:", err);
-        } finally {
-          // Update message with final content and reasoning metadata
-          const finalAssistantId = assistantMessageId || tempAssistantMessageId;
-          messageStateRef.current.updateMessage(finalAssistantId, {
-            content: fullContent,
-            reasoning_metadata: {
-              statusPills: statusPillsRef.current,
-              searchResults: searchResultsRef.current,
-            },
-          });
-
-          // Batch state updates
-          requestAnimationFrame(() => {
-            finishStreamingRef.current(fullContent);
-            setIsSending(false);
-          });
-        }
-      } catch (err: any) {
-        console.error("Failed to send message:", err);
-
-        if (err.message?.includes("credit")) {
-          setShowUpgradeModal(true);
-        } else {
-          toast.error("Failed to send message");
-        }
-
-        removeMessageRef.current(tempUserMessageId);
-        removeMessageRef.current(tempAssistantMessageId);
-        finishStreamingRef.current();
-        setIsSending(false);
-      }
-    },
-    [
-      currentConversationId,
-      activeContext,
-      creditsRemaining,
-      setShowUpgradeModal,
-      router,
-      surfaceMode,
-    ]
-  );
-
   // Handle pending query from URL params (?q=...) or localStorage
   useEffect(() => {
-    // Check if we've already processed a query in this session
     const alreadyProcessed = sessionStorage.getItem("pendingQueryProcessed");
     if (alreadyProcessed || isSending) return;
 
-    // First check URL query parameter
     const urlQuery = searchParams.get("q");
-
-    // Then check localStorage
     const localStorageQuery = localStorage.getItem("pendingChatQuery");
-
-    // Use URL param if available, otherwise fall back to localStorage
     const pendingQuery = urlQuery || localStorageQuery;
 
-    if (!pendingQuery || !pendingQuery.trim()) {
-      return;
-    }
+    if (!pendingQuery || !pendingQuery.trim()) return;
 
-    // Mark as processed
     sessionStorage.setItem("pendingQueryProcessed", "true");
 
-    // Submit after a small delay
     setTimeout(() => {
-      handleSubmit(pendingQuery, []);
+      // Use controller submit
+      handleSubmit(pendingQuery);
 
-      // Cleanup
       if (localStorageQuery) localStorage.removeItem("pendingChatQuery");
       if (urlQuery) {
         const newParams = new URLSearchParams(searchParams.toString());
@@ -730,7 +527,7 @@ const GuestChatContent = memo(function GuestChatContent({
                   ref={virtuosoRef}
                   messages={messages}
                   isSending={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
-                  streamingMessageId={globalStreamingMessageId || streamingMessageId}
+                  streamingMessageId={streamingMessageId}
                   streamingContent={streamingContent}
                   editingMessageId={null}
                   onStartEdit={() => toast.info("Message editing requires signing in")}
@@ -749,8 +546,8 @@ const GuestChatContent = memo(function GuestChatContent({
                   }}
                   onLoadMore={loadMoreMessages}
                   isLoadingMore={isLoadingMore}
-                  statusPills={statusPills}
-                  searchResults={searchResults}
+                  statusPills={activeStatusPills}
+                  searchResults={activeSearchResults}
                   onIsAtBottomChange={setIsScrolledUp}
                 />
               </div>
@@ -793,7 +590,7 @@ const GuestChatContent = memo(function GuestChatContent({
         >
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
             <PromptInputWithFiles
-              onSubmit={handleSubmit}
+              onSubmit={(text, files) => handleSubmit(text)}
               isLoading={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
               placeholder="Ask anything..."
               disabled={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}

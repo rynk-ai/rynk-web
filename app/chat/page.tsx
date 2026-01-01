@@ -6,19 +6,15 @@ import {
   type VirtualizedMessageListRef,
 } from "@/components/chat/virtualized-message-list";
 import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue";
-import {
-  uploadFile as uploadFileAction,
-  initiateMultipartUpload as initiateMultipartUploadAction,
-  uploadPart as uploadPartAction,
-  completeMultipartUpload as completeMultipartUploadAction,
-} from "@/app/actions";
+// Actions removed - moved to useChatController
 import { Button } from "@/components/ui/button";
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
-import { useStreaming } from "@/lib/hooks/use-streaming";
+// import { useStreaming } from "@/lib/hooks/use-streaming"; // DEPRECATED
 import { useSubChats } from "@/lib/hooks/use-sub-chats";
-import { useLatest } from "@/lib/hooks/use-latest";
+import { useChatController } from "@/lib/hooks/use-chat-controller";
+// useLatest removed - moved to useChatController
 import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -51,7 +47,7 @@ import { ShareDialog } from "@/components/share-dialog";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { FocusModeToggle } from "@/components/focus-mode";
-import { createStreamProcessor } from "@/lib/utils/stream-parser";
+// createStreamProcessor removed - moved to useChatController
 
 // Extracted shared components
 import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
@@ -109,7 +105,7 @@ const ChatContent = memo(
     // Use custom hooks for separated state management
     const messageState = useMessageState();
     const editState = useMessageEdit();
-    const streamingState = useStreaming();
+    // const streamingState = useStreaming(); // REMOVED
 
     // Surface mode state for prompt input dropdown
     const [surfaceMode, setSurfaceMode] = useState<'chat' | 'learning' | 'guide' | 'research'>('chat');
@@ -139,19 +135,52 @@ const ChatContent = memo(
       startEdit,
       cancelEdit,
     } = editState;
+    // Old streaming state destructuring removed
+    // Local messages & context state
+    const [localContext, setLocalContext] = useState<
+      {
+        type: "conversation" | "folder";
+        id: string;
+        title: string;
+        status?: "loading" | "loaded";
+      }[]
+    >([]);
+
+    // Quote state
+    const [quotedMessage, setQuotedMessage] = useState<{
+      messageId: string;
+      quotedText: string;
+      authorRole: "user" | "assistant";
+    } | null>(null);
+
+    // ✅ Initialize Chat Controller
     const {
-      streamingMessageId,
-      streamingContent,
-      startStreaming,
-      updateStreamingMessageId,
-      updateStreamContent,
-      finishStreaming,
-    } = streamingState;
+      isSending,
+      isSavingEdit,
+      isDeleting,
+      isCreatingConversationRef,
+      handleSubmit,
+      handleSaveEdit,
+      handleDeleteMessage,
+      handleBranchFromMessage,
+      streamingState: {
+          streamingMessageId,
+          streamingContent,
+      }
+    } = useChatController({
+      chatId,
+      surfaceMode,
+      setSurfaceMode,
+      localContext,
+      setLocalContext,
+      setQuotedMessage,
+      messageState,
+      editState,
+      // streamingState, // REMOVED
+    });
 
     // Other local state
-    const [isSending, setIsSending] = useState(false);
-    const [isSavingEdit, setIsSavingEdit] = useState(false);
-    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
     const [isScrolledUp, setIsScrolledUp] = useState(false);
 
     // Pagination state
@@ -163,12 +192,8 @@ const ChatContent = memo(
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
     const [allTags, setAllTags] = useState<string[]>([]);
 
-    // Quote state
-    const [quotedMessage, setQuotedMessage] = useState<{
-      messageId: string;
-      quotedText: string;
-      authorRole: "user" | "assistant";
-    } | null>(null);
+
+
 
     // Sub-chat hook - extracted for better separation of concerns
     const {
@@ -236,9 +261,7 @@ const ChatContent = memo(
     // NOTE: URL-to-state sync is handled by ChatContentWithProvider, not here
     const lastConversationIdRef = useRef(currentConversationId);
     
-    // Guard to prevent message clearing during new conversation creation
-    // This prevents the race condition between URL navigation and message state updates
-    const isCreatingConversationRef = useRef(false);
+
 
     const isLoading =
       isSending || isSavingEdit || !!isDeleting || contextIsLoading;
@@ -305,17 +328,8 @@ const ChatContent = memo(
       }
     }, [currentConversationId, chatId, isSending]);
 
-    // Local context state (used for all conversations now, transient)
-    // Added 'status' field to track loading state for minimal progress feedback
-    const [localContext, setLocalContext] = useState<
-      {
-        type: "conversation" | "folder";
-        id: string;
-        title: string;
-        status?: "loading" | "loaded";
-      }[]
-    >([]);
-
+    // Local context state definition moved up for controller initialization
+    
     // Derived active context (source of truth) - now just localContext
     const activeContext = localContext;
 
@@ -327,49 +341,7 @@ const ChatContent = memo(
       }
     }, [currentConversationId]);
 
-    // Indexing Queue for background PDF processing
-    const { jobs, enqueueFile } = useIndexingQueue();
-
-    // Keep a ref to jobs for the polling interval to access latest state
-    const jobsRef = useRef(jobs);
-    useEffect(() => {
-      jobsRef.current = jobs;
-    }, [jobs]);
-
-    // Show toast when indexing starts/progresses
-    useEffect(() => {
-      const processingJobs = jobs.filter((j: any) => j.status === "processing");
-      if (processingJobs.length > 0) {
-        // The hook handles the toast updates internally, but we can add extra UI here if needed
-      }
-    }, [jobs]);
-
-    // Helper: Wait for PDF indexing to complete
-    const waitForIndexing = useCallback((jobId: string): Promise<void> => {
-      return new Promise((resolve, reject) => {
-        const checkInterval = setInterval(() => {
-          // Use ref to get latest jobs state
-          const job = jobsRef.current.find((j) => j.id === jobId);
-
-          if (job?.status === "completed") {
-            clearInterval(checkInterval);
-            resolve();
-          } else if (job?.status === "failed") {
-            clearInterval(checkInterval);
-            reject(new Error(job.error || "Indexing failed"));
-          }
-        }, 500); // Check every 500ms
-
-        // Timeout after 5 minutes
-        setTimeout(
-          () => {
-            clearInterval(checkInterval);
-            reject(new Error("Indexing timeout"));
-          },
-          5 * 60 * 1000,
-        );
-      });
-    }, []);
+    // Indexing Queue logic removed - moved to useChatController
 
     const handleContextChange = useCallback(
       async (newContext: typeof localContext) => {
@@ -400,456 +372,8 @@ const ChatContent = memo(
 
     // NOTE: Sub-chat handlers are now provided by useSubChats hook above
 
-    // Stable refs to avoid stale closures in callbacks
-    // Using useLatest instead of useRef + useEffect pattern
-    const sendChatRequestRef = useLatest(sendChatRequest);
-    const messageStateRef = useLatest(messageState);
-    const startStreamingRef = useLatest(startStreaming);
-    const updateStreamContentRef = useLatest(updateStreamContent);
-    const finishStreamingRef = useLatest(finishStreaming);
-    const replaceMessageRef = useLatest(replaceMessage);
-    const removeMessageRef = useLatest(removeMessage);
-    const enqueueFileRef = useLatest(enqueueFile);
-    const waitForIndexingRef = useLatest(waitForIndexing);
-    const statusPillsRef = useLatest(statusPills);
-    const searchResultsRef = useLatest(searchResults);
-
-    const handleSubmit = useCallback(
-      async (text: string, files: File[]) => {
-        if (!text.trim() && files.length === 0) return;
-
-        setIsSending(true);
-
-        // ✅ OPTIMISTIC UI: Create temp IDs and messages
-        const tempUserMessageId = crypto.randomUUID();
-        const tempAssistantMessageId = crypto.randomUUID();
-        const timestamp = Date.now();
-
-        const referencedConversationsList = activeContext
-          .filter((c) => c.type === "conversation")
-          .map((c) => ({ id: c.id, title: c.title }));
-
-        const referencedFoldersList = activeContext
-          .filter((c) => c.type === "folder")
-          .map((c) => ({ id: c.id, name: c.title }));
-
-        const optimisticUserMessage: ChatMessage = {
-          id: tempUserMessageId,
-          conversationId: currentConversationId || crypto.randomUUID(),
-          role: "user",
-          content: text,
-          attachments: files.map((f) => ({
-            name: f.name,
-            type: f.type,
-            size: f.size,
-          })),
-          referencedConversations: referencedConversationsList,
-          referencedFolders: referencedFoldersList,
-          createdAt: timestamp,
-          timestamp,
-          userId: "",
-          versionNumber: 1,
-        };
-
-        const optimisticAssistantMessage: ChatMessage = {
-          id: tempAssistantMessageId,
-          conversationId: currentConversationId || crypto.randomUUID(),
-          role: "assistant",
-          content: "", // Empty content initially (loading state)
-          createdAt: timestamp + 1,
-          timestamp: timestamp + 1,
-          userId: "",
-          versionNumber: 1,
-        };
-
-        // Add optimistic messages IMMEDIATELY
-        messageStateRef.current.addMessages([
-          optimisticUserMessage,
-          optimisticAssistantMessage,
-        ]);
-
-        // Start streaming/thinking UI IMMEDIATELY (don't wait for API)
-        // This shows the loading indicator while conversation creation happens
-        startStreamingRef.current(tempAssistantMessageId);
-
-        // Clear context and quote immediately
-        setLocalContext([]);
-        setQuotedMessage(null);
-
-        try {
-          // 1. Upload files & Start Indexing PARALLEL
-          let uploadedAttachments: any[] = [];
-          let effectiveConversationId = currentConversationId;
-
-          if (files.length > 0) {
-            // Check if we have any large PDFs which require a real conversation ID for indexing
-            const hasLargePDFs = files.some(
-              (f) => f.type === "application/pdf" && f.size >= 500 * 1024,
-            );
-
-            // If we have large PDFs and no conversation ID, create one NOW
-            if (hasLargePDFs && !effectiveConversationId) {
-              console.log(
-                "🆕 [ChatPage] Creating new conversation for PDF indexing...",
-              );
-              try {
-                const newConversationId = await createConversation();
-                effectiveConversationId = newConversationId;
-                // Update optimistic messages with real ID
-                messageStateRef.current.updateMessage(tempUserMessageId, {
-                  conversationId: effectiveConversationId,
-                });
-                messageStateRef.current.updateMessage(tempAssistantMessageId, {
-                  conversationId: effectiveConversationId,
-                });
-                // Navigate to the new conversation
-                router.push(
-                  `/chat?id=${encodeURIComponent(newConversationId)}`,
-                );
-              } catch (err) {
-                console.error(
-                  "❌ [ChatPage] Failed to create conversation:",
-                  err,
-                );
-                throw err;
-              }
-            }
-
-            // Process files in parallel
-            const processingPromises = files.map(async (file) => {
-              const isLargePDF =
-                file.type === "application/pdf" && file.size >= 500 * 1024;
-
-              // Start Upload
-              // Use Presigned URL to avoid Worker body limits
-              // Start Upload
-              // Use Multipart Upload (via Worker) to avoid body limits
-              const uploadPromise = (async () => {
-                const CHUNK_SIZE = 6 * 1024 * 1024;
-                if (file.size <= CHUNK_SIZE) {
-                  const fd = new FormData();
-                  fd.append("file", file);
-                  const res = await uploadFileAction(fd);
-                  return res.url;
-                } else {
-                  const { uploadId, key } = await initiateMultipartUploadAction(
-                    file.name,
-                    file.type,
-                  );
-                  const parts = [];
-                  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-                  for (let i = 0; i < totalChunks; i++) {
-                    const start = i * CHUNK_SIZE;
-                    const end = Math.min(start + CHUNK_SIZE, file.size);
-                    const chunk = file.slice(start, end);
-                    const fd = new FormData();
-                    fd.append("chunk", chunk);
-                    const part = await uploadPartAction(
-                      key,
-                      uploadId,
-                      i + 1,
-                      fd,
-                    );
-                    parts.push(part);
-                  }
-                  return await completeMultipartUploadAction(
-                    key,
-                    uploadId,
-                    parts,
-                  );
-                }
-              })();
-
-              // Start Indexing (if large PDF)
-              let indexingPromise: Promise<void> | undefined;
-              if (isLargePDF && effectiveConversationId) {
-                const jobId = await enqueueFileRef.current(
-                  file,
-                  effectiveConversationId,
-                  tempUserMessageId,
-                  uploadPromise,
-                );
-                if (jobId) {
-                  indexingPromise = waitForIndexingRef.current(jobId);
-                }
-              }
-
-              try {
-                // Wait for upload to complete
-                const url = await uploadPromise;
-
-                return {
-                  attachment: {
-                    file,
-                    url,
-                    name: file.name,
-                    type: file.type,
-                    size: file.size,
-                    isLargePDF,
-                  },
-                  indexingPromise,
-                };
-              } catch (e) {
-                console.error("Upload failed for", file.name, e);
-                return null;
-              }
-            });
-
-            // Wait for all uploads and indexing initiations
-            const results = await Promise.all(processingPromises);
-            const validResults = results.filter(Boolean) as any[];
-
-            // Extract attachments
-            uploadedAttachments = validResults.map((r) => r.attachment);
-
-            // Wait for indexing to complete (so AI has context)
-            const indexingPromises = validResults
-              .map((r) => r.indexingPromise)
-              .filter(Boolean);
-            if (indexingPromises.length > 0) {
-              console.log(
-                `⏳ [ChatPage] Waiting for ${indexingPromises.length} indexing jobs...`,
-              );
-              await Promise.all(indexingPromises);
-              console.log("✅ [ChatPage] Indexing complete");
-            }
-          }
-
-          // 3. Send Chat Request
-          
-          // 🔥 FIX: Set guard BEFORE async operation to protect against race conditions
-          // This flag prevents reloadMessages from overwriting optimistic messages
-          // when DB hasn't synced the new conversation yet
-          isCreatingConversationRef.current = !currentConversationId;
-
-          const result = await sendChatRequestRef.current(
-            text,
-            uploadedAttachments,
-            referencedConversationsList,
-            referencedFoldersList,
-            effectiveConversationId || undefined,
-            tempUserMessageId,
-            tempAssistantMessageId,
-          );
-
-          if (!result) {
-            removeMessageRef.current(tempUserMessageId);
-            removeMessageRef.current(tempAssistantMessageId);
-            return;
-          }
-
-          const {
-            streamReader,
-            conversationId,
-            userMessageId,
-            assistantMessageId,
-          } = result;
-          console.log("📦 [handleSubmit] Got result from sendChatRequest", {
-            conversationId,
-            userMessageId,
-            assistantMessageId,
-          });
-
-          // Navigate to new conversation if it was just created
-          // (i.e., if we didn't have a conversation before)
-          if (
-            !currentConversationId &&
-            conversationId &&
-            conversationId !== chatId
-          ) {
-            console.log(
-              "🆕 [handleSubmit] New conversation created, navigating:",
-              conversationId,
-            );
-            
-            // If surface mode is selected (not chat), navigate to surface page
-            if (surfaceMode !== 'chat') {
-              console.log(
-                `🎯 [handleSubmit] Surface mode "${surfaceMode}" selected, navigating to surface`,
-              );
-              const query = encodeURIComponent(text.slice(0, 500));
-              router.push(`/surface/${surfaceMode}/${conversationId}?q=${query}`);
-              // Reset surface mode to chat for next interaction
-              setSurfaceMode('chat');
-              return; // Exit early, surface page will handle generation
-            } else {
-              // Set guard to prevent message clearing race condition
-              isCreatingConversationRef.current = true;
-              router.push(`/chat?id=${encodeURIComponent(conversationId)}`);
-            }
-          }
-          
-          // Handle surface mode for EXISTING conversations
-          // If user selected a surface mode mid-conversation, navigate to surface page
-          if (surfaceMode !== 'chat' && currentConversationId) {
-            console.log(
-              `🎯 [handleSubmit] Surface mode "${surfaceMode}" selected mid-conversation, navigating to surface`,
-            );
-            const targetConversationId = conversationId || currentConversationId;
-            const query = encodeURIComponent(text.slice(0, 500));
-            router.push(`/surface/${surfaceMode}/${targetConversationId}?q=${query}`);
-            // Reset surface mode to chat for next interaction
-            setSurfaceMode('chat');
-            // Remove the optimistic messages since we're navigating away
-            removeMessageRef.current(tempUserMessageId);
-            removeMessageRef.current(tempAssistantMessageId);
-            return; // Exit early, surface page will handle generation
-          }
-
-          // Replace optimistic messages with real ones
-          if (userMessageId && userMessageId !== tempUserMessageId) {
-            const realUserMessage = {
-              ...optimisticUserMessage,
-              id: userMessageId,
-              conversationId,
-            };
-            replaceMessageRef.current(tempUserMessageId, realUserMessage);
-          }
-
-          if (
-            assistantMessageId &&
-            assistantMessageId !== tempAssistantMessageId
-          ) {
-            const realAssistantMessage = {
-              ...optimisticAssistantMessage,
-              id: assistantMessageId,
-              conversationId,
-            };
-            replaceMessageRef.current(
-              tempAssistantMessageId,
-              realAssistantMessage,
-            );
-          }
-
-          // Update streaming to use REAL message ID (for proper message updates later)
-          // Streaming was already started with temp ID above for immediate UI feedback
-          // CRITICAL: Use updateStreamingMessageId, NOT startStreaming - we don't want to reset content!
-          console.log("🔄 [handleSubmit] Updating streaming to real message ID", {
-            from: tempAssistantMessageId,
-            to: assistantMessageId,
-          });
-          if (assistantMessageId) {
-            updateStreamingMessageId(assistantMessageId);
-          }
-
-          const decoder = new TextDecoder();
-          let fullContent = "";
-          console.log("📖 [handleSubmit] Starting to read stream");
-
-          try {
-            // 🔥 FIX: Use stateful stream processor to separate JSON metadata from content
-            // Without this, raw JSON (status pills, search results) gets mixed into content
-            const { processChunk, flush } = createStreamProcessor({
-              onStatus: (pill) => {
-                console.log('[handleSubmit] Parsed status pill:', pill);
-                setStatusPills(prev => [...prev, pill]);
-              },
-              onSearchResults: (results) => {
-                console.log('[handleSubmit] Parsed search results:', results.sources?.length);
-                setSearchResults(results);
-              },
-              onContextCards: (cards) => {
-                console.log('[handleSubmit] Parsed context cards:', cards?.length);
-                setContextCards(cards || []);
-              },
-              onContent: (text) => {
-                fullContent += text;
-                updateStreamContentRef.current(fullContent);
-              }
-            });
-
-            while (true) {
-              const { done, value } = await streamReader.read();
-              if (done) {
-                // CRITICAL: Flush any remaining content in buffer before finishing
-                flush();
-                console.log(
-                  "✅ [handleSubmit] Stream complete, total length:",
-                  fullContent.length,
-                );
-                // Mark reasoning as complete when stream ends
-                setStatusPills(prev => [...prev, {
-                  status: 'complete',
-                  message: 'Reasoning complete',
-                  timestamp: Date.now()
-                }]);
-                break;
-              }
-
-              const chunk = decoder.decode(value, { stream: true });
-              processChunk(chunk);
-            }
-          } catch (err) {
-            console.error("❌ [handleSubmit] Error reading stream:", err);
-          } finally {
-            console.log("🏁 [handleSubmit] Stream finished, updating message");
-            // CRITICAL: Update message content AND reasoning metadata BEFORE clearing streaming state
-            // This prevents the flash where sources disappear between stream end and message update
-            if (assistantMessageId) {
-              messageStateRef.current.updateMessage(assistantMessageId, {
-                content: fullContent,
-                // Persist reasoning metadata so sources display immediately after stream completes
-                // CRITICAL: Use refs to get current values, not stale closure values!
-                reasoning_metadata: {
-                  statusPills: statusPillsRef.current,
-                  searchResults: searchResultsRef.current,
-                },
-              });
-            }
-            // CRITICAL: Batch finishStreaming and setIsSending together using requestAnimationFrame
-            // This ensures message update has propagated AND both visual state changes happen in the same frame
-            // Prevents cascading re-renders that cause flicker
-            requestAnimationFrame(() => {
-              // Clear the conversation creation guard
-              isCreatingConversationRef.current = false;
-              finishStreamingRef.current(fullContent);
-              setIsSending(false);
-            });
-          }
-        } catch (err: any) {
-          console.error("Failed to send message:", err);
-
-          // Check for insufficient credits error
-          if (err?.message?.includes("Insufficient credits")) {
-            toast.error("Insufficient credits", {
-              description:
-                "Please add more credits to continue using the chat.",
-              duration: 5000,
-            });
-          } else {
-            // Generic error toast for other errors
-            toast.error("Failed to send message", {
-              description:
-                err?.message ||
-                "An unexpected error occurred. Please try again.",
-              duration: 4000,
-            });
-          }
-
-          // Rollback on error
-          removeMessageRef.current(tempUserMessageId);
-          removeMessageRef.current(tempAssistantMessageId);
-          // Clear the conversation creation guard on error
-          isCreatingConversationRef.current = false;
-          // Also need to clear sending state on error
-          setIsSending(false);
-        }
-      },
-      // Only include dependencies that can change and affect the callback
-      // Using refs for most dependencies to prevent recreation
-      [
-        activeContext,
-        currentConversationId,
-        router,
-        createConversation,
-        uploadFileAction,
-        initiateMultipartUploadAction,
-        uploadPartAction,
-        completeMultipartUploadAction,
-        surfaceMode,
-      ],
-    );
+    // Indexing Queue for background PDF processing (needed for UI feedback)
+    const { jobs } = useIndexingQueue();
 
     // Handle pending query from URL params (?q=...) or localStorage
     useEffect(() => {
@@ -858,19 +382,6 @@ const ChatContent = memo(
         console.log("[ChatPage] Skipping query processing - already sending");
         return;
       }
-
-      // Skip if we're switching conversations (avoid double execution during switch)
-      const isSwitching =
-        lastConversationIdRef.current !== currentConversationId &&
-        lastConversationIdRef.current !== null &&
-        currentConversationId !== null;
-
-      if (isSwitching) {
-        lastConversationIdRef.current = currentConversationId;
-        return;
-      }
-
-      lastConversationIdRef.current = currentConversationId;
 
       // Check if we've already processed a query in this session (survives Fast Refresh)
       const alreadyProcessed =
@@ -943,7 +454,7 @@ const ChatContent = memo(
 
       // No cleanup function - let the timer complete even during Fast Refresh
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentConversationId, searchParams, router, isSending]);
+    }, [currentConversationId, searchParams, router, isSending, handleSubmit]);
 
     // Ref for the input container to handle scroll locking
     const inputContainerRef = useRef<HTMLDivElement>(null);
@@ -1020,360 +531,14 @@ const ChatContent = memo(
           }
         }, 0);
       },
-      [isLoading, startEdit],
+      [isLoading, startEdit, isEditing],
     );
 
     const handleCancelEdit = useCallback(() => {
       cancelEdit();
     }, [cancelEdit]);
 
-    const handleSaveEdit = async (
-      newContent?: string,
-      newFiles?: (File | any)[],
-    ) => {
-      // Use passed content if available, otherwise fallback to state (for safety)
-      const contentToEdit = newContent ?? editContent;
-      const attachmentsToEdit = newFiles ?? editAttachments;
-
-      if (
-        !editingMessageId ||
-        isSavingEdit ||
-        (!contentToEdit.trim() && attachmentsToEdit.length === 0)
-      )
-        return;
-
-      // ✅ STEP 1: Store edit state in local variables BEFORE resetting state
-      const messageIdToEdit = editingMessageId;
-      const contextToEdit = editContext;
-      const conversationId = currentConversationId;
-
-      console.log("🔧 [handleSaveEdit] Starting edit:", {
-        messageIdToEdit,
-        conversationId,
-        contentLength: contentToEdit.length,
-        contextItems: contextToEdit.length,
-      });
-
-      setIsSavingEdit(true);
-
-      try {
-        // ✅ STEP 2: Extract context from STORED state (not reset state)
-        const referencedConversations = contextToEdit
-          .filter((c) => c.type === "conversation")
-          .map((c) => ({ id: c.id, title: c.title }));
-
-        const referencedFolders = contextToEdit
-          .filter((c) => c.type === "folder")
-          .map((c) => ({ id: c.id, name: c.title }));
-
-        console.log("📦 [handleSaveEdit] Extracted context:", {
-          referencedConversations: referencedConversations.length,
-          referencedFolders: referencedFolders.length,
-        });
-
-        // ✅ STEP 3: Clear edit UI immediately for better UX (but AFTER extracting data)
-        cancelEdit();
-
-        // ✅ STEP 4: Create new message version
-        console.log("💾 [handleSaveEdit] Creating message version...");
-        const result = await editMessage(
-          messageIdToEdit,
-          contentToEdit,
-          attachmentsToEdit,
-          referencedConversations,
-          referencedFolders,
-        );
-
-        if (!result?.newMessage) {
-          throw new Error("Failed to create message version");
-        }
-
-        // ✅ STEP 5: The new message (active version)
-        const newMessage = result.newMessage;
-        console.log("✅ [handleSaveEdit] New message created:", {
-          originalId: messageIdToEdit,
-          newMessageId: newMessage.id,
-          conversationPath: result.conversationPath,
-        });
-
-        // ✅ STEP 6: Fetch updated messages ONCE to get the new conversation state
-        console.log("📥 [handleSaveEdit] Fetching updated messages...");
-        const { messages: updatedMessages } = await getMessages(
-          conversationId!,
-        );
-        const filteredMessages = filterActiveVersions(updatedMessages);
-        setMessages(filteredMessages);
-        console.log("📋 [handleSaveEdit] Messages updated:", {
-          totalMessages: updatedMessages.length,
-          filteredMessages: filteredMessages.length,
-        });
-
-        // ✅ STEP 6.5: Update messageVersions Map for the edited message group
-        // This is critical for showing the version indicator
-        const rootId = messageIdToEdit; // The original message ID (root of versions)
-        const allVersions = await getMessageVersions(rootId);
-
-        console.log("🔄 [handleSaveEdit] Updating versions map:", {
-          rootId,
-          versionCount: allVersions.length,
-        });
-
-        setMessageVersions((prev) => {
-          const updated = new Map(prev);
-          updated.set(rootId, allVersions);
-          return updated;
-        });
-
-        // ✅ STEP 7: Check if we need to generate an AI response
-        // Only generate if the edited message is at the END of the conversation
-        const isEditedMessageLast =
-          newMessage &&
-          filteredMessages[filteredMessages.length - 1]?.id === newMessage.id;
-
-        console.log("🤔 [handleSaveEdit] Should generate AI response?", {
-          isEditedMessageLast,
-          lastMessageId: filteredMessages[filteredMessages.length - 1]?.id,
-          newMessageId: newMessage.id,
-        });
-
-        if (isEditedMessageLast) {
-          // ✅ STEP 8: Generate AI response using the NEW message ID
-          try {
-            console.log("🤖 [handleSaveEdit] Generating AI response for:", {
-              conversationId,
-              messageId: newMessage.id, // ✅ Uses NEW message ID, not old one!
-              useReasoning: reasoningMode,
-            });
-
-            // Clear previous status pills/search results and show initial status
-            setStatusPills([{
-              status: 'analyzing',
-              message: 'Analyzing request...',
-              timestamp: Date.now()
-            }]);
-            setSearchResults(null);
-            setContextCards([]);
-
-            const response = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                conversationId: conversationId,
-                messageId: newMessage.id, // ✅ CRITICAL: Use NEW message ID
-                useReasoning: reasoningMode, // ✅ Pass reasoning mode
-              }),
-            });
-
-            if (response.ok && response.body) {
-              console.log("✅ [handleSaveEdit] AI response started");
-
-              // Extract assistant message ID from headers
-              const assistantMessageId = response.headers.get(
-                "X-Assistant-Message-Id",
-              );
-
-              if (assistantMessageId) {
-                console.log(
-                  "📨 [handleSaveEdit] Assistant message ID:",
-                  assistantMessageId,
-                );
-
-                // Create optimistic assistant placeholder
-                const timestamp = Date.now();
-                const optimisticAssistant: ChatMessage = {
-                  id: assistantMessageId,
-                  conversationId: conversationId!,
-                  role: "assistant",
-                  content: "",
-                  createdAt: timestamp,
-                  timestamp,
-                  userId: "",
-                  versionNumber: 1,
-                };
-
-                messageState.addMessages([optimisticAssistant]);
-                startStreaming(assistantMessageId);
-
-                // Read and display the stream WITH parsing (same as sendChatRequest)
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let fullContent = "";
-
-                try {
-                  // 🔥 FIX: Use stateful stream processor
-                  const { processChunk, flush } = createStreamProcessor({
-                      onStatus: (pill) => {
-                        console.log('[handleSaveEdit] Parsed status pill:', pill);
-                        setStatusPills(prev => [...prev, pill]);
-                      },
-                      onSearchResults: (results) => {
-                        console.log('[handleSaveEdit] Parsed search results:', results.sources?.length);
-                        setSearchResults(results);
-                      },
-                      onContextCards: (cards) => {
-                        console.log('[handleSaveEdit] Parsed context cards:', cards?.length);
-                        setContextCards(cards || []);
-                      },
-                      onContent: (text) => {
-                         fullContent += text;
-                         updateStreamContent(fullContent);
-                      }
-                  });
-
-                  while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                      // CRITICAL: Flush any remaining content in buffer before finishing
-                      flush();
-                      // Mark reasoning as complete when stream ends
-                      setStatusPills(prev => [...prev, {
-                        status: 'complete',
-                        message: 'Reasoning complete',
-                        timestamp: Date.now()
-                      }]);
-                      break;
-                    }
-
-                    const text = decoder.decode(value, { stream: true });
-                    processChunk(text);
-                  }
-                  
-                  console.log(
-                    "✅ [handleSaveEdit] AI response complete, length:",
-                    fullContent.length,
-                  );
-                } finally {
-                  // CRITICAL: Update message BEFORE clearing streaming state to prevent flicker
-                  messageState.updateMessage(assistantMessageId, {
-                    content: fullContent,
-                    // Persist reasoning metadata so sources display immediately
-                    // CRITICAL: Use refs to get current values, not stale closure values!
-                    reasoning_metadata: {
-                      statusPills: statusPillsRef.current,
-                      searchResults: searchResultsRef.current,
-                    },
-                  });
-                  // Batch finishStreaming and setIsSavingEdit using requestAnimationFrame
-                  requestAnimationFrame(() => {
-                    finishStreaming(fullContent);
-                    setIsSavingEdit(false);
-                    setIsEditing(false);
-                  });
-                }
-              }
-            } else {
-              console.error(
-                "❌ [handleSaveEdit] AI response error:",
-                response.status,
-                response.statusText,
-              );
-              setIsSavingEdit(false);
-              setIsEditing(false);
-            }
-          } catch (aiError) {
-            console.error(
-              "❌ [handleSaveEdit] Failed to generate AI response:",
-              aiError,
-            );
-            finishStreaming();
-            setIsSavingEdit(false);
-            setIsEditing(false);
-          }
-        }
-      } catch (error: any) {
-        console.error("❌ [handleSaveEdit] Failed to save edit:", error);
-
-        // Check for insufficient credits error
-        if (error?.message?.includes("Insufficient credits")) {
-          toast.error("Insufficient credits", {
-            description:
-              "Please add more credits to continue editing messages.",
-            duration: 5000,
-          });
-        } else {
-          // Generic error toast for other errors
-          toast.error("Failed to save edit", {
-            description:
-              error?.message ||
-              "An unexpected error occurred. Please try again.",
-            duration: 4000,
-          });
-        }
-
-        // Revert optimistic update on error by fetching from server
-        try {
-          const { messages: revertedMessages } = await getMessages(
-            conversationId!,
-          );
-          const filteredRevertedMessages =
-            filterActiveVersions(revertedMessages);
-          setMessages(filteredRevertedMessages);
-        } catch (fetchError) {
-          console.error("Failed to revert after error:", fetchError);
-        }
-        setIsSavingEdit(false);
-        setIsEditing(false);
-      }
-      console.log("🏁 [handleSaveEdit] Edit operation complete");
-    };
-
-    const handleDeleteMessage = useCallback(
-      async (messageId: string) => {
-        if (isLoading || isEditing) return;
-        setIsDeleting(messageId);
-
-        try {
-          // Get the message to find its version root before deleting
-          const message = messages.find((m) => m.id === messageId);
-          const rootId = message ? message.versionOf || message.id : null;
-
-          await deleteMessageAction(messageId);
-
-          // After successful delete, update versions map if this was a versioned message
-          if (rootId) {
-            const remainingVersions = await getMessageVersions(rootId);
-
-            console.log(
-              "🗑️ [handleDeleteMessage] Updating versions map after delete:",
-              {
-                rootId,
-                remainingVersions: remainingVersions.length,
-              },
-            );
-
-            setMessageVersions((prev) => {
-              const updated = new Map(prev);
-              if (remainingVersions.length > 1) {
-                updated.set(rootId, remainingVersions);
-              } else {
-                updated.delete(rootId); // Remove if only 1 version left
-              }
-              return updated;
-            });
-          }
-        } finally {
-          setIsDeleting(null);
-        }
-      },
-      [isLoading, isEditing, messages, deleteMessageAction, getMessageVersions],
-    );
-
-    const handleBranchFromMessage = useCallback(
-      async (messageId: string) => {
-        if (isLoading || isEditing) return;
-
-        if (confirm("Create a new conversation from this point?")) {
-          try {
-            const newConversationId = await branchConversation(messageId);
-            // Navigate to the new conversation
-            router.push(`/chat?id=${encodeURIComponent(newConversationId)}`);
-          } catch (err) {
-            console.error("Failed to branch conversation:", err);
-          }
-        }
-      },
-      [isLoading, branchConversation, router],
-    );
+    // Handler logic moved to useChatController
 
     // Handle keyboard shortcuts
     const handleKeyDown = (e: React.KeyboardEvent) => {

@@ -589,11 +589,9 @@ export const ChatMessageItem = memo(
                 )}
 
                 {/* Surface Trigger - Open as Course/Guide buttons */}
-                {conversationId && !isStreaming && (
+                {conversationId && !isStreaming && parsedMetadata?.detectedSurfaces && parsedMetadata.detectedSurfaces.length > 0 && (
                   <SurfaceTrigger
-                    messageId={message.id}
-                    content={displayContent}
-                    role={message.role}
+                    surfaces={parsedMetadata.detectedSurfaces}
                     conversationId={conversationId}
                     userQuery={userQuery}
                   />

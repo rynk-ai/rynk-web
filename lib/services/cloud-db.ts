@@ -79,6 +79,7 @@ export interface CloudMessage {
       strategy: string[]
       totalResults: number
     }
+    detectedSurfaces?: string[]
   }
   web_annotations?: any
   model_used?: string

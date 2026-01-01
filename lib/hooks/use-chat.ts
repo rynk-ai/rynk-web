@@ -8,6 +8,7 @@ import {
   deleteConversation as deleteConversationAction,
   updateConversation as updateConversationAction,
   deleteMessage as deleteMessageAction,
+  updateMessage as updateMessageAction,
   getAllTags as getAllTagsAction,
   getMessages as getMessagesAction,
   uploadFile as uploadFileAction,
@@ -753,6 +754,17 @@ export function useChat(initialConversationId?: string | null) {
     }
   }, [currentConversationId, queryClient, effectiveProjectId])
 
+  const updateMessage = useCallback(async (messageId: string, updates: any) => {
+    try {
+      await updateMessageAction(messageId, updates)
+      // Invalidating conversations to update preview if needed, though strictly we might not need to if it's just metadata
+      // queryClient.invalidateQueries({ queryKey: ['conversations', effectiveProjectId] })
+    } catch (err) {
+      console.error('Failed to update message:', err)
+      throw err
+    }
+  }, [])
+
   const switchToMessageVersion = useCallback(async (messageId: string) => {
     if (!currentConversationId) return
     try {
@@ -955,6 +967,7 @@ export function useChat(initialConversationId?: string | null) {
     getAllTags,
     editMessage,
     deleteMessage,
+    updateMessage,
     switchToMessageVersion,
     getMessageVersions,
     getMessages,

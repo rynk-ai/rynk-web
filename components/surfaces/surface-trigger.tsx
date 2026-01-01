@@ -10,7 +10,6 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   PiArrowRight, 
@@ -27,11 +26,9 @@ import { cn } from "@/lib/utils";
 import type { SurfaceType } from "@/lib/services/domain-types";
 
 interface SurfaceTriggerProps {
-  messageId: string;
-  content: string;
-  role: string;
+  surfaces: string[]; // Receives detected surfaces directly
   conversationId?: string;
-  userQuery?: string; // Original user query for context
+  userQuery?: string;
 }
 
 // Surface definitions with styling and metadata
@@ -117,129 +114,22 @@ const SURFACE_CONFIG: Record<string, {
   },
 };
 
-// Cache for detected surfaces (avoid redundant API calls)
-const surfaceCache = new Map<string, SurfaceType[]>();
-
 export const SurfaceTrigger = function SurfaceTrigger({
-  messageId,
-  content,
-  role,
+  surfaces,
   conversationId,
   userQuery,
 }: SurfaceTriggerProps) {
   const router = useRouter();
-  const [surfaces, setSurfaces] = useState<SurfaceType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasDetected, setHasDetected] = useState(false);
-  
-  // Ref to track if component is mounted
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
 
-  // Detect surfaces via API
-  const detectSurfaces = useCallback(async () => {
-    // Skip if not an assistant message or content too short
-    if (role !== "assistant" || !content || content.length < 200) {
-      setHasDetected(true);
-      return;
-    }
-
-    // Check cache first
-    const cacheKey = `${messageId}-${content.slice(0, 100)}`;
-    const cached = surfaceCache.get(cacheKey);
-    if (cached !== undefined) {
-      setSurfaces(cached);
-      setHasDetected(true);
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-      
-      const res = await fetch('/api/surface-detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: userQuery || '',
-          response: content.slice(0, 2500), // Limit to save tokens
-          messageId,
-        }),
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!res.ok) {
-        console.warn('[SurfaceTrigger] API error:', res.status);
-        surfaceCache.set(cacheKey, []);
-        if (mountedRef.current) {
-          setSurfaces([]);
-          setHasDetected(true);
-        }
-        return;
-      }
-      
-      const data: { surfaces?: string[]; reasoning?: string } = await res.json();
-      const detected = (data.surfaces || []) as SurfaceType[];
-      
-      // Cache the result
-      surfaceCache.set(cacheKey, detected);
-      
-      if (mountedRef.current) {
-        setSurfaces(detected);
-        setHasDetected(true);
-      }
-    } catch (err) {
-      // Handle abort or network errors silently
-      if ((err as Error).name !== 'AbortError') {
-        console.warn('[SurfaceTrigger] Detection failed:', err);
-      }
-      surfaceCache.set(`${messageId}-${content.slice(0, 100)}`, []);
-      if (mountedRef.current) {
-        setSurfaces([]);
-        setHasDetected(true);
-      }
-    } finally {
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
-    }
-  }, [messageId, content, role, userQuery]);
-
-  // Trigger detection on mount/content change (debounced)
-  useEffect(() => {
-    if (hasDetected) return;
-    
-    // Debounce to avoid calling during streaming updates
-    const timer = setTimeout(() => {
-      detectSurfaces();
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [detectSurfaces, hasDetected]);
-
-  // Reset detection state when content changes significantly (new message)
-  useEffect(() => {
-    setHasDetected(false);
-    setSurfaces([]);
-  }, [messageId]);
-
-  const handleOpenSurface = (type: SurfaceType) => {
+  const handleOpenSurface = (type: string) => {
     if (!conversationId) return;
     
-    // Pass the user query as context for the surface
-    const query = userQuery || content.slice(0, 100).replace(/\n/g, " ");
+    // Pass the user query or use a fallback
+    const query = userQuery || "";
     router.push(`/surface/${type}/${conversationId}?q=${encodeURIComponent(query)}`);
   };
 
-  // Don't render anything if no surfaces detected
-  if (!hasDetected || isLoading || surfaces.length === 0) {
+  if (!surfaces || surfaces.length === 0) {
     return null;
   }
 

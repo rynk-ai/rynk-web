@@ -55,6 +55,7 @@ interface ChatContextValue {
     conversationPath: string[];
   } | undefined>
   deleteMessage: (messageId: string) => Promise<void>
+  updateMessage: (messageId: string, updates: any) => Promise<void>
   switchToMessageVersion: (messageId: string) => Promise<void>
   getMessageVersions: (originalMessageId: string) => Promise<Message[]>
   getMessages: (conversationId: string, limit?: number, cursor?: string) => Promise<{ messages: Message[], nextCursor: string | null }>
@@ -165,6 +166,7 @@ export function ChatProvider({ children, initialConversationId }: { children: Re
     chatHook.reasoningMode,
     chatHook.streamingMessageId,
     chatHook.userCredits,
+    chatHook.updateMessage,
     // NOTE: statusPills and searchResults are intentionally NOT included here
     // They change frequently during streaming and should be accessed via useStreamingContext()
     // This prevents sidebar and other consumers from re-rendering during streaming
