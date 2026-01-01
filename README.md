@@ -23,24 +23,24 @@ Rynk is a powerful AI chat interface built for your data. It seamlessly combines
 
 **Key features:**
 
-### 🧠 **Multi-Mode Intelligence**
+### Multi-Mode Intelligence
 - **Reasoning Modes** — Toggle between `Auto`, `On` (Deep Thinking), `Online` (Web + Reasoning), and `Off`.
 - **Agentic Research** — autonomous multi-step research pipeline connecting Exa, Perplexity, and Wikipedia.
 
-### 🃏 **Adaptive Surfaces**
+### Adaptive Surfaces
 Transform any AI response into specialized interactive formats:
-- **Learning** — Full courses 📚, Interactive Quizzes 🎯, and Flashcards 🃏.
-- **Analysis** — Comparison Tables ⚖️, Timelines 📅, and Wikis 📖.
-- **Finance** — Real-time market data 💹 with technical analysis and charts (Stocks/Crypto).
-- **Research** — Comprehensive reports 🔍 with citations, methodology, and executive summaries.
+- **Learning** — Full courses, Interactive Quizzes, and Flashcards.
+- **Analysis** — Comparison Tables, Timelines, and Wikis.
+- **Finance** — Real-time market data with technical analysis and charts (Stocks/Crypto).
+- **Research** — Comprehensive reports with citations, methodology, and executive summaries.
 
-### 💬 **Advanced Chat & Collaboration**
+### Advanced Chat & Collaboration
 - **Sub-Chat Deep Dives** — Select *any* text to branch into a focused sub-conversation.
 - **Versioning & Branching** — Edit, fork, and traverse message history trees.
 - **Project Workspaces** — Organize chats into named projects with shared context and instructions.
 - **Organization** — Folders, Tags, Pinning, and Full-text/Semantic Search.
 
-### 📚 **Knowledge Engine**
+### Knowledge Engine
 - **Vector Memory** — Semantic retrieval across your entire conversation history.
 - **Smart File Processing** —
   - **PDFs**: Intelligent chunking and indexing.
