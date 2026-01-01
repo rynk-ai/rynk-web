@@ -149,7 +149,8 @@ const GuestChatContent = memo(function GuestChatContent({
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Track conversation ID for detecting navigation
-  const lastChatIdRef = useRef(chatId);
+  // Initialize with undefined to ensure first render syncs URL to state
+  const lastChatIdRef = useRef<string | undefined>(undefined);
   const lastConversationIdRef = useRef(currentConversationId);
 
   // Stable refs to avoid stale closures
@@ -211,9 +212,15 @@ const GuestChatContent = memo(function GuestChatContent({
     const prevChatId = lastChatIdRef.current;
     lastChatIdRef.current = chatId;
 
-    if (chatId !== prevChatId && chatId !== currentConversationId) {
-      console.log("[GuestChat] Auto-selecting conversation from URL:", chatId);
-      selectConversation(chatId || null);
+    // On initial load (prevChatId === undefined), always sync if needed
+    const isInitialLoad = prevChatId === undefined;
+    const urlChanged = chatId !== prevChatId;
+
+    if (isInitialLoad || urlChanged) {
+      if (chatId !== currentConversationId) {
+        console.log("[GuestChat] URL sync:", { from: prevChatId, to: chatId, isInitialLoad });
+        selectConversation(chatId || null);
+      }
     } else if (!chatId && currentConversationId && prevChatId) {
       console.log("[GuestChat] Clearing conversation (new chat)");
       selectConversation(null);

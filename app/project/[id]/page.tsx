@@ -1883,11 +1883,27 @@ function ChatContentWithProvider({ projectId }: { projectId: string }) {
     return () => selectProject(null); // Clear on unmount
   }, [projectId, selectProject]);
 
+  // Track previous chatId to detect URL-initiated changes only
+  // Initialize with undefined to ensure first render syncs URL to state
+  const prevChatIdRef = useRef<string | null | undefined>(undefined);
+  
   // Sync URL chatId with context when URL changes
+  // CRITICAL: Only sync when chatId (URL) changes, NOT when currentConversationId changes
+  // This prevents reverting state when sidebar updates state before URL updates
   useEffect(() => {
-    // Only update if chatId differs from current selection
-    if (chatId !== currentConversationId) {
-      selectConversation(chatId);
+    const prevChatId = prevChatIdRef.current;
+    prevChatIdRef.current = chatId;
+    
+    // On initial load (prevChatId === undefined), always sync if needed
+    const isInitialLoad = prevChatId === undefined;
+    const urlChanged = chatId !== prevChatId;
+    
+    if (isInitialLoad || urlChanged) {
+      // Only update state if it doesn't already match the URL
+      if (chatId !== currentConversationId) {
+        console.log("[ProjectPage] URL sync:", { from: prevChatId, to: chatId, isInitialLoad });
+        selectConversation(chatId);
+      }
     }
   }, [chatId, currentConversationId, selectConversation]);
 

@@ -1981,7 +1981,8 @@ function ChatContentWithProvider() {
   const { selectConversation, currentConversationId } = useChatContext();
 
   // Track previous chatId to detect URL-initiated changes only
-  const prevChatIdRef = useRef<string | null>(chatId);
+  // Initialize with undefined (not chatId) to ensure first render always syncs
+  const prevChatIdRef = useRef<string | null | undefined>(undefined);
   
   // Sync URL chatId with context when URL changes
   // CRITICAL: Only sync when chatId (URL) changes, NOT when currentConversationId changes
@@ -1990,11 +1991,14 @@ function ChatContentWithProvider() {
     const prevChatId = prevChatIdRef.current;
     prevChatIdRef.current = chatId;
     
-    // Only sync if the URL chatId actually changed (not if state changed)
-    if (chatId !== prevChatId) {
-      console.log("[ChatPage] URL changed, syncing state:", { from: prevChatId, to: chatId });
-      // Only update state if it doesn't match the new URL
+    // On initial load (prevChatId === undefined), always sync if needed
+    const isInitialLoad = prevChatId === undefined;
+    const urlChanged = chatId !== prevChatId;
+    
+    if (isInitialLoad || urlChanged) {
+      // Only update state if it doesn't already match the URL
       if (chatId !== currentConversationId) {
+        console.log("[ChatPage] URL sync:", { from: prevChatId, to: chatId, isInitialLoad });
         selectConversation(chatId);
       }
     }
