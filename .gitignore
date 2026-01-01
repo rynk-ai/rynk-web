@@ -49,3 +49,6 @@ next-env.d.ts
 .dev.vars
 
 .dev.*
+# sql dumps
+*.sql
+full_remote_schema.sql
