@@ -38,7 +38,7 @@ export function filterActiveVersions(messages: ChatMessage[]): ChatMessage[] {
  */
 export function filterActiveVersionsGeneric<T extends { 
   id: string; 
-  versionOf?: string; 
+  versionOf?: string | null; 
   versionNumber: number; 
   timestamp: number;
 }>(messages: T[]): T[] {

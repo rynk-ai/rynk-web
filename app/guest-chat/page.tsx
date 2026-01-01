@@ -11,6 +11,7 @@ import {
   GuestChatProvider,
   useGuestChatContext,
   useGuestStreamingContext,
+  type GuestMessage
 } from "@/lib/hooks/guest-chat-context";
 import { useMessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
@@ -95,7 +96,7 @@ const GuestChatContent = memo(function GuestChatContent({
   const { statusPills, searchResults } = useGuestStreamingContext();
 
   // Use custom hooks for separated state management
-  const messageState = useMessageState();
+  const messageState = useMessageState<GuestMessage>();
   const editState = useMessageEdit(); // Needed for controller
 
   // Use Controller
@@ -525,7 +526,7 @@ const GuestChatContent = memo(function GuestChatContent({
                 )}
                 <VirtualizedMessageList
                   ref={virtuosoRef}
-                  messages={messages}
+                  messages={messages as any} // Cast for compatibility with CloudMessage prop type
                   isSending={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
                   streamingMessageId={streamingMessageId}
                   streamingContent={streamingContent}
@@ -540,7 +541,7 @@ const GuestChatContent = memo(function GuestChatContent({
                   onViewSubChats={handleViewSubChats}
                   onOpenExistingSubChat={handleOpenExistingSubChat}
                   onDeleteSubChat={handleDeleteSubChat}
-                  messageVersions={messageVersions}
+                  messageVersions={messageVersions as any}
                   onSwitchVersion={async () => {
                     toast.info("Message versions require signing in");
                   }}

@@ -103,7 +103,7 @@ const ChatContent = memo(
     const { statusPills, searchResults, contextCards, setStatusPills, setSearchResults, setContextCards } = useStreamingContext();
 
     // Use custom hooks for separated state management
-    const messageState = useMessageState();
+    const messageState = useMessageState<ChatMessage>();
     const editState = useMessageEdit();
     // const streamingState = useStreaming(); // REMOVED
 
@@ -145,6 +145,10 @@ const ChatContent = memo(
         status?: "loading" | "loaded";
       }[]
     >([]);
+    
+    // Indexing Queue (Unified) - Moved up for Controller
+    const indexingState = useIndexingQueue(); 
+    const { jobs } = indexingState;
 
     // Quote state
     const [quotedMessage, setQuotedMessage] = useState<{
@@ -177,6 +181,7 @@ const ChatContent = memo(
       messageState,
       editState,
       // streamingState, // REMOVED
+      indexingState, // Pass unified instance
     });
 
     // Other local state
@@ -373,7 +378,7 @@ const ChatContent = memo(
     // NOTE: Sub-chat handlers are now provided by useSubChats hook above
 
     // Indexing Queue for background PDF processing (needed for UI feedback)
-    const { jobs } = useIndexingQueue();
+    // Moved up to be available for controller
 
     // Handle pending query from URL params (?q=...) or localStorage
     useEffect(() => {

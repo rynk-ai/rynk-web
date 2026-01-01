@@ -102,7 +102,7 @@ const ChatContent = memo(
     const { statusPills, searchResults, contextCards, setStatusPills, setSearchResults, setContextCards } = useStreamingContext();
 
     // Use custom hooks for separated state management
-    const messageState = useMessageState();
+    const messageState = useMessageState<ChatMessage>();
     const editState = useMessageEdit();
     // const streamingState = useStreaming(); // DEPRECATED - Removed in favor of useChatStream
 

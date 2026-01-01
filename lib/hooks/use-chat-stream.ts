@@ -36,6 +36,7 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
   // --- Refs ---
   const contentBufferRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const statusPillsRef = useRef<StatusPill[]>([]); // Track pills synchronously
   
   // Refs for callbacks to avoid dependency cycles
   const optionsRef = useRef(options);
@@ -61,6 +62,7 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
   const resetStreamState = useCallback(() => {
     setStreamingContent("");
     setStatusPills([]);
+    statusPillsRef.current = []; // Reset ref
     setSearchResults(null);
     setContextCards([]);
     contentBufferRef.current = "";
@@ -86,11 +88,13 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
     try {
         const { processChunk, flush } = createStreamProcessor({
             onStatus: (pill) => {
-                setStatusPills(prev => {
-                    const next = [...prev, pill];
-                    optionsRef.current.onStatusUpdate?.(next);
-                    return next;
-                });
+                // Update ref first
+                const next = [...statusPillsRef.current, pill];
+                statusPillsRef.current = next;
+                
+                // Then update state and external callback safely (no functional update side-effect)
+                setStatusPills(next);
+                optionsRef.current.onStatusUpdate?.(next);
             },
             onSearchResults: (results) => {
                 setSearchResults(results);
@@ -127,20 +131,19 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
         optionsRef.current.onContentUpdate?.(fullContent);
 
         // Add 'complete' status if not present (optional logic, kept from controller)
-        setStatusPills(prev => {
-             const hasComplete = prev.some(p => p.status === 'complete');
-             if (!hasComplete) {
-                 const completePill: StatusPill = { 
-                     status: 'complete', 
-                     message: 'Reasoning complete', 
-                     timestamp: Date.now() 
-                 };
-                 const next = [...prev, completePill];
-                 optionsRef.current.onStatusUpdate?.(next);
-                 return next;
-             }
-             return prev;
-        });
+        const currentPills = statusPillsRef.current;
+        const hasComplete = currentPills.some(p => p.status === 'complete');
+        if (!hasComplete) {
+             const completePill: StatusPill = { 
+                 status: 'complete', 
+                 message: 'Reasoning complete', 
+                 timestamp: Date.now() 
+             };
+             const next = [...currentPills, completePill];
+             statusPillsRef.current = next;
+             setStatusPills(next);
+             optionsRef.current.onStatusUpdate?.(next);
+        }
 
         optionsRef.current.onFinish?.(fullContent);
 

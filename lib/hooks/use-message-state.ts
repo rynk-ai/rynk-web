@@ -5,15 +5,27 @@ import type { CloudMessage as ChatMessage } from '@/lib/services/cloud-db';
  * Custom hook to manage message state independently from parent component.
  * This prevents re-renders in the parent when only message data changes.
  */
-export function useMessageState() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [messageVersions, setMessageVersions] = useState<Map<string, ChatMessage[]>>(new Map());
+export interface MessageState<T> {
+  messages: T[];
+  setMessages: React.Dispatch<React.SetStateAction<T[]>>;
+  messageVersions: Map<string, T[]>;
+  setMessageVersions: React.Dispatch<React.SetStateAction<Map<string, T[]>>>;
+  updateMessage: (messageId: string, updates: Partial<T>) => void;
+  addMessages: (newMessages: T[]) => void;
+  removeMessage: (messageId: string) => void;
+  clearMessages: () => void;
+  replaceMessage: (oldId: string, newMessage: T) => void;
+}
+
+export function useMessageState<T extends { id: string; timestamp?: number; [key: string]: any }>(): MessageState<T> {
+  const [messages, setMessages] = useState<T[]>([]);
+  const [messageVersions, setMessageVersions] = useState<Map<string, T[]>>(new Map());
   
   /**
    * Update a specific message by ID with partial updates.
    * Uses functional update to ensure we're working with latest state.
    */
-  const updateMessage = useCallback((messageId: string, updates: Partial<ChatMessage>) => {
+  const updateMessage = useCallback((messageId: string, updates: Partial<T>) => {
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, ...updates } : m));
   }, []);
   
@@ -23,7 +35,7 @@ export function useMessageState() {
    * from multiple sources (UI optimistic update + server confirmation).
    * Messages are sorted by timestamp after adding to maintain order.
    */
-  const addMessages = useCallback((newMessages: ChatMessage[]) => {
+  const addMessages = useCallback((newMessages: T[]) => {
     setMessages(prev => {
       const existingIds = new Set(prev.map(m => m.id));
       const toAdd = newMessages.filter(m => !existingIds.has(m.id));
@@ -53,7 +65,7 @@ export function useMessageState() {
   /**
    * Replace a message with a new one (e.g. swapping temp ID with real ID)
    */
-  const replaceMessage = useCallback((oldId: string, newMessage: ChatMessage) => {
+  const replaceMessage = useCallback((oldId: string, newMessage: T) => {
     setMessages(prev => {
       // Check if the new ID already exists in the list (excluding the one we're replacing)
       // This happens if the server sync added the real message before we replaced the temp one

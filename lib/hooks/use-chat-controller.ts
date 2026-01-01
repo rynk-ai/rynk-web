@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useChatContext, useStreamingContext } from "@/lib/hooks/chat-context";
-import { useMessageState } from "@/lib/hooks/use-message-state";
+import { useMessageState, type MessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 // import { useStreaming } from "@/lib/hooks/use-streaming"; // DEPRECATED
 import { useIndexingQueue } from "@/lib/hooks/use-indexing-queue";
@@ -24,7 +24,6 @@ interface UseChatControllerProps {
   chatId?: string;
   surfaceMode: 'chat' | 'learning' | 'guide' | 'research';
   setSurfaceMode: (mode: 'chat' | 'learning' | 'guide' | 'research') => void;
-  indexingState?: ReturnType<typeof useIndexingQueue>;
   localContext: {
     type: "conversation" | "folder";
     id: string;
@@ -32,11 +31,15 @@ interface UseChatControllerProps {
     status?: "loading" | "loaded";
   }[];
   setLocalContext: (context: any[]) => void;
-  setQuotedMessage: (quote: any) => void;
-  messageState: ReturnType<typeof useMessageState>;
+  setQuotedMessage: (message: {
+    messageId: string;
+    quotedText: string;
+    authorRole: "user" | "assistant";
+  } | null) => void;
+  messageState: MessageState<ChatMessage>;
   editState: ReturnType<typeof useMessageEdit>;
-  // streamingState: ReturnType<typeof useStreaming>; // DEPRECATED
   routePrefix?: string;
+  indexingState: ReturnType<typeof useIndexingQueue>; // Unified instance
 }
 
 export function useChatController({

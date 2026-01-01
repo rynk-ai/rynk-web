@@ -30,6 +30,7 @@ export interface GuestMessage {
   referencedFolders?: any[] | null
   timestamp: number
   createdAt?: string
+  reasoning_metadata?: any
 }
 
 export interface GuestFolder {
@@ -211,6 +212,28 @@ export function useGuestChat(initialConversationId?: string | null) {
       console.error('Failed to update guest conversation:', err)
     }
   }, [])
+
+  const updateMessage = useCallback(async (messageId: string, updates: Partial<GuestMessage>) => {
+    // For guests, we only update local state mostly, but we might want to persist to DB if API exists
+    // The main use case is updating reasoning metadata
+    // Implementing a basic fetch call if the endpoint supports it, otherwise silent failure or local only
+    try {
+        // Optimistic local update would be handled by messageState in controller
+        // This is for server persistence
+        // Ensure reasoning_metadata is stringified if present, matching authenticated API?
+        // Guest API might be simpler.
+        const response = await fetch(`/api/guest/messages/${messageId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        if (!response.ok) {
+            console.warn('Failed to update guest message on server');
+        }
+    } catch (err) {
+        console.error('Failed to update guest message:', err);
+    }
+  }, []);
 
   const togglePinConversation = useCallback(async (id: string) => {
     const conv = conversations.find(c => c.id === id)
@@ -702,6 +725,10 @@ export function useGuestChat(initialConversationId?: string | null) {
     creditsRemaining,
     showUpgradeModal,
     setShowUpgradeModal,
-    isLoadingConversations
+    isLoadingConversations,
+    // Setters exposed for controller
+    setStatusPills,
+    setSearchResults,
+    updateMessage
   }
 }

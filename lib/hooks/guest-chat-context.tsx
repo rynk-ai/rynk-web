@@ -102,6 +102,10 @@ interface GuestChatContextValue {
   setShowUpgradeModal: (show: boolean) => void
   isLoadingConversations: boolean
   isGuest: true  // Always true for guest context
+  // Setters exposed for controller
+  setStatusPills: (pills: any[]) => void
+  setSearchResults: (results: any) => void
+  updateMessage: (messageId: string, updates: Partial<GuestMessage>) => Promise<void>
 }
 
 const GuestChatContext = createContext<GuestChatContextValue | null>(null);

@@ -2,17 +2,17 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { useGuestChatContext, useGuestStreamingContext } from "@/lib/hooks/guest-chat-context";
-import { useMessageState } from "@/lib/hooks/use-message-state";
+import { useGuestChatContext, useGuestStreamingContext, type GuestMessage } from "@/lib/hooks/guest-chat-context";
+import { useMessageState, type MessageState } from "@/lib/hooks/use-message-state";
 import { useMessageEdit } from "@/lib/hooks/use-message-edit";
 import { useLatest } from "@/lib/hooks/use-latest";
 import { useChatStream } from "@/lib/hooks/use-chat-stream";
-import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
+import { filterActiveVersions, filterActiveVersionsGeneric } from "@/lib/utils/filter-active-versions";
 import type { CloudMessage as ChatMessage } from "@/lib/services/cloud-db";
 import { detectSurfaces } from "@/lib/services/surface-detector";
 
 interface UseGuestChatControllerProps {
-  messageState: ReturnType<typeof useMessageState>;
+  messageState: MessageState<GuestMessage>;
   editState: ReturnType<typeof useMessageEdit>;
 }
 
@@ -37,14 +37,15 @@ export function useGuestChatController({
     creditsRemaining,
     showUpgradeModal,
     setShowUpgradeModal,
+    // Setters
+    setStatusPills,
+    setSearchResults,
   } = useGuestChatContext();
 
-  // Streaming Context
+  // Streaming Context (Read-only values for UI, though we have them in main context too)
   const {
     statusPills,
     searchResults,
-    setStatusPills,
-    setSearchResults,
   } = useGuestStreamingContext();
 
   // Local State
@@ -94,26 +95,26 @@ export function useGuestChatController({
       const tempAssistantMessageId = crypto.randomUUID();
       const timestamp = Date.now();
 
-      const optimisticUserMessage: ChatMessage = {
+      const optimisticUserMessage: GuestMessage = {
         id: tempUserMessageId,
         conversationId: currentConversationId || crypto.randomUUID(),
         role: "user",
         content: text,
-        createdAt: timestamp,
+        createdAt: new Date(timestamp).toISOString(),
         timestamp,
-        userId: "guest",
-        versionNumber: 1,
+        versionNumber: 1, // Guest messages don't really have versions like Cloud
+        versionOf: undefined
       };
 
-      const optimisticAssistantMessage: ChatMessage = {
+      const optimisticAssistantMessage: GuestMessage = {
         id: tempAssistantMessageId,
         conversationId: currentConversationId || crypto.randomUUID(),
         role: "assistant",
         content: "",
-        createdAt: timestamp + 1,
+        createdAt: new Date(timestamp + 1).toISOString(),
         timestamp: timestamp + 1,
-        userId: "guest",
         versionNumber: 1,
+        versionOf: undefined
       };
 
       messageStateRef.current.addMessages([
@@ -165,6 +166,7 @@ export function useGuestChatController({
             ...optimisticUserMessage,
             id: userMessageId,
             conversationId,
+            createdAt: optimisticUserMessage.createdAt || new Date().toISOString(), // Ensure string
           };
           replaceMessageRef.current(tempUserMessageId, realUserMessage);
         }
@@ -174,6 +176,7 @@ export function useGuestChatController({
             ...optimisticAssistantMessage,
             id: assistantMessageId,
             conversationId,
+            createdAt: optimisticAssistantMessage.createdAt || new Date().toISOString(), // Ensure string
           };
           replaceMessageRef.current(tempAssistantMessageId, realAssistantMessage);
         }
@@ -286,8 +289,8 @@ export function useGuestChatController({
         
         // 2. Update local state
         const { messages: updatedMessages } = await getMessages(conversationId!);
-        const filteredMessages = filterActiveVersions(updatedMessages);
-        setMessages(filteredMessages);
+        const filteredMessages = filterActiveVersionsGeneric(updatedMessages);
+        setMessages(filteredMessages as any); // Cast effectively since generic matches structure
 
         const allVersions = await getMessageVersions(messageIdToEdit);
         setMessageVersions((prev) => {
@@ -325,15 +328,15 @@ export function useGuestChatController({
                  const assistantMessageId = response.headers.get("X-Assistant-Message-Id");
                  if (assistantMessageId) {
                       const timestamp = Date.now();
-                      const optimisticAssistant: ChatMessage = {
+                      const optimisticAssistant: GuestMessage = {
                         id: assistantMessageId,
                         conversationId: conversationId!,
                         role: "assistant",
                         content: "",
-                        createdAt: timestamp,
+                        createdAt: new Date(timestamp).toISOString(),
                         timestamp,
-                        userId: "guest",
                         versionNumber: 1,
+                        versionOf: undefined
                       };
 
                       messageState.addMessages([optimisticAssistant]);
@@ -371,7 +374,10 @@ export function useGuestChatController({
          // Revert
          try {
              const { messages: reverted } = await getMessages(conversationId!);
-             setMessages(filterActiveVersions(reverted));
+             setMessages(filterActiveVersionsGeneric(reverted).map(m => ({
+               ...m,
+               createdAt: typeof m.createdAt === 'number' ? new Date(m.createdAt).toISOString() : m.createdAt
+             })) as any);
          } catch(e) {}
          setIsSavingEdit(false);
          setIsEditing(false);

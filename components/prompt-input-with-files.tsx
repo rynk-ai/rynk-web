@@ -77,6 +77,8 @@ const GUEST_ALLOWED_SURFACES: (SurfaceType | 'chat')[] = ['chat', 'wiki', 'quiz'
 // Debounce delay for surface suggestion API calls
 const SURFACE_SUGGESTION_DEBOUNCE_MS = 600;
 
+const EMPTY_ARRAY: any[] = [];
+
 type PromptInputWithFilesProps = {
   onSubmit?: (text: string, files: File[]) => void;
   isLoading?: boolean;
@@ -127,14 +129,14 @@ export const PromptInputWithFiles = memo(function
   placeholder = "Ask anything",
   disabled = false,
   className,
-  context: initialContextProp = [],
+  context: initialContextProp = EMPTY_ARRAY,
   onContextChange,
   currentConversationId,
-  conversations = [],
-  folders = [],
+  conversations = EMPTY_ARRAY,
+  folders = EMPTY_ARRAY,
   editMode = false,
   initialValue = '',
-  initialAttachments = [],
+  initialAttachments = EMPTY_ARRAY,
   onCancelEdit,
   onSaveEdit,
   isSubmittingEdit = false,
