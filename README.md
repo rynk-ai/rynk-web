@@ -24,26 +24,28 @@ Rynk is a powerful AI chat interface built for your data. It seamlessly combines
 **Key features:**
 
 ### 🧠 **Multi-Mode Intelligence**
-- **Reasoning Modes** — Toggle between `Auto`, `On` (Deep Thinking), and `Off` strategies.
-- **Slash Commands** — Use `/web`, `/deep`, `/code`, and `/brief` to control the AI.
-- **Agentic Research** — Deep multi-source research orchestration using Exa, Perplexity, and Wikipedia.
+- **Reasoning Modes** — Toggle between `Auto`, `On` (Deep Thinking), `Online` (Web + Reasoning), and `Off`.
+- **Agentic Research** — autonomous multi-step research pipeline connecting Exa, Perplexity, and Wikipedia.
 
 ### 🃏 **Adaptive Surfaces**
-Transform AI responses into specialized interactive formats:
-- **Learning** — Full courses 📚, Quizzes 🎯, and Flashcards 🃏 for active study.
-- **Analysis** — Comparison tables ⚖️, Timelines 📅, and Wikis 📖.
-- **Finance** — Real-time stock/crypto data 💹 and deep market analysis.
-- **Research** — Deep-dive reports 🔍 with citations and methodology.
+Transform any AI response into specialized interactive formats:
+- **Learning** — Full courses 📚, Interactive Quizzes 🎯, and Flashcards 🃏.
+- **Analysis** — Comparison Tables ⚖️, Timelines 📅, and Wikis 📖.
+- **Finance** — Real-time market data 💹 with technical analysis and charts (Stocks/Crypto).
+- **Research** — Comprehensive reports 🔍 with citations, methodology, and executive summaries.
 
-### 📚 **Knowledge & Context**
-- **Vector Memory** — Semantic search across your entire conversation history.
-- **File Processing** — Handle PDFs (with chunking), Images, and Code with syntax awareness.
-- **Project Spaces** — Organize chats into Projects and Folders with shared context.
+### 💬 **Advanced Chat & Collaboration**
+- **Sub-Chat Deep Dives** — Select *any* text to branch into a focused sub-conversation.
+- **Versioning & Branching** — Edit, fork, and traverse message history trees.
+- **Project Workspaces** — Organize chats into named projects with shared context and instructions.
+- **Organization** — Folders, Tags, Pinning, and Full-text/Semantic Search.
 
-### 💬 **Advanced Chat**
-- **Sub-Chat Deep Dives** — Highlight any text to start a focused side-conversation.
-- **Branching** — Fork conversations at any point to explore new paths.
-- **Message Versioning** — Edit and regenerate messages while keeping history.
+### 📚 **Knowledge Engine**
+- **Vector Memory** — Semantic retrieval across your entire conversation history.
+- **Smart File Processing** —
+  - **PDFs**: Intelligent chunking and indexing.
+  - **Images**: Multimodal analysis.
+  - **Code**: Syntax-aware context injection.
 
 ---
 
