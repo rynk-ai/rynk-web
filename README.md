@@ -21,6 +21,8 @@
 
 Rynk is a powerful AI chat interface built for your data. It seamlessly combines advanced conversational AI with your personal files, allowing for deep, context-aware interactions.
 
+**⚡️ Built entirely on the Cloudflare Developer Platform for edge-low latency and privacy.**
+
 **Key features:**
 
 ### Multi-Mode Intelligence
