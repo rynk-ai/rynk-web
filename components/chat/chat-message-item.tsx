@@ -87,6 +87,8 @@ interface ChatMessageItemProps {
   // Surface trigger - needs conversationId and saved surfaces
   conversationId?: string | null;
   savedSurfaces?: Record<string, any>;
+  // User query for LLM-based surface detection
+  userQuery?: string;
   // Credit indicator
   userCredits?: number | null;
   // Upgrade prompt - message index for showing on every 8th message
@@ -154,6 +156,8 @@ export const ChatMessageItem = memo(
     // Surface trigger - needs conversationId and saved surfaces
     conversationId,
     savedSurfaces,
+    // User query for LLM-based surface detection
+    userQuery,
     // Credit indicator
     userCredits,
     // Upgrade prompt
@@ -591,6 +595,7 @@ export const ChatMessageItem = memo(
                     content={displayContent}
                     role={message.role}
                     conversationId={conversationId}
+                    userQuery={userQuery}
                   />
                 )}
 
@@ -975,7 +980,9 @@ export const ChatMessageItem = memo(
       JSON.stringify(prevProps.streamingSearchResults) ===
         JSON.stringify(nextProps.streamingSearchResults) &&
       // Conversation ID for surface trigger
-      prevProps.conversationId === nextProps.conversationId
+      prevProps.conversationId === nextProps.conversationId &&
+      // User query for surface detection
+      prevProps.userQuery === nextProps.userQuery
     );
   },
 );

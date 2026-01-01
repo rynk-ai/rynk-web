@@ -153,6 +153,16 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
       const versions = messageVersions.get(rootId) || [message]
       const messageSubChats = subChats.filter(sc => sc.sourceMessageId === message.id)
 
+      // For assistant messages, find the preceding user message to use as context
+      // This enables LLM-based surface detection with both query and response
+      let userQuery: string | undefined
+      if (message.role === 'assistant' && index > 0) {
+        const prevMessage = messages[index - 1]
+        if (prevMessage?.role === 'user') {
+          userQuery = prevMessage.content.slice(0, 500) // Limit to 500 chars
+        }
+      }
+
       return (
         <ChatMessageItem
           message={message}
@@ -194,6 +204,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
           // Surface trigger props
           conversationId={conversationId}
           savedSurfaces={savedSurfaces}
+          // User query for LLM-based surface detection
+          userQuery={userQuery}
           // Credit indicator
           userCredits={userCredits}
           // Upgrade prompt
@@ -202,6 +214,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
       )
     }
   }, [
+    messages, // Need full messages array for userQuery extraction
     messageVersions,
     isSending,
     streamingMessageId,
@@ -221,7 +234,6 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
     statusPills,
     searchResults,
     contextCards,
-    messages.length,
     // Surface trigger props
     conversationId,
     savedSurfaces,

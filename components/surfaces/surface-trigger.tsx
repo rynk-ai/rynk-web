@@ -3,14 +3,16 @@
  * 
  * Component: Displays context-aware buttons to open relevant surfaces
  * Usage: Rendered within ChatMessageItem
+ * 
+ * Uses LLM-based detection via /api/surface-detect for accurate recommendations.
+ * The API call is made after the response is received (non-blocking).
  */
 
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  PiSparkle, 
   PiArrowRight, 
   PiBookOpenText, 
   PiListChecks, 
@@ -18,10 +20,9 @@ import {
   PiScales, 
   PiStack, 
   PiCalendar,
-  PiLightning,
-  PiTrendUp
+  PiTrendUp,
+  PiMagnifyingGlass
 } from "react-icons/pi";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SurfaceType } from "@/lib/services/domain-types";
 
@@ -30,6 +31,7 @@ interface SurfaceTriggerProps {
   content: string;
   role: string;
   conversationId?: string;
+  userQuery?: string; // Original user query for context
 }
 
 // Surface definitions with styling and metadata
@@ -105,36 +107,145 @@ const SURFACE_CONFIG: Record<string, {
     bgColor: "bg-emerald-500/5 hover:bg-emerald-500/10",
     borderColor: "border-emerald-500/20 hover:border-emerald-500/30",
   },
+  research: {
+    label: "Research",
+    description: "Deep-dive analysis with sources",
+    icon: PiMagnifyingGlass,
+    color: "text-violet-500",
+    bgColor: "bg-violet-500/5 hover:bg-violet-500/10",
+    borderColor: "border-violet-500/20 hover:border-violet-500/30",
+  },
 };
+
+// Cache for detected surfaces (avoid redundant API calls)
+const surfaceCache = new Map<string, SurfaceType[]>();
 
 export const SurfaceTrigger = function SurfaceTrigger({
   messageId,
   content,
   role,
   conversationId,
+  userQuery,
 }: SurfaceTriggerProps) {
   const router = useRouter();
+  const [surfaces, setSurfaces] = useState<SurfaceType[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasDetected, setHasDetected] = useState(false);
+  
+  // Ref to track if component is mounted
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
-  const recommendations = useMemo(() => {
-    if (role !== "assistant" || !content) {
-      return [];
+  // Detect surfaces via API
+  const detectSurfaces = useCallback(async () => {
+    // Skip if not an assistant message or content too short
+    if (role !== "assistant" || !content || content.length < 200) {
+      setHasDetected(true);
+      return;
     }
-    return detectSurfaceRecommendations(content);
-  }, [content, role]);
+
+    // Check cache first
+    const cacheKey = `${messageId}-${content.slice(0, 100)}`;
+    const cached = surfaceCache.get(cacheKey);
+    if (cached !== undefined) {
+      setSurfaces(cached);
+      setHasDetected(true);
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      
+      const res = await fetch('/api/surface-detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: userQuery || '',
+          response: content.slice(0, 2500), // Limit to save tokens
+          messageId,
+        }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) {
+        console.warn('[SurfaceTrigger] API error:', res.status);
+        surfaceCache.set(cacheKey, []);
+        if (mountedRef.current) {
+          setSurfaces([]);
+          setHasDetected(true);
+        }
+        return;
+      }
+      
+      const data: { surfaces?: string[]; reasoning?: string } = await res.json();
+      const detected = (data.surfaces || []) as SurfaceType[];
+      
+      // Cache the result
+      surfaceCache.set(cacheKey, detected);
+      
+      if (mountedRef.current) {
+        setSurfaces(detected);
+        setHasDetected(true);
+      }
+    } catch (err) {
+      // Handle abort or network errors silently
+      if ((err as Error).name !== 'AbortError') {
+        console.warn('[SurfaceTrigger] Detection failed:', err);
+      }
+      surfaceCache.set(`${messageId}-${content.slice(0, 100)}`, []);
+      if (mountedRef.current) {
+        setSurfaces([]);
+        setHasDetected(true);
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [messageId, content, role, userQuery]);
+
+  // Trigger detection on mount/content change (debounced)
+  useEffect(() => {
+    if (hasDetected) return;
+    
+    // Debounce to avoid calling during streaming updates
+    const timer = setTimeout(() => {
+      detectSurfaces();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [detectSurfaces, hasDetected]);
+
+  // Reset detection state when content changes significantly (new message)
+  useEffect(() => {
+    setHasDetected(false);
+    setSurfaces([]);
+  }, [messageId]);
 
   const handleOpenSurface = (type: SurfaceType) => {
-    if (!conversationId) return; // Should have conversationId
+    if (!conversationId) return;
     
-    // Pass the message content snippet as a query context
-    const query = content.slice(0, 100).replace(/\n/g, " ");
+    // Pass the user query as context for the surface
+    const query = userQuery || content.slice(0, 100).replace(/\n/g, " ");
     router.push(`/surface/${type}/${conversationId}?q=${encodeURIComponent(query)}`);
   };
 
-  if (recommendations.length === 0) return null;
+  // Don't render anything if no surfaces detected
+  if (!hasDetected || isLoading || surfaces.length === 0) {
+    return null;
+  }
 
   return (
     <div className="mt-4 flex flex-wrap gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
-      {recommendations.map((type) => {
+      {surfaces.map((type) => {
         const config = SURFACE_CONFIG[type];
         if (!config) return null;
         
@@ -177,63 +288,5 @@ export const SurfaceTrigger = function SurfaceTrigger({
     </div>
   );
 };
-
-// Simple heuristic to detect relevant surfaces
-function detectSurfaceRecommendations(content: string): SurfaceType[] {
-  const text = content.toLowerCase();
-  const types: SurfaceType[] = [];
-  
-  // Flashcards: "key terms", "vocabulary", "definitions"
-  if (text.includes("term") || text.includes("vocabulary") || text.includes("definition") || text.includes("remember")) {
-    types.push("flashcard");
-  }
-  
-  // Quiz: "question", "quiz", "test", "knowledge"
-  if (text.includes("quiz") || text.includes("test") || text.includes("question") || text.includes("check knowledge")) {
-    types.push("quiz");
-  }
-  
-  // Comparison: "difference between", "vs", "compare", "pros and cons"
-  if (text.includes("difference") || text.includes(" vs ") || text.includes("compare") || text.includes("pros and cons")) {
-    types.push("comparison");
-  }
-  
-  // Timeline: "history", "timeline", "dates", "chronology", "years"
-  if (text.includes("history") || text.includes("timeline") || text.includes("chronolog") || (text.match(/\d{4}/g) || []).length > 2) {
-    types.push("timeline");
-  }
-  
-  // Guide: "step by step", "how to", "instructions", "guide"
-  if (text.includes("step by step") || text.includes("how to") || text.includes("guide") || text.includes("instruction")) {
-    types.push("guide");
-  }
-  
-  // Wiki: "what is", "explain", "overview", "concept", encyclopedic queries
-  if (text.includes("what is") || text.includes("explain") || text.includes("overview") || text.includes("concept") || text.includes("meaning of")) {
-    types.push("wiki");
-  }
-  
-  // Learning: General fallback for long informational text
-  if (text.length > 500 && types.length === 0) {
-    types.push("learning");
-  }
-  
-  // Finance: stock, crypto, price, market, investment
-  if (
-    text.includes("stock") || 
-    text.includes("crypto") || 
-    text.includes("price") || 
-    text.includes("market") ||
-    text.includes("bitcoin") ||
-    text.includes("ethereum") ||
-    text.includes("invest") ||
-    text.match(/\$[A-Z]{2,5}/) // Stock ticker pattern
-  ) {
-    types.push("finance");
-  }
-  
-  // Limit to max 2 recommendations to avoid clutter
-  return types.slice(0, 2);
-}
 
 export default SurfaceTrigger;
