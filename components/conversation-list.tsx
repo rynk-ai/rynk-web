@@ -31,6 +31,7 @@ interface ConversationListProps {
   onEditTags: (id: string) => void
   onRename: (id: string) => void
   onDelete: (id: string) => void
+  onPrefetch?: (id: string) => void
   isLoading?: boolean;
   loadingConversations?: Set<string>;
 }
@@ -87,6 +88,7 @@ export function ConversationList({
   onEditTags,
   onRename,
   onDelete,
+  onPrefetch,
   isLoading = false,
   loadingConversations,
 }: ConversationListProps) {
@@ -146,6 +148,7 @@ export function ConversationList({
                 onRename={onRename}
                 onEditTags={onEditTags}
                 onDelete={onDelete}
+                onPrefetch={onPrefetch}
                 isLoading={loadingConversations?.has(conversation.id)}
               />
             ))}

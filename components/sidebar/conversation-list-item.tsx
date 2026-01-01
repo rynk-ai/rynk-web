@@ -27,6 +27,7 @@ interface ConversationListItemProps {
   onEditTags?: (id: string) => void;
   onRename?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onPrefetch?: (id: string) => void;
   showPinAction?: boolean;
   showMenu?: boolean;
   isLoading?: boolean;
@@ -42,6 +43,7 @@ export const ConversationListItem = memo(
     onEditTags,
     onRename,
     onDelete,
+    onPrefetch,
     showPinAction = true,
     showMenu = true,
     isLoading = false,
@@ -51,7 +53,10 @@ export const ConversationListItem = memo(
     const hasTags = conversation.tags && conversation.tags.length > 0;
     
     return (
-      <div className="group/conversation relative">
+      <div 
+        className="group/conversation relative"
+        onMouseEnter={() => !isActive && onPrefetch?.(conversation.id)}
+      >
         <button
           className={cn(
             "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-all duration-150 pr-8",

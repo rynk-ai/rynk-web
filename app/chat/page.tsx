@@ -37,6 +37,7 @@ import {
   memo,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
@@ -69,6 +70,7 @@ const ChatContent = memo(
   function ChatContent({ onMenuClick }: ChatContentProps = {}) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
     // Read chatId from search params (?id=...) or path params
     const chatId = searchParams.get("id") || undefined;
     const {
@@ -250,7 +252,6 @@ const ChatContent = memo(
       prevConversationIdForClearRef.current = currentConversationId;
       
       // Case 1: Switching FROM one conversation TO ANOTHER
-      // ALWAYS clear old messages immediately - this takes priority
       // GUARD: Skip if we're in the middle of creating a new conversation
       if (prevId !== null && currentConversationId !== null && prevId !== currentConversationId) {
         if (isCreatingConversationRef.current) {
@@ -258,12 +259,29 @@ const ChatContent = memo(
             { from: prevId, to: currentConversationId });
           return;
         }
-        console.log("[ChatPage] Switching conversations, clearing old messages immediately", 
-          { from: prevId, to: currentConversationId });
-        messageState.setMessages([]);
-        messageState.setMessageVersions(new Map());
-        setQuotedMessage(null);
-        setLocalContext([]);
+        
+        // Check if we have prefetched messages in React Query cache
+        const cachedData = queryClient.getQueryData<{ messages: ChatMessage[], nextCursor: string | null }>(
+          ["messages", currentConversationId]
+        );
+        
+        if (cachedData?.messages && cachedData.messages.length > 0) {
+          // Use cached messages immediately instead of clearing!
+          console.log("[ChatPage] Using cached messages instead of clearing:", cachedData.messages.length);
+          const filtered = filterActiveVersions(cachedData.messages);
+          messageState.setMessages(filtered);
+          messageState.setMessageVersions(new Map());
+          setQuotedMessage(null);
+          setLocalContext([]);
+        } else {
+          // No cache, clear old messages
+          console.log("[ChatPage] No cache, clearing old messages", 
+            { from: prevId, to: currentConversationId });
+          messageState.setMessages([]);
+          messageState.setMessageVersions(new Map());
+          setQuotedMessage(null);
+          setLocalContext([]);
+        }
         return;
       }
       
@@ -1450,8 +1468,24 @@ const ChatContent = memo(
         messagesConversationIdRef.current = targetConversationId;
 
         // Show loading state when switching to a different conversation
+        // BUT only if we don't have cached data from prefetch
         if (!isLoadingSameConversation) {
-          setIsLoadingConversation(true);
+          // Check React Query cache for prefetched messages
+          const cachedData = queryClient.getQueryData<{ messages: ChatMessage[], nextCursor: string | null }>(
+            ["messages", targetConversationId]
+          );
+          
+          if (cachedData?.messages && cachedData.messages.length > 0) {
+            // We have cached data! Use it immediately without loading state
+            console.log("🚀 [reloadMessages] Using cached messages from prefetch:", cachedData.messages.length);
+            const filteredCached = filterActiveVersions(cachedData.messages);
+            setMessages(filteredCached);
+            messagesConversationIdRef.current = targetConversationId;
+            // Still fetch fresh data in background, but don't show loading
+          } else {
+            // No cache, show loading state
+            setIsLoadingConversation(true);
+          }
         }
 
         try {

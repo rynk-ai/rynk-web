@@ -47,6 +47,7 @@ import {
 } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/hooks/chat-context";
+import { usePrefetchMessages } from "@/lib/hooks/use-messages";
 import { UserProfileDropdown } from "@/components/user-profile-dropdown";
 import { ConversationList } from "@/components/conversation-list";
 import { ProjectList } from "@/components/project-list";
@@ -68,6 +69,7 @@ import type {
 const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
   const pathname = usePathname();
   const router = useRouter();
+  const prefetchMessages = usePrefetchMessages();
 
   // Extract projectId from URL if on /project/[id] route
   const activeProjectId = pathname?.startsWith('/project/')
@@ -525,6 +527,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                       isActive={currentConversationId === conversation.id}
                       onSelect={handleSelectConversation}
                       onTogglePin={togglePinConversation}
+                      onPrefetch={prefetchMessages}
                       showMenu={true}
                       isLoading={loadingConversations.has(conversation.id)}
                     />
@@ -550,6 +553,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
             onEditTags={handleTagClick}
             onRename={handleRename}
             onDelete={handleDeleteSimple}
+            onPrefetch={prefetchMessages}
             isLoading={isLoadingConversations}
             loadingConversations={loadingConversations}
           />
