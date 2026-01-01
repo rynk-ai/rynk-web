@@ -61,6 +61,17 @@ import { chunkText } from '@/lib/utils/chunking'
 import { usePathname } from "next/navigation"
 import { processStreamChunk, createStreamProcessor } from "@/lib/utils/stream-parser"
 
+// Helper to add timeout to promises
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error("Request timed out")), ms)
+    )
+  ])
+}
+
+
 export function useChat(initialConversationId?: string | null) {
   const queryClient = useQueryClient()
   const pathname = usePathname()
@@ -148,14 +159,14 @@ export function useChat(initialConversationId?: string | null) {
 
   const { data: folders = [], isPending: isPendingFolders, isFetching: isFetchingFolders } = useQuery({
     queryKey: ['folders'],
-    queryFn: () => getFoldersAction(),
+    queryFn: () => withTimeout(getFoldersAction(), 15000), // 15s timeout
     staleTime: 1000 * 60 * 60, // 1 hour (folders change less often)
   })
   const isLoadingFolders = isPendingFolders && isFetchingFolders
 
   const { data: projects = [], isPending: isPendingProjects, isFetching: isFetchingProjects } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => getProjectsAction(),
+    queryFn: () => withTimeout(getProjectsAction(), 15000), // 15s timeout
     staleTime: 1000 * 60 * 60, // 1 hour
   })
   const isLoadingProjects = isPendingProjects && isFetchingProjects
