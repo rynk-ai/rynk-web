@@ -24,11 +24,28 @@
 Rynk is a powerful AI chat interface built for your data. It seamlessly combines advanced conversational AI with your personal files, allowing for deep, context-aware interactions.
 
 **Key features:**
-- **Context-Aware Responses** — Chat with your documents and data.
-- **Message Versioning** — Edit, regenerate, and branch conversations.
-- **File Uploads** — Support for PDF, images, and other formats.
-- **Secure & Private** — Built with privacy in mind.
-- **Fast & Responsive** — Powered by Cloudflare Edge.
+
+### 🧠 **Multi-Mode Intelligence**
+- **Reasoning Modes** — Toggle between `Auto`, `On` (Deep Thinking), and `Off` strategies.
+- **Slash Commands** — Use `/web`, `/deep`, `/code`, and `/brief` to control the AI.
+- **Agentic Research** — Deep multi-source research orchestration using Exa, Perplexity, and Wikipedia.
+
+### 🃏 **Adaptive Surfaces**
+Transform AI responses into specialized interactive formats:
+- **Learning** — Full courses 📚, Quizzes 🎯, and Flashcards 🃏 for active study.
+- **Analysis** — Comparison tables ⚖️, Timelines 📅, and Wikis 📖.
+- **Finance** — Real-time stock/crypto data 💹 and deep market analysis.
+- **Research** — Deep-dive reports 🔍 with citations and methodology.
+
+### 📚 **Knowledge & Context**
+- **Vector Memory** — Semantic search across your entire conversation history.
+- **File Processing** — Handle PDFs (with chunking), Images, and Code with syntax awareness.
+- **Project Spaces** — Organize chats into Projects and Folders with shared context.
+
+### 💬 **Advanced Chat**
+- **Sub-Chat Deep Dives** — Highlight any text to start a focused side-conversation.
+- **Branching** — Fork conversations at any point to explore new paths.
+- **Message Versioning** — Edit and regenerate messages while keeping history.
 
 ---
 
