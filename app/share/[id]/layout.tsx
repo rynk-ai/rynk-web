@@ -30,13 +30,13 @@ export async function generateMetadata({
       description,
       type: 'article',
       siteName: 'rynk.io',
-      images: [`/api/share/${shareId}/og`],
+      images: [`https://og.rynk.io/api/share/${shareId}`],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [`/api/share/${shareId}/og`],
+      images: [`https://og.rynk.io/api/share/${shareId}`],
     },
   }
 }
