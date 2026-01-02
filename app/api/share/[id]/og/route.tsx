@@ -17,19 +17,19 @@ export async function GET(
   try {
     const share = await cloudDb.getShare(shareId)
     
-    if (share && share.isActive) {
-      title = share.title || 'Shared Conversation'
+      if (share && share.isActive) {
+          title = share.title || 'Shared Conversation'
       
-      // Get first user message for preview
-      const { messages } = await cloudDb.getMessages(share.conversationId, 10)
-      const firstUserMessage = messages.find((m: any) => m.role === 'user')
-      if (firstUserMessage) {
-        preview = firstUserMessage.content.slice(0, 120)
-        if (firstUserMessage.content.length > 120) {
-          preview += '...'
-        }
+          // Get first user message for preview
+          const { messages } = await cloudDb.getMessages(share.conversationId, 10)
+          const firstUserMessage = messages.find((m: any) => m.role === 'user')
+          if (firstUserMessage) {
+              preview = firstUserMessage.content.slice(0, 120)
+              if (firstUserMessage.content.length > 120) {
+                  preview += '...'
+              }
+          }
       }
-    }
   } catch (error) {
     console.error('[OG Image] Error fetching share:', error)
   }
