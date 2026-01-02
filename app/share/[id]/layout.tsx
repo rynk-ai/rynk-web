@@ -30,13 +30,13 @@ export async function generateMetadata({
       description,
       type: 'article',
       siteName: 'rynk.io',
-      // OG image auto-discovered from opengraph-image.tsx
+      images: [`/api/share/${shareId}/og`],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      // Twitter image auto-discovered from opengraph-image.tsx
+      images: [`/api/share/${shareId}/og`],
     },
   }
 }
