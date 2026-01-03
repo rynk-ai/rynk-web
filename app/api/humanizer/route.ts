@@ -54,13 +54,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    if (text.length > 50000) {
-      return new Response(
-        JSON.stringify({ error: 'Text is too long. Maximum 50,000 characters allowed.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-    
     // Create streaming response
     const encoder = new TextEncoder()
     
