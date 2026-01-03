@@ -8,7 +8,6 @@ import {
 } from '@/lib/humanizer'
 import { humanizerService } from '@/lib/services/humanizer-service'
 
-export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
   try {
