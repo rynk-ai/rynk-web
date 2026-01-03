@@ -12,7 +12,8 @@ import {
   PiFileText,
   PiX,
   PiArrowRight,
-  PiWarning
+  PiWarning,
+  PiInfinity
 } from "react-icons/pi";
 import Link from "next/link";
 
@@ -25,8 +26,9 @@ export default function HumanizerPage() {
   const [currentChunk, setCurrentChunk] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
   const [rateLimitInfo, setRateLimitInfo] = useState<{
-    remaining: number;
-    resetAt: string;
+    remaining?: number;
+    resetAt?: string;
+    unlimited?: boolean;
   } | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -49,11 +51,8 @@ export default function HumanizerPage() {
     try {
       const response = await fetch("/api/humanizer");
       if (response.ok) {
-        const data = await response.json() as { remaining: number; resetAt: string };
-        setRateLimitInfo({
-          remaining: data.remaining,
-          resetAt: data.resetAt,
-        });
+        const data = await response.json() as { remaining?: number; resetAt?: string; unlimited?: boolean };
+        setRateLimitInfo(data);
       }
     } catch (error) {
       console.error("Failed to fetch rate limit info:", error);
@@ -156,10 +155,14 @@ export default function HumanizerPage() {
             const data = JSON.parse(line.slice(6));
             
             if (data.type === "meta") {
-              setRateLimitInfo({
-                remaining: data.remaining,
-                resetAt: data.resetAt,
-              });
+              if (data.unlimited) {
+                setRateLimitInfo({ unlimited: true });
+              } else {
+                setRateLimitInfo({
+                  remaining: data.remaining,
+                  resetAt: data.resetAt,
+                });
+              }
             } else if (data.type === "progress") {
               setCurrentChunk(data.chunkIndex + 1);
               setTotalChunks(data.totalChunks);
@@ -213,6 +216,7 @@ export default function HumanizerPage() {
 
   const wordCount = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
   const outputWordCount = outputText.trim() ? outputText.trim().split(/\s+/).length : 0;
+  const isUnlimited = rateLimitInfo?.unlimited;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full">
@@ -227,21 +231,30 @@ export default function HumanizerPage() {
           
           <div className="flex items-center gap-2 sm:gap-3">
             {rateLimitInfo && (
-              <span className={cn(
-                "text-xs sm:text-sm",
-                rateLimitInfo.remaining === 0 ? "text-destructive" : "text-muted-foreground"
-              )}>
-                {rateLimitInfo.remaining === 0 
-                  ? `Resets ${formatResetTime(rateLimitInfo.resetAt)}`
-                  : `${rateLimitInfo.remaining} left`
-                }
-              </span>
+              isUnlimited ? (
+                <span className="flex items-center gap-1.5 text-xs sm:text-sm text-accent">
+                  <PiInfinity className="h-4 w-4" />
+                  <span className="hidden sm:inline">Unlimited</span>
+                </span>
+              ) : (
+                <span className={cn(
+                  "text-xs sm:text-sm",
+                  rateLimitInfo.remaining === 0 ? "text-destructive" : "text-muted-foreground"
+                )}>
+                  {rateLimitInfo.remaining === 0 
+                    ? `Resets ${formatResetTime(rateLimitInfo.resetAt || "")}`
+                    : `${rateLimitInfo.remaining} left`
+                  }
+                </span>
+              )
             )}
-            <Link href="/login">
-              <Button variant="secondary" size="sm">
-                Sign in
-              </Button>
-            </Link>
+            {!isUnlimited && (
+              <Link href="/login?callbackUrl=/humanizer">
+                <Button variant="secondary" size="sm">
+                  Sign in
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -326,7 +339,7 @@ export default function HumanizerPage() {
               </div>
               <Button
                 onClick={isProcessing ? handleCancel : handleHumanize}
-                disabled={!inputText.trim() || (rateLimitInfo?.remaining === 0 && !isProcessing)}
+                disabled={!inputText.trim() || (!isUnlimited && rateLimitInfo?.remaining === 0 && !isProcessing)}
                 size="sm"
                 className="gap-1.5 min-h-[36px] px-4"
               >
@@ -426,8 +439,8 @@ export default function HumanizerPage() {
           </div>
         </div>
 
-        {/* Rate Limit Warning */}
-        {rateLimitInfo?.remaining === 0 && (
+        {/* Rate Limit Warning - only show for unauthenticated users */}
+        {!isUnlimited && rateLimitInfo?.remaining === 0 && (
           <div className="flex items-start gap-3 p-3 sm:p-4 rounded-lg border border-border bg-secondary/30 mb-6">
             <PiWarning className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
@@ -435,10 +448,10 @@ export default function HumanizerPage() {
                 You&apos;ve used all 30 free requests. 
               </p>
               <p className="text-muted-foreground mt-0.5">
-                <Link href="/login" className="text-accent hover:underline">
+                <Link href="/login?callbackUrl=/humanizer" className="text-accent hover:underline">
                   Sign in for unlimited
                 </Link>
-                {" "}or wait {formatResetTime(rateLimitInfo.resetAt)}.
+                {" "}or wait {formatResetTime(rateLimitInfo.resetAt || "")}.
               </p>
             </div>
           </div>
@@ -463,10 +476,12 @@ export default function HumanizerPage() {
       {/* Footer */}
       <footer className="w-full max-w-7xl mx-auto mt-auto">
         <div className="w-full px-4 py-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-          <span>30 free / 2 hours</span>
-          <Link href="/login" className="text-accent hover:underline">
-            Unlimited →
-          </Link>
+          <span>{isUnlimited ? "Unlimited access" : "30 free / 2 hours"}</span>
+          {!isUnlimited && (
+            <Link href="/login?callbackUrl=/humanizer" className="text-accent hover:underline">
+              Unlimited →
+            </Link>
+          )}
         </div>
       </footer>
     </div>
