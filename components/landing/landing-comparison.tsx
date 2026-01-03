@@ -1,130 +1,128 @@
 "use client";
 
-import { motion } from "motion/react";
-import { PiFileText, PiLink, PiXCircle, PiCheckCircle, PiChatCircle, PiChartBar } from "react-icons/pi";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useRef } from "react";
+import { PiLink } from "react-icons/pi";
+
+gsap.registerPlugin(ScrollTrigger);
 
 export function LandingComparison() {
+  const containerRef = useRef(null);
+
+  useGSAP(() => {
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: containerRef.current,
+        start: "top 70%",
+        end: "bottom center",
+        toggleActions: "play none none reverse"
+      }
+    });
+
+    tl.from(".comp-header", {
+        y: 50,
+        opacity: 0,
+        duration: 0.8,
+        ease: "power3.out"
+    })
+    .from(".comp-card", {
+        y: 100,
+        opacity: 0,
+        duration: 1,
+        stagger: 0.2,
+        ease: "expo.out"
+    }, "-=0.4");
+
+  }, { scope: containerRef });
+
   return (
-    <section id="features" className="py-16 bg-background">
+    <section ref={containerRef} id="features" className="py-32 bg-background relative overflow-hidden">
+      
       <div className="container px-4 mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-3xl md:text-5xl font-bold font-display tracking-tighter mb-4 text-foreground">
-            Stop reading walls of text.
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-             Other AIs dump paragraphs. We give you <span className="text-foreground font-medium">tables, timelines, and cited sources</span>—ready to use.
-          </p>
+        <div className="comp-header mb-20 max-w-4xl">
+           <h2 className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.9] mb-8 text-foreground">
+              STOP READING
+              <span className="block text-muted-foreground">WALLS OF TEXT.</span>
+           </h2>
+           <div className="h-px w-24 bg-foreground mb-8" />
+           <p className="text-xl md:text-2xl text-foreground font-medium max-w-2xl leading-relaxed">
+             Other AIs dump paragraphs. We give you <span className="bg-foreground text-background px-1">tables, timelines, and cited sources</span>—ready to use.
+           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 max-w-5xl mx-auto items-stretch">
+        <div className="grid md:grid-cols-2 gap-8 items-stretch">
           
-          {/* Box 1: Standard LLM */}
-          <motion.div 
-            className="bg-secondary/30 rounded-2xl p-6 border border-border/50 flex flex-col h-full"
-          >
-             <div className="flex items-center gap-2 mb-6 opacity-50">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                <div className="ml-2 text-[10px] font-medium uppercase tracking-wide">Standard Model</div>
+          {/* Box 1: Standard LLM (Chaos) */}
+          <div className="comp-card bg-secondary/30 border border-border p-8 md:p-12 flex flex-col h-full relative overflow-hidden group">
+             <div className="mb-10">
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">Standard Model</span>
+                <h3 className="text-2xl font-bold tracking-tight opacity-50">Unstructured Output</h3>
              </div>
 
-             <div className="flex-1 flex flex-col justify-center gap-4">
-                 <div className="bg-background/40 p-3 rounded-xl rounded-tr-sm border border-border/30 self-end max-w-[80%] text-xs text-muted-foreground">
-                    Compare iPhone 15 Pro vs Pixel 9 Pro
-                 </div>
-
-                 <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex-shrink-0 flex items-center justify-center">
-                        <PiChatCircle className="h-4 w-4 text-indigo-500" />
-                    </div>
-                    <div className="bg-background border border-border/50 p-4 rounded-2xl rounded-tl-sm shadow-sm max-w-[90%]">
-                        <div className="space-y-2">
-                             <div className="h-2 w-full bg-secondary rounded-full" />
-                             <div className="h-2 w-[90%] bg-secondary rounded-full" />
-                             <div className="h-2 w-[95%] bg-secondary rounded-full" />
-                             <div className="h-2 w-[80%] bg-secondary rounded-full" />
-                             <div className="h-2 w-full bg-secondary rounded-full" />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
-                            The iPhone 15 Pro features the A17 Pro chip and a titanium frame. Meanwhile, the Pixel 9 Pro runs on the Tensor G4 and offers advanced AI features...
-                        </p>
-                    </div>
-                 </div>
-             </div>
-          </motion.div>
-
-          {/* Box 2: rynk. (Structured Surface) */}
-          <motion.div 
-            whileHover={{ scale: 1.01 }}
-            className="bg-secondary/30 rounded-2xl p-6 border border-border/50 relative overflow-hidden flex flex-col h-full group"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center">
-                            <PiCheckCircle className="h-4 w-4" />
-                        </div>
-                        <div>
-                            <div className="font-bold text-sm tracking-tight">Structured Comparison</div>
-                            <div className="text-[10px] text-muted-foreground">Generated instantly</div>
-                        </div>
-                </div>
-            </div>
-
-            {/* Content Mockup */}
-            <div className="bg-background rounded-xl p-0 border border-border/40 shadow-sm flex-1 overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-border/40">
-                     <h3 className="text-sm font-bold tracking-tight mb-2">Tech Specs Comparison</h3>
-                     
-                     <div className="flex items-center justify-between text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2 px-2">
-                        <span>Feature</span>
-                        <div className="flex gap-4">
-                            <span className="w-12 text-center">iPhone</span>
-                            <span className="w-12 text-center">Pixel</span>
-                        </div>
-                     </div>
-
-                     <div className="space-y-2">
-                         {/* Row 1 */}
-                         <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
-                             <span className="text-[10px] font-medium">Chipset</span>
-                             <div className="flex gap-4 text-[10px]">
-                                 <span className="w-12 text-center font-semibold">A17 Pro</span>
-                                 <span className="w-12 text-center text-muted-foreground">Tensor G4</span>
-                             </div>
-                         </div>
-                         {/* Row 2 */}
-                         <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
-                             <span className="text-[10px] font-medium">Material</span>
-                             <div className="flex gap-4 text-[10px]">
-                                 <span className="w-12 text-center font-semibold">Titanium</span>
-                                 <span className="w-12 text-center text-muted-foreground">Aluminum</span>
-                             </div>
-                         </div>
-                         {/* Row 3 */}
-                         <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
-                             <span className="text-[10px] font-medium">RAM</span>
-                             <div className="flex gap-4 text-[10px]">
-                                 <span className="w-12 text-center text-muted-foreground">8 GB</span>
-                                 <span className="w-12 text-center font-semibold">16 GB</span>
-                             </div>
-                         </div>
-                     </div>
+             <div className="flex-1 relative z-10">
+                 {/* Visual chaos representation */}
+                 <div className="space-y-4 opacity-50 blur-[1px] group-hover:blur-0 transition-all duration-500">
+                    <div className="h-4 w-full bg-foreground/10" />
+                    <div className="h-4 w-[90%] bg-foreground/10" />
+                    <div className="h-4 w-[95%] bg-foreground/10" />
+                    <div className="h-4 w-[85%] bg-foreground/10" />
+                    <div className="h-4 w-full bg-foreground/10" />
+                    <div className="h-4 w-[92%] bg-foreground/10" />
                  </div>
                  
-                 <div className="p-4 bg-secondary/5 flex-1 flex flex-col justify-end">
-                     <div className="flex gap-2">
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 text-[9px] font-medium border border-blue-100 dark:border-blue-900/30">
-                            <PiLink className="h-3 w-3" /> GSM Arena
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300 text-[9px] font-medium border border-orange-100 dark:border-orange-900/30">
-                            <PiLink className="h-3 w-3" /> The Verge
-                        </span>
-                     </div>
+                 <div className="mt-8 p-4 border border-red-500/20 bg-red-500/5 text-red-600 font-mono text-xs flex items-center justify-center">
+                    ERROR: TOO_MUCH_NOISE
+                 </div>
+             </div>
+          </div>
+
+          {/* Box 2: rynk. (Order) */}
+          <div className="comp-card bg-background border border-foreground p-0 md:p-0 flex flex-col h-full relative overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,0.05)] dark:shadow-[10px_10px_0px_0px_white]">
+            <div className="p-8 md:p-12 border-b border-border">
+                <span className="text-xs font-mono uppercase tracking-widest text-accent block mb-2">rynk.</span>
+                <h3 className="text-2xl font-bold tracking-tight">Structured Comparison</h3>
+            </div>
+
+            <div className="flex-1 p-8 md:p-12 bg-secondary/20">
+                 {/* Structured Table Visual */}
+                 <div className="w-full text-sm">
+                    <div className="grid grid-cols-3 gap-4 pb-4 border-b-2 border-foreground mb-4 font-mono text-[10px] uppercase tracking-wider font-bold">
+                        <span>Feature</span>
+                        <span>iPhone 15 Pro</span>
+                        <span>Pixel 9 Pro</span>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4 border-b border-border/50 pb-2">
+                             <span className="font-bold">Chipset</span>
+                             <span className="font-mono text-muted-foreground">A17 Pro</span>
+                             <span className="font-mono text-muted-foreground">Tensor G4</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 border-b border-border/50 pb-2">
+                             <span className="font-bold">Material</span>
+                             <span className="font-mono text-muted-foreground">Titanium</span>
+                             <span className="font-mono text-muted-foreground">Aluminum</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 border-b border-border/50 pb-2">
+                             <span className="font-bold">RAM</span>
+                             <span className="font-mono text-muted-foreground">8 GB</span>
+                             <span className="font-mono text-muted-foreground">16 GB</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 flex gap-3">
+                        <div className="px-2 py-1 border border-border bg-background text-[10px] font-mono flex items-center gap-2 text-muted-foreground">
+                            <PiLink /> GSM Arena
+                        </div>
+                        <div className="px-2 py-1 border border-border bg-background text-[10px] font-mono flex items-center gap-2 text-muted-foreground">
+                            <PiLink /> The Verge
+                        </div>
+                    </div>
                  </div>
             </div>
-          </motion.div>
+          </div>
         
         </div>
       </div>

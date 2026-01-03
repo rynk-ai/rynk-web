@@ -1,223 +1,163 @@
-import { motion } from "motion/react";
-import { PiMagnifyingGlass, PiClock, PiNewspaper, PiStudent, PiTrendUp, PiBookOpen, PiGraduationCap, PiList, PiCheck, PiLink } from "react-icons/pi";
+"use client";
+
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useRef } from "react";
+import { PiMagnifyingGlass, PiClock, PiTrendUp, PiGraduationCap, PiList } from "react-icons/pi";
+
+gsap.registerPlugin(ScrollTrigger);
 
 export function LandingSurfacesGrid() {
+  const containerRef = useRef(null);
+
+  useGSAP(() => {
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: containerRef.current,
+        start: "top 70%",
+        end: "bottom bottom",
+        toggleActions: "play none none reverse"
+      }
+    });
+
+    tl.from(".surface-card", {
+        y: 60,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.1,
+        ease: "power3.out"
+    });
+
+  }, { scope: containerRef });
+
   return (
-    <section className="py-16 bg-background">
+    <section ref={containerRef} className="py-24 bg-secondary/50 border-t border-b border-border">
       <div className="container px-4 mx-auto">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold font-display tracking-tighter mb-4 text-foreground">
-             Pick your format. <br/>We'll build the interface.
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-             Quizzes, timelines, comparisons, research reports—just pick what you need and it's generated instantly.
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-y-12 md:gap-x-12 mb-20 text-center md:text-left">
+           <div className="md:col-span-8">
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-[0.9] mb-6 text-foreground">
+                    PICK YOUR FORMAT. <br/>
+                    WE'LL BUILD THE INTERFACE.
+                </h2>
+           </div>
+           <div className="md:col-span-4 flex items-end">
+                <p className="text-lg text-muted-foreground leading-relaxed text-balance">
+                    Quizzes, timelines, comparisons, research reports—just pick what you need and it's generated instantly.
+                </p>
+           </div>
         </div>
 
-        <div className="grid md:grid-cols-6 gap-4 max-w-5xl mx-auto">
-          {/* Card 1: Research (Spans top left 4 cols) */}
-          <motion.div 
-            whileHover={{ scale: 1.005 }}
-            className="md:col-span-4 bg-secondary/30 rounded-2xl p-6 border border-border/50 flex flex-col items-center justify-center min-h-[320px] text-center relative overflow-hidden group"
-          >
-            {/* Visual: Detailed Research Layout */}
-            <div className="bg-background shadow-lg rounded-xl p-0 w-full max-w-[320px] border border-border/40 relative z-10 overflow-hidden text-left">
-                {/* Header */}
-                <div className="border-b border-border/40 p-3 bg-secondary/10 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
-                            <PiMagnifyingGlass className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold tracking-tight">Deep Research</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/40">Powered by Exa</span>
-                </div>
-                
-                {/* Sources Strip */}
-                <div className="flex gap-2 p-3 overflow-hidden border-b border-border/40 bg-secondary/5">
-                     <div className="flex-shrink-0 w-24 h-14 bg-background border border-border/40 rounded-lg p-2 flex flex-col justify-between">
-                        <div className="w-4 h-4 rounded bg-orange-500/10" />
-                        <div className="h-1.5 w-12 bg-secondary rounded-full" />
-                     </div>
-                     <div className="flex-shrink-0 w-24 h-14 bg-background border border-border/40 rounded-lg p-2 flex flex-col justify-between">
-                        <div className="w-4 h-4 rounded bg-blue-500/10" />
-                        <div className="h-1.5 w-16 bg-secondary rounded-full" />
-                     </div>
-                     <div className="flex-shrink-0 w-24 h-14 bg-background border border-border/40 rounded-lg p-2 flex flex-col justify-between">
-                        <div className="w-4 h-4 rounded bg-green-500/10" />
-                        <div className="h-1.5 w-10 bg-secondary rounded-full" />
-                     </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-4 space-y-3">
-                    <div className="flex gap-1.5">
-                        <span className="text-[10px] bg-secondary px-1 rounded text-muted-foreground font-mono inline-block">1</span>
-                        <div className="space-y-1.5 flex-1">
-                            <div className="h-2 w-full bg-foreground/10 rounded-full" />
-                            <div className="h-2 w-[95%] bg-foreground/10 rounded-full" />
-                            <div className="h-2 w-[85%] bg-foreground/10 rounded-full" />
-                        </div>
-                    </div>
-                     <div className="flex gap-1.5 pt-1">
-                        <span className="text-[10px] bg-secondary px-1 rounded text-muted-foreground font-mono inline-block">2</span>
-                        <div className="space-y-1.5 flex-1">
-                            <div className="h-2 w-full bg-foreground/10 rounded-full" />
-                            <div className="h-2 w-[60%] bg-foreground/10 rounded-full" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div className="mt-6">
-                <h3 className="text-lg font-bold font-display tracking-tight mb-1">Deep Research</h3>
-                <p className="text-sm text-muted-foreground max-w-xs leading-relaxed mx-auto">
-                Executive summaries aggregated from the live web. Cited and verified.
-                </p>
-            </div>
-          </motion.div>
-
-          {/* Card 2: Wiki (Spans top right 2 cols) */}
-          <motion.div 
-            whileHover={{ scale: 1.01 }}
-             className="md:col-span-2 bg-secondary/30 rounded-2xl p-6 border border-border/50 flex flex-col items-center justify-center min-h-[320px] text-center"
-          >
-             {/* Visual: Wiki Layout */}
-             <div className="bg-background shadow-sm rounded-lg w-full max-w-[200px] border border-border/40 aspect-[4/5] p-3 flex gap-3 mb-5 overflow-hidden">
-                {/* Sidebar */}
-                <div className="w-8 flex-shrink-0 space-y-2 pt-1 border-r border-border/40 pr-2">
-                    <div className="h-1 w-full bg-primary/20 rounded-full" />
-                    <div className="h-1 w-[80%] bg-muted rounded-full" />
-                    <div className="h-1 w-[60%] bg-muted rounded-full" />
-                    <div className="h-1 w-[70%] bg-muted rounded-full" />
-                </div>
-                {/* Main */}
-                <div className="flex-1 space-y-2">
-                    <div className="h-24 w-full bg-secondary/30 rounded-md mb-2" />
-                    <div className="h-2 w-[70%] bg-foreground/10 rounded-full mb-2" />
-                    <div className="space-y-1">
-                        <div className="h-1.5 w-full bg-muted rounded-full" />
-                        <div className="h-1.5 w-full bg-muted rounded-full" />
-                        <div className="h-1.5 w-[90%] bg-muted rounded-full" />
-                    </div>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-0 border-t border-l border-border bg-border">
+          
+          {/* Card 1: Research (Big Left) */}
+          <div className="surface-card md:col-span-8 bg-background p-8 md:p-12 border-r border-b border-border min-h-[400px] flex flex-col group hover:bg-secondary/20 transition-colors">
+             <div className="flex justify-between items-start mb-12">
+                 <div className="flex flex-col gap-2">
+                     <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">01</span>
+                     <h3 className="text-2xl font-bold tracking-tight">Deep Research</h3>
+                 </div>
+                 <PiMagnifyingGlass className="h-8 w-8 opacity-20 group-hover:opacity-100 transition-opacity" />
              </div>
+             
+             <div className="relative flex-1 bg-secondary/30 border border-border p-6 flex flex-col gap-4">
+                 {/* Schematic Layout */}
+                 <div className="h-2 w-1/3 bg-foreground mb-4" />
+                 <div className="h-px w-full bg-border md:w-full" />
+                 <div className="grid grid-cols-3 gap-4">
+                     <div className="h-24 border border-border bg-background p-3">
+                         <div className="w-8 h-8 rounded-full bg-foreground/10 mb-2"></div>
+                         <div className="h-2 w-1/2 bg-foreground/10"></div>
+                     </div>
+                     <div className="h-24 border border-border bg-background p-3">
+                         <div className="w-8 h-8 rounded-full bg-foreground/10 mb-2"></div>
+                         <div className="h-2 w-1/2 bg-foreground/10"></div>
+                     </div>
+                     <div className="h-24 border border-border bg-background p-3">
+                         <div className="w-8 h-8 rounded-full bg-foreground/10 mb-2"></div>
+                         <div className="h-2 w-1/2 bg-foreground/10"></div>
+                     </div>
+                 </div>
+                 <div className="space-y-2 mt-4">
+                     <div className="h-2 w-full bg-foreground/5"></div>
+                     <div className="h-2 w-[90%] bg-foreground/5"></div>
+                     <div className="h-2 w-[95%] bg-foreground/5"></div>
+                 </div>
+             </div>
+          </div>
 
-            <h3 className="text-lg font-bold font-display tracking-tight mb-1">Instant Wiki</h3>
-            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-               Full Wikipedia-style articles generated for any niche topic.
-            </p>
-          </motion.div>
+          {/* Card 2: Wiki (Right) */}
+          <div className="surface-card md:col-span-4 bg-background p-8 md:p-12 border-r border-b border-border min-h-[400px] flex flex-col group hover:bg-secondary/20 transition-colors">
+              <div className="flex justify-between items-start mb-12">
+                 <div className="flex flex-col gap-2">
+                     <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">02</span>
+                     <h3 className="text-2xl font-bold tracking-tight">Instant Wiki</h3>
+                 </div>
+                 <PiList className="h-8 w-8 opacity-20 group-hover:opacity-100 transition-opacity" />
+             </div>
+             
+             <div className="relative flex-1 bg-secondary/30 border border-border p-6">
+                 {/* Wiki Schematic */}
+                 <div className="flex gap-4 h-full">
+                     <div className="w-8 border-r border-border h-full flex flex-col gap-2 pt-2">
+                         <div className="h-1 w-4 bg-foreground/20"></div>
+                         <div className="h-1 w-6 bg-foreground/20"></div>
+                         <div className="h-1 w-3 bg-foreground/20"></div>
+                     </div>
+                     <div className="flex-1 space-y-3">
+                         <div className="h-16 w-full bg-foreground/5"></div>
+                         <div className="h-2 w-3/4 bg-foreground/20"></div>
+                         <div className="h-2 w-full bg-foreground/5"></div>
+                         <div className="h-2 w-full bg-foreground/5"></div>
+                     </div>
+                 </div>
+             </div>
+          </div>
 
           {/* Row 2 */}
 
-          {/* Card 3: Timeline (Spans bottom left 2 cols) */}
-          <motion.div 
-            whileHover={{ scale: 1.01 }}
-            className="md:col-span-2 bg-secondary/30 rounded-2xl p-6 border border-border/50 flex flex-col items-center justify-center min-h-[320px] text-center relative overflow-hidden"
-          >
-            {/* Visual: Timeline */}
-            <div className="w-full max-w-[200px] relative mb-5 flex flex-col gap-4">
-                 {/* Event 1 */}
-                 <div className="flex gap-3 items-start opacity-40">
-                    <div className="flex flex-col items-center gap-1">
-                         <div className="w-2 h-2 rounded-full border border-foreground/50" />
-                         <div className="w-px h-6 bg-border" />
-                    </div>
-                    <div className="pt-0.5 text-left">
-                        <div className="h-1.5 w-12 bg-muted-foreground/40 rounded-full mb-1" />
-                        <div className="h-1 w-20 bg-muted/40 rounded-full" />
-                    </div>
-                 </div>
-                 {/* Event 2 (Active) */}
-                 <div className="flex gap-3 items-start">
-                    <div className="flex flex-col items-center gap-1">
-                         <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_-2px_var(--primary)]" />
-                         <div className="w-px h-8 bg-gradient-to-b from-primary/50 to-transparent" />
-                    </div>
-                    <div className="pt-0.5 text-left">
-                        <div className="h-2 w-16 bg-foreground/80 rounded-full mb-1.5" />
-                        <div className="h-1.5 w-28 bg-muted-foreground/60 rounded-full" />
-                    </div>
-                 </div>
-                 {/* Event 3 */}
-                 <div className="flex gap-3 items-start opacity-40">
-                    <div className="flex flex-col items-center gap-1">
-                         <div className="w-2 h-2 rounded-full border border-foreground/50" />
-                    </div>
-                    <div className="pt-0.5 text-left">
-                        <div className="h-1.5 w-10 bg-muted-foreground/40 rounded-full" />
-                    </div>
-                 </div>
-            </div>
-
-            <h3 className="text-lg font-bold font-display tracking-tight mb-1">Live Timeline</h3>
-            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-              Visual chronology of any event or history topic.
-            </p>
-          </motion.div>
-
-          {/* Card 4: Study (Spans bottom middle 2 cols) */}
-          <motion.div 
-            whileHover={{ scale: 1.01 }}
-            className="md:col-span-2 bg-secondary/30 rounded-2xl p-6 border border-border/50 flex flex-col items-center justify-center min-h-[320px] text-center relative overflow-hidden"
-          >
-             {/* Visual: Flashcard/Quiz */}
-             <div className="relative z-10 w-full max-w-[180px] h-[120px] mb-5">
-                 {/* Back card */}
-                 <div className="absolute top-2 left-2 right-[-8px] bottom-[-8px] bg-background/50 border border-border/30 rounded-xl" />
-                 {/* Main card */}
-                 <div className="absolute inset-0 bg-background border border-border/60 rounded-xl shadow-sm p-4 flex flex-col justify-between">
-                     <div className="flex justify-between items-start">
-                         <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">Flashcard</span>
-                         <PiGraduationCap className="h-3 w-3 text-indigo-500" />
-                     </div>
-                     <div className="text-left">
-                         <div className="h-1.5 w-full bg-foreground/10 rounded-full mb-1.5" />
-                         <div className="h-1.5 w-[80%] bg-foreground/10 rounded-full" />
-                     </div>
-                     <div className="flex gap-2">
-                         <div className="h-4 flex-1 bg-secondary rounded-md" />
-                         <div className="h-4 flex-1 bg-secondary rounded-md" />
-                     </div>
+          {/* Card 3: Timeline */}
+          <div className="surface-card md:col-span-4 bg-background p-8 md:p-12 border-r border-b border-border min-h-[360px] flex flex-col group hover:bg-secondary/20 transition-colors">
+             <div className="mb-8">
+                 <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">03</span>
+                 <h3 className="text-xl font-bold tracking-tight">Timeline</h3>
+             </div>
+             <div className="flex-1 flex items-center justify-center">
+                 <div className="relative w-full h-[2px] bg-border flex items-center justify-between px-4">
+                     <div className="w-3 h-3 bg-foreground rounded-full relative"><div className="absolute top-6 left-1/2 -translate-x-1/2 w-px h-8 bg-border"></div></div>
+                     <div className="w-3 h-3 bg-foreground rounded-full"></div>
+                     <div className="w-3 h-3 bg-foreground rounded-full"></div>
+                     <div className="w-3 h-3 bg-foreground rounded-full"></div>
                  </div>
              </div>
+          </div>
 
-            <h3 className="text-lg font-bold font-display tracking-tight mb-1">Study Mode</h3>
-            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-               Quizzes, flashcards, and structured courses on demand.
-            </p>
-          </motion.div>
-
-          {/* Card 5: Finance (Spans bottom right 2 cols) */}
-          <motion.div 
-            whileHover={{ scale: 1.01 }}
-            className="md:col-span-2 bg-secondary/30 rounded-2xl p-6 border border-border/50 flex flex-col items-center justify-center min-h-[320px] text-center relative overflow-hidden"
-          >
-             {/* Visual: Chart */}
-             <div className="bg-background shadow-sm rounded-xl p-4 mb-5 w-full max-w-[200px] border border-border/40 relative z-10 flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                       <div className="flex flex-col items-start">
-                           <span className="text-xl font-bold tracking-tighter tabular-nums">$182.43</span>
-                           <span className="text-[10px] text-green-500 font-medium">+1.24% (Today)</span>
-                       </div>
-                       <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                           <PiTrendUp className="h-3.5 w-3.5" />
-                       </div>
-                  </div>
-                  {/* Fake sparkline */}
-                  <div className="w-full h-10 flex items-end gap-1 overflow-hidden">
-                       {[40, 60, 45, 70, 65, 85, 80, 95, 90, 100].map((h, i) => (
-                           <div key={i} className="flex-1 bg-primary/20 rounded-t-[1px] hover:bg-green-500 transition-colors" style={{ height: `${h}%` }} />
-                       ))}
+          {/* Card 4: Study */}
+          <div className="surface-card md:col-span-4 bg-background p-8 md:p-12 border-r border-b border-border min-h-[360px] flex flex-col group hover:bg-secondary/20 transition-colors">
+             <div className="mb-8">
+                 <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">04</span>
+                 <h3 className="text-xl font-bold tracking-tight">Study Mode</h3>
+             </div>
+             <div className="flex-1 flex items-center justify-center">
+                  <div className="w-32 h-40 border-2 border-foreground bg-background relative flex items-center justify-center">
+                      <div className="text-4xl font-serif">A+</div>
+                      <div className="absolute -right-2 -bottom-2 w-full h-full border border-border -z-10"></div>
                   </div>
              </div>
+          </div>
 
-            <h3 className="text-lg font-bold font-display tracking-tight mb-1">Market Insights</h3>
-            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-               Real-time data aggregation and news summaries.
-            </p>
-          </motion.div>
+          {/* Card 5: Market */}
+          <div className="surface-card md:col-span-4 bg-background p-8 md:p-12 border-r border-b border-border min-h-[360px] flex flex-col group hover:bg-secondary/20 transition-colors">
+             <div className="mb-8">
+                 <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">05</span>
+                 <h3 className="text-xl font-bold tracking-tight">Market</h3>
+             </div>
+             <div className="flex-1 flex items-end justify-center gap-1 pb-4">
+                 {[40, 65, 45, 80, 55, 90, 100].map((h, i) => (
+                     <div key={i} className="w-4 bg-foreground hover:bg-accent transition-colors duration-300" style={{ height: `${h}%` }}></div>
+                 ))}
+             </div>
+          </div>
 
         </div>
       </div>

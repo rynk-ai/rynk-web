@@ -7,125 +7,146 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   RYNK "COGNITIVE MINIMALIST" DESIGN SYSTEM
-   Compact, Neural, Neutral. Inspired by Notion/Perplexity.
+   RYNK "SWISS MODERN" DESIGN SYSTEM
+   Precision. Clarity. Bold Typography.
+   Inspired by International Typographic Style.
    ============================================ */
 
 @layer base {
     :root {
-        /* Backgrounds - "Character Light" */
+        /* ====== SWISS TYPOGRAPHY SCALE ====== */
+        --heading-1: clamp(3.5rem, 8vw, 7rem);
+        --heading-2: clamp(2.5rem, 5vw, 4.5rem);
+        --heading-3: clamp(1.5rem, 3vw, 2rem);
+        --body: 1rem;
+        --caption: 0.75rem;
+
+        /* ====== GRID SYSTEM (8px base) ====== */
+        --grid-unit: 8px;
+        --grid-columns: 12;
+        --container-max: 1400px;
+
+        /* ====== SPACING SCALE ====== */
+        --space-1: 8px;
+        --space-2: 16px;
+        --space-3: 24px;
+        --space-4: 32px;
+        --space-6: 48px;
+        --space-8: 64px;
+        --space-12: 96px;
+        --space-16: 128px;
+
+        /* ====== BACKGROUNDS ====== */
         --background: 0 0% 100%; /* Pure White */
 
-        /* Foreground - "Rich Navy" */
-        --foreground: 222 47% 10%; /* #0F172A */
+        /* ====== FOREGROUND ====== */
+        --foreground: 0 0% 6%; /* Near Black #0F0F0F */
 
-        /* Card/Surface */
+        /* ====== CARD/SURFACE ====== */
         --card: 0 0% 100%;
-        --card-foreground: 222 47% 10%;
+        --card-foreground: 0 0% 6%;
 
-        /* Popover */
+        /* ====== POPOVER ====== */
         --popover: 0 0% 100%;
-        --popover-foreground: 222 47% 10%;
+        --popover-foreground: 0 0% 6%;
 
-        /* Primary - "Navy Black" */
-        --primary: 222 47% 10%;
+        /* ====== PRIMARY - Swiss Black ====== */
+        --primary: 0 0% 6%;
         --primary-foreground: 0 0% 100%;
 
-        /* Secondary - "Mist Blue" (Distinct Color) */
-        /* Increased tint to give the 'color' user asked for */
-        --secondary: 210 30% 94%; /* #EBF1F7 - Clearly blue-tinted grey */
-        --secondary-foreground: 222 47% 10%;
+        /* ====== SECONDARY - Neutral Grey ====== */
+        --secondary: 0 0% 96%; /* #F5F5F5 */
+        --secondary-foreground: 0 0% 6%;
 
-        /* Muted */
-        --muted: 210 30% 94%;
-        --muted-foreground: 215 25% 45%;
+        /* ====== MUTED ====== */
+        --muted: 0 0% 96%;
+        --muted-foreground: 0 0% 45%;
 
-        /* Accent */
+        /* ====== ACCENT - Swiss Blue ====== */
         --accent: 221 83% 53%;
         --accent-foreground: 0 0% 100%;
 
-        /* Destructive */
+        /* ====== DESTRUCTIVE ====== */
         --destructive: 0 84% 60%;
         --destructive-foreground: 0 0% 98%;
 
-        /* Borders */
-        --border: 215 25% 88%; /* #DAE2EB */
-        --input: 215 25% 88%;
-        --ring: 222 47% 11%;
+        /* ====== BORDERS - Crisp ====== */
+        --border: 0 0% 88%;
+        --input: 0 0% 88%;
+        --ring: 0 0% 6%;
 
-        /* Radius */
-        --radius: 0.5rem;
+        /* ====== RADIUS - Sharp (Swiss) ====== */
+        --radius: 0px;
 
-        /* Surface System */
+        /* ====== SURFACE SYSTEM ====== */
         --canvas: 0 0% 100%;
-        --canvas-subtle: 210 30% 96%; 
+        --canvas-subtle: 0 0% 98%;
         --surface: 0 0% 100%;
-        --surface-hover: 210 30% 93%; 
-        --surface-active: 210 30% 91%;
+        --surface-hover: 0 0% 96%;
+        --surface-active: 0 0% 94%;
 
-        /* Sidebar - "Soft Azure" (Character) */
-        /* Distinctly colored sidebar */
-        --sidebar: 215 35% 95%; /* #EFF4FB */
-        --sidebar-foreground: 222 47% 10%;
-        --sidebar-primary: 222 47% 10%;
+        /* ====== SIDEBAR ====== */
+        --sidebar: 0 0% 98%;
+        --sidebar-foreground: 0 0% 6%;
+        --sidebar-primary: 0 0% 6%;
         --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 215 35% 92%; /* #E2EAF5 */
-        --sidebar-accent-foreground: 222 47% 10%;
-        --sidebar-border: 215 25% 88%; /* Matches border */
-        --sidebar-ring: 222 47% 10%;
+        --sidebar-accent: 0 0% 94%;
+        --sidebar-accent-foreground: 0 0% 6%;
+        --sidebar-border: 0 0% 90%;
+        --sidebar-ring: 0 0% 6%;
     }
 
     .dark {
-        /* Backgrounds - "True Neutral" (Dark) */
-        --background: 0 0% 10%; /* #191919 - Notion Dark */
+        /* ====== BACKGROUNDS ====== */
+        --background: 0 0% 4%; /* #0A0A0A - True Black */
 
-        /* Foreground - "Soft White" */
-        --foreground: 0 0% 90%; /* #E5E5E5 */
+        /* ====== FOREGROUND ====== */
+        --foreground: 0 0% 94%; /* #F0F0F0 */
 
-        /* Card/Surface */
-        --card: 0 0% 12%; /* #1F1F1F */
-        --card-foreground: 0 0% 90%;
+        /* ====== CARD/SURFACE ====== */
+        --card: 0 0% 6%;
+        --card-foreground: 0 0% 94%;
 
-        /* Popover */
-        --popover: 0 0% 12%;
-        --popover-foreground: 0 0% 90%;
+        /* ====== POPOVER ====== */
+        --popover: 0 0% 6%;
+        --popover-foreground: 0 0% 94%;
 
-        /* Primary - White */
+        /* ====== PRIMARY ====== */
         --primary: 0 0% 96%;
-        --primary-foreground: 0 0% 10%;
+        --primary-foreground: 0 0% 4%;
 
-        /* Secondary - Deep Grey */
-        --secondary: 0 0% 15%; /* #262626 */
-        --secondary-foreground: 0 0% 90%;
+        /* ====== SECONDARY ====== */
+        --secondary: 0 0% 10%;
+        --secondary-foreground: 0 0% 94%;
 
-        /* Muted */
-        --muted: 0 0% 15%;
-        --muted-foreground: 0 0% 60%; /* #999999 */
+        /* ====== MUTED ====== */
+        --muted: 0 0% 12%;
+        --muted-foreground: 0 0% 55%;
 
-        /* Accent */
-        --accent: 225 70% 65%; /* #4D7DFF - Brighter for dark mode */
+        /* ====== ACCENT ====== */
+        --accent: 225 70% 60%;
         --accent-foreground: 0 0% 100%;
 
-        /* Borders */
-        --border: 0 0% 18%; /* #2E2E2E */
-        --input: 0 0% 18%;
+        /* ====== BORDERS ====== */
+        --border: 0 0% 14%;
+        --input: 0 0% 14%;
         --ring: 0 0% 60%;
 
-        /* Surfaces */
-        --canvas: 0 0% 10%;
-        --canvas-subtle: 0 0% 12%; 
-        --surface: 0 0% 12%;
-        --surface-hover: 0 0% 16%;
-        --surface-active: 0 0% 18%;
+        /* ====== SURFACES ====== */
+        --canvas: 0 0% 4%;
+        --canvas-subtle: 0 0% 6%;
+        --surface: 0 0% 6%;
+        --surface-hover: 0 0% 10%;
+        --surface-active: 0 0% 12%;
 
-        /* Sidebar Variables (Dark) */
-        --sidebar: 0 0% 11%; /* #1C1C1C */
-        --sidebar-foreground: 0 0% 88%;
+        /* ====== SIDEBAR ====== */
+        --sidebar: 0 0% 5%;
+        --sidebar-foreground: 0 0% 90%;
         --sidebar-primary: 0 0% 96%;
-        --sidebar-primary-foreground: 0 0% 10%;
-        --sidebar-accent: 0 0% 16%;
+        --sidebar-primary-foreground: 0 0% 4%;
+        --sidebar-accent: 0 0% 10%;
         --sidebar-accent-foreground: 0 0% 96%;
-        --sidebar-border: 0 0% 18%;
+        --sidebar-border: 0 0% 14%;
         --sidebar-ring: 0 0% 60%;
     }
 }
@@ -140,10 +161,10 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
 
-    --radius-sm: calc(var(--radius) - 2px);
-    --radius-md: calc(var(--radius));
-    --radius-lg: calc(var(--radius) + 2px);
-    --radius-xl: calc(var(--radius) + 4px);
+    --radius-sm: 0;
+    --radius-md: 0;
+    --radius-lg: 0;
+    --radius-xl: 0;
 }
 
 @layer base {
@@ -156,40 +177,89 @@
     }
 
     body {
-        @apply bg-background text-foreground antialiased selection:bg-gray-200 selection:text-black dark:selection:bg-gray-800 dark:selection:text-white;
+        @apply bg-background text-foreground antialiased;
         font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
 
-    /* Compact Typography */
+    /* ====== SWISS TYPOGRAPHY ====== */
     h1, h2, h3, h4, h5, h6 {
-        @apply font-sans tracking-tight font-semibold text-foreground; /* [MODIFIED] */
+        @apply font-sans font-bold text-foreground;
+        letter-spacing: -0.03em;
+        line-height: 0.95;
     }
 
     p {
-        @apply leading-snug text-pretty;
+        @apply leading-relaxed text-pretty;
+    }
+
+    ::selection {
+        @apply bg-foreground text-background;
     }
 }
 
 /* ============================================
-   UTILITIES
+   SWISS DESIGN UTILITIES
    ============================================ */
 
 @layer utilities {
-    /* Flat Design Utilities - No Shadows */
-    .card-flat {
-        @apply bg-card border border-border transition-colors duration-200;
+    /* ====== SWISS TYPOGRAPHY CLASSES ====== */
+    .swiss-headline {
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 0.92;
+        text-wrap: balance;
     }
 
-    .card-flat:hover {
-        @apply bg-secondary/50;
+    .swiss-subhead {
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
     }
 
-    /* Matte "Glass" - Solid with transparency but no blur necessary for minimalist vibe, keeping it simple */
-    .glass-removed {
-        @apply bg-background border-b border-border;
+    .swiss-mono {
+        font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 0.65rem;
     }
 
-    /* Invisible Scrollbar */
+    .swiss-label {
+        font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 0.65rem;
+        @apply text-muted-foreground;
+    }
+
+    /* ====== GRID SYSTEM ====== */
+    .grid-swiss {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: var(--space-4);
+    }
+
+    /* ====== FLAT CARD (No shadows, sharp) ====== */
+    .card-swiss {
+        @apply bg-card border border-border;
+        transition: background-color 0.2s ease;
+    }
+
+    .card-swiss:hover {
+        @apply bg-secondary;
+    }
+
+    /* ====== DIVIDERS ====== */
+    .divider-swiss {
+        @apply w-full h-px bg-border;
+    }
+
+    .divider-thick {
+        @apply w-full h-[2px] bg-foreground;
+    }
+
+    /* ====== INVISIBLE SCROLLBAR ====== */
     .no-scrollbar::-webkit-scrollbar {
         display: none;
     }
@@ -198,7 +268,7 @@
         scrollbar-width: none;
     }
 
-    /* Minimal Scrollbar */
+    /* ====== MINIMAL SCROLLBAR ====== */
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -209,10 +279,10 @@
     }
 
     ::-webkit-scrollbar-thumb {
-        @apply bg-border rounded-full hover:bg-muted-foreground/30 transition-colors;
+        @apply bg-border hover:bg-muted-foreground/30 transition-colors;
     }
 
-    /* Text Balance */
+    /* ====== TEXT UTILITIES ====== */
     .text-balance {
         text-wrap: balance;
     }
@@ -221,17 +291,33 @@
         text-wrap: pretty;
     }
 
-    /* Sub-chat highlight styles */
-    .subchat-highlight {
-        @apply bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 cursor-pointer rounded-sm px-0.5 transition-colors border-b border-dashed border-yellow-400 dark:border-yellow-700;
+    /* ====== ANIMATION UTILITIES ====== */
+    .animate-reveal {
+        animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes reveal {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ====== FOCUS STATES (Swiss precision) ====== */
+    .focus-swiss:focus-visible {
+        @apply outline-2 outline-offset-2 outline-foreground;
     }
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    body {
+        @apply bg-background text-foreground;
     }
 }

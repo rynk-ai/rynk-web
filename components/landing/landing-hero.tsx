@@ -1,11 +1,15 @@
 "use client";
 
-import { motion } from "motion/react";
-import { PiArrowRight, PiLightning, PiSpeakerHigh, PiSpeakerSlash, PiPlay, PiPause, PiCornersOut } from "react-icons/pi";
+import { useRef, useState } from "react";
+import { PiArrowRight, PiSpeakerHigh, PiSpeakerSlash, PiCornersOut } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 export function LandingHero() {
   const router = useRouter();
@@ -13,6 +17,7 @@ export function LandingHero() {
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef(null);
 
   const toggleMute = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -32,130 +37,134 @@ export function LandingHero() {
   };
 
   const toggleFullscreen = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-
-    try {
-        // Request Fullscreen
-        if (videoRef.current.requestFullscreen) {
-            await videoRef.current.requestFullscreen();
-        } else if ((videoRef.current as any).webkitRequestFullscreen) { /* Safari */
-            await (videoRef.current as any).webkitRequestFullscreen();
-        } else if ((videoRef.current as any).msRequestFullscreen) { /* IE11 */
-            await (videoRef.current as any).msRequestFullscreen();
-        } else if ((videoRef.current as any).webkitEnterFullscreen) { /* iOS Video Element specific */
-             (videoRef.current as any).webkitEnterFullscreen();
-        }
-        
-        setIsMuted(false); // Auto-unmute on fullscreen
-
-        // Attempt to lock orientation to landscape (Works on many Android devices + Chrome)
-        // Note: iOS Safari handles this natively with its video player usually.
-        if (screen.orientation && 'lock' in screen.orientation) {
-            try {
-                // @ts-ignore - lock type is valid string but TS might complain depending on lib version
-                await screen.orientation.lock("landscape");
-            } catch (err) {
-                // Orientation lock failed (not supported or denied), we swallow this as it's an enhancement
-                console.log("Orientation lock not supported or denied");
-            }
-        }
-    } catch (err) {
-        console.error("Fullscreen request failed:", err);
-    }
+      e.stopPropagation();
+      if (!videoRef.current) return;
+      try {
+          if (videoRef.current.requestFullscreen) await videoRef.current.requestFullscreen();
+          else if ((videoRef.current as any).webkitEnterFullscreen) (videoRef.current as any).webkitEnterFullscreen();
+          setIsMuted(false); 
+      } catch (err) { console.error(err); }
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      router.push(`/chat?q=${encodeURIComponent(query)}`);
-    } else {
-      router.push("/chat");
-    }
+    router.push(query.trim() ? `/chat?q=${encodeURIComponent(query)}` : "/chat");
   };
 
+  useGSAP(() => {
+    const tl = gsap.timeline();
+
+    // Staggered Text Reveal
+    tl.from(".hero-line", {
+      y: 100,
+      opacity: 0,
+      duration: 1,
+      stagger: 0.15,
+      ease: "power4.out",
+      delay: 0.2
+    })
+    .from(".hero-sub", {
+      y: 20,
+      opacity: 0,
+      duration: 0.8,
+      ease: "power3.out"
+    }, "-=0.5")
+    .from(".hero-search", {
+        y: 20,
+        opacity: 0,
+        duration: 0.8,
+        ease: "power3.out"
+    }, "-=0.6");
+
+    // Video Slide In
+    gsap.from(".hero-video-container", {
+      x: 100,
+      opacity: 0,
+      duration: 1.2,
+      ease: "expo.out",
+      delay: 0.6
+    });
+
+    // Parallax
+    gsap.to(".hero-video-container", {
+        y: 100,
+        scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: true
+        }
+    });
+
+  }, { scope: containerRef });
+
   return (
-    <section className="relative pt-24 pb-16 md:pt-32 md:pb-24 overflow-hidden bg-background">
+    <section ref={containerRef} className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden bg-background min-h-screen flex flex-col justify-center">
       
-      {/* Background decorations - simplified */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[400px] bg-primary/5 blur-[100px] -z-10 opacity-50" />
+      {/* Decorative Grid Lines - Swiss Style */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-border/50" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-border/50" />
       
       <div className="container px-4 mx-auto relative z-10">
-        <div className="flex flex-col items-center text-center">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
           
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground border border-border text-xs font-medium mb-6"
-          >
-            <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            <span className="tracking-wide uppercase text-[10px]">Research Engine</span>
-            <PiArrowRight className="h-3 w-3 ml-1 opacity-50" />
-          </motion.div>
+          {/* Left Content - Typography */}
+          <div className="md:col-span-7 flex flex-col items-start z-20">
+            
+            {/* Minimal Badge */}
+            <div className="hero-sub mb-8 flex items-center gap-3">
+               <div className="h-px w-8 bg-foreground"></div>
+               <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Research Engine v2.0</span>
+            </div>
 
-          {/* Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl md:text-7xl font-bold font-display tracking-tighter mb-6 text-foreground"
-          >
-            Ask once. <br />
-            <span className="text-foreground/90">Get it your way.</span>
-          </motion.h1>
+            {/* Massive Swiss Headline */}
+            <div className="mb-10 relative overflow-hidden">
+                <h1 className="text-7xl md:text-8xl lg:text-[7rem] font-bold leading-[0.9] tracking-tighter text-foreground">
+                    <div className="overflow-hidden"><span className="hero-line block">ASK ONCE.</span></div>
+                    <div className="overflow-hidden"><span className="hero-line block text-muted-foreground">GET IT</span></div>
+                    <div className="overflow-hidden"><span className="hero-line block">YOUR WAY.</span></div>
+                </h1>
+            </div>
 
-          {/* Subheadline */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-lg md:text-xl text-muted-foreground mb-8 max-w-xl mx-auto leading-relaxed text-balance"
-          >
-             Timelines, comparisons, quizzes, courses—<br/>
-             <span className="text-foreground">pick the format that fits your brain.</span>
-          </motion.p>
-          
-          {/* Hero CTA */}
-          <motion.div
-             initial={{ opacity: 0, y: 20 }}
-             animate={{ opacity: 1, y: 0 }}
-             transition={{ duration: 0.5, delay: 0.3 }}
-             className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md mx-auto mb-10"
-          >
-            <form onSubmit={handleSearch} className="relative w-full flex items-center">
-                <Input 
-                    placeholder="Ask anything..." 
-                    className="h-12 rounded-full pl-6 pr-12 bg-secondary/50 border-border/50 focus:bg-background transition-all"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                />
-                <Button 
-                    type="submit"
-                    size="icon"
-                    className="absolute right-1 top-1 bottom-1 h-10 w-10 rounded-full"
-                >
-                    <PiArrowRight className="h-4 w-4" />
-                    <span className="sr-only">Search</span>
-                </Button>
-            </form>
-          </motion.div>
-        
-        </div>
+            {/* Description */}
+            <p className="hero-sub text-lg md:text-xl text-muted-foreground mb-12 max-w-lg leading-relaxed text-balance">
+               Timelines, comparisons, quizzes, courses—<br/>
+               <span className="text-foreground font-medium">pick the format that fits your brain.</span>
+            </p>
+            
+            {/* Search Input */}
+            <div className="hero-search w-full max-w-md">
+                <form onSubmit={handleSearch} className="relative flex items-center group">
+                    <Input 
+                        placeholder="Ask anything..." 
+                        className="h-16 rounded-none pl-6 pr-16 bg-transparent border-2 border-foreground/10 focus:border-foreground transition-all text-lg placeholder:text-muted-foreground/50"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                    />
+                    <Button 
+                        type="submit"
+                        size="icon"
+                        className="absolute right-2 top-2 bottom-2 h-12 w-12 rounded-none bg-foreground text-background hover:bg-foreground/80 transition-transform active:scale-95"
+                    >
+                        <PiArrowRight className="h-5 w-5" />
+                        <span className="sr-only">Search</span>
+                    </Button>
+                </form>
+                <div className="mt-4 flex gap-4 text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                    <span>Try:</span>
+                    <button onClick={() => setQuery("iPhone 15 vs Pixel 9")} className="hover:text-foreground underline decoration-dotted underline-offset-4">iPhone vs Pixel</button>
+                    <button onClick={() => setQuery("History of Roman Empire")} className="hover:text-foreground underline decoration-dotted underline-offset-4">Roman History</button>
+                </div>
+            </div>
+          </div>
 
-        {/* Hero Visual Mockup */}
-        <motion.div
-          initial={{ opacity: 0, y: 50, rotateX: 10 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0 }}
-          transition={{ duration: 0.8, delay: 0.5, type: "spring", stiffness: 50 }}
-          className="mt-12 relative mx-auto max-w-5xl"
-        >
-             {/* Mockup Content Placement - Video */}
-            <div className="relative rounded-xl bg-background overflow-hidden shadow-2xl border border-border/50 group">
+          {/* Right Content - Visual Mockup */}
+          <div className="md:col-span-5 relative hero-video-container mt-12 md:mt-0">
+             <div className="relative aspect-[4/5] w-full bg-secondary md:translate-y-12">
+                {/* Sharp container, offset placement */}
                 <div 
-                    className="aspect-[16/9] w-full bg-muted relative"
-                    onClick={togglePlay} // Allow clicking video to toggle play on mobile
+                    className="absolute inset-0 bg-black overflow-hidden group border border-border"
+                    onClick={togglePlay}
                 >
                     <video 
                         ref={videoRef}
@@ -163,51 +172,29 @@ export function LandingHero() {
                         loop
                         muted={isMuted}
                         playsInline
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover opacity-90"
                     >
                         <source src="https://files.rynk.io/demo%20rynk.webm" type="video/webm" />
-                        Your browser does not support the video tag.
                     </video>
 
-                    {/* Mobile Controls Overlay */}
-                    <div className="absolute inset-0 z-20 md:hidden flex items-end justify-between p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
-                        {/* Left: Mute Toggle */}
-                         <button
-                            onClick={toggleMute}
-                             className="pointer-events-auto w-10 h-10 rounded-full bg-white/10 backdrop-blur-md text-white flex items-center justify-center border border-white/20 active:scale-95 transition-transform"
-                            aria-label={isMuted ? "Unmute" : "Mute"}
-                        >
-                            {isMuted ? <PiSpeakerSlash className="h-5 w-5" /> : <PiSpeakerHigh className="h-5 w-5" />}
-                        </button>
-
-                         {/* Right: Fullscreen */}
-                         <button
-                            onClick={toggleFullscreen}
-                            className="pointer-events-auto px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-white text-xs font-medium border border-white/20 active:scale-95 transition-transform flex items-center gap-2"
-                        >
-                            <PiCornersOut className="h-4 w-4" />
+                    {/* Minimal Controls */}
+                    <div className="absolute bottom-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                         <button onClick={toggleMute} className="w-10 h-10 bg-white text-black flex items-center justify-center hover:bg-gray-200 transition-colors">
+                             {isMuted ? <PiSpeakerSlash className="w-5 h-5"/> : <PiSpeakerHigh className="w-5 h-5"/>}
+                         </button>
+                         <button onClick={toggleFullscreen} className="w-10 h-10 bg-black text-white border border-white/20 flex items-center justify-center hover:bg-neutral-900 transition-colors">
+                            <PiCornersOut className="w-5 h-5"/>
                          </button>
                     </div>
-
-                    {/* Desktop Controls */}
-                    <button
-                        onClick={toggleMute}
-                        className={`hidden md:flex absolute z-20 rounded-full bg-black/80 text-white transition-all duration-500 ease-in-out items-center justify-center border border-white/10 md:opacity-0 md:group-hover:opacity-100 ${
-                            isMuted 
-                                ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20" 
-                                : "bottom-6 right-6 w-10 h-10"
-                        }`}
-                        aria-label={isMuted ? "Unmute video" : "Mute video"}
-                    >
-                        {isMuted ? (
-                            <PiSpeakerSlash className="h-8 w-8" />
-                        ) : (
-                            <PiSpeakerHigh className="h-5 w-5" />
-                        )}
-                    </button>
                 </div>
-            </div>
-        </motion.div>
+
+                {/* Decorative Elements */}
+                <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-dots-pattern opacity-20 -z-10" />
+                <div className="absolute -top-6 -left-6 w-12 h-12 border-t-2 border-l-2 border-foreground/20" />
+             </div>
+          </div>
+        
+        </div>
       </div>
     </section>
   );

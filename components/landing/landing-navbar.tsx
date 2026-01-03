@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useScroll, useMotionValueEvent, AnimatePresence, motion } from "motion/react";
-import { useState, useEffect } from "react";
+import { useScroll, useMotionValueEvent, AnimatePresence } from "motion/react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { useSession } from "next-auth/react";
-import { PiSun, PiMoon, PiDesktop, PiList, PiArrowRight } from "react-icons/pi";
+import { PiSun, PiMoon, PiDesktop, PiList, PiArrowRight, PiX } from "react-icons/pi";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 
 export function LandingNavbar() {
   const { scrollY } = useScroll();
@@ -23,6 +25,7 @@ export function LandingNavbar() {
   const [mounted, setMounted] = useState(false);
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated" && !!session;
+  const navRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
@@ -30,46 +33,72 @@ export function LandingNavbar() {
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setScrolled(latest > 20);
-    setShowCta(latest > 600); // Show CTA after scrolling past approx Hero height
+    setShowCta(latest > 600);
   });
+
+  useGSAP(() => {
+    const tl = gsap.timeline();
+    tl.from(".nav-brand", {
+      y: -20,
+      opacity: 0,
+      duration: 0.8,
+      ease: "power3.out"
+    })
+    .from(".nav-item", {
+      y: -20,
+      opacity: 0,
+      duration: 0.6,
+      stagger: 0.1,
+      ease: "power3.out"
+    }, "-=0.6");
+  }, { scope: navRef });
 
   return (
     <header 
+      ref={navRef}
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b",
         scrolled 
-            ? "py-2 bg-background/95 border-border/40 shadow-sm" 
-            : "py-4 bg-background border-transparent"
+            ? "py-3 bg-background border-border" 
+            : "py-5 bg-background border-transparent"
       )}
     >
       <div className="container px-4 mx-auto">
-        <nav className="flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-display font-bold text-xl tracking-tight z-50 relative">
-            <span>rynk.</span>
-          </Link>
+        <nav className="grid grid-cols-12 items-center gap-4">
+          
+          {/* Logo - Spans 3 columns */}
+          <div className="col-span-6 md:col-span-3">
+            <Link href="/" className="nav-brand flex items-center gap-2 group">
+              <span className="font-display font-bold text-2xl tracking-tighter group-hover:opacity-70 transition-opacity">rynk.</span>
+            </Link>
+          </div>
 
-          {/* Desktop Actions */}
-          <div className="hidden md:flex items-center gap-2 sm:gap-4">
-            <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mr-2">Features</Link>
+          {/* Desktop Nav - Middle */}
+          <div className="hidden md:flex col-span-6 justify-center items-center gap-8">
+            <Link href="#features" className="nav-item text-xs font-medium uppercase tracking-widest hover:text-muted-foreground transition-colors">Features</Link>
+            <Link href="#pricing" className="nav-item text-xs font-medium uppercase tracking-widest hover:text-muted-foreground transition-colors">Pricing</Link>
+          </div>
+
+          {/* Desktop Actions - Right - Spans 3 columns */}
+          <div className="hidden md:flex col-span-3 justify-end items-center gap-4">
             
             {mounted && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <PiSun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <PiMoon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  <Button variant="ghost" size="icon" className="nav-item h-8 w-8 rounded-none hover:bg-transparent">
+                    <PiSun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <PiMoon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                     <span className="sr-only">Toggle theme</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setTheme("light")}>
+                <DropdownMenuContent align="end" className="rounded-none border-border">
+                  <DropdownMenuItem onClick={() => setTheme("light")} className="rounded-none cursor-pointer">
                     <PiSun className="mr-2 h-4 w-4" /> Light
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("dark")}>
+                  <DropdownMenuItem onClick={() => setTheme("dark")} className="rounded-none cursor-pointer">
                      <PiMoon className="mr-2 h-4 w-4" /> Dark
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("system")}>
+                  <DropdownMenuItem onClick={() => setTheme("system")} className="rounded-none cursor-pointer">
                      <PiDesktop className="mr-2 h-4 w-4" /> System
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -77,97 +106,75 @@ export function LandingNavbar() {
             )}
 
             {isAuthenticated ? (
-              <Button size="sm" className="rounded-full px-5 font-medium" asChild>
+              <Button size="default" className="nav-item rounded-none px-6 font-medium bg-foreground text-background hover:bg-foreground/90 h-10" asChild>
                 <Link href="/chat">
-                  Go to Chat
+                  ACCOUNT
                   <PiArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/login">Log in</Link>
-                </Button>
+                <Link href="/login" className="nav-item text-xs font-medium uppercase tracking-widest hover:text-muted-foreground transition-colors mr-2">
+                  Log in
+                </Link>
                 
                 <AnimatePresence>
                     {showCta && (
-                        <motion.div
-                            initial={{ opacity: 0, width: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, width: "auto", scale: 1 }}
-                            exit={{ opacity: 0, width: 0, scale: 0.9 }}
-                            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-                            className="overflow-hidden"
-                        >
-                            <Button size="sm" className="rounded-full px-5 font-medium whitespace-nowrap ml-2" asChild>
-                               <Link href="/chat">Get Started</Link>
-                            </Button>
-                        </motion.div>
+                       <Button size="default" className="nav-item rounded-none px-6 font-medium bg-foreground text-background hover:bg-foreground/90 h-10" asChild>
+                           <Link href="/chat">START FREE</Link>
+                       </Button>
                     )}
                 </AnimatePresence>
               </>
             )}
           </div>
 
-          {/* Mobile Menu */}
-          <div className="flex md:hidden items-center gap-2">
-            {isAuthenticated ? (
-              <Button size="sm" className="rounded-full px-4 h-8 text-xs font-medium" asChild>
-                <Link href="/chat">
-                  Go to Chat
-                  <PiArrowRight className="ml-1 h-3 w-3" />
-                </Link>
-              </Button>
-            ) : (
-              <AnimatePresence>
-                  {showCta && (
-                      <motion.div
-                          initial={{ opacity: 0, width: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, width: "auto", scale: 1 }}
-                          exit={{ opacity: 0, width: 0, scale: 0.9 }}
-                          className="overflow-hidden mr-1"
-                      >
-                          <Button size="sm" className="rounded-full px-4 h-8 text-xs font-medium" asChild>
-                             <Link href="/chat">Get Started</Link>
-                          </Button>
-                      </motion.div>
-                  )}
-              </AnimatePresence>
-            )}
-
-            {mounted && (
+          {/* Mobile Menu Toggle - Right */}
+          <div className="flex md:hidden col-span-6 justify-end items-center gap-4">
+             {mounted && (
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-9 w-9"
+                    className="h-9 w-9 rounded-none"
                     onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
                 >
-                    <PiSun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <PiMoon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <PiSun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <PiMoon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 </Button>
             )}
 
-            {!isAuthenticated && (
-              <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9">
-                          <PiList className="h-5 w-5" />
-                          <span className="sr-only">Open menu</span>
-                      </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[200px] p-2 space-y-1">
-                      <DropdownMenuItem asChild className="p-2 cursor-pointer">
-                          <Link href="#features" className="w-full">Features</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild className="p-2 cursor-pointer">
-                          <Link href="/login" className="w-full">Log in</Link>
-                      </DropdownMenuItem>
-                  </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none">
+                        <PiList className="h-6 w-6" />
+                        <span className="sr-only">Open menu</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[300px] p-0 rounded-none border-border bg-background">
+                    <div className="p-4 border-b border-border">
+                        <span className="font-display font-bold text-lg">Menu</span>
+                    </div>
+                    <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
+                        <Link href="#features" className="w-full text-base font-medium">Features</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
+                        <Link href="#pricing" className="w-full text-base font-medium">Pricing</Link>
+                    </DropdownMenuItem>
+                    {!isAuthenticated ? (
+                         <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none focus:bg-secondary">
+                            <Link href="/login" className="w-full text-base font-medium">Log in</Link>
+                        </DropdownMenuItem>
+                    ) : (
+                        <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none focus:bg-secondary">
+                            <Link href="/chat" className="w-full text-base font-medium">Open App</Link>
+                        </DropdownMenuItem>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+
         </nav>
       </div>
     </header>
   );
 }
-
