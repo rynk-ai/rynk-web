@@ -13,7 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { PiSignOut, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiHouse, PiDiscordLogo, PiXLogo } from "react-icons/pi";
+import { PiSignOut, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiHouse, PiDiscordLogo, PiXLogo, PiTextAa } from "react-icons/pi";
 import { useEffect, useState } from "react";
 import { getUserCredits } from "@/app/actions";
 import { useTheme } from "next-themes";
@@ -160,6 +160,10 @@ export function UserProfileDropdown() {
         <DropdownMenuItem onClick={() => router.push("/?explicit=true")} className="focus:bg-muted dark:focus:bg-muted/50">
           <PiHouse className="mr-2 h-4 w-4" />
           <span>Landing Page</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/humanizer")} className="focus:bg-muted dark:focus:bg-muted/50">
+          <PiTextAa className="mr-2 h-4 w-4" />
+          <span>AI Humanizer</span>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

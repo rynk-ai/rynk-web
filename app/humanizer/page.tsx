@@ -220,6 +220,16 @@ export default function HumanizerPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full">
+      {/* Top Promo Banner */}
+      <div className="w-full bg-foreground">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-2 text-xs sm:text-sm">
+          <span className="text-background/80">Want more AI tools?</span>
+          <Link href="/" className="text-background hover:underline font-medium">
+            Try Rynk AI →
+          </Link>
+        </div>
+      </div>
+
       {/* Header */}
       <header className=" bg-background sticky top-0 z-50 w-full max-w-7xl mx-auto">
         <div className="w-full px-4 py-3 flex items-center justify-between">
