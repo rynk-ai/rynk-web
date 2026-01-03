@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
-import { auth } from '@/lib/auth'
 import { 
   checkHumanizerRateLimit, 
   incrementHumanizerUsage,
@@ -9,42 +8,33 @@ import {
 } from '@/lib/humanizer'
 import { humanizerService } from '@/lib/services/humanizer-service'
 
+export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
   try {
     const { env } = getCloudflareContext()
     
-    // Check if user is authenticated
-    const session = await auth()
-    const isAuthenticated = !!session?.user?.id
+    // Check rate limit
+    const rateLimitResult = await checkHumanizerRateLimit(env.DB, request)
     
-    let rateLimitResult = null
-    let newRemaining = -1 // -1 indicates unlimited for authenticated users
-    
-    // Only check rate limit for unauthenticated users
-    if (!isAuthenticated) {
-      rateLimitResult = await checkHumanizerRateLimit(env.DB, request)
-      
-      if (!rateLimitResult.allowed) {
-        return new Response(
-          JSON.stringify({
-            error: 'Rate limit exceeded',
-            message: `You have exceeded the limit of ${HUMANIZER_RATE_LIMIT} requests per ${HUMANIZER_WINDOW_HOURS} hours. Sign in for unlimited access.`,
-            resetAt: rateLimitResult.resetAt.toISOString(),
-            remaining: 0,
-            requiresAuth: true
-          }),
-          { 
-            status: 429, 
-            headers: { 
-              'Content-Type': 'application/json',
-              'X-RateLimit-Limit': String(HUMANIZER_RATE_LIMIT),
-              'X-RateLimit-Remaining': '0',
-              'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString()
-            } 
-          }
-        )
-      }
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          message: `You have exceeded the limit of ${HUMANIZER_RATE_LIMIT} requests per ${HUMANIZER_WINDOW_HOURS} hours. Please try again later.`,
+          resetAt: rateLimitResult.resetAt.toISOString(),
+          remaining: 0
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-RateLimit-Limit': String(HUMANIZER_RATE_LIMIT),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString()
+          } 
+        }
+      )
     }
     
     const { text } = await request.json() as { text: string }
@@ -63,11 +53,11 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Only increment usage for unauthenticated users
-    if (!isAuthenticated && rateLimitResult) {
-      await incrementHumanizerUsage(env.DB, request)
-      newRemaining = rateLimitResult.remaining - 1
-    }
+    // Increment usage (count this request)
+    await incrementHumanizerUsage(env.DB, request)
+    
+    // Calculate new remaining after increment
+    const newRemaining = rateLimitResult.remaining - 1
     
     // Create streaming response
     const encoder = new TextEncoder()
@@ -81,8 +71,7 @@ export async function POST(request: NextRequest) {
               `data: ${JSON.stringify({ 
                 type: 'meta', 
                 remaining: newRemaining,
-                unlimited: isAuthenticated,
-                resetAt: rateLimitResult?.resetAt?.toISOString() || null
+                resetAt: rateLimitResult.resetAt.toISOString()
               })}\n\n`
             )
           )
@@ -107,20 +96,16 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    const headers: Record<string, string> = {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    }
-    
-    // Only add rate limit headers for unauthenticated users
-    if (!isAuthenticated && rateLimitResult) {
-      headers['X-RateLimit-Limit'] = String(HUMANIZER_RATE_LIMIT)
-      headers['X-RateLimit-Remaining'] = String(newRemaining)
-      headers['X-RateLimit-Reset'] = rateLimitResult.resetAt.toISOString()
-    }
-    
-    return new Response(stream, { headers })
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-RateLimit-Limit': String(HUMANIZER_RATE_LIMIT),
+        'X-RateLimit-Remaining': String(newRemaining),
+        'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString()
+      }
+    })
     
   } catch (error: any) {
     console.error('❌ [Humanizer API] Error:', error)
@@ -131,40 +116,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint to check rate limit status and auth status
+// GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
   try {
     const { env } = getCloudflareContext()
-    
-    // Check if user is authenticated
-    const session = await auth()
-    const isAuthenticated = !!session?.user?.id
-    
-    // Authenticated users have unlimited access
-    if (isAuthenticated) {
-      return new Response(
-        JSON.stringify({
-          unlimited: true,
-          isAuthenticated: true,
-          user: {
-            name: session?.user?.name,
-            email: session?.user?.email
-          }
-        }),
-        { 
-          status: 200, 
-          headers: { 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-    
-    // Unauthenticated users get rate limit info
     const rateLimitResult = await checkHumanizerRateLimit(env.DB, request)
     
     return new Response(
       JSON.stringify({
-        unlimited: false,
-        isAuthenticated: false,
         limit: HUMANIZER_RATE_LIMIT,
         remaining: rateLimitResult.remaining,
         resetAt: rateLimitResult.resetAt.toISOString(),
