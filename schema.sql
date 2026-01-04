@@ -547,3 +547,21 @@ CREATE INDEX IF NOT EXISTS idx_peer_reviews_submission ON peer_reviews(submissio
 CREATE INDEX IF NOT EXISTS idx_certificates_user ON certificates(userId);
 CREATE INDEX IF NOT EXISTS idx_certificates_course ON certificates(courseId);
 CREATE INDEX IF NOT EXISTS idx_certificates_verification ON certificates(verificationCode);
+
+-- Mobile Sessions (Sliding Refresh Token)
+CREATE TABLE IF NOT EXISTS mobile_sessions (
+  access_token TEXT PRIMARY KEY,
+  refresh_token TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'email',
+  provider_account_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  access_token_expires_at TEXT NOT NULL,
+  refresh_token_expires_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_mobile_sessions_user_id ON mobile_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_mobile_sessions_refresh_token ON mobile_sessions(refresh_token);
+CREATE INDEX IF NOT EXISTS idx_mobile_sessions_access_expires ON mobile_sessions(access_token_expires_at);
+CREATE INDEX IF NOT EXISTS idx_mobile_sessions_refresh_expires ON mobile_sessions(refresh_token_expires_at);

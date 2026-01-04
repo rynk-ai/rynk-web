@@ -6,11 +6,17 @@ import { randomUUID } from 'crypto';
  * Mobile Auth Session Endpoint
  * 
  * POST - Create a new mobile session (accepts native SDK tokens)
- * GET - Validate an existing mobile session token
+ * GET - Validate an existing access token
  * DELETE - Sign out / delete session
  */
 
-const MOBILE_SESSION_PREFIX = 'mobile_';
+// Token prefixes for identification
+const ACCESS_TOKEN_PREFIX = 'access_';
+const REFRESH_TOKEN_PREFIX = 'refresh_';
+
+// Token expiry times
+const ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+const REFRESH_TOKEN_EXPIRY_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 // Google token verification
 async function verifyGoogleToken(idToken: string): Promise<{ email: string; name?: string; picture?: string } | null> {
@@ -87,12 +93,17 @@ export async function GET(request: NextRequest) {
     
     const token = authHeader.slice(7);
     
+    // Check if it's an access token
+    if (!token.startsWith(ACCESS_TOKEN_PREFIX)) {
+      return NextResponse.json({ error: 'Invalid token type' }, { status: 401 });
+    }
+    
     const session = await db.prepare(
-      'SELECT * FROM mobile_sessions WHERE token = ? AND expires_at > datetime("now")'
+      'SELECT * FROM mobile_sessions WHERE access_token = ? AND access_token_expires_at > datetime("now")'
     ).bind(token).first();
     
     if (!session) {
-      return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid or expired access token' }, { status: 401 });
     }
     
     const user = await db.prepare(
@@ -113,7 +124,7 @@ export async function GET(request: NextRequest) {
         subscriptionTier: user.subscriptionTier || 'free',
         subscriptionStatus: user.subscriptionStatus || 'none',
       },
-      expiresAt: session.expires_at,
+      accessTokenExpiresAt: session.access_token_expires_at,
     });
     
   } catch (error: any) {
@@ -200,25 +211,32 @@ export async function POST(request: NextRequest) {
       console.log('[Mobile Auth] Created new user:', userId);
     }
     
-    // Create mobile session token
-    const token = `${MOBILE_SESSION_PREFIX}${randomUUID()}`;
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    // Create access and refresh tokens
+    const accessToken = `${ACCESS_TOKEN_PREFIX}${randomUUID()}`;
+    const refreshToken = `${REFRESH_TOKEN_PREFIX}${randomUUID()}`;
+    const accessTokenExpiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRY_MS);
+    const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS);
     
     await db.prepare(
-      `INSERT INTO mobile_sessions (token, user_id, provider, provider_account_id, created_at, expires_at)
-       VALUES (?, ?, ?, ?, datetime("now"), ?)`
+      `INSERT INTO mobile_sessions (access_token, refresh_token, user_id, provider, provider_account_id, created_at, access_token_expires_at, refresh_token_expires_at)
+       VALUES (?, ?, ?, ?, ?, datetime("now"), ?, ?)`
     ).bind(
-      token,
+      accessToken,
+      refreshToken,
       user.id,
       provider,
       providerAccountId || null,
-      expiresAt.toISOString()
+      accessTokenExpiresAt.toISOString(),
+      refreshTokenExpiresAt.toISOString()
     ).run();
     
     console.log('[Mobile Auth] Created session for user:', user.id);
     
     return NextResponse.json({
-      token,
+      accessToken,
+      refreshToken,
+      accessTokenExpiresAt: accessTokenExpiresAt.toISOString(),
+      refreshTokenExpiresAt: refreshTokenExpiresAt.toISOString(),
       user: {
         id: user.id,
         email: user.email,
@@ -228,7 +246,6 @@ export async function POST(request: NextRequest) {
         subscriptionTier: user.subscriptionTier || 'free',
         subscriptionStatus: user.subscriptionStatus || 'none',
       },
-      expiresAt: expiresAt.toISOString(),
     });
     
   } catch (error: any) {
@@ -249,7 +266,10 @@ export async function DELETE(request: NextRequest) {
     
     const token = authHeader.slice(7);
     
-    await db.prepare('DELETE FROM mobile_sessions WHERE token = ?').bind(token).run();
+    // Delete by access token or refresh token
+    await db.prepare(
+      'DELETE FROM mobile_sessions WHERE access_token = ? OR refresh_token = ?'
+    ).bind(token, token).run();
     
     return NextResponse.json({ success: true });
     
