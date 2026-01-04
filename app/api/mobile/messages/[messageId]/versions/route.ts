@@ -39,7 +39,7 @@ export async function POST(
     }
 
     const { messageId: versionId } = await params
-    const { conversationId } = await req.json()
+    const { conversationId } = await req.json() as any
 
     if (!conversationId) {
       return NextResponse.json(
