@@ -35,7 +35,7 @@ export function LandingBottomCTA() {
       
       <div className="container px-4 mx-auto text-center cta-content">
         
-        <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-tight mb-8">
+        <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-tight mb-8 text-background">
            Ready to try it?
         </h2>
             
