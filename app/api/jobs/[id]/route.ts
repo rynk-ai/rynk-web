@@ -33,7 +33,7 @@ export async function GET(
         const db = env.DB
         
         const mobileSession = await db.prepare(
-          'SELECT user_id FROM mobile_sessions WHERE token = ? AND expires_at > datetime("now")'
+          'SELECT user_id FROM mobile_sessions WHERE access_token = ? AND access_token_expires_at > datetime("now")'
         ).bind(token).first() as { user_id: string } | null
         
         if (mobileSession) {

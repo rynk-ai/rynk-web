@@ -18,7 +18,7 @@ async function getAuthenticatedUser(request: NextRequest) {
   const db = env.DB;
   
   const session = await db.prepare(
-    'SELECT * FROM mobile_sessions WHERE token = ? AND expires_at > datetime("now")'
+    'SELECT * FROM mobile_sessions WHERE access_token = ? AND access_token_expires_at > datetime("now")'
   ).bind(token).first();
   
   if (!session) return null;
