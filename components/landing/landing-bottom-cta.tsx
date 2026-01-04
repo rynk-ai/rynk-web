@@ -18,67 +18,42 @@ export function LandingBottomCTA() {
   const containerRef = useRef(null);
 
   useGSAP(() => {
-    const tl = gsap.timeline({
+    gsap.from(".cta-content", {
       scrollTrigger: {
         trigger: containerRef.current,
-        start: "top 60%",
-      }
+        start: "top 70%",
+      },
+      y: 40,
+      opacity: 0,
+      duration: 0.8,
+      ease: "power3.out"
     });
-
-    tl.from(".cta-line", {
-        y: 100,
-        opacity: 0,
-        duration: 1,
-        stagger: 0.2,
-        ease: "power4.out"
-    })
-    .from(".cta-actions", {
-        y: 20,
-        opacity: 0,
-        duration: 0.8,
-        ease: "power3.out"
-    }, "-=0.5");
-
   }, { scope: containerRef });
 
   return (
-    <section ref={containerRef} className="py-32 bg-foreground text-background relative overflow-hidden">
+    <section ref={containerRef} className="py-32 bg-foreground text-background">
       
-      <div className="container px-4 mx-auto text-center">
+      <div className="container px-4 mx-auto text-center cta-content">
         
-        <div className="mb-16">
-             <h2 className="text-6xl md:text-8xl lg:text-[8rem] font-bold tracking-tighter leading-[0.85] mb-8 overflow-hidden">
-                <div className="overflow-hidden"><span className="cta-line block">YOUR RESEARCH.</span></div>
-                <div className="overflow-hidden"><span className="cta-line block text-muted-foreground/50">YOUR FORMAT.</span></div>
-             </h2>
-        </div>
+        <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-tight mb-8">
+           Ready to try it?
+        </h2>
             
-        <div className="cta-actions flex flex-col items-center">
-             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full max-w-md">
-                <Button 
-                    size="lg" 
-                    onClick={() => router.push('/chat')}
-                    className="w-full h-16 rounded-none bg-background text-foreground hover:bg-background/90 text-lg font-bold uppercase tracking-widest border border-transparent"
-                >
-                    {isAuthenticated ? "Back to Chat" : "Start now"}
-                    <PiArrowRight className="ml-3 h-5 w-5" />
-                </Button>
-                
-                <Button 
-                    size="lg" 
-                    variant="outline"
-                    className="w-full h-16 rounded-none border-background/20 text-background hover:bg-background/10 hover:text-background bg-transparent text-lg font-bold uppercase tracking-widest"
-                >
-                    See Demo
-                </Button>
-            </div>
-            
-            {!isAuthenticated && (
-              <p className="mt-8 text-xs font-mono uppercase tracking-widest text-background/40">
-                  No credit card required • 100 searches free
-              </p>
-            )}
-        </div>
+        <Button 
+            size="lg" 
+            onClick={() => router.push('/chat')}
+            className="h-14 px-10 rounded-none bg-background text-foreground hover:bg-background/90 text-base font-medium"
+        >
+            {isAuthenticated ? "Open App" : "Start for free"}
+            <PiArrowRight className="ml-2 h-5 w-5" />
+        </Button>
+        
+        {!isAuthenticated && (
+          <p className="mt-6 text-sm text-background/50">
+              No credit card required
+          </p>
+        )}
+
       </div>
     </section>
   );

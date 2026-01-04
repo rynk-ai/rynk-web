@@ -14,28 +14,26 @@ const PLANS = [
   {
     name: "Free",
     price: "$0",
+    period: "forever",
     features: [
-      "100 messages / mo",
-      "All 10+ surfaces",
-      "Basic file upload (5MB)",
+      "100 messages per month",
+      "All surface formats",
       "Standard speed",
-      "Community support",
     ],
-    cta: "Start Free",
+    cta: "Get Started",
     href: "/login",
     highlighted: false,
   },
   {
     name: "Pro",
     price: "$5.99",
+    period: "per month",
     features: [
-      "2500 messages / mo",
-      "All 10+ surfaces",
-      "Large file upload (50MB)",
+      "2,500 messages per month",
+      "Priority speed",
       "Deep research mode",
-      "Priority support",
     ],
-    cta: "Start Trial",
+    cta: "Start Free Trial",
     href: "/login?callbackUrl=https://rynk.io/subscription",
     highlighted: true,
   },
@@ -48,89 +46,73 @@ export function LandingPricing() {
     gsap.from(".pricing-card", {
       scrollTrigger: {
         trigger: containerRef.current,
-        start: "top 70%",
+        start: "top 75%",
       },
-      y: 60,
+      y: 40,
       opacity: 0,
-      duration: 0.8,
-      stagger: 0.15,
+      duration: 0.7,
+      stagger: 0.12,
       ease: "power3.out"
     });
   }, { scope: containerRef });
 
   return (
-    <section ref={containerRef} id="pricing" className="py-32 bg-background border-b border-border">
+    <section ref={containerRef} id="pricing" className="py-32 bg-secondary/30 border-b border-border">
       <div className="container px-4 mx-auto">
-        <div className="text-center mb-24 max-w-3xl mx-auto">
-          <h2 className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.9] text-foreground mb-8">
-            START FREE. <br/>
-            <span className="text-muted-foreground">SCALE WHEN READY.</span>
+        
+        <div className="text-center mb-16 max-w-2xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tighter leading-tight text-foreground mb-4">
+            Simple pricing
           </h2>
-          <div className="flex justify-center">
-             <div className="h-px w-24 bg-foreground mb-8" />
-          </div>
-          <p className="text-lg md:text-xl text-foreground font-medium max-w-xl mx-auto leading-relaxed">
-            No credit card required. Cancel anytime.
+          <p className="text-lg text-muted-foreground">
+            Start free, upgrade when you need more.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-0 max-w-5xl mx-auto">
-          {PLANS.map((plan, index) => (
+        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {PLANS.map((plan) => (
             <div 
                 key={plan.name}
-                className={`pricing-card border border-border p-8 md:p-12 flex flex-col relative group transition-colors duration-300 ${
+                className={`pricing-card p-8 flex flex-col relative transition-colors duration-300 ${
                     plan.highlighted 
-                        ? "bg-foreground text-background border-foreground md:-ml-[1px] md:z-10" 
-                        : "bg-background text-foreground hover:bg-secondary/30"
+                        ? "bg-foreground text-background" 
+                        : "bg-background border border-border"
                 }`}
             >
-              <div className="flex justify-between items-start mb-8">
-                  <div>
-                      <h3 className="text-3xl font-bold tracking-tight mb-2">{plan.name}</h3>
-                      {plan.highlighted && <span className="text-xs font-mono uppercase tracking-widest text-background/60">Most Popular</span>}
-                  </div>
-                  <div className="text-right">
-                      <span className="text-4xl md:text-5xl font-bold tracking-tighter block">{plan.price}</span>
-                      <span className={`text-xs font-mono uppercase tracking-wider block mt-1 ${
-                          plan.highlighted ? "text-background/60" : "text-muted-foreground"
-                      }`}>per month</span>
+              <div className="mb-6">
+                  <h3 className="text-xl font-bold tracking-tight mb-1">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold tracking-tighter">{plan.price}</span>
+                      <span className={`text-sm ${plan.highlighted ? "text-background/60" : "text-muted-foreground"}`}>
+                        /{plan.period}
+                      </span>
                   </div>
               </div>
 
-              <div className="flex-1 mb-12">
-                  <div className={`h-px w-full mb-8 ${plan.highlighted ? "bg-background/20" : "bg-border"}`} />
-                  <ul className="space-y-4">
-                      {plan.features.map((feature) => (
-                          <li key={feature} className="flex items-center gap-3 text-sm font-medium">
-                              <PiCheck className={`h-4 w-4 flex-shrink-0 ${plan.highlighted ? "text-background" : "text-foreground"}`} />
-                              <span className={plan.highlighted ? "text-background/90" : "text-foreground/80"}>{feature}</span>
-                          </li>
-                      ))}
-                  </ul>
-              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                  {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-2 text-sm">
+                          <PiCheck className={`h-4 w-4 flex-shrink-0 ${plan.highlighted ? "text-background/80" : "text-foreground"}`} />
+                          <span className={plan.highlighted ? "text-background/80" : "text-foreground/70"}>{feature}</span>
+                      </li>
+                  ))}
+              </ul>
 
-              <Link href={plan.href} className="mt-auto">
+              <Link href={plan.href}>
                   <Button 
                       size="lg"
-                      variant={plan.highlighted ? "secondary" : "default"}
-                      className={`w-full rounded-none h-14 text-base font-bold uppercase tracking-widest flex justify-between items-center px-6 ${
+                      className={`w-full rounded-none h-12 font-medium ${
                           plan.highlighted 
                             ? "bg-background text-foreground hover:bg-background/90" 
                             : "bg-foreground text-background hover:bg-foreground/90"
                       }`}
                   >
-                      <span>{plan.cta}</span>
-                      <PiArrowRight className="h-5 w-5" />
+                      {plan.cta}
+                      <PiArrowRight className="ml-2 h-4 w-4" />
                   </Button>
               </Link>
             </div>
           ))}
-        </div>
-        
-        <div className="mt-12 text-center">
-             <Link href="mailto:support@rynk.io" className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground underline decoration-dotted underline-offset-4">
-                Contact us for Enterprise
-             </Link>
         </div>
 
       </div>
