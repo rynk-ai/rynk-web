@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth"
+import { getAuthenticatedUser } from "@/lib/mobile-auth"
 import { NextRequest, NextResponse } from "next/server"
 import { cloudDb } from "@/lib/services/cloud-db"
 
@@ -8,8 +8,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; messageId: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthenticatedUser(req)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
