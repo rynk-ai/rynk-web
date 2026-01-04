@@ -1,5 +1,4 @@
 
-import { branchConversation } from "@/lib/hooks/use-chat"
 import { auth } from "@/lib/auth"
 import { NextRequest, NextResponse } from "next/server"
 import { cloudDb } from "@/lib/services/cloud-db"
@@ -11,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { conversationId, messageId } = await req.json()
+    const { conversationId, messageId } = await req.json() as any
 
     if (!conversationId || !messageId) {
       return NextResponse.json(
