@@ -110,6 +110,8 @@ export class StreamManager {
    */
   close() {
     try {
+      // Send completion signal before closing
+      this.sendStatus('complete', 'Done')
       this.controller.close()
     } catch (error) {
       console.warn('[StreamManager] Failed to close stream:', error)
