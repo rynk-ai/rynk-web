@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const { 
       message,
       conversationId, 
+      messageId, // Extract messageId for edit/regeneration flow
       attachments, 
       referencedConversations, 
       referencedFolders,
@@ -49,13 +50,15 @@ export async function POST(request: NextRequest) {
     console.log('📨 [/api/mobile/chat] Request:', {
       userId: user.id,
       conversationId,
+      messageId,
       hasMessage: !!message,
       messagePreview: message?.substring(0, 20)
     });
 
-    if (!message || !conversationId) {
+    // Validation: Require conversationId, and EITHER message OR messageId
+    if (!conversationId || (!message && !messageId)) {
       return new Response(
-        JSON.stringify({ error: "'message' and 'conversationId' are required" }),
+        JSON.stringify({ error: "'conversationId' and either 'message' or 'messageId' are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
@@ -64,8 +67,8 @@ export async function POST(request: NextRequest) {
     return await chatService.handleChatRequest(
       user.id as string,
       conversationId,
-      message,
-      undefined, // messageId (for edit flow)
+      message || '', // Pass empty string if regenerating
+      messageId, // Pass messageId correctly
       attachments,
       referencedConversations,
       referencedFolders,
