@@ -50,4 +50,23 @@ export class StatusEmitter {
       console.warn('[StatusEmitter] Failed to emit content:', error)
     }
   }
+  /**
+   * Emit metadata (IDs, etc)
+   */
+  emitMeta(
+    controller: ReadableStreamDefaultController,
+    metadata: { userMessageId?: string; assistantMessageId?: string }
+  ): void {
+    const event: any = {
+      type: 'meta',
+      ...metadata
+    }
+    
+    try {
+      const data = `data: ${JSON.stringify(event)}\n\n`
+      controller.enqueue(this.encoder.encode(data))
+    } catch (error) {
+       console.warn('[StatusEmitter] Failed to emit meta:', error)
+    }
+  }
 }

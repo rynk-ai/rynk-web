@@ -1401,6 +1401,12 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Step 0: Emit IDs to client (replaces headers)
+          statusEmitter.emitMeta(controller, {
+            userMessageId: userMsg.id,
+            assistantMessageId: assistantMsg.id
+          })
+
           // Step 1: Quick pattern detection
           statusEmitter.emitStatus(controller, 'analyzing', 'Understanding question...')
           const { quickAnalysis, sourcePlan } = await analyzeIntent(userMessage, history)

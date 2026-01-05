@@ -48,4 +48,10 @@ export interface ContentChunk {
   content: string
 }
 
-export type StreamEvent = StatusUpdate | ContentChunk
+export interface MetadataUpdate {
+  type: 'meta'
+  userMessageId?: string
+  assistantMessageId?: string
+}
+
+export type StreamEvent = StatusUpdate | ContentChunk | MetadataUpdate
