@@ -70,6 +70,39 @@ export interface StreamProcessor {
  * - processChunk: function to call with each new chunk of text
  * - flush: function to call at stream end to emit any remaining buffered content
  */
+/**
+ * Strips trailing JSON control messages from a line of content.
+ * Returns the content portion without the JSON, or null if the entire line is JSON.
+ */
+function stripTrailingControlJson(line: string): string | null {
+  // Look for JSON control messages that may be appended to content
+  const jsonPatterns = [
+    '{"type":"status"',
+    '{"type":"search_results"',
+    '{"type":"context_cards"',
+  ];
+  
+  for (const pattern of jsonPatterns) {
+    const idx = line.indexOf(pattern);
+    if (idx !== -1) {
+      // Found a JSON pattern - extract content before it
+      const contentPart = line.slice(0, idx);
+      // If there's content before the JSON, return it; otherwise return null
+      return contentPart.length > 0 ? contentPart : null;
+    }
+  }
+  
+  // Also check for generic {"type": pattern
+  const genericIdx = line.indexOf('{"type":');
+  if (genericIdx !== -1) {
+    const contentPart = line.slice(0, genericIdx);
+    return contentPart.length > 0 ? contentPart : null;
+  }
+  
+  // No JSON found, return the whole line
+  return line;
+}
+
 export function createStreamProcessor(handlers: StreamProcessor) {
   let buffer = "";
 
@@ -134,6 +167,16 @@ export function createStreamProcessor(handlers: StreamProcessor) {
                  continue;
              }
           }
+          
+          // Check if line has trailing JSON that should be stripped
+          const strippedContent = stripTrailingControlJson(line);
+          if (strippedContent !== line) {
+            // Line had trailing JSON - emit only the content part (if any)
+            if (strippedContent) {
+              handlers.onContent?.(strippedContent + "\n");
+            }
+            continue;
+          }
 
         } catch (e) {
           // Not a valid JSON object, process as content
@@ -147,9 +190,12 @@ export function createStreamProcessor(handlers: StreamProcessor) {
   /** Flush any remaining content in the buffer (call at stream end) */
   function flush() {
     if (buffer.trim()) {
-      // Don't emit if it looks like incomplete JSON
-      if (!buffer.trim().startsWith('{"type":')) {
-        handlers.onContent?.(buffer);
+      // Strip any trailing JSON control messages from the buffer
+      const strippedBuffer = stripTrailingControlJson(buffer);
+      
+      // Don't emit if it's all JSON or if nothing remains after stripping
+      if (strippedBuffer && strippedBuffer.trim()) {
+        handlers.onContent?.(strippedBuffer);
       }
     }
     buffer = "";
@@ -242,7 +288,10 @@ export function createStreamParserTransform(): TransformStream<
     },
     flush(controller) {
       if (buffer.trim()) {
-        controller.enqueue({ type: "content", text: buffer });
+        // Don't emit if it looks like a control message
+        if (!buffer.trim().startsWith('{"type":')) {
+          controller.enqueue({ type: "content", text: buffer });
+        }
       }
     },
   });
