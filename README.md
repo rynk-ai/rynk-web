@@ -17,13 +17,19 @@
 
 **Supported by**
 <br />
+<p>
+
 <a href="https://exa.ai">
-  <img src="https://github.com/exa-ai.png" height="60" alt="Exa AI" />
+<img width="200" height="100" alt="New Project (21)" src="https://github.com/user-attachments/assets/af3aff51-ba07-4c99-8359-4fc9e31405be" />
+
 </a>
 &nbsp;&nbsp;
 <a href="https://www.cloudflare.com/startups/">
-  <img src="https://github.com/cloudflare.png" height="60" alt="Cloudflare for Startups" />
+<img width="200" height="100" alt="New Project (22)" src="https://github.com/user-attachments/assets/c5c49b97-4742-4e4a-b968-1b9eaf9b41fa" />
+
 </a>
+  
+</p>
 <br />
 
 
