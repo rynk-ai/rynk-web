@@ -14,6 +14,19 @@
   </a>
 </p>
 
+
+**Supported by**
+<br />
+<a href="https://exa.ai">
+  <img src="https://github.com/exa-ai.png" height="60" alt="Exa AI" />
+</a>
+&nbsp;&nbsp;
+<a href="https://www.cloudflare.com/startups/">
+  <img src="https://github.com/cloudflare.png" height="60" alt="Cloudflare for Startups" />
+</a>
+<br />
+
+
 ---
 
 ## Overview
@@ -65,21 +78,7 @@ npm run deploy
 | **TailwindCSS 4** | Styling System |
 | **TypeScript** | Type Safety |
 
----
 
-## Supported By
-
-<p align="center">
-  <a href="https://exa.ai">
-    <img src="https://github.com/exa-ai.png" height="60" alt="Exa AI" />
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.cloudflare.com/startups/">
-    <img src="https://github.com/cloudflare.png" height="60" alt="Cloudflare for Startups" />
-  </a>
-</p>
-
----
 
 ## License
 
