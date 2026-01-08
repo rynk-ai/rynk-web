@@ -3,6 +3,7 @@
 export interface QuickAnalysis {
   category: 'current_events' | 'factual' | 'technical' | 'conversational' | 'complex'
   needsWebSearch: boolean
+  needsReasoning: boolean
   confidence: number
 }
 

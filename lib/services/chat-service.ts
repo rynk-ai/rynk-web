@@ -27,8 +27,8 @@ import { formatSearchResultsSafely, sanitize, detectInjection } from '@/lib/secu
 import { validateOutput, quickRedact } from '@/lib/security/output-guard'
 import { analyzeIntent } from './agentic/intent-analyzer'
 import { SourceOrchestrator } from './agentic/source-orchestrator'
-import { StatusEmitter } from './agentic/status-emitter'
-import { ResponseSynthesizer } from './agentic/response-synthesizer'
+
+
 
 export class ChatService {
   async handleChatRequest(
@@ -273,138 +273,141 @@ export class ChatService {
           let shouldUseWebSearch = false
           let searchResults: any = null
           let detectionResult: any = null
-          
-          // Flag to enable LLM detection via DO
-          const USE_LLM_DETECTION = true
 
           if (messageContent && useReasoning !== 'off') {
-            let usedDO = false
+            console.log('⚡ [chatService] Using optimized unified intent analysis')
             
-            if (USE_LLM_DETECTION) {
-              try {
-                console.log('🔄 [chatService] Trying LLM intent detection via DO...')
-                
-                const { env } = getCloudflareContext()
-                const doId = env.TASK_PROCESSOR.idFromName('intent-detect')
-                const doStub = env.TASK_PROCESSOR.get(doId)
-                
-                // Call DO with 2 second timeout
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 2000)
-                
-                const detectResponse = await doStub.fetch('https://do/intent-detect', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ query: messageContent }),
-                  signal: controller.signal
-                })
-                
-                clearTimeout(timeoutId)
-                
-                if (detectResponse.ok) {
-                  const data = await detectResponse.json() as any
-                  if (data.success && data.detectionResult) {
-                    detectionResult = data.detectionResult
-                    usedDO = true
-                    console.log(`✅ [chatService] LLM detection via DO (${data.processingTimeMs}ms):`, {
-                      needsReasoning: detectionResult.needsReasoning,
-                      needsWebSearch: detectionResult.needsWebSearch,
-                      domain: detectionResult.domain
-                    })
-                  }
-                }
-              } catch (doError) {
-                console.warn('⚠️ [chatService] DO intent detection failed, using heuristics:', doError)
+            // 1. Unified Intent Analysis (Detection + Planning in one go)
+            const historyForIntent = messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '' }))
+            const { quickAnalysis, sourcePlan: plannedSourcePlan } = await analyzeIntent(messageContent, historyForIntent)
+            
+            // 2. Determine modes from analysis
+            if (useReasoning === 'on' || useReasoning === 'online') {
+              shouldUseReasoning = true
+            } else {
+              shouldUseReasoning = quickAnalysis.needsReasoning
+            }
+            
+            if (useReasoning === 'online') {
+              shouldUseWebSearch = true
+            } else {
+              shouldUseWebSearch = quickAnalysis.needsWebSearch
+            }
+            
+            // 3. Setup context for execution
+            // 3. Setup context for execution
+            // We must construct a full EnhancedDetectionResult to avoid formatter errors
+            detectionResult = {
+              needsReasoning: shouldUseReasoning,
+              needsWebSearch: shouldUseWebSearch,
+              confidence: quickAnalysis.confidence,
+              reasoning: 'Unified intent analysis',
+              
+              domain: quickAnalysis.category === 'technical' ? 'technology' : 'general',
+              subDomain: null,
+              informationType: quickAnalysis.category === 'current_events' ? 'current_events' :
+                              quickAnalysis.category === 'technical' ? 'conceptual' :
+                              quickAnalysis.category === 'complex' ? 'analytical' : 'factual',
+              
+              // vital: provide safe defaults for requirements
+              responseRequirements: {
+                needsDiagrams: false,
+                needsRealTimeData: quickAnalysis.category === 'current_events',
+                needsCitations: shouldUseWebSearch,
+                needsStepByStep: quickAnalysis.category === 'technical',
+                needsDisclaimer: false,
+                needsComparison: false,
+                needsCode: quickAnalysis.category === 'technical'
+              },
+              
+              queryContext: {
+                isUrgent: false,
+                isAcademic: false,
+                isProfessional: false,
+                complexityLevel: quickAnalysis.category === 'complex' ? 'advanced' : 'basic'
+              },
+              
+              detectedTypes: {
+                math: false,
+                code: quickAnalysis.category === 'technical',
+                logic: quickAnalysis.category === 'complex',
+                analysis: quickAnalysis.category === 'complex',
+                currentEvents: quickAnalysis.category === 'current_events'
               }
             }
             
-            // Fallback to fast heuristics if DO wasn't used or failed
-            if (!usedDO) {
-              console.log('⚡ [chatService] Using fast heuristics for detection')
-              detectionResult = await detectEnhanced(messageContent)
-            }
-            
-            // Resolve reasoning mode with detection result
-            const resolved = resolveReasoningMode(useReasoning, detectionResult)
-            shouldUseReasoning = resolved.useReasoning
-            shouldUseWebSearch = resolved.useWebSearch
             selectedModel = getReasoningModel(shouldUseReasoning, false)
             
-            console.log('🎯 [chatService] Detection result:', {
-              usedDO,
-              domain: detectionResult.domain,
+            console.log('🎯 [chatService] Analysis result:', {
+              category: quickAnalysis.category,
+              needsReasoning: shouldUseReasoning,
               needsWebSearch: shouldUseWebSearch,
-              needsReasoning: shouldUseReasoning
-            })
-          }
-
-          if (shouldUseWebSearch) {
-            streamManager.sendStatus('searching', 'Analyzing search intent...')
-            
-            // 1. Analyze Intent & Plan (static import)
-            const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
-            
-            streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
-            
-            // 2. Execute Plan (static import)
-            const orchestrator = new SourceOrchestrator()
-            const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
-            
-            // 3. Map to Legacy Format for Frontend Compatibility
-            const allSources: any[] = []
-            
-            sourceResults.forEach(res => {
-              if (res.citations) {
-                res.citations.forEach(cit => {
-                  allSources.push({
-                    type: res.source,
-                    url: cit.url,
-                    title: cit.title,
-                    snippet: cit.snippet || '',
-                    image: cit.image,           // Primary image URL
-                    images: cit.images || []    // Additional images
-                  })
-                })
-              }
+              confidence: quickAnalysis.confidence
             })
             
-            // Deduplicate sources
-            const uniqueSources = Array.from(
-              new Map(allSources.map(s => [s.url, s])).values()
-            )
-
-            searchResults = {
-              query: sourcePlan.searchQueries.exa || sourcePlan.searchQueries.perplexity || messageContent,
-              sources: uniqueSources,
-              searchStrategy: sourcePlan.sources,
-              totalResults: uniqueSources.length
-            }
-            
-            if (searchResults) {
-              streamManager.sendSearchResults({
-                query: searchResults.query,
-                sources: searchResults.sources,
-                strategy: searchResults.searchStrategy,
-                totalResults: searchResults.totalResults
-              })
-
-              // Update status to show what we found with detailed metadata
-              const domains = searchResults.sources.slice(0, 4).map((s: any) => getDomainName(s.url))
-              const uniqueDomains = [...new Set(domains)]
-              const sourceCount = searchResults.sources.length
+            // 4. Executing Web Search (if needed) RIGHT HERE since we have the plan!
+            if (shouldUseWebSearch) {
+              streamManager.sendStatus('searching', `Searching ${plannedSourcePlan.sources.join(', ')}...`)
               
-              // Send reading_sources status with metadata
-              streamManager.sendStatus(
-                'reading_sources', 
-                `Reading ${uniqueDomains.join(', ')}${sourceCount > 4 ? ` and ${sourceCount - 4} more` : ''}...`,
-                { 
-                  sourceCount, 
-                  sourcesRead: sourceCount,
-                  currentSource: uniqueDomains[0] as string
+              const orchestrator = new SourceOrchestrator()
+              const sourceResults = await orchestrator.executeSourcePlan(plannedSourcePlan)
+              
+              // Map results to legacy format
+              const allSources: any[] = []
+              sourceResults.forEach(res => {
+                if (res.citations) {
+                  res.citations.forEach(cit => {
+                    allSources.push({
+                      type: res.source,
+                      url: cit.url,
+                      title: cit.title,
+                      snippet: cit.snippet || '',
+                      image: cit.image,
+                      images: cit.images || []
+                    })
+                  })
                 }
+              })
+              
+              // Deduplicate sources
+              const uniqueSources = Array.from(
+                new Map(allSources.map(s => [s.url, s])).values()
               )
+  
+              searchResults = {
+                query: plannedSourcePlan.searchQueries.exa || plannedSourcePlan.searchQueries.perplexity || messageContent,
+                sources: uniqueSources,
+                searchStrategy: plannedSourcePlan.sources,
+                totalResults: uniqueSources.length
+              }
+              
+              if (searchResults) {
+                streamManager.sendSearchResults({
+                  query: searchResults.query,
+                  sources: searchResults.sources,
+                  strategy: searchResults.searchStrategy,
+                  totalResults: searchResults.totalResults
+                })
+  
+                // Update status with detailed metadata
+                const domains = searchResults.sources.slice(0, 4).map((s: any) => getDomainName(s.url))
+                const uniqueDomains = [...new Set(domains)]
+                const sourceCount = searchResults.sources.length
+                
+                streamManager.sendStatus(
+                  'reading_sources', 
+                  `Reading ${uniqueDomains.join(', ')}${sourceCount > 4 ? ` and ${sourceCount - 4} more` : ''}...`,
+                  { 
+                    sourceCount, 
+                    sourcesRead: sourceCount,
+                    currentSource: uniqueDomains[0] as string
+                  }
+                )
+              }
             }
           }
+
+
 
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')
@@ -1358,137 +1361,7 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
     }
   }
 
-  /**
-   * AGENTIC REQUEST HANDLER
-   * Orchestrates multi-source research with real-time status updates
-   * Uses Groq for fast intent analysis, then fetches from multiple sources in parallel
-   */
-  async handleAgenticRequest(
-    userId: string,
-    conversationId: string,
-    userMessage: string,
-    providedUserMessageId?: string,
-    providedAssistantMessageId?: string
-  ): Promise<Response> {
-    // All modules are now static imports for performance
-    const statusEmitter = new StatusEmitter()
-    const orchestrator = new SourceOrchestrator()
-    const synthesizer = new ResponseSynthesizer()
-    
-    // Create user message
-    const userMsg = await cloudDb.addMessage(conversationId, {
-      id: providedUserMessageId || undefined,
-      role: 'user',
-      content: userMessage,
-      attachments: [],
-    })
-    
-    // Create assistant message placeholder
-    const assistantMsg = await cloudDb.addMessage(conversationId, {
-      id: providedAssistantMessageId || undefined,
-      role: 'assistant',
-      content: '',
-      attachments: [],
-    })
-    
-    // Fetch recent conversation history for context
-    const { messages: recentMessages } = await cloudDb.getMessages(conversationId, 10)
-    const history = recentMessages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
-      .map(m => ({ role: m.role, content: m.content }))
-      .reverse() // getMessages returns newest first, we want chronological order for context
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          // Step 0: Emit IDs to client (replaces headers)
-          statusEmitter.emitMeta(controller, {
-            userMessageId: userMsg.id,
-            assistantMessageId: assistantMsg.id
-          })
-
-          // Step 1: Quick pattern detection
-          statusEmitter.emitStatus(controller, 'analyzing', 'Understanding question...')
-          const { quickAnalysis, sourcePlan } = await analyzeIntent(userMessage, history)
-          
-          console.log('[AgenticRequest] Intent analysis:', {
-            category: quickAnalysis.category,
-            sources: sourcePlan.sources,
-            reasoning: sourcePlan.reasoning
-          })
-          
-          // Step 2: Planning complete
-          statusEmitter.emitStatus(controller, 'analyzing', 'Planning research...')
-          
-          // Step 3: Fetch from sources
-          statusEmitter.emitStatus(controller, 'searching', 'Finding sources...')
-          const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
-          
-          // Step 4: Reading articles
-          statusEmitter.emitStatus(controller, 'searching', 'Reading articles...')
-          
-          // Small delay to show status
-          await new Promise(resolve => setTimeout(resolve, 500))
-          
-          // Step 5: Analyzing information
-          statusEmitter.emitStatus(controller, 'synthesizing', 'Analyzing information...')
-          
-          // Step 6: Writing response
-          statusEmitter.emitStatus(controller, 'synthesizing', 'Writing response...')
-          
-          // Synthesize response
-          const { content, citations } = await synthesizer.synthesize(
-            userMessage,
-            sourceResults,
-            history
-          )
-          
-          // Emit the content
-          statusEmitter.emitContent(controller, content)
-          
-          // Add citations
-          if (citations.length > 0) {
-            statusEmitter.emitContent(
-              controller,
-              '\n\n## Sources\n' + 
-              citations.map((c, i) => `${i+1}. [${c.title}](${c.url})`).join('\n')
-            )
-          }
-          
-          // Save the full response to database
-          const fullContent = content + (citations.length > 0 
-            ? '\n\n## Sources\n' + citations.map((c, i) => `${i+1}. [${c.title}](${c.url})`).join('\n')
-            : '')
-          
-          await cloudDb.updateMessage(assistantMsg.id, { 
-            content: fullContent
-          })
-          
-          // Complete
-          statusEmitter.emitStatus(controller, 'complete', 'Complete')
-          controller.close()
-          
-        } catch (error) {
-          console.error('[AgenticRequest] Error:', error)
-          statusEmitter.emitContent(
-            controller,
-            `\n\n⚠️ An error occurred while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
-          controller.close()
-        }
-      }
-    })
-    
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-User-Message-Id': userMsg.id,
-        'X-Assistant-Message-Id': assistantMsg.id
-      }
-    })
-  }
 
   /**
    * Convert relative URLs to absolute URLs for external API access

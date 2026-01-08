@@ -1,30 +1,94 @@
 
 import { QuickAnalysis, SourcePlan } from './types'
-import { sanitize, escapeDelimiters } from '@/lib/security/prompt-sanitizer'
+import { escapeDelimiters } from '@/lib/security/prompt-sanitizer'
 
-/**
- * Step 1: Quick Pattern Detection using Groq Llama 3.1 8B (ultra-fast)
- * This provides initial categorization in ~50-100ms
- */
-export async function quickPatternDetection(
-  query: string,
-  history: { role: string; content: string }[] = []
-): Promise<QuickAnalysis> {
-  const apiKey = process.env.GROQ_API_KEY
-  
-  if (!apiKey) {
-    console.error('[quickPatternDetection] Missing GROQ_API_KEY')
-    return {
-      category: 'complex',
-      needsWebSearch: true,
-      confidence: 0
+const PLAN_RESEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'plan_research',
+    description: 'Analyze query and create a research plan with source selection',
+    parameters: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['current_events', 'factual', 'technical', 'conversational', 'complex'],
+          description: 'Category of the user query'
+        },
+        needsWebSearch: {
+          type: 'boolean',
+          description: 'Whether external information is needed',
+        },
+        needsReasoning: {
+          type: 'boolean',
+          description: 'Whether deep chain-of-thought reasoning is needed (for complex analysis, comparisons, coding, or "why" questions)',
+        },
+        confidence: {
+          type: 'number',
+          description: 'Confidence score (0-1)'
+        },
+        sources: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['exa', 'perplexity', 'wikipedia', 'financial']
+          },
+          description: 'List of sources to query'
+        },
+        reasoning: {
+          type: 'string',
+          description: 'Explanation for the plan'
+        },
+        searchQueries: {
+          type: 'object',
+          properties: {
+            exa: { type: 'string' },
+            perplexity: { type: 'string' },
+            wikipedia: { 
+              type: 'array',
+              items: { type: 'string' }
+            },
+            financial: {
+              type: 'object',
+              properties: {
+                type: { type: 'string', enum: ['stock', 'crypto'] },
+                symbols: { type: 'array', items: { type: 'string' } }
+              }
+            }
+          },
+          description: 'Specific queries for each selected source'
+        },
+        expectedType: {
+          type: 'string',
+          enum: ['quick_fact', 'deep_research', 'current_event', 'comparison', 'market_data']
+        }
+      },
+      required: ['category', 'needsWebSearch', 'needsReasoning', 'confidence', 'sources', 'reasoning', 'searchQueries', 'expectedType']
     }
   }
-  
+}
+
+/**
+ * Single-step Intent Analysis & Planning using Kimi K2 Tool Calling
+ * Combines categorization and planning into one fast request (~200ms)
+ */
+export async function analyzeIntent(
+  query: string,
+  history: { role: string; content: string }[] = []
+): Promise<{
+  quickAnalysis: QuickAnalysis
+  sourcePlan: SourcePlan
+}> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) {
+    console.error('[analyzeIntent] Missing GROQ_API_KEY')
+    return getFallbackResult(query)
+  }
+
   // Format recent history (last 3 messages) for context
   const recentHistory = history.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')
   const context = recentHistory ? `\nRecent conversation:\n${recentHistory}\n` : ''
-  
+
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -33,84 +97,10 @@ export async function quickPatternDetection(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
-        messages: [{
-          role: 'system',
-          content: `You are a query categorizer. Analyze the user's query and determine:
-1. What category it falls into
-2. Whether it needs web search for current information
-3. Your confidence level (0-1)
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "category": "current_events" | "factual" | "technical" | "conversational" | "complex",
-  "needsWebSearch": true | false,
-  "confidence": 0.0 to 1.0
-}
-
-Examples:
-- "What's the latest news?" → current_events, needsWebSearch: true
-- "What is quantum computing?" → factual, needsWebSearch: false
-- "How do I implement binary search?" → technical, needsWebSearch: false
-- "Hello, how are you?" → conversational, needsWebSearch: false
-- "Compare React vs Vue for 2024" → complex, needsWebSearch: true`
-        }, {
-          role: 'user',
-          content: `${context}User query: <user_input>${escapeDelimiters(query)}</user_input>`
-        }],
-        response_format: { type: 'json_object' },
-        temperature: 0,
-        max_tokens: 150
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json() as any
-    const result = JSON.parse(data.choices[0].message.content || '{}')
-    return result as QuickAnalysis
-  } catch (error) {
-    console.error('[quickPatternDetection] Error:', error)
-    // Fallback to conservative analysis
-    return {
-      category: 'complex',
-      needsWebSearch: true,
-      confidence: 0.5
-    }
-  }
-}
-
-/**
- * Step 2: Deep Intent Analysis using Claude Haiku (reasoning)
- * Determines exactly which sources to use and what queries to make
- */
-export async function deepIntentAnalysis(
-  query: string,
-  quickAnalysis: QuickAnalysis,
-  history: { role: string; content: string }[] = []
-): Promise<SourcePlan> {
-  // Format recent history (last 5 messages) for context
-  const recentHistory = history.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')
-  const context = recentHistory ? `\nRecent conversation:\n${recentHistory}\n` : ''
-
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
-
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
         model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [{
           role: 'system',
-          content: `You are an expert research planner. Your job is to determine which information sources to use and what to search for.
+          content: `You are an expert research planner. Analyze the user's query and call the 'plan_research' tool to create an execution plan.
 
 Available sources:
 - exa: Semantic web search, excellent for finding specific articles, technical content, recent information
@@ -131,108 +121,74 @@ Guidelines:
 IMPORTANT: For financial queries:
 - Extract ticker symbols (e.g., "Apple stock" → AAPL, "Tesla" → TSLA)
 - For crypto, use lowercase coin IDs (bitcoin, ethereum, solana, dogecoin)
-- Indian stocks use .NS suffix (e.g., RELIANCE.NS, TCS.NS)
-
-You must respond with a JSON object following this schema:
-{
-  "sources": ["exa", "perplexity", "wikipedia", "financial"], // Array of selected sources
-  "reasoning": "string", // Explanation of why these sources were chosen
-  "searchQueries": {
-    "exa": "string", // Query for Exa (optional)
-    "perplexity": "string", // Query for Perplexity (optional)
-    "wikipedia": ["string"], // Array of Wikipedia titles (optional)
-    "financial": { // For stock/crypto data (optional)
-      "type": "stock" | "crypto",
-      "symbols": ["string"] // Ticker symbols or coin IDs
-    }
-  },
-  "expectedType": "quick_fact" | "deep_research" | "current_event" | "comparison" | "market_data"
-}
-
-Create optimized search queries for each source. Be specific and targeted.
-Respond ONLY with valid JSON. Do not include any conversational text.`
+- Indian stocks use .NS suffix (e.g., RELIANCE.NS, TCS.NS)`
         }, {
           role: 'user',
-          content: `${context}Original query: <user_input>${escapeDelimiters(query)}</user_input>
-
-Quick analysis results:
-- Category: ${quickAnalysis.category}
-- Needs web search: ${quickAnalysis.needsWebSearch}
-- Confidence: ${quickAnalysis.confidence}
-
-Determine the best sources to use and create specific search queries for each.`
+          content: `${context}User query: <user_input>${escapeDelimiters(query)}</user_input>`
         }],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 500
+        tools: [PLAN_RESEARCH_TOOL],
+        tool_choice: 'required', // Force the model to use the tool
+        temperature: 0,
+        max_tokens: 1000
       })
     })
 
-    clearTimeout(timeoutId)
-
     if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`)
+        // Log detailed error for debugging
+        const errorText = await response.text().catch(() => 'Unknown error')
+        throw new Error(`Groq API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json() as any
-    const content = data.choices?.[0]?.message?.content
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
     
-    if (!content) {
-      throw new Error('No content in response')
+    if (!toolCall) {
+      console.warn('[analyzeIntent] No tool call in response, using fallback')
+      return getFallbackResult(query)
     }
 
-    let plan: SourcePlan
-    try {
-      // Try to parse directly first
-      plan = JSON.parse(content) as SourcePlan
-    } catch (e) {
-      // If direct parse fails, try to extract JSON object
-      // Look for the first '{' and the last '}'
-      const firstBrace = content.indexOf('{')
-      const lastBrace = content.lastIndexOf('}')
-      
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        const jsonString = content.substring(firstBrace, lastBrace + 1)
-        plan = JSON.parse(jsonString) as SourcePlan
-      } else {
-        throw e
+    const args = JSON.parse(toolCall.function.arguments)
+    
+    // Map tool arguments to our strict types
+    return {
+      quickAnalysis: {
+        category: args.category,
+        needsWebSearch: args.needsWebSearch,
+        needsReasoning: args.needsReasoning,
+        confidence: args.confidence
+      },
+      sourcePlan: {
+        sources: args.sources,
+        reasoning: args.reasoning,
+        searchQueries: args.searchQueries,
+        expectedType: args.expectedType
       }
     }
-    
-    return plan
+
   } catch (error) {
-    console.error('[deepIntentAnalysis] Error:', error)
-    // Fallback plan based on quick analysis
-    return {
-      sources: quickAnalysis.needsWebSearch ? ['exa', 'perplexity'] : ['perplexity'],
+    console.error('[analyzeIntent] Error:', error)
+    return getFallbackResult(query)
+  }
+}
+
+
+
+function getFallbackResult(query: string): { quickAnalysis: QuickAnalysis, sourcePlan: SourcePlan } {
+  return {
+    quickAnalysis: {
+      category: 'complex',
+      needsWebSearch: true,
+      needsReasoning: false,
+      confidence: 0.5
+    },
+    sourcePlan: {
+      sources: ['perplexity'],
       reasoning: 'Fallback plan due to analysis error',
       searchQueries: {
         exa: query,
         perplexity: query
       },
-      expectedType: quickAnalysis.category === 'current_events' ? 'current_event' : 'deep_research'
+      expectedType: 'deep_research'
     }
-  }
-}
-
-/**
- * Main entry point: Analyze user intent and create execution plan
- */
-export async function analyzeIntent(
-  query: string,
-  history: { role: string; content: string }[] = []
-): Promise<{
-  quickAnalysis: QuickAnalysis
-  sourcePlan: SourcePlan
-}> {
-  // Step 1: Quick categorization (50-100ms)
-  const quickAnalysis = await quickPatternDetection(query, history)
-  
-  // Step 2: Deep planning (200-300ms)
-  const sourcePlan = await deepIntentAnalysis(query, quickAnalysis, history)
-  
-  return {
-    quickAnalysis,
-    sourcePlan
   }
 }
