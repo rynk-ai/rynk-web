@@ -11,6 +11,11 @@ import {
   FileUpload,
   FileUploadTrigger,
 } from "@/components/prompt-kit/file-upload";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { FilePreviewList, FilePreview, Attachment } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,17 +63,18 @@ const SURFACE_MODES: Array<{
   label: string;
   placeholder: string;
   color: string;
+  category: string;
 }> = [
-  { type: 'chat', icon: PiChatCircle, label: 'Chat', placeholder: 'Ask anything', color: 'text-foreground' },
-  { type: 'learning', icon: PiBookOpen, label: 'Course', placeholder: 'Teach me about...', color: 'text-blue-500' },
-  { type: 'guide', icon: PiListChecks, label: 'Guide', placeholder: 'Guide me through...', color: 'text-green-500' },
-  { type: 'quiz', icon: PiTarget, label: 'Quiz', placeholder: 'Test me on...', color: 'text-pink-500' },
-  { type: 'comparison', icon: PiScales, label: 'Compare', placeholder: 'Compare A vs B...', color: 'text-indigo-500' },
-  { type: 'flashcard', icon: PiCards, label: 'Flashcards', placeholder: 'Create flashcards about...', color: 'text-teal-500' },
-  { type: 'timeline', icon: PiCalendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500' },
-  { type: 'wiki', icon: PiBookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500' },
-  { type: 'finance', icon: PiTrendUp, label: 'Finance', placeholder: 'Show price of...', color: 'text-emerald-500' },
-  { type: 'research', icon: PiMagnifyingGlass, label: 'Research', placeholder: 'Research topic in depth...', color: 'text-purple-500' },
+  { type: 'chat', icon: PiChatCircle, label: 'Chat', placeholder: 'Ask anything', color: 'text-foreground', category: 'General' },
+  { type: 'wiki', icon: PiBookOpen, label: 'Wiki', placeholder: 'Explain topic...', color: 'text-orange-500', category: 'General' },
+  { type: 'learning', icon: PiBookOpen, label: 'Course', placeholder: 'Teach me about...', color: 'text-blue-500', category: 'Learning' },
+  { type: 'guide', icon: PiListChecks, label: 'Guide', placeholder: 'Guide me through...', color: 'text-green-500', category: 'Learning' },
+  { type: 'quiz', icon: PiTarget, label: 'Quiz', placeholder: 'Test me on...', color: 'text-pink-500', category: 'Learning' },
+  { type: 'flashcard', icon: PiCards, label: 'Flashcards', placeholder: 'Create flashcards about...', color: 'text-teal-500', category: 'Learning' },
+  { type: 'comparison', icon: PiScales, label: 'Compare', placeholder: 'Compare A vs B...', color: 'text-indigo-500', category: 'Analysis' },
+  { type: 'timeline', icon: PiCalendar, label: 'Timeline', placeholder: 'Show timeline of...', color: 'text-amber-500', category: 'Analysis' },
+  { type: 'finance', icon: PiTrendUp, label: 'Finance', placeholder: 'Show price of...', color: 'text-emerald-500', category: 'Analysis' },
+  { type: 'research', icon: PiMagnifyingGlass, label: 'Research', placeholder: 'Research topic in depth...', color: 'text-purple-500', category: 'General' },
 ];
 
 // Surfaces allowed for guest users (no authentication required)
@@ -197,12 +203,9 @@ export const PromptInputWithFiles = memo(function
 
   // Close surface dropdown when clicking outside
   useEffect(() => {
-    if (!surfaceModeOpen && !plusDropdownOpen) return;
+    if (!plusDropdownOpen) return;
     
     const handleClickOutside = (event: MouseEvent) => {
-      if (surfaceModeOpen && surfaceDropdownRef.current && !surfaceDropdownRef.current.contains(event.target as Node)) {
-        setSurfaceModeOpen(false);
-      }
       if (plusDropdownOpen && plusDropdownRef.current && !plusDropdownRef.current.contains(event.target as Node)) {
         setPlusDropdownOpen(false);
       }
@@ -210,7 +213,7 @@ export const PromptInputWithFiles = memo(function
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [surfaceModeOpen, plusDropdownOpen]);
+  }, [plusDropdownOpen]);
 
 
 
@@ -393,99 +396,111 @@ export const PromptInputWithFiles = memo(function
             <PromptInputActions className="flex w-full items-center justify-between gap-2 px-2 pb-2 pt-2">
               <div className="flex items-center gap-1">
                 {/* Surface Mode Dropdown */}
-                {!hideActions && onSurfaceModeChange && (
-                  <div className="relative flex items-center gap-1" ref={surfaceDropdownRef}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "size-8 rounded-lg transition-all",
-                        surfaceMode !== 'chat' 
-                          ? [currentSurfaceMode.color, "bg-secondary/80"]
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80",
-                        // Subtle highlight when suggestion is active
-                        suggestedSurface && surfaceMode === 'chat' && !editMode && "bg-primary/5 border border-primary/30 text-primary"
-                      )}
-                      onClick={() => setSurfaceModeOpen(!surfaceModeOpen)}
-                      disabled={isLoading || isSubmittingEdit || disabled}
-                      title={`Mode: ${currentSurfaceMode.label}`}
-                    >
-                      <currentSurfaceMode.icon className="h-4 w-4" />
-                    </Button>
-                    
-                    {/* Inline Surface Suggestion */}
-                    {suggestedSurface && !editMode && surfaceMode === 'chat' && (() => {
-                      const surfaceInfo = SURFACE_MODES.find(m => m.type === suggestedSurface.type);
-                      const Icon = surfaceInfo?.icon || PiChatCircle;
-                      return (
-                        <div className="hidden sm:flex items-center gap-1.5 animate-in slide-in-from-left-2 fade-in duration-200">
-                          <span className="text-muted-foreground/50 text-xs">→</span>
-                          <button
-                            onClick={handleAcceptSuggestion}
-                            className={cn(
-                              "flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-lg transition-all",
-                              "bg-secondary/80 hover:bg-secondary border border-border/50 hover:border-primary/30",
-                              surfaceInfo?.color || 'text-primary'
-                            )}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            <span>Try {surfaceInfo?.label}</span>
-                          </button>
-                          <button
-                            onClick={handleDismissSuggestion}
-                            className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors rounded"
-                            aria-label="Dismiss suggestion"
-                          >
-                            <PiX className="h-3 w-3" />
-                          </button>
-                        </div>
-                      );
-                    })()}
-                    
-                    {/* Dropdown Menu */}
-                    {surfaceModeOpen && (
-                      <div className="absolute bottom-full left-0 mb-2 z-[200] animate-in slide-in-from-bottom-2 duration-150">
-                        <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[160px]">
-                          <div className="p-1">
-                            {SURFACE_MODES.map((mode) => {
-                              const isRestricted = isGuest && !GUEST_ALLOWED_SURFACES.includes(mode.type);
-                              return (
-                                <button
-                                  key={mode.type}
-                                  onClick={() => {
-                                    if (isRestricted) {
-                                      toast.info(`Sign in required to use ${mode.label}`, {
-                                        description: "Create an account to access all surface types",
-                                      });
-                                      setSurfaceModeOpen(false);
-                                      return;
-                                    }
-                                    onSurfaceModeChange?.(mode.type);
-                                    setSurfaceModeOpen(false);
-                                  }}
-                                  className={cn(
-                                    "w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors text-left",
-                                    mode.type === surfaceMode
-                                      ? "bg-primary/10 text-primary"
-                                      : isRestricted
-                                        ? "text-muted-foreground/60 hover:bg-muted/30"
-                                        : "text-foreground hover:bg-muted/50"
-                                  )}
-                                >
-                                  <mode.icon className={cn("h-4 w-4", isRestricted ? "text-muted-foreground/50" : mode.color)} />
-                                  <span className={cn("font-medium flex-1", isRestricted && "text-muted-foreground/60")}>{mode.label}</span>
-                                  {isRestricted && (
-                                    <PiLock className="h-3 w-3 text-muted-foreground/50" />
-                                  )}
-                                </button>
-                              );
-                            })}
+
+                   {!hideActions && onSurfaceModeChange && (
+                      <DropdownMenu open={surfaceModeOpen} onOpenChange={setSurfaceModeOpen}>
+                         <div className="relative flex items-center gap-1">
+                           <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "size-8 rounded-lg transition-all",
+                                surfaceMode !== 'chat' 
+                                  ? [currentSurfaceMode.color, "bg-secondary/80"]
+                                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/80",
+                                // Subtle highlight when suggestion is active
+                                suggestedSurface && surfaceMode === 'chat' && !editMode && "bg-primary/5 border border-primary/30 text-primary"
+                              )}
+                              disabled={isLoading || isSubmittingEdit || disabled}
+                              title={`Mode: ${currentSurfaceMode.label}`}
+                            >
+                              <currentSurfaceMode.icon className="h-4 w-4" />
+                            </Button>
+                           </DropdownMenuTrigger>
+                        
+                        {/* Inline Surface Suggestion */}
+                        {suggestedSurface && !editMode && surfaceMode === 'chat' && (() => {
+                          const surfaceInfo = SURFACE_MODES.find(m => m.type === suggestedSurface.type);
+                          const Icon = surfaceInfo?.icon || PiChatCircle;
+                          return (
+                            <div className="hidden sm:flex items-center gap-1.5 animate-in slide-in-from-left-2 fade-in duration-200">
+                              <span className="text-muted-foreground/50 text-xs">→</span>
+                              <button
+                                onClick={handleAcceptSuggestion}
+                                className={cn(
+                                  "flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-lg transition-all",
+                                  "bg-secondary/80 hover:bg-secondary border border-border/50 hover:border-primary/30",
+                                  surfaceInfo?.color || 'text-primary'
+                                )}
+                              >
+                                <Icon className="h-3.5 w-3.5" />
+                                <span>Try {surfaceInfo?.label}</span>
+                              </button>
+                              <button
+                                onClick={handleDismissSuggestion}
+                                className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors rounded"
+                                aria-label="Dismiss suggestion"
+                              >
+                                <PiX className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })()}
+
+                        <DropdownMenuContent 
+                           side="top" 
+                           align="start" 
+                           className="min-w-[600px] p-2 bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl"
+                        >
+                          <div className="grid grid-cols-3 gap-2">
+                            {['General', 'Analysis', 'Learning'].map((category) => (
+                              <div key={category} className="flex flex-col gap-1">
+                                <div className="w-full px-2 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider border-b border-border/40 mb-1">
+                                  {category}
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  {SURFACE_MODES.filter(m => m.category === category).map((mode) => {
+                                    const isRestricted = isGuest && !GUEST_ALLOWED_SURFACES.includes(mode.type);
+                                    return (
+                                      <button
+                                        key={mode.type}
+                                        onClick={() => {
+                                          if (isRestricted) {
+                                            toast.info(`Sign in required to use ${mode.label}`, {
+                                              description: "Create an account to access all surface types",
+                                            });
+                                            setSurfaceModeOpen(false);
+                                            return;
+                                          }
+                                          onSurfaceModeChange?.(mode.type);
+                                          setSurfaceModeOpen(false);
+                                        }}
+                                        className={cn(
+                                          "w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors text-left",
+                                          mode.type === surfaceMode
+                                            ? "bg-primary/10 text-primary"
+                                            : isRestricted
+                                              ? "text-muted-foreground/60 hover:bg-muted/30"
+                                              : "text-foreground hover:bg-muted/50"
+                                        )}
+                                      >
+                                        <mode.icon className={cn("h-4 w-4 shrink-0", isRestricted ? "text-muted-foreground/50" : mode.color)} />
+                                        <span className={cn("font-medium flex-1 truncate", isRestricted && "text-muted-foreground/60")}>{mode.label}</span>
+                                        {isRestricted && (
+                                          <PiLock className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
+                        </DropdownMenuContent>
                       </div>
-                    )}
-                  </div>
-                )}
+                    </DropdownMenu>
+                   )}
                 
                 {/* Unified Plus Button Dropdown */}
                 {!hideActions && (

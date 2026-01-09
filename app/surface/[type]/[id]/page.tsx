@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -96,6 +96,18 @@ export default function SurfacePage() {
   const conversationId = params.id as string;
   // Get query from URL param (passed from SurfaceTrigger)
   const queryFromUrl = searchParams.get('q') || "";
+  // Get AI response content from URL param (base64 encoded)
+  const aiResponseFromUrl = React.useMemo(() => {
+    const encoded = searchParams.get('aiResponse');
+    if (!encoded) return null;
+    try {
+      // Decode from base64 then URL decode
+      return decodeURIComponent(atob(encoded));
+    } catch (e) {
+      console.warn('[SurfacePage] Failed to decode AI response:', e);
+      return null;
+    }
+  }, [searchParams]);
   // Get specific surface ID from URL param (passed from SavedSurfacesPill dropdown)
   const surfaceIdFromUrl = searchParams.get('sid') || null;
 
@@ -286,6 +298,7 @@ export default function SurfacePage() {
             surfaceType,
             messageId: conversationId,
             conversationId,  // Pass for context personalization
+            aiResponseContent: aiResponseFromUrl,  // Pass AI response for full context
           }),
         });
 

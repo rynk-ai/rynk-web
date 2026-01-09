@@ -594,6 +594,7 @@ export const ChatMessageItem = memo(
                     surfaces={parsedMetadata.detectedSurfaces}
                     conversationId={conversationId}
                     userQuery={userQuery}
+                    aiResponseContent={message.content}
                   />
                 )}
 

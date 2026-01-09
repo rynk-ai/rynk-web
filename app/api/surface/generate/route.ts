@@ -24,6 +24,7 @@ interface GenerateRequest {
   surfaceType: SurfaceType
   messageId: string       // Message to attach surface to
   conversationId?: string // Optional - provides conversation context for personalization
+  aiResponseContent?: string // AI response content for immediate context
 }
 
 interface ConversationContext {
@@ -31,6 +32,7 @@ interface ConversationContext {
   keyTopics: string[]     // Main topics discussed
   userPreferences: string // Any stated preferences
   referencedContent: string // Context from referenced convos/folders
+  currentAIResponse?: string // The AI response that triggered surface creation
 }
 
 
@@ -252,15 +254,16 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Build conversation context (if conversationId provided)
     let conversationContext: ConversationContext | undefined
-    const { conversationId } = body
+    const { conversationId, aiResponseContent } = body
     if (conversationId) {
       try {
         console.log(`📚 [surface/generate] Building conversation context from: ${conversationId}`)
-        conversationContext = await buildSurfaceContext(conversationId)
+        conversationContext = await buildSurfaceContext(conversationId, aiResponseContent)
         console.log(`✅ [surface/generate] Context built:`, {
           keyTopics: conversationContext.keyTopics.length,
           hasPreferences: !!conversationContext.userPreferences,
-          hasReferencedContent: !!conversationContext.referencedContent
+          hasReferencedContent: !!conversationContext.referencedContent,
+          hasCurrentResponse: !!conversationContext.currentAIResponse
         })
       } catch (contextError) {
         console.warn('⚠️ [surface/generate] Failed to build context, continuing without:', contextError)
@@ -395,7 +398,10 @@ function synthesizeWebResults(results: SourceResult[]): WebContext {
  * Build context from an existing conversation to personalize surface generation.
  * Extracts key topics, user preferences, and referenced content.
  */
-async function buildSurfaceContext(conversationId: string): Promise<ConversationContext> {
+async function buildSurfaceContext(
+  conversationId: string, 
+  currentAIResponse?: string
+): Promise<ConversationContext> {
   // Fetch recent messages from the conversation
   const { messages } = await cloudDb.getMessages(conversationId, 20)
   
@@ -404,7 +410,8 @@ async function buildSurfaceContext(conversationId: string): Promise<Conversation
       summary: '',
       keyTopics: [],
       userPreferences: '',
-      referencedContent: ''
+      referencedContent: '',
+      currentAIResponse: currentAIResponse || undefined
     }
   }
   
@@ -498,7 +505,8 @@ async function buildSurfaceContext(conversationId: string): Promise<Conversation
     summary,
     keyTopics,
     userPreferences: preferences.join('. '),
-    referencedContent
+    referencedContent,
+    currentAIResponse: currentAIResponse || undefined
   }
 }
 
@@ -532,11 +540,16 @@ function extractKeyTopics(queries: string[]): string[] {
  * Format conversation context for injection into AI prompts
  */
 function formatContextForPrompt(context: ConversationContext | undefined): string {
-  if (!context || (!context.summary && !context.userPreferences && !context.referencedContent)) {
+  if (!context || (!context.summary && !context.userPreferences && !context.referencedContent && !context.currentAIResponse)) {
     return ''
   }
   
   let formatted = '\n\nCONVERSATION CONTEXT (use this to personalize the content):\n'
+  
+  if (context.currentAIResponse) {
+    formatted += `\nMost Recent AI Response (that triggered this surface):\n${context.currentAIResponse.slice(0, 3000)}\n`
+    formatted += `\nIMPORTANT: The surface should expand on and complement the information in this response.\n`
+  }
   
   if (context.summary) {
     formatted += `\nConversation Background:\n${context.summary}\n`

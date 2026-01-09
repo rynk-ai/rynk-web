@@ -29,6 +29,7 @@ interface SurfaceTriggerProps {
   surfaces: string[]; // Receives detected surfaces directly
   conversationId?: string;
   userQuery?: string;
+  aiResponseContent?: string; // AI response content for context
 }
 
 // Surface definitions with styling and metadata
@@ -118,15 +119,30 @@ export const SurfaceTrigger = function SurfaceTrigger({
   surfaces,
   conversationId,
   userQuery,
+  aiResponseContent,
 }: SurfaceTriggerProps) {
   const router = useRouter();
 
   const handleOpenSurface = (type: string) => {
     if (!conversationId) return;
     
-    // Pass the user query or use a fallback
+    // Build URL with both user query and AI response content
     const query = userQuery || "";
-    router.push(`/surface/${type}/${conversationId}?q=${encodeURIComponent(query)}`);
+    let url = `/surface/${type}/${conversationId}?q=${encodeURIComponent(query)}`;
+    
+    // Add AI response content if available (base64 encoded to handle long content)
+    if (aiResponseContent && aiResponseContent.trim()) {
+      try {
+        // Encode to base64 to safely pass in URL
+        const encodedResponse = btoa(encodeURIComponent(aiResponseContent.slice(0, 8000))); // Limit to 8000 chars
+        url += `&aiResponse=${encodedResponse}`;
+      } catch (e) {
+        console.warn('[SurfaceTrigger] Failed to encode AI response:', e);
+        // Continue without AI response if encoding fails
+      }
+    }
+    
+    router.push(url);
   };
 
   if (!surfaces || surfaces.length === 0) {
