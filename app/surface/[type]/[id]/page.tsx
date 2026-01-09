@@ -990,8 +990,8 @@ export default function SurfacePage() {
         )}
       </header>
       
-      {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Content Area */}
+      <div className="flex-1">
         <main className="max-w-[1200px] mx-auto px-4 py-8 md:px-8">
            <div className="animate-in fade-in duration-500 ease-out slide-in-from-bottom-2">
              {surfaceType === 'learning' ? (

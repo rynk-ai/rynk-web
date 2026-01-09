@@ -84,14 +84,24 @@ export const WikiSurface = memo(function WikiSurface({
   const [activeSection, setActiveSection] = useState<string | null>(sections[0]?.id || null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Track scroll position for back-to-top button
+  // Use IntersectionObserver for BackToTop visibility since window.scroll events 
+  // might not fire if the scrolling happens in a parent container
   useEffect(() => {
-    const handleScroll = () => {
-      setShowBackToTop(window.scrollY > 400);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Show button when top sentinel is NOT visible (user scrolled down)
+        setShowBackToTop(!entry.isIntersecting);
+      },
+      { rootMargin: '100px 0px 0px 0px' } // Add some buffer
+    );
+
+    if (topSentinelRef.current) {
+      observer.observe(topSentinelRef.current);
+    }
+
+    return () => observer.disconnect();
   }, []);
 
   // IntersectionObserver to track which section is visible for TOC highlighting
@@ -115,7 +125,7 @@ export const WikiSurface = memo(function WikiSurface({
         }
       },
       {
-        rootMargin: '-80px 0px -60% 0px', // Account for sticky header, trigger when section enters top portion
+        rootMargin: '-20% 0px -60% 0px', // Adjusted for better detection in scroll container
         threshold: 0
       }
     );
@@ -132,54 +142,53 @@ export const WikiSurface = memo(function WikiSurface({
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(`section-${sectionId}`);
     if (element) {
-      // Offset for sticky header
-      const offset = 80; 
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Fallback for manual active state set
       setActiveSection(sectionId);
     }
   };
 
   // Scroll to top
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    topSentinelRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
-    <div className="max-w-6xl mx-auto pb-16">
-      {/* Hero Images - from citations or availableImages */}
-      {citationImages.length > 0 ? (
-        <SourceImages 
-          images={citationImages} 
-          maxImages={4}
-          className="mb-8"
-        />
-      ) : availableImages.length > 0 && (
-        <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-2">
-          {availableImages.slice(0, 4).map((img, idx) => (
-            <a
-              key={idx}
-              href={img.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative aspect-video rounded-lg overflow-hidden bg-muted/40"
-            >
-              <img
-                src={img.url}
-                alt={img.title}
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-          ))}
+    <div className="animate-in fade-in duration-500 bg-background text-foreground">
+      {/* Sentinel for scroll detection */}
+      <div ref={topSentinelRef} className="h-px w-full absolute top-0 pointer-events-none opacity-0" />
+      
+      {availableImages.length > 0 && (
+        <div className="relative h-48 md:h-64 mb-8 -mx-4 md:-mx-6 rounded-b-2xl overflow-hidden group">
+          <img 
+            src={availableImages[0].url} 
+            alt={availableImages[0].title || title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-90" />
+          
+          {/* Image source pill */}
+          {availableImages[0].sourceUrl && (
+            <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground/70 bg-black/20 backdrop-blur-md px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+              Source: {new URL(availableImages[0].sourceUrl).hostname.replace('www.', '')}
+            </div>
+          )}
+          
+          {/* Image Gallery Trigger (if more images) */}
+          {availableImages.length > 1 && (
+             <div className="absolute bottom-3 left-3 flex gap-1">
+              {availableImages.slice(1, 4).map((img, i) => (
+                <div key={i} className="h-8 w-12 rounded-md overflow-hidden border border-white/20 shadow-sm relative">
+                  <img src={img.url} className="w-full h-full object-cover" alt="" />
+                </div>
+              ))}
+              {availableImages.length > 4 && (
+                <div className="h-8 w-12 rounded-md bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-[10px] text-white font-medium">
+                  +{availableImages.length - 4}
+                </div>
+              )}
+             </div>
+          )}
         </div>
       )}
 
@@ -204,10 +213,10 @@ export const WikiSurface = memo(function WikiSurface({
       </div>
 
       {/* Main Layout: Sidebar + Content */}
-      <div className="flex flex-col lg:flex-row gap-10 relative">
+      <div className="flex flex-col lg:flex-row gap-10">
         {/* Sticky Table of Contents - Desktop */}
-        <aside className="hidden lg:block w-72 shrink-0">
-          <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto space-y-6">
+        <aside className="hidden lg:block w-72 shrink-0 z-30 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar">
+          <div className="space-y-6">
              {/* TOC */}
             <div className="rounded-xl border border-border/30 bg-muted/10 p-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
