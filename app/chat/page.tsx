@@ -321,11 +321,29 @@ const ChatContent = memo(
           return;
         }
         if (!chatId) {
-          console.log("[ChatPage] New chat - clearing state");
-          messageState.setMessages([]);
-          messageState.setMessageVersions(new Map());
-          setQuotedMessage(null);
-          setLocalContext([]);
+          // Only clear if we actually have data to clear - prevents redundant re-renders
+          let clearedSomething = false;
+
+          if (messages.length > 0) {
+            messageState.setMessages([]);
+            clearedSomething = true;
+          }
+          if (messageVersions.size > 0) {
+            messageState.setMessageVersions(new Map());
+             clearedSomething = true;
+          }
+          if (quotedMessage) {
+             setQuotedMessage(null);
+             clearedSomething = true;
+          }
+          if (localContext.length > 0) {
+             setLocalContext([]);
+             clearedSomething = true;
+          }
+
+          if (clearedSomething) {
+             console.log("[ChatPage] New chat - state cleared");
+          }
         } else {
           console.log("[ChatPage] Waiting for conversation to load from URL:", chatId);
         }
@@ -407,18 +425,18 @@ const ChatContent = memo(
       // Use URL param if available, otherwise fall back to localStorage
       const pendingQuery = urlQuery || localStorageQuery;
 
-      console.log("[ChatPage] Pending query check:", {
+      // 🔥 FIX: Early return if no pending query to avoid clearing conversation on normal navigation
+      if (!pendingQuery || !pendingQuery.trim()) {
+        return;
+      }
+
+      console.log("[ChatPage] Pending query execution found:", {
         urlQuery,
         localStorageQuery,
         pendingQuery,
         currentConversationId,
         alreadyProcessed,
       });
-
-      // 🔥 FIX: Early return if no pending query to avoid clearing conversation on normal navigation
-      if (!pendingQuery || !pendingQuery.trim()) {
-        return;
-      }
 
       // If there's a pending query, clear the current conversation to start fresh
       if (currentConversationId) {
