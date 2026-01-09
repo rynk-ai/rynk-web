@@ -94,6 +94,40 @@ export const WikiSurface = memo(function WikiSurface({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // IntersectionObserver to track which section is visible for TOC highlighting
+  useEffect(() => {
+    if (sections.length === 0) return;
+    
+    // Create observers for all section elements
+    const sectionElements = sections.map(s => document.getElementById(`section-${s.id}`)).filter(Boolean);
+    
+    if (sectionElements.length === 0) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the first section that's intersecting (visible in viewport)
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id.replace('section-', '');
+            setActiveSection(sectionId);
+            break;
+          }
+        }
+      },
+      {
+        rootMargin: '-80px 0px -60% 0px', // Account for sticky header, trigger when section enters top portion
+        threshold: 0
+      }
+    );
+    
+    sectionElements.forEach(el => {
+      if (el) observer.observe(el);
+    });
+    
+    return () => observer.disconnect();
+  }, [sections]);
+
+
   // Scroll to section
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(`section-${sectionId}`);
@@ -161,7 +195,7 @@ export const WikiSurface = memo(function WikiSurface({
             </span>
           ))}
         </div>
-        <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-foreground font-display">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-foreground">
           {title}
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-4xl">
@@ -173,7 +207,7 @@ export const WikiSurface = memo(function WikiSurface({
       <div className="flex flex-col lg:flex-row gap-10 relative">
         {/* Sticky Table of Contents - Desktop */}
         <aside className="hidden lg:block w-72 shrink-0">
-          <div className="sticky top-24 space-y-6">
+          <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto space-y-6">
              {/* TOC */}
             <div className="rounded-xl border border-border/30 bg-muted/10 p-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -228,7 +262,7 @@ export const WikiSurface = memo(function WikiSurface({
                   {infobox.facts.map((fact, idx) => (
                     <div key={idx} className="text-sm border-b border-border/30 last:border-0 pb-2 last:pb-0">
                       <dt className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wide mb-0.5">{fact.label}</dt>
-                      <dd className="font-medium text-foreground">{fact.value}</dd>
+                      <dd className="font-medium text-foreground break-words">{fact.value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -237,8 +271,9 @@ export const WikiSurface = memo(function WikiSurface({
           </div>
         </aside>
 
+
         {/* Main Content */}
-        <main className="flex-1 min-w-0 font-sans" ref={contentRef}>
+        <main className="flex-1 min-w-0" ref={contentRef}>
           {/* Mobile Infobox */}
           {infobox.facts.length > 0 && (
             <div className="lg:hidden mb-8 bg-muted/20 border border-border/30 rounded-xl p-5">
@@ -258,7 +293,7 @@ export const WikiSurface = memo(function WikiSurface({
           )}
 
           {/* Article Sections */}
-          <article className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-display prose-headings:tracking-tight prose-p:leading-relaxed prose-img:rounded-xl">
+          <article className="prose prose-slate dark:prose-invert max-w-none prose-headings:tracking-tight prose-p:leading-relaxed prose-img:rounded-xl">
             {sections.map((section, idx) => {
               // Check if section content is still loading (skeleton content)
               const isLoading = !section.content || section.content === 'Loading...' || section.content.startsWith('Loading:');
@@ -272,7 +307,7 @@ export const WikiSurface = memo(function WikiSurface({
                   className="mb-12 scroll-mt-24 group"
                 >
                   <h2 className="text-2xl font-bold flex items-center gap-3 mb-6 pb-2 border-b border-border/30 group-hover:border-primary/20 transition-colors">
-                    <span className="text-primary/40 text-sm font-mono pt-1">
+                    <span className="text-primary/40 text-sm pt-1">
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     {section.heading}

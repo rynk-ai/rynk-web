@@ -980,7 +980,9 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
       userMessages: messages.filter(m => m.role === 'user').map(m => ({
         id: m.id,
         contentPreview: m.content.substring(0, 50) + '...',
-        contentLength: m.content.length
+        contentLength: m.content.length,
+        attachmentsCount: m.attachments?.length || 0,
+        attachments: m.attachments?.map(a => ({ name: a.name, type: a.type, hasUrl: !!a.url })) || []
       }))
     });
     

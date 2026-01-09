@@ -46,7 +46,7 @@ const WEB_SEARCH_SURFACES: SurfaceType[] = ['wiki', 'guide', 'comparison', 'time
 
 /**
  * Analyze a query for surface generation
- * Uses Groq's fast model for quick analysis (~50-100ms)
+ * OPTIMIZED: Uses tool calling with tool_choice for reliable structured output (like chat-service's intent-analyzer)
  */
 export async function analyzeSurfaceQuery(
   query: string,
@@ -71,6 +71,52 @@ export async function analyzeSurfaceQuery(
     return defaultAnalysis
   }
 
+  // Define tool for structured analysis extraction
+  const ANALYZE_QUERY_TOOL = {
+    type: 'function',
+    function: {
+      name: 'analyze_surface_query',
+      description: 'Analyze a query and extract structured information for surface generation',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: {
+            type: 'string',
+            description: 'Main topic/subject (clean, concise)'
+          },
+          subtopics: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Key subtopics to cover (3-6 items)'
+          },
+          suggestedQueries: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optimized search queries for web research'
+          },
+          needsWebSearch: {
+            type: 'boolean',
+            description: 'Whether external information would improve quality'
+          },
+          depth: {
+            type: 'string',
+            enum: ['basic', 'intermediate', 'advanced'],
+            description: 'Appropriate depth level for the content'
+          },
+          audience: {
+            type: 'string',
+            description: 'Target audience for this content'
+          },
+          cleanedQuery: {
+            type: 'string',
+            description: 'Cleaned/improved version of the original query'
+          }
+        },
+        required: ['topic', 'subtopics', 'suggestedQueries', 'needsWebSearch', 'depth', 'audience', 'cleanedQuery']
+      }
+    }
+  }
+
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -82,24 +128,7 @@ export async function analyzeSurfaceQuery(
         model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [{
           role: 'system',
-          content: `You are a query analyzer for an educational content platform. Analyze the user's query and extract structured information.
-
-The user wants to create a "${surfaceType}" surface. Your job is to:
-1. Identify the main topic
-2. Extract subtopics that should be covered
-3. Suggest optimized search queries for web research
-4. Determine the appropriate depth and audience
-
-Respond ONLY with valid JSON:
-{
-  "topic": "Main topic/subject (clean, concise)",
-  "subtopics": ["subtopic1", "subtopic2", "subtopic3", "..."],
-  "suggestedQueries": ["optimized search query 1", "optimized search query 2"],
-  "needsWebSearch": true/false,
-  "depth": "basic" | "intermediate" | "advanced",
-  "audience": "Who this content is for",
-  "cleanedQuery": "Cleaned/improved version of the original query"
-}
+          content: `You are a query analyzer for an educational content platform. The user wants to create a "${surfaceType}" surface.
 
 Guidelines:
 - For current events or technology: needsWebSearch = true
@@ -109,9 +138,10 @@ Guidelines:
 - depth should match the query complexity`
         }, {
           role: 'user',
-          content: `Query: "${query}"\nSurface type: ${surfaceType}`
+          content: `Analyze this query for a ${surfaceType} surface: "${query}"`
         }],
-        response_format: { type: 'json_object' },
+        tools: [ANALYZE_QUERY_TOOL],
+        tool_choice: { type: 'function', function: { name: 'analyze_surface_query' } },
         temperature: 0.1,
         max_tokens: 500
       })
@@ -122,7 +152,14 @@ Guidelines:
     }
 
     const data: any = await response.json()
-    const result = JSON.parse(data.choices[0].message.content || '{}')
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
+    
+    if (!toolCall?.function?.arguments) {
+      console.warn('[SurfaceIntentAnalyzer] No tool call in response, using fallback')
+      return defaultAnalysis
+    }
+    
+    const result = JSON.parse(toolCall.function.arguments)
     
     return {
       topic: result.topic || defaultAnalysis.topic,
@@ -140,6 +177,7 @@ Guidelines:
     return defaultAnalysis
   }
 }
+
 
 /**
  * Simple topic extraction fallback

@@ -420,15 +420,21 @@ class TaskProcessor implements DurableObject {
       }
     }
     
-    onProgress({ current: 3, total: 5, message: 'Analyzing topic...', step: 'analysis' })
     
-    // Step 2: Analyze the query (fast Groq call) - for non-wiki surfaces
-    const analysis = await this.analyzeSurfaceQuery(query, surfaceType)
+    // OPTIMIZATION: Skip analyzeSurfaceQuery for surfaces that already have webContext
+    // Wiki, timeline, and comparison already fetched web context above - no need for redundant LLM call
+    let analysis: any = { needsWebSearch: false, suggestedQueries: [query] }
     
-    // For non-wiki surfaces that need web search
-    if (analysis.needsWebSearch && !webContext) {
-      onProgress({ current: 4, total: 5, message: 'Researching...', step: 'research' })
-      webContext = await this.fetchWebContext(query, analysis)
+    if (!webContext) {
+      // Only analyze for surfaces that don't already have web context
+      onProgress({ current: 3, total: 5, message: 'Analyzing topic...', step: 'analysis' })
+      analysis = await this.analyzeSurfaceQuery(query, surfaceType)
+      
+      // Fetch web context if analysis indicates it's needed
+      if (analysis.needsWebSearch) {
+        onProgress({ current: 4, total: 5, message: 'Researching...', step: 'research' })
+        webContext = await this.fetchWebContext(query, analysis)
+      }
     }
     
     onProgress({ current: 4, total: 5, message: 'Generating detailed content...', step: 'generation' })
@@ -686,7 +692,8 @@ class TaskProcessor implements DurableObject {
   }
 
   /**
-   * Generate targeted search queries for each wiki section
+   * Generate targeted search queries for each wiki section using tool calling
+   * OPTIMIZED: Uses tool_choice: 'required' for reliable structured output
    */
   private async generateWikiSectionSearchQueries(
     title: string,
@@ -704,22 +711,31 @@ class TaskProcessor implements DurableObject {
       return queries
     }
     
-    const prompt = `Generate specific web search queries for each section of a wiki article.
-
-ARTICLE TITLE: "${title}"
-ORIGINAL QUERY: "${originalQuery}"
-
-SECTIONS:
-${sections.map((s, i) => `${i + 1}. ${s.heading} (id: ${s.id})`).join('\n')}
-
-Return JSON with optimized search queries for finding factual, up-to-date information:
-{"queries": [{"sectionId": "section1", "searchQuery": "specific factual search query"}, ...]}
-
-Make each query:
-- Specific to that section's topic
-- Include the main subject (${title})
-- Optimized for finding verifiable facts, statistics, dates
-- News-focused if the topic is current events`
+    // Define tool for structured query extraction
+    const GENERATE_QUERIES_TOOL = {
+      type: 'function',
+      function: {
+        name: 'generate_search_queries',
+        description: 'Generate optimized search queries for each wiki section',
+        parameters: {
+          type: 'object',
+          properties: {
+            queries: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  sectionId: { type: 'string', description: 'Section ID' },
+                  searchQuery: { type: 'string', description: 'Optimized search query for finding factual information' }
+                },
+                required: ['sectionId', 'searchQuery']
+              }
+            }
+          },
+          required: ['queries']
+        }
+      }
+    }
 
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -728,22 +744,39 @@ Make each query:
         body: JSON.stringify({
           model: 'moonshotai/kimi-k2-instruct-0905',
           messages: [
-            { role: 'system', content: 'Generate precise web search queries. Return only valid JSON.' },
-            { role: 'user', content: prompt }
+            { 
+              role: 'system', 
+              content: 'Generate specific web search queries for each wiki section. Make queries factual and specific.' 
+            },
+            { 
+              role: 'user', 
+              content: `Generate search queries for these wiki sections about "${title}" (original query: "${originalQuery}"):
+
+${sections.map((s, i) => `${i + 1}. ${s.heading} (id: ${s.id})`).join('\n')}
+
+Make each query:
+- Specific to that section's topic
+- Include the main subject (${title})
+- Optimized for finding verifiable facts`
+            }
           ],
-          response_format: { type: 'json_object' },
+          tools: [GENERATE_QUERIES_TOOL],
+          tool_choice: { type: 'function', function: { name: 'generate_search_queries' } },
           temperature: 0.2,
-          max_tokens: 800
+          max_tokens: 600
         })
       })
 
       if (response.ok) {
         const data: any = await response.json()
-        const result = JSON.parse(data.choices[0].message.content || '{}')
+        const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
         
-        for (const q of result.queries || []) {
-          if (q.sectionId && q.searchQuery) {
-            queries.set(q.sectionId, q.searchQuery)
+        if (toolCall?.function?.arguments) {
+          const args = JSON.parse(toolCall.function.arguments)
+          for (const q of args.queries || []) {
+            if (q.sectionId && q.searchQuery) {
+              queries.set(q.sectionId, q.searchQuery)
+            }
           }
         }
       }
@@ -760,6 +793,7 @@ Make each query:
     
     return queries
   }
+
 
   /**
    * Search Exa + Perplexity for each wiki section's query

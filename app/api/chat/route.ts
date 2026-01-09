@@ -25,7 +25,9 @@ export async function POST(request: NextRequest) {
       messageId,
       conversationId,
       hasMessage: !!message,
-      messagePreview: message?.substring(0, 20)
+      messagePreview: message?.substring(0, 20),
+      attachmentsCount: attachments?.length || 0,
+      attachments: attachments?.map((a: any) => ({ name: a.name, type: a.type, url: a.url?.substring(0, 50) })) || []
     });
 
     // Validate: Either message or messageId must be provided (but not both)
