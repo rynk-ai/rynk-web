@@ -235,98 +235,142 @@ export class GuestChatService {
           let detectionResult: any = null
 
           if (userMessageContent && useReasoning !== 'off') {
-            // Use enhanced domain-aware detection
-            const { detectEnhanced, resolveReasoningMode, getReasoningModel } = await import('./reasoning-detector')
+            console.log('⚡ [GuestChatService] Using optimized unified intent analysis')
             
-            detectionResult = await detectEnhanced(messageContent)
-            const resolved = resolveReasoningMode(useReasoning, detectionResult)
-            shouldUseReasoning = resolved.useReasoning
-            shouldUseWebSearch = resolved.useWebSearch
-            selectedModel = getReasoningModel(shouldUseReasoning, false)
+            // 1. Unified Intent Analysis
+            const { analyzeIntent } = await import('./agentic/intent-analyzer')
+            const { quickAnalysis, sourcePlan: plannedSourcePlan } = await analyzeIntent(messageContent)
             
-            console.log('🎯 [GuestChatService] Enhanced detection result:', {
-              domain: detectionResult.domain,
-              subDomain: detectionResult.subDomain,
-              informationType: detectionResult.informationType,
-              needsDisclaimer: detectionResult.responseRequirements?.needsDisclaimer
+            // 2. Determine modes
+            if (useReasoning === 'on' || useReasoning === 'online') {
+              shouldUseReasoning = true
+            } else {
+              shouldUseReasoning = quickAnalysis.needsReasoning
+            }
+            
+            if (useReasoning === 'online') {
+              shouldUseWebSearch = true
+            } else {
+              shouldUseWebSearch = quickAnalysis.needsWebSearch
+            }
+            
+            // 3. Setup context & safety
+            // Construct full EnhancedDetectionResult to avoid runtime errors
+            detectionResult = {
+              needsReasoning: shouldUseReasoning,
+              needsWebSearch: shouldUseWebSearch,
+              confidence: quickAnalysis.confidence,
+              reasoning: 'Unified intent analysis',
+              
+              domain: quickAnalysis.category === 'technical' ? 'technology' : 'general',
+              subDomain: null,
+              informationType: quickAnalysis.category === 'current_events' ? 'current_events' :
+                              quickAnalysis.category === 'technical' ? 'conceptual' :
+                              quickAnalysis.category === 'complex' ? 'analytical' : 'factual',
+              
+              responseRequirements: {
+                needsDiagrams: false,
+                needsRealTimeData: quickAnalysis.category === 'current_events',
+                needsCitations: shouldUseWebSearch,
+                needsStepByStep: quickAnalysis.category === 'technical',
+                needsDisclaimer: false,
+                needsComparison: false,
+                needsCode: quickAnalysis.category === 'technical'
+              },
+              
+              queryContext: {
+                isUrgent: false,
+                isAcademic: false,
+                isProfessional: false,
+                complexityLevel: quickAnalysis.category === 'complex' ? 'advanced' : 'basic'
+              },
+              
+              detectedTypes: {
+                math: false,
+                code: quickAnalysis.category === 'technical',
+                logic: quickAnalysis.category === 'complex',
+                analysis: quickAnalysis.category === 'complex',
+                currentEvents: quickAnalysis.category === 'current_events'
+              }
+            }
+            
+            selectedModel = (await import('./reasoning-detector')).getReasoningModel(shouldUseReasoning, false)
+            
+            console.log('🎯 [GuestChatService] Analysis result:', {
+              category: quickAnalysis.category,
+              needsReasoning: shouldUseReasoning,
+              needsWebSearch: shouldUseWebSearch
             })
-          }
-
-          // --- PHASE 2: SEARCH (If needed) ---
-          if (shouldUseWebSearch) {
-            streamManager.sendStatus('searching', 'Analyzing search intent...')
             
-            try {
-              // 1. Analyze Intent & Plan
-              const { analyzeIntent } = await import('./agentic/intent-analyzer')
-              const { quickAnalysis, sourcePlan } = await analyzeIntent(messageContent)
+             // 4. Executing Web Search (if needed) RIGHT HERE since we have the plan!
+            if (shouldUseWebSearch) {
+              streamManager.sendStatus('searching', `Searching ${plannedSourcePlan.sources.join(', ')}...`)
               
-              streamManager.sendStatus('searching', `Searching ${sourcePlan.sources.join(', ')}...`)
-              
-              // 2. Execute Plan
-              const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
-              const orchestrator = new SourceOrchestrator()
-              const sourceResults = await orchestrator.executeSourcePlan(sourcePlan)
-              
-              // 3. Map to Frontend Format
-              const allSources: any[] = []
-              
-              sourceResults.forEach(res => {
-                if (res.citations) {
-                  res.citations.forEach(cit => {
-                    allSources.push({
-                      type: res.source,
-                      url: cit.url,
-                      title: cit.title,
-                      snippet: cit.snippet || '',
-                      image: cit.image,           // Primary image URL
-                      images: cit.images || []    // Additional images
-                    })
-                  })
-                }
-              })
-              
-              // Deduplicate sources
-              const uniqueSources = Array.from(
-                new Map(allSources.map(s => [s.url, s])).values()
-              )
-
-              searchResults = {
-                query: sourcePlan.searchQueries.exa || sourcePlan.searchQueries.perplexity || messageContent,
-                sources: uniqueSources,
-                searchStrategy: sourcePlan.sources,
-                totalResults: uniqueSources.length
-              }
-              
-              if (searchResults) {
-                streamManager.sendSearchResults({
-                  query: searchResults.query,
-                  sources: searchResults.sources,
-                  strategy: searchResults.searchStrategy,
-                  totalResults: searchResults.totalResults
-                })
-
-                // Update status with detailed metadata
-                const { getDomainName } = await import('@/lib/types/citation')
-                const domains = searchResults.sources.slice(0, 4).map((s: any) => getDomainName(s.url))
-                const uniqueDomains = [...new Set(domains)]
-                const sourceCount = searchResults.sources.length
+              try {
+                const { SourceOrchestrator } = await import('./agentic/source-orchestrator')
+                const orchestrator = new SourceOrchestrator()
+                const sourceResults = await orchestrator.executeSourcePlan(plannedSourcePlan)
                 
-                // Send reading_sources status with metadata
-                streamManager.sendStatus(
-                  'reading_sources', 
-                  `Reading ${uniqueDomains.join(', ')}${sourceCount > 4 ? ` and ${sourceCount - 4} more` : ''}...`,
-                  { 
-                    sourceCount, 
-                    sourcesRead: sourceCount,
-                    currentSource: uniqueDomains[0] as string
+                // Map results to legacy format
+                const allSources: any[] = []
+                sourceResults.forEach(res => {
+                  if (res.citations) {
+                    res.citations.forEach(cit => {
+                      allSources.push({
+                        type: res.source,
+                        url: cit.url,
+                        title: cit.title,
+                        snippet: cit.snippet || '',
+                        image: cit.image,
+                        images: cit.images || []
+                      })
+                    })
                   }
+                })
+                
+                // Deduplicate sources
+                const uniqueSources = Array.from(
+                  new Map(allSources.map(s => [s.url, s])).values()
                 )
+    
+                searchResults = {
+                  query: plannedSourcePlan.searchQueries.exa || plannedSourcePlan.searchQueries.perplexity || messageContent,
+                  sources: uniqueSources,
+                  searchStrategy: plannedSourcePlan.sources,
+                  totalResults: uniqueSources.length
+                }
+                
+                if (searchResults) {
+                  streamManager.sendSearchResults({
+                    query: searchResults.query,
+                    sources: searchResults.sources,
+                    strategy: searchResults.searchStrategy,
+                    totalResults: searchResults.totalResults
+                  })
+    
+                  // Update status with detailed metadata
+                  const { getDomainName } = await import('@/lib/types/citation')
+                  const domains = searchResults.sources.slice(0, 4).map((s: any) => getDomainName(s.url))
+                  const uniqueDomains = [...new Set(domains)]
+                  const sourceCount = searchResults.sources.length
+                  
+                  streamManager.sendStatus(
+                    'reading_sources', 
+                    `Reading ${uniqueDomains.join(', ')}${sourceCount > 4 ? ` and ${sourceCount - 4} more` : ''}...`,
+                    { 
+                      sourceCount, 
+                      sourcesRead: sourceCount,
+                      currentSource: uniqueDomains[0] as string
+                    }
+                  )
+                }
+              } catch (searchError) {
+                console.error('⚠️ [GuestChatService] Search failed, continuing without:', searchError)
               }
-            } catch (searchError) {
-              console.error('⚠️ [GuestChatService] Search failed, continuing without:', searchError)
             }
           }
+
+
 
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')
