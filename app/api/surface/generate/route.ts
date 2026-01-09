@@ -74,6 +74,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Wiki surface uses client-orchestrated parallel server actions
+    // Credit is deducted AFTER successful completion in saveWikiSurface action
+    if (surfaceType === 'wiki') {
+      console.log(`📖 [surface/generate] Wiki surface - using client-orchestrated parallel generation`)
+      return NextResponse.json({
+        success: true,
+        mode: 'client-orchestrated',
+        surfaceType: 'wiki'
+      })
+    }
+
     // Skip generation for chat (it's the default) - no credit deduction
     if (surfaceType === 'chat') {
       return NextResponse.json({
@@ -309,9 +320,7 @@ export async function POST(request: NextRequest) {
       surfaceState = await generateFlashcardStructure(aiProvider, query, analysis, conversationContext)
     } else if (surfaceType === 'timeline') {
       surfaceState = await generateTimelineStructure(aiProvider, query, analysis, conversationContext)
-    } else if (surfaceType === 'wiki') {
-      surfaceState = await generateWikiStructure(aiProvider, query, analysis, webContext, conversationContext)
-
+    // NOTE: 'wiki' is handled above via client-orchestrated parallel server actions
     } else {
       return NextResponse.json(
         { error: `Unsupported surface type: ${surfaceType}` },

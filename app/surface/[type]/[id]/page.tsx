@@ -69,6 +69,14 @@ import type {
   WikiMetadata,
   ResearchMetadata 
 } from "@/lib/services/domain-types";
+import { 
+  generateWikiSkeleton, 
+  generateWikiSection, 
+  saveWikiSurface,
+  retryWikiSection,
+  type WebContext,
+  type WikiSectionResult 
+} from "@/lib/actions/wiki-actions";
 
 // Helper to get icon and label for surface type
 const getSurfaceInfo = (type: string) => {
@@ -308,7 +316,152 @@ export default function SurfacePage() {
           surfaceState?: SurfaceState;
           async?: boolean;
           jobId?: string;
+          mode?: 'client-orchestrated';
         };
+        
+        // Handle client-orchestrated parallel generation (wiki surface)
+        if (data.mode === 'client-orchestrated' && surfaceType === 'wiki') {
+          console.log('[SurfacePage] Client-orchestrated wiki generation starting');
+          
+          // Clear URL param IMMEDIATELY to prevent re-generation on refresh
+          router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
+          
+          try {
+            // Step 1: Generate skeleton + fetch web context
+            setGenerationProgress({ current: 1, total: 4, message: 'Researching topic...', step: 'research' });
+            const { skeleton, webContext } = await generateWikiSkeleton(query);
+            
+            // Display skeleton immediately
+            setSurfaceState(skeleton);
+            setIsLoading(false);
+            console.log('[SurfacePage] Wiki skeleton displayed, starting parallel section generation');
+            
+            // Step 2: Generate all sections in parallel
+            const sections = (skeleton.metadata as WikiMetadata).sections;
+            const skeletonTitle = (skeleton.metadata as WikiMetadata).title;
+            const allSectionsInfo = sections.map(s => ({ id: s.id, heading: s.heading }));
+            
+            setGenerationProgress({ current: 2, total: 4, message: `Generating ${sections.length} sections...`, step: 'sections' });
+            
+            // Create promises for all sections
+            const sectionPromises = sections.map((section, index) =>
+              generateWikiSection(
+                section.id,
+                section.heading,
+                skeletonTitle,
+                allSectionsInfo,
+                query,
+                webContext
+              ).then(result => ({ ...result, index, id: section.id }))
+            );
+            
+            // Track completed sections for progress
+            let completedCount = 0;
+            
+            // Update UI as each section completes
+            for (const promise of sectionPromises) {
+              promise.then(result => {
+                completedCount++;
+                setGenerationProgress({ 
+                  current: completedCount, 
+                  total: sections.length, 
+                  message: `Generated ${completedCount}/${sections.length} sections`,
+                  step: 'sections' 
+                });
+                
+                setSurfaceState(prev => {
+                  if (!prev) return prev;
+                  const meta = prev.metadata as WikiMetadata;
+                  const updatedSections = meta.sections.map((s, i) => {
+                    if (i === result.index) {
+                      return {
+                        ...s,
+                        content: result.status === 'success' ? result.content : '',
+                        citations: result.citations || [],
+                        images: result.images || [],
+                        status: (result.status === 'success' ? 'completed' : 'failed') as 'completed' | 'failed',
+                        error: result.error
+                      };
+                    }
+                    return s;
+                  });
+                  return {
+                    ...prev,
+                    metadata: { ...meta, sections: updatedSections },
+                    updatedAt: Date.now()
+                  };
+                });
+              });
+            }
+            
+            // Wait for all sections to complete
+            const results = await Promise.allSettled(sectionPromises);
+            console.log('[SurfacePage] All wiki sections completed');
+            
+            // Step 3: Collect images from all sections
+            const allImages = results
+              .filter((r): r is PromiseFulfilledResult<WikiSectionResult & { index: number; id: string }> => 
+                r.status === 'fulfilled' && r.value.status === 'success'
+              )
+              .flatMap(r => r.value.images || [])
+              .slice(0, 10);
+            
+            // Step 4: Save final state and deduct credit
+            setGenerationProgress({ current: 4, total: 4, message: 'Saving...', step: 'save' });
+            
+            // Build final sections from results (not stale state)
+            const finalSections = sections.map((section, index) => {
+              const resultWrapper = results[index];
+              if (resultWrapper.status === 'fulfilled') {
+                const result = resultWrapper.value;
+                return {
+                  ...section,
+                  content: result.status === 'success' ? result.content : '',
+                  citations: result.citations || [],
+                  images: result.images || [],
+                  status: (result.status === 'success' ? 'completed' : 'failed') as 'completed' | 'failed',
+                  error: result.error
+                };
+              }
+              return { ...section, status: 'failed' as const, error: 'Generation failed' };
+            });
+            
+            // Build complete final state
+            const finalMetadata: WikiMetadata = {
+              ...skeleton.metadata,
+              sections: finalSections
+            };
+            
+            const finalState: SurfaceState = {
+              ...skeleton,
+              metadata: finalMetadata,
+              availableImages: allImages,
+              isSkeleton: false,
+              updatedAt: Date.now()
+            };
+            
+            // Update UI state
+            setSurfaceState(finalState);
+            
+            // Save once
+            try {
+              const { surfaceId } = await saveWikiSurface(conversationId, finalState);
+              setCurrentSurfaceId(surfaceId);
+              console.log('[SurfacePage] Wiki saved, credit deducted, id:', surfaceId);
+            } catch (err) {
+              console.error('[SurfacePage] Failed to save wiki:', err);
+            }
+            
+            setGenerationProgress(null);
+            return; // Exit loadSurface early
+            
+          } catch (wikiError) {
+            console.error('[SurfacePage] Wiki generation failed:', wikiError);
+            setError(wikiError instanceof Error ? wikiError.message : 'Wiki generation failed');
+            setIsLoading(false);
+            return;
+          }
+        }
         
         // Handle async response (Durable Object)
         if (data.async && data.jobId) {

@@ -20,7 +20,9 @@ import {
   PiHash,
   PiArrowUp,
   PiLightbulb,
-  PiInfo
+  PiInfo,
+  PiArrowClockwise,
+  PiWarning
 } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/prompt-kit/markdown";
@@ -39,6 +41,7 @@ interface WikiSurfaceProps {
   surfaceId?: string;       // For subchat functionality
   onSubChatSelect?: (text: string, sectionId?: string, fullContent?: string) => void;
   sectionIdsWithSubChats?: Set<string>;  // Sections that have existing subchats
+  onRetrySection?: (sectionId: string, heading: string) => void;  // Retry failed section
 }
 
 export const WikiSurface = memo(function WikiSurface({
@@ -48,8 +51,10 @@ export const WikiSurface = memo(function WikiSurface({
   surfaceId,
   onSubChatSelect,
   sectionIdsWithSubChats,
+  onRetrySection,
 }: WikiSurfaceProps) {
   const router = useRouter();
+  const [retryingSection, setRetryingSection] = useState<string | null>(null);
   
   // Defensive destructuring with defaults for progressive loading
   const title = metadata?.title || 'Loading...';
@@ -325,6 +330,32 @@ export const WikiSurface = memo(function WikiSurface({
                   {isLoading ? (
                     // Show skeleton while content is loading
                     <WikiSectionSkeleton />
+                  ) : section.status === 'failed' ? (
+                    // Show error and retry button for failed sections
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center animate-in fade-in duration-300">
+                      <PiWarning className="h-8 w-8 text-destructive/60 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {section.error || 'Failed to generate this section'}
+                      </p>
+                      {onRetrySection && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRetryingSection(section.id);
+                            onRetrySection(section.id, section.heading);
+                          }}
+                          disabled={retryingSection === section.id}
+                          className="gap-2"
+                        >
+                          <PiArrowClockwise className={cn(
+                            "h-4 w-4",
+                            retryingSection === section.id && "animate-spin"
+                          )} />
+                          {retryingSection === section.id ? 'Retrying...' : 'Retry'}
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     // Animate content in when it loads
                     <div className="text-foreground/90 animate-in fade-in slide-in-from-bottom-2 duration-500">

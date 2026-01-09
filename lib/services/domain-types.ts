@@ -506,6 +506,9 @@ export interface WikiMetadata {
     // Per-section sources from web search
     citations?: Array<{ url: string; title: string; snippet?: string }>
     images?: Array<{ url: string; title: string; sourceUrl?: string; sourceTitle?: string }>
+    // Generation status for parallel generation
+    status?: 'pending' | 'generating' | 'completed' | 'failed'
+    error?: string
   }[]
   relatedTopics: string[]
   references: { 
