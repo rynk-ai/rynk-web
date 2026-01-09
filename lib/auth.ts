@@ -15,7 +15,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
     const ctx = getCloudflareContext()
     db = ctx.env.DB
     resendApiKey = ctx.env.RESEND_API_KEY
+    console.log('[Auth] Cloudflare context found:', { 
+      hasDB: !!db, 
+      hasResendKey: !!resendApiKey 
+    })
   } catch (error) {
+    console.log('[Auth] No Cloudflare context or error accessing it:', error)
     // In local dev, we'll use JWT-based sessions instead
     console.log('No Cloudflare context - using JWT sessions')
     resendApiKey = process.env.RESEND_API_KEY

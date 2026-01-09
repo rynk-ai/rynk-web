@@ -29,7 +29,7 @@ export { TaskProcessor }
 const JOB_RETENTION_MS = 24 * 60 * 60 * 1000
 
 // Maximum concurrent jobs per user
-const MAX_CONCURRENT_JOBS_PER_USER = 3
+const MAX_CONCURRENT_JOBS_PER_USER = 10
 
 interface Env {
   // Add any environment bindings needed

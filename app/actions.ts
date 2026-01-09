@@ -33,8 +33,18 @@ export async function createConversation(projectId?: string) {
 
 
 export async function getMessages(conversationId: string, limit: number = 50, cursor?: string) {
+  console.log('[getMessages] Starting fetch for:', conversationId)
   const session = await auth()
-  if (!session?.user?.id) return { messages: [], nextCursor: null }
+  console.log('[getMessages] Session status:', { 
+    hasSession: !!session, 
+    hasUser: !!session?.user,
+    userId: session?.user?.id 
+  })
+  
+  if (!session?.user?.id) {
+    console.warn('[getMessages] Unauthorized access attempt')
+    return { messages: [], nextCursor: null }
+  }
   // TODO: Verify user owns conversation
   return await cloudDb.getMessages(conversationId, limit, cursor)
 }

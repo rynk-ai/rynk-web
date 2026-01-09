@@ -264,9 +264,20 @@ export function usePrefetchMessages() {
   
   return useCallback(
     (conversationId: string) => {
+      console.log(`[Prefetch] Starting prefetch for ${conversationId}`);
       queryClient.prefetchQuery({
         queryKey: ["messages", conversationId],
-        queryFn: () => getMessagesAction(conversationId, 50),
+        queryFn: async () => {
+          console.log(`[Prefetch] Executing queryFn for ${conversationId}`);
+          try {
+            const result = await getMessagesAction(conversationId, 50);
+            console.log(`[Prefetch] Success for ${conversationId}, loaded ${result.messages.length} messages`);
+            return result;
+          } catch (error) {
+            console.error(`[Prefetch] Error fetching messages for ${conversationId}:`, error);
+            throw error;
+          }
+        },
         staleTime: 1000 * 60 * 2,
       });
     },

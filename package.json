@@ -1,6 +1,7 @@
 {
   "name": "rynk",
   "version": "0.1.0",
+  "type": "module",
   "private": false,
   "description": "AI chat application with file uploads, message versioning, conversation branching, and context-aware responses.",
   "keywords": [

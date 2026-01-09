@@ -12,7 +12,6 @@ const nextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '100mb',
-      allowedOrigins: ['rynk.io', '*.rynk.io'],
     },
   },
 };
