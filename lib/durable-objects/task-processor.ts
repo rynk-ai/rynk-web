@@ -551,8 +551,16 @@ class TaskProcessor implements DurableObject {
     switch (surfaceType) {
       case 'wiki':
         if (finalState.metadata?.sections) {
+          // Collect all images from all sections for the gallery
+          const allImages: any[] = []
+          
           finalState.metadata.sections = finalState.metadata.sections.map((section: any, i: number) => {
             const sectionData = sectionDataMap.get(section.id) as { citations?: any[], images?: any[] } | undefined
+            
+            if (sectionData?.images) {
+              allImages.push(...sectionData.images)
+            }
+            
             return {
               ...section,
               content: contentMap.get(i) || section.content || '',
@@ -560,6 +568,14 @@ class TaskProcessor implements DurableObject {
               images: sectionData?.images || []
             }
           })
+          
+          // Deduplicate images and update top-level availableImages
+          if (allImages.length > 0) {
+            const uniqueImages = Array.from(new Map(allImages.map(img => [img.url, img])).values())
+            finalState.metadata.availableImages = uniqueImages.slice(0, 10)
+            // Backward compatibility for WikiMetadata in domain-types.ts
+            finalState.availableImages = uniqueImages.slice(0, 10)
+          }
         }
         break
         
@@ -840,7 +856,7 @@ Make each query:
                 }
                 // Extract image if available
                 if (r.image) {
-                  images.push({ url: r.image, sourceUrl: r.url, sourceTitle: r.title })
+                  images.push({ url: r.image, title: r.title || 'Image', sourceUrl: r.url, sourceTitle: r.title })
                 }
               }
             }
@@ -1019,6 +1035,7 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
                 if (item.image) {
                   sectionImages.push({
                     url: item.image,
+                    title: item.title || 'Image', // Ensure title is provided
                     sourceUrl: item.url,
                     sourceTitle: item.title
                   })
@@ -1237,7 +1254,7 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
               }
               // Collect images for hero display
               if (item.image) {
-                heroImages.push({ url: item.image, title: item.title, sourceUrl: item.url })
+                heroImages.push({ url: item.image, title: item.title || 'Image', sourceUrl: item.url }) // Ensure title is provided
               }
             }
           }
@@ -1735,16 +1752,31 @@ ${baseFormat}
 Requirements: 10-15 key events in chronological order. Use accurate dates found in research.`
         
       case 'wiki':
-        // Build web research context for better wiki outline
         let wikiResearch = ''
-        if (webContext?.keyFacts?.length) {
-          wikiResearch = `\n\nWEB RESEARCH SUMMARY (use this to inform section topics):\n${webContext.keyFacts.slice(0, 3).join('\n').substring(0, 2000)}\n\nCreate sections that align with topics covered in the research above.`
+        if (webContext?.summary || webContext?.keyFacts?.length) {
+          const researchContent = webContext.summary || webContext.keyFacts.slice(0, 5).join('\n')
+          wikiResearch = `\n\nWEB RESEARCH SUMMARY (use this to inform section topics and key facts):\n${researchContent.substring(0, 2000)}\n\nCreate sections that align with topics covered in the research above.`
         }
         return `Create a wiki article outline for: "${query}"${wikiResearch}
 
-${baseFormat}
+Return ONLY valid JSON with this structure:
+{
+  "title": "Proper encyclopedic title",
+  "subtitle": "Brief description",
+  "summary": "1-2 sentence overview",
+  "infobox": {
+    "facts": [
+      { "label": "Key Attribute 1", "value": "Specific value" },
+      { "label": "Key Attribute 2", "value": "Specific value" },
+      { "label": "Key Attribute 3", "value": "Specific value" },
+      { "label": "Key Attribute 4", "value": "Specific value" },
+      { "label": "Key Attribute 5", "value": "Specific value" }
+    ]
+  },
+  "items": [{ "id": "section1", "title": "Section Title" }]
+}
 
-Requirements: 6-8 main sections with Wikipedia-style headings that cover the key aspects found in research.`
+Requirements: 6-8 main sections with Wikipedia-style headings. Include 5-8 key facts in the infobox based on the research provided.`
         
       default:
         return `Create a content outline for: "${query}"\n\n${baseFormat}`
@@ -1896,8 +1928,13 @@ Requirements: 6-8 main sections with Wikipedia-style headings that cover the key
             type: 'wiki',
             title: skeleton.title || 'Article',
             subtitle: skeleton.subtitle || 'Loading...',
-            summary: skeleton.description || 'Loading...',
-            infobox: { facts: [] },
+            summary: skeleton.summary || skeleton.description || 'Loading...',
+            infobox: { 
+              facts: (skeleton.infobox?.facts || []).map((f: any) => ({
+                label: f.label || '',
+                value: f.value || ''
+              }))
+            },
             sections: items.map((item: any, i: number) => ({
               id: item.id || `section${i + 1}`,
               heading: item.title || `Section ${i + 1}`,
@@ -3035,7 +3072,7 @@ Return JSON with appropriate structure for the topic.`
             sources.push({
               type: 'exa',
               url: result.url,
-              title: result.title,
+              title: result.title || 'Image', // Ensure title is provided
               snippet: result.highlights?.[0] || result.text?.substring(0, 200) || ''
             })
           })

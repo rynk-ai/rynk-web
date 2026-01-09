@@ -59,7 +59,7 @@ export const WikiSurface = memo(function WikiSurface({
   const relatedTopics = metadata?.relatedTopics || [];
   const references = metadata?.references || [];
   const categories = metadata?.categories || [];
-  const availableImages = surfaceState?.availableImages || [];
+  const availableImages = metadata?.availableImages || surfaceState?.availableImages || [];
   
   // Convert raw citations from surfaceState to Citation format for SourcesFooter
   const citations: Citation[] = (surfaceState?.citations || []).map((c, i) => ({
@@ -154,7 +154,7 @@ export const WikiSurface = memo(function WikiSurface({
   };
 
   return (
-    <div className="animate-in fade-in duration-500 bg-background text-foreground">
+    <div className="relative animate-in fade-in duration-500 bg-background text-foreground min-h-full">
       {/* Sentinel for scroll detection */}
       <div ref={topSentinelRef} className="h-px w-full absolute top-0 pointer-events-none opacity-0" />
       
@@ -177,9 +177,9 @@ export const WikiSurface = memo(function WikiSurface({
           {/* Image Gallery Trigger (if more images) */}
           {availableImages.length > 1 && (
              <div className="absolute bottom-3 left-3 flex gap-1">
-              {availableImages.slice(1, 4).map((img, i) => (
+              {availableImages.slice(1, 4).map((img: { url: string; title: string }, i: number) => (
                 <div key={i} className="h-8 w-12 rounded-md overflow-hidden border border-white/20 shadow-sm relative">
-                  <img src={img.url} className="w-full h-full object-cover" alt="" />
+                   <img src={img.url} className="w-full h-full object-cover" alt={img.title} />
                 </div>
               ))}
               {availableImages.length > 4 && (
@@ -213,9 +213,9 @@ export const WikiSurface = memo(function WikiSurface({
       </div>
 
       {/* Main Layout: Sidebar + Content */}
-      <div className="flex flex-col lg:flex-row gap-10">
+      <div className="flex flex-col lg:flex-row gap-10 items-start">
         {/* Sticky Table of Contents - Desktop */}
-        <aside className="hidden lg:block w-72 shrink-0 z-30 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar">
+        <aside className="hidden lg:block w-72 shrink-0 z-30 sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto no-scrollbar pr-2">
           <div className="space-y-6">
              {/* TOC */}
             <div className="rounded-xl border border-border/30 bg-muted/10 p-4">

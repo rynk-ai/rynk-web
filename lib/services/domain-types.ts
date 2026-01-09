@@ -505,7 +505,7 @@ export interface WikiMetadata {
     }[]
     // Per-section sources from web search
     citations?: Array<{ url: string; title: string; snippet?: string }>
-    images?: Array<{ url: string; sourceUrl: string; sourceTitle: string }>
+    images?: Array<{ url: string; title: string; sourceUrl?: string; sourceTitle?: string }>
   }[]
   relatedTopics: string[]
   references: { 
@@ -513,6 +513,7 @@ export interface WikiMetadata {
     title: string
     url?: string 
   }[]
+  availableImages?: Array<{ url: string; title: string; sourceUrl?: string; sourceTitle?: string }>
   categories: string[]
   lastUpdated?: string
 }
@@ -949,6 +950,7 @@ export interface SurfaceState {
     url: string
     title: string
     sourceUrl?: string
+    sourceTitle?: string
   }>
   // Progressive section generation tracking
   sectionProgress?: {
