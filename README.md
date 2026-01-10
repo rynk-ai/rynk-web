@@ -2,7 +2,7 @@
 
 AI interface designed for research, verification, and structured learning aggregating data from multiple sources and presenting it through specialized interactive surfaces.
 
-![Rynk](/og-image.png)
+![Rynk](/public/og-image.png)
 
 <br />
 
@@ -14,7 +14,7 @@ AI interface designed for research, verification, and structured learning aggreg
 
 |          [Cloudflare for Startups](https://workers.cloudflare.com/)          |                [Exa AI](https://exa.ai)                |
 | :--------------------------------------------------------------------------: | :----------------------------------------------------: |
-| <img src="https://avatars.githubusercontent.com/u/314135?s=200&v=4" alt="Cloudflare" height="40" /> | <img src="/exa.png" alt="Exa AI" height="40" /> |
+| <img src="https://avatars.githubusercontent.com/u/314135?s=200&v=4" alt="Cloudflare" height="40" /> | <img src="/public/exa.png" alt="Exa AI" height="40" /> |
 |            Supported by Cloudflare for Startups program             |          Supported by Exa AI Labs           |
 
 </div>
