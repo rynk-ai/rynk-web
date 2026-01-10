@@ -47,6 +47,7 @@ interface ResearchSurfaceProps {
   surfaceId?: string;  // For subchat functionality
   onSubChatSelect?: (text: string, sectionId?: string, fullContent?: string) => void;
   sectionIdsWithSubChats?: Set<string>;  // Sections that have existing subchats
+  onRetrySection?: (sectionId: string) => void;  // For retrying failed sections
 }
 
 export const ResearchSurface = memo(function ResearchSurface({
@@ -57,6 +58,7 @@ export const ResearchSurface = memo(function ResearchSurface({
   surfaceId,
   onSubChatSelect,
   sectionIdsWithSubChats,
+  onRetrySection,
 }: ResearchSurfaceProps) {
   // Defensive destructuring with defaults for progressive/skeleton loading
   const title = metadata?.title || 'Loading...';

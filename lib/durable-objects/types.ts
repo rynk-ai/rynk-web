@@ -37,23 +37,50 @@ export interface Job {
 }
 
 /**
- * Extended progress tracking for research surface generation
+ * Extended progress tracking for deep research surface generation
  */
 export interface ResearchProgress {
-  phase: 'analyzing' | 'verticals' | 'searching' | 'skeleton' | 'sections' | 'synthesis' | 'complete'
-  currentVertical?: number
-  totalVerticals?: number
-  currentSection?: number
-  totalSections?: number
-  sourcesFound?: number
+  phase: 'planning' | 'gathering' | 'synthesis' | 'generating' | 'complete' | 'error'
   message: string
-  // Per-vertical progress
-  verticalProgress?: Array<{
+  startedAt: number
+  estimatedRemaining?: number  // seconds
+  
+  // Planning phase
+  verticals?: Array<{
     id: string
     name: string
     status: 'pending' | 'searching' | 'completed' | 'error'
     sourcesCount: number
   }>
+  
+  // Gathering phase
+  totalSources?: number
+  gatheredSources?: number
+  currentSource?: {
+    title: string
+    url: string
+    domain: string
+  }
+  sourcesByVertical?: Record<string, number>
+  // All gathered sources (for display in UI)
+  allSources?: Array<{
+    url: string
+    title: string
+    domain: string
+    snippet?: string
+    verticalId: string
+    sourceType: 'exa' | 'perplexity' | 'semantic_scholar'
+  }>
+  
+  // Synthesis phase
+  structure?: {
+    title: string
+    sections: Array<{ heading: string }>
+    keyInsightsCount: number
+  }
+  
+  // Generation phase
+  generationProgress?: number  // 0-1
 }
 
 export interface SurfaceGenerateParams {

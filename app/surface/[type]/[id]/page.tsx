@@ -77,6 +77,8 @@ import {
   type WebContext,
   type WikiSectionResult 
 } from "@/lib/actions/wiki-actions";
+import { saveResearchSurface } from "@/lib/actions/research-actions";
+import { ResearchProgressPanel } from "@/components/surfaces/research-progress-panel";
 
 // Helper to get icon and label for surface type
 const getSurfaceInfo = (type: string) => {
@@ -136,6 +138,8 @@ export default function SurfacePage() {
     message: string;
     step?: string;
   } | null>(null);
+  // Track deep research progress for ProcessingTimeline-style UI
+  const [researchProgress, setResearchProgress] = useState<any>(null);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
@@ -316,7 +320,7 @@ export default function SurfacePage() {
           surfaceState?: SurfaceState;
           async?: boolean;
           jobId?: string;
-          mode?: 'client-orchestrated';
+          mode?: 'client-orchestrated' | 'deep-research';
         };
         
         // Handle client-orchestrated parallel generation (wiki surface)
@@ -467,6 +471,9 @@ export default function SurfacePage() {
         if (data.async && data.jobId) {
           console.log('[SurfacePage] Async job started:', data.jobId);
           
+          // Mark as generating for UI (enables progress panel display)
+          setIsGenerating(true);
+          
           // Clear URL param IMMEDIATELY to prevent re-generation on refresh
           router.replace(`/surface/${surfaceType}/${conversationId}`, { scroll: false });
           
@@ -492,6 +499,7 @@ export default function SurfacePage() {
                 readySections?: Array<{ sectionId: string; content: string; order: number }>;
                 totalSections?: number;
                 completedSections?: number;
+                researchProgress?: any;  // Deep research progress
               };
               
               console.log(`[SurfacePage] Poll ${attempts}: status=${jobData.status}, sections=${jobData.completedSections}/${jobData.totalSections}`, jobData.progress);
@@ -499,6 +507,12 @@ export default function SurfacePage() {
               // Update progress UI
               if (jobData.progress) {
                 setGenerationProgress(jobData.progress);
+              }
+              
+              // Update deep research progress for ProcessingTimeline UI
+              if (jobData.researchProgress) {
+                console.log('[SurfacePage] Research progress:', jobData.researchProgress.phase, jobData.researchProgress.gatheredSources);
+                setResearchProgress(jobData.researchProgress);
               }
               
               // Handle skeleton_ready - display skeleton early for fast feedback
@@ -584,11 +598,25 @@ export default function SurfacePage() {
               
               if (jobData.status === 'complete' && jobData.result?.surfaceState) {
                 setSurfaceState(jobData.result.surfaceState);
-                await saveState(jobData.result.surfaceState);
+                setResearchProgress(null);  // Clear research progress
+                setGenerationProgress(null);
+                setIsGenerating(false);
+                
+                // Use appropriate save action based on surface type
+                if (surfaceType === 'research') {
+                  // saveResearchSurface handles credit deduction (2 credits)
+                  const { surfaceId } = await saveResearchSurface(conversationId, jobData.result.surfaceState);
+                  setCurrentSurfaceId(surfaceId);
+                  console.log('[SurfacePage] Research saved:', surfaceId);
+                } else {
+                  await saveState(jobData.result.surfaceState);
+                }
                 return;
               }
               
               if (jobData.status === 'error') {
+                setIsGenerating(false);
+                setResearchProgress(null);
                 throw new Error(jobData.error || 'Job failed');
               }
             } catch (pollError) {
@@ -597,6 +625,9 @@ export default function SurfacePage() {
             }
           }
           
+          // Timeout - clean up state
+          setIsGenerating(false);
+          setResearchProgress(null);
           throw new Error('Generation timed out');
         }
         
@@ -1010,8 +1041,20 @@ export default function SurfacePage() {
   const SurfaceIcon = surfaceInfo.icon;
 
   // GUARD: Show visual "Skeleton Loading" immediately on mount or while loading
-  // This ensures we show a placeholder BEFORE we even have the Surface Skeleton Info from the backend
+  // Exception: Show ResearchProgressPanel for research generation
   if (!isMounted || isLoading) {
+    // Show ResearchProgressPanel if we have research progress data
+    if (surfaceType === 'research' && isGenerating && researchProgress) {
+      return (
+        <div className="min-h-screen w-full bg-background flex items-center justify-center">
+          <ResearchProgressPanel
+            researchProgress={researchProgress}
+            progress={generationProgress || undefined}
+            query={originalQuery}
+          />
+        </div>
+      );
+    }
     return <SurfacePageSkeleton type={surfaceType || 'wiki'} />;
   }
 
@@ -1042,8 +1085,26 @@ export default function SurfacePage() {
     );
   }
 
-  // No surface state
+  // No surface state - but show progress panel for research generation
   if (!surfaceState) {
+    // Show ResearchProgressPanel if we're generating research
+    if (surfaceType === 'research' && isGenerating && researchProgress) {
+      return (
+        <div className="min-h-screen w-full bg-background flex items-center justify-center">
+          <ResearchProgressPanel
+            researchProgress={researchProgress}
+            progress={generationProgress || undefined}
+            query={originalQuery}
+          />
+        </div>
+      );
+    }
+    
+    // Show loading skeleton if generating
+    if (isGenerating) {
+      return <SurfacePageSkeleton type={surfaceType || 'wiki'} />;
+    }
+    
     return (
       <div className="flex items-center justify-center min-h-screen w-full bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -1221,15 +1282,24 @@ export default function SurfacePage() {
                 surfaceState={surfaceState} // Pass full state if needed
               />
             ) : surfaceType === 'research' ? (
-              <ResearchSurface
-                metadata={surfaceState.metadata as ResearchMetadata}
-                surfaceState={surfaceState}
-                isGenerating={isGenerating}
-                progress={generationProgress || undefined}
-                surfaceId={currentSurfaceId || undefined}
-                onSubChatSelect={handleOpenSubChat}
-                sectionIdsWithSubChats={sectionIdsWithSubChats}
-              />
+              // Show progress panel during generation, otherwise show the final surface
+              isGenerating && researchProgress ? (
+                <ResearchProgressPanel
+                  researchProgress={researchProgress}
+                  progress={generationProgress || undefined}
+                  query={originalQuery}
+                />
+              ) : (
+                <ResearchSurface
+                  metadata={surfaceState.metadata as ResearchMetadata}
+                  surfaceState={surfaceState}
+                  isGenerating={isGenerating}
+                  progress={generationProgress || undefined}
+                  surfaceId={currentSurfaceId || undefined}
+                  onSubChatSelect={handleOpenSubChat}
+                  sectionIdsWithSubChats={sectionIdsWithSubChats}
+                />
+              )
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-4">

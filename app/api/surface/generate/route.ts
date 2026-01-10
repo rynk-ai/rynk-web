@@ -85,6 +85,50 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Research surface uses Durable Object background processing (deep research pipeline)
+    // Credit is deducted AFTER successful completion
+    if (surfaceType === 'research') {
+      console.log(`🔬 [surface/generate] Research surface - routing to DO for deep research`)
+      
+      try {
+        const { getCloudflareContext } = await import('@opennextjs/cloudflare')
+        const { env } = getCloudflareContext()
+        
+        if (env.TASK_PROCESSOR) {
+          const doId = env.TASK_PROCESSOR.idFromName('global')
+          const stub = env.TASK_PROCESSOR.get(doId)
+          
+          const response = await stub.fetch('http://do/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'surface_generate',
+              params: {
+                query,
+                surfaceType,
+                messageId,
+                conversationId: body.conversationId
+              },
+              userId: session.user.id
+            })
+          })
+          
+          const jobData = await response.json() as { jobId: string }
+          console.log(`🔬 [research] Deep research job queued: ${jobData.jobId}`)
+          
+          return NextResponse.json({
+            success: true,
+            async: true,
+            jobId: jobData.jobId,
+            mode: 'deep-research'
+          })
+        }
+      } catch (doError) {
+        console.error('[research] DO routing failed:', doError)
+        return NextResponse.json({ error: 'Research generation failed' }, { status: 500 })
+      }
+    }
+
     // Skip generation for chat (it's the default) - no credit deduction
     if (surfaceType === 'chat') {
       return NextResponse.json({
@@ -141,51 +185,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Research surface - uses DO for progressive generation (3 credits)
-    // Special handling to deduct 3 credits instead of 1
-    if (surfaceType === 'research') {
-      console.log(`🔬 [surface/generate] Research surface - routing to DO for progressive generation: "${query.substring(0, 50)}..."`)
-      
-      try {
-        const { getCloudflareContext } = await import('@opennextjs/cloudflare')
-        const { env } = getCloudflareContext()
-        
-        if (env.TASK_PROCESSOR) {
-          // Deduct 3 credits for research (more resource-intensive)
-          await cloudDb.updateCredits(session.user.id, -3)
-          
-          const doId = env.TASK_PROCESSOR.idFromName('global')
-          const stub = env.TASK_PROCESSOR.get(doId)
-          
-          const response = await stub.fetch('http://do/queue', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'surface_generate',
-              params: {
-                query,
-                surfaceType,
-                messageId,
-                conversationId: body.conversationId
-              },
-              userId: session.user.id
-            })
-          })
-          
-          const jobData = await response.json() as { jobId: string }
-          console.log(`🔬 [research] Async job queued: ${jobData.jobId}`)
-          
-          return NextResponse.json({
-            success: true,
-            async: true,
-            jobId: jobData.jobId
-          })
-        }
-      } catch (doError) {
-        console.error('[research] DO routing failed, will use sync fallback:', doError)
-        // Fall through to sync route below
-      }
-    }
+    // Note: Research surface is handled by early return at top (research-stream mode)
 
     // Check if async processing via Durable Objects is enabled
     // Set to true to use DO for all surface generation, false for sync fallback

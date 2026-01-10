@@ -82,6 +82,11 @@ class TaskProcessor implements DurableObject {
     } catch {
       // Column already exists, ignore error
     }
+    try {
+      this.state.storage.sql.exec(`ALTER TABLE jobs ADD COLUMN researchProgress TEXT`)
+    } catch {
+      // Column already exists, ignore error
+    }
     
     // Create index for faster lookups
     this.state.storage.sql.exec(`
@@ -212,7 +217,7 @@ class TaskProcessor implements DurableObject {
       || job.skeletonState?.metadata?.items?.length 
       || 0
     
-    const response: JobStatusResponse = {
+    const response: JobStatusResponse & { researchProgress?: any } = {
       id: job.id,
       status: job.status,
       progress: job.progress,
@@ -223,7 +228,8 @@ class TaskProcessor implements DurableObject {
       skeletonState: job.skeletonState,  // Include skeleton for early display
       readySections: job.readySections,   // Progressive sections
       totalSections,
-      completedSections: job.readySections?.length || 0
+      completedSections: job.readySections?.length || 0,
+      researchProgress: job.researchProgress  // Detailed research progress
     }
     
     return Response.json(response)
@@ -272,7 +278,7 @@ class TaskProcessor implements DurableObject {
     return Response.json({ jobs })
   }
 
-  private rowToJob(row: any): Job {
+  private rowToJob(row: any): Job & { researchProgress?: any } {
     return {
       id: row.id as string,
       type: row.type as JobType,
@@ -286,7 +292,8 @@ class TaskProcessor implements DurableObject {
       error: row.error as string | undefined,
       progress: row.progress ? JSON.parse(row.progress as string) : undefined,
       skeletonState: row.skeletonState ? JSON.parse(row.skeletonState as string) : undefined,
-      readySections: row.readySections ? JSON.parse(row.readySections as string) : undefined
+      readySections: row.readySections ? JSON.parse(row.readySections as string) : undefined,
+      researchProgress: row.researchProgress ? JSON.parse(row.researchProgress as string) : undefined
     }
   }
 
@@ -355,6 +362,13 @@ class TaskProcessor implements DurableObject {
     this.state.storage.sql.exec(`
       UPDATE jobs SET progress = ? WHERE id = ?
     `, JSON.stringify(progress), jobId)
+  }
+
+  private updateResearchProgress(jobId: string, researchProgress: any): void {
+    // Update detailed research progress
+    this.state.storage.sql.exec(`
+      UPDATE jobs SET researchProgress = ? WHERE id = ?
+    `, JSON.stringify(researchProgress), jobId)
   }
 
   /**
@@ -972,119 +986,543 @@ ${sources.keyFacts.length === 0 ? 'NOTE: No specific sources were found for this
     const apiKey = this.env.GROQ_API_KEY || this.env.OPENROUTER_API_KEY
     if (!apiKey) throw new Error('No AI API key configured')
 
-    onProgress({ current: 1, total: 7, message: 'Analyzing research angles...', step: 'verticals' })
+    const startedAt = Date.now()
+    
+    // Initialize research progress
+    const researchProgress: any = {
+      phase: 'planning',
+      message: 'Analyzing research query...',
+      startedAt,
+      verticals: [],
+      allSources: [],
+      gatheredSources: 0,
+      totalSources: 0
+    }
+    this.updateResearchProgress(jobId, researchProgress)
+    onProgress({ current: 1, total: 4, message: 'Planning research...', step: 'planning' })
 
-    // Step 1: Generate research verticals
+    // =========================================================================
+    // PHASE 1: PLANNING (~5s)
+    // Analyze query, generate research verticals
+    // =========================================================================
+    console.log(`[DeepResearch] Phase 1: Planning for query: "${query.substring(0, 50)}..."`)
+    
     const verticals = await this.generateResearchVerticals(query, apiKey)
-    console.log(`[TaskProcessor] Research: ${verticals.length} verticals generated`)
-
-    onProgress({ current: 2, total: 6, message: 'Searching sources...', step: 'searching' })
-
-    // Step 2: Search web for each vertical (parallel)
-    const sourcesByVertical = await this.searchResearchVerticals(verticals)
-    console.log(`[TaskProcessor] Research: Sources gathered for ${sourcesByVertical.size} verticals`)
-
-    onProgress({ current: 3, total: 6, message: 'Synthesizing knowledge...', step: 'synthesis' })
-
-    // Step 3: Generate FULL skeleton (Enriched with citations/findings)
-    const fullSkeleton = await this.generateResearchSkeletonState(query, verticals, sourcesByVertical, apiKey)
     
-    if (fullSkeleton) {
-      this.updateSkeleton(jobId, fullSkeleton)
-      console.log(`[TaskProcessor] Research full skeleton ready for job ${jobId}`)
-    }
-    
-    // Use the skeleton for section generation
-    const workingSkeleton = fullSkeleton
+    researchProgress.verticals = verticals.map((v: any) => ({
+      id: v.id,
+      name: v.name,
+      status: 'pending',
+      sourcesCount: 0
+    }))
+    researchProgress.message = `Found ${verticals.length} research angles to explore`
+    this.updateResearchProgress(jobId, researchProgress)
 
-    onProgress({ current: 4, total: 6, message: 'Generating sections...', step: 'sections' })
+    console.log(`[DeepResearch] Phase 1 complete: ${verticals.length} verticals`)
 
-    // Step 4: Generate sections in parallel
-    const sections = workingSkeleton?.metadata?.sections || []
-    const completedSections: any[] = []
-    
-    // Process sections in batches of 4
-    const batchSize = 4
-    for (let i = 0; i < sections.length; i += batchSize) {
-      const batch = sections.slice(i, i + batchSize)
-      
-      const batchResults = await Promise.all(
-        batch.map(async (section: any, batchIdx: number) => {
-          const sectionIdx = i + batchIdx
-          const sources = sourcesByVertical.get(section.verticalId) || []
-          const content = await this.generateResearchSectionContent(section, sources, workingSkeleton, apiKey)
-          
-          // Update ready sections for progressive display
-          this.addReadySection(jobId, section.id, content, sectionIdx)
-          
-          // Extract per-section citations and images from vertical sources
-          const sectionCitations: any[] = []
-          const sectionImages: any[] = []
-          
-          for (const src of sources) {
-            // Extract Exa citations and images
-            if (src.source === 'exa' && Array.isArray(src.data)) {
-              for (const item of src.data) {
-                if (item.url && item.title) {
-                  sectionCitations.push({
-                    url: item.url,
-                    title: item.title,
-                    snippet: item.highlights?.[0] || item.text?.substring(0, 200)
-                  })
-                }
-                if (item.image) {
-                  sectionImages.push({
-                    url: item.image,
-                    title: item.title || 'Image', // Ensure title is provided
-                    sourceUrl: item.url,
-                    sourceTitle: item.title
-                  })
-                }
+    // =========================================================================
+    // PHASE 2: GATHERING (~60-90s)
+    // Deep search each vertical, collect ALL sources
+    // =========================================================================
+    researchProgress.phase = 'gathering'
+    researchProgress.message = 'Gathering sources...'
+    researchProgress.estimatedRemaining = 90
+    this.updateResearchProgress(jobId, researchProgress)
+    onProgress({ current: 2, total: 4, message: 'Gathering sources...', step: 'gathering' })
+
+    console.log(`[DeepResearch] Phase 2: Deep gathering sources`)
+
+    const allGatheredSources: Array<{
+      url: string
+      title: string
+      domain: string
+      snippet: string
+      fullText?: string
+      image?: string
+      verticalId: string
+      sourceType: 'exa' | 'perplexity' | 'semantic_scholar'
+    }> = []
+
+    // Process verticals sequentially for better progress updates
+    for (const vertical of verticals) {
+      // Update vertical status to searching
+      const vIdx = researchProgress.verticals.findIndex((v: any) => v.id === vertical.id)
+      if (vIdx >= 0) {
+        researchProgress.verticals[vIdx].status = 'searching'
+        researchProgress.message = `Searching: ${vertical.name}`
+        this.updateResearchProgress(jobId, researchProgress)
+      }
+
+      const searchQuery = vertical.searchQueries?.[0] || vertical.name
+      let verticalSourceCount = 0
+
+      // Exa Search (up to 10 results per vertical)
+      const exaApiKey = this.env.EXA_API_KEY
+      if (exaApiKey) {
+        try {
+          const response = await fetch('https://api.exa.ai/search', {
+            method: 'POST',
+            headers: { 'x-api-key': exaApiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: searchQuery,
+              type: 'auto',
+              num_results: 10,
+              contents: { text: true, highlights: true },
+              use_autoprompt: true
+            })
+          })
+
+          if (response.ok) {
+            const data: any = await response.json()
+            for (const item of (data.results || [])) {
+              const source = {
+                url: item.url,
+                title: item.title,
+                domain: new URL(item.url).hostname.replace('www.', ''),
+                snippet: item.highlights?.[0] || item.text?.substring(0, 300) || '',
+                fullText: item.text?.substring(0, 3000),
+                image: item.image,
+                verticalId: vertical.id,
+                sourceType: 'exa' as const
               }
+              allGatheredSources.push(source)
+              verticalSourceCount++
+
+              // Update current source being read
+              researchProgress.currentSource = {
+                title: item.title,
+                url: item.url,
+                domain: source.domain
+              }
+              researchProgress.gatheredSources = allGatheredSources.length
+              researchProgress.allSources = allGatheredSources.slice(-20) // Last 20 for display
+              this.updateResearchProgress(jobId, researchProgress)
             }
-            // Extract Perplexity citations
-            if (src.source === 'perplexity' && src.citations) {
-              for (const c of src.citations) {
-                sectionCitations.push({
-                  url: c.url,
-                  title: c.title || 'Source'
+          }
+        } catch (e) {
+          console.error(`[DeepResearch] Exa search failed for ${vertical.name}:`, e)
+        }
+      }
+
+      // Perplexity Search (for synthesis content)
+      const perplexityApiKey = this.env.PERPLEXITY_API_KEY
+      if (perplexityApiKey) {
+        try {
+          const response = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${perplexityApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'sonar',
+              messages: [{ role: 'user', content: `Research comprehensively: ${searchQuery}` }],
+              temperature: 0.3,
+              max_tokens: 2000,
+              return_citations: true
+            })
+          })
+
+          if (response.ok) {
+            const data: any = await response.json()
+            const content = data.choices?.[0]?.message?.content || ''
+            
+            // Add Perplexity as a synthesized source
+            if (content) {
+              allGatheredSources.push({
+                url: `perplexity://synthesis/${vertical.id}`,
+                title: `Perplexity Synthesis: ${vertical.name}`,
+                domain: 'perplexity.ai',
+                snippet: content.substring(0, 500),
+                fullText: content,
+                verticalId: vertical.id,
+                sourceType: 'perplexity' as const
+              })
+              verticalSourceCount++
+            }
+
+            // Add citations from Perplexity
+            for (const url of (data.citations || [])) {
+              try {
+                allGatheredSources.push({
+                  url,
+                  title: `Source from ${new URL(url).hostname}`,
+                  domain: new URL(url).hostname.replace('www.', ''),
+                  snippet: '',
+                  verticalId: vertical.id,
+                  sourceType: 'perplexity' as const
                 })
-              }
+                verticalSourceCount++
+              } catch {}
             }
           }
-          
-          return {
-            ...section,
-            content,
-            wordCount: content.split(/\s+/).filter(Boolean).length,
-            status: 'completed',
-            sectionCitations: sectionCitations.slice(0, 6), // Limit to 6 per section
-            sectionImages: sectionImages.slice(0, 2)        // Limit to 2 per section
+        } catch (e) {
+          console.error(`[DeepResearch] Perplexity search failed for ${vertical.name}:`, e)
+        }
+      }
+
+      // Semantic Scholar Search (for academic sources)
+      try {
+        const response = await fetch(
+          `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(searchQuery)}&limit=5&fields=title,abstract,url,year,authors`,
+          { headers: { 'Accept': 'application/json' } }
+        )
+
+        if (response.ok) {
+          const data: any = await response.json()
+          for (const paper of (data.data || [])) {
+            if (paper.url) {
+              allGatheredSources.push({
+                url: paper.url,
+                title: paper.title,
+                domain: 'semanticscholar.org',
+                snippet: paper.abstract?.substring(0, 400) || '',
+                verticalId: vertical.id,
+                sourceType: 'semantic_scholar' as const
+              })
+              verticalSourceCount++
+            }
           }
-        })
+        }
+      } catch (e) {
+        console.error(`[DeepResearch] Semantic Scholar search failed:`, e)
+      }
+
+      // Mark vertical complete
+      if (vIdx >= 0) {
+        researchProgress.verticals[vIdx].status = 'completed'
+        researchProgress.verticals[vIdx].sourcesCount = verticalSourceCount
+      }
+      researchProgress.gatheredSources = allGatheredSources.length
+      researchProgress.sourcesByVertical = Object.fromEntries(
+        verticals.map((v: any) => [
+          v.id, 
+          allGatheredSources.filter(s => s.verticalId === v.id).length
+        ])
       )
-      
-      completedSections.push(...batchResults)
+      this.updateResearchProgress(jobId, researchProgress)
     }
 
-    onProgress({ current: 5, total: 6, message: 'Finalizing...', step: 'finalizing' })
+    console.log(`[DeepResearch] Phase 2 complete: ${allGatheredSources.length} total sources`)
 
-    // Step 5: Build final surface state
-    const totalWordCount = completedSections.reduce((acc, s) => acc + (s.wordCount || 0), 0)
+    // =========================================================================
+    // PHASE 3: SYNTHESIS (~30s)
+    // Analyze all sources, create research structure
+    // =========================================================================
+    researchProgress.phase = 'synthesis'
+    researchProgress.message = 'Synthesizing all findings...'
+    researchProgress.currentSource = undefined
+    researchProgress.estimatedRemaining = 60
+    this.updateResearchProgress(jobId, researchProgress)
+    onProgress({ current: 3, total: 4, message: 'Synthesizing findings...', step: 'synthesis' })
+
+    console.log(`[DeepResearch] Phase 3: Synthesis`)
+
+    // Build comprehensive source context for LLM
+    const sourceContext = allGatheredSources
+      .filter(s => s.fullText || s.snippet)
+      .slice(0, 50) // Cap at 50 sources for context window
+      .map((s, i) => `[${i + 1}] ${s.title} (${s.domain})\n${s.fullText || s.snippet}`)
+      .join('\n\n---\n\n')
+
+    // Generate research structure based on all gathered sources
+    const structurePrompt = `Based on the following ${allGatheredSources.length} sources gathered about "${query}", create a comprehensive research structure.
+
+SOURCES SUMMARY:
+${sourceContext.substring(0, 15000)}
+
+Create a research document structure with:
+1. A compelling title
+2. A 300-400 word abstract synthesizing key findings
+3. 5-7 key insights as bullet points
+4. 10-15 section headings that logically organize the research
+
+Return JSON:
+{
+  "title": "Research title",
+  "abstract": "300-400 word synthesis...",
+  "keyFindings": ["Finding 1", "Finding 2", ...],
+  "sections": [{"heading": "Section 1 heading"}, {"heading": "Section 2 heading"}, ...],
+  "methodology": "Brief methodology description"
+}
+
+IMPORTANT: Base all content on the actual sources. Be specific and factual.
+Return ONLY valid JSON.`
+
+    let researchStructure: any = null
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: 'You are a research analyst synthesizing findings from multiple sources.' },
+            { role: 'user', content: structurePrompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 3000
+        })
+      })
+
+      if (response.ok) {
+        const data: any = await response.json()
+        const content = data.choices[0].message.content
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          researchStructure = JSON.parse(jsonMatch[0])
+        }
+      }
+    } catch (e) {
+      console.error(`[DeepResearch] Structure generation failed:`, e)
+    }
+
+    // Fallback structure if generation failed
+    if (!researchStructure) {
+      researchStructure = {
+        title: query,
+        abstract: 'Research synthesis in progress.',
+        keyFindings: [],
+        sections: verticals.map((v: any) => ({ heading: v.name })),
+        methodology: 'Multi-source web and academic research'
+      }
+    }
+
+    researchProgress.structure = {
+      title: researchStructure.title,
+      sections: researchStructure.sections,
+      keyInsightsCount: researchStructure.keyFindings?.length || 0
+    }
+    this.updateResearchProgress(jobId, researchProgress)
+
+    console.log(`[DeepResearch] Phase 3 complete: ${researchStructure.sections.length} sections planned`)
+
+    // =========================================================================
+    // PHASE 4: GENERATION (~90s)
+    // Per-section LLM calls for higher quality
+    // =========================================================================
+    researchProgress.phase = 'generating'
+    researchProgress.message = 'Generating sections...'
+    researchProgress.estimatedRemaining = 90
+    researchProgress.generationProgress = 0
+    this.updateResearchProgress(jobId, researchProgress)
+    onProgress({ current: 4, total: 4, message: 'Generating sections...', step: 'generating' })
+
+    console.log(`[DeepResearch] Phase 4: Per-section generation (${researchStructure.sections.length} sections)`)
+
+    // Build numbered source reference for proper citation mapping
+    const numberedSources = allGatheredSources
+      .filter(s => s.fullText || s.snippet)
+      .slice(0, 60)
+      .map((s, i) => ({
+        num: i + 1,
+        title: s.title,
+        domain: s.domain,
+        url: s.url,
+        image: s.image,
+        content: (s.fullText || s.snippet || '').substring(0, 2000),
+        verticalId: s.verticalId
+      }))
+
+    // Create source context for prompts
+    const sourceListForPrompt = numberedSources
+      .map(s => `[${s.num}] ${s.title} (${s.domain})\n${s.content.substring(0, 800)}`)
+      .join('\n\n---\n\n')
+
+    const parsedSections: any[] = []
+    const totalSections = researchStructure.sections.length
+
+    // Generate each section individually
+    for (let i = 0; i < totalSections; i++) {
+      const sectionPlan = researchStructure.sections[i]
+      const sectionId = `s${i + 1}`
+      
+      // Update progress
+      researchProgress.message = `Generating section ${i + 1}/${totalSections}: ${sectionPlan.heading}`
+      researchProgress.generationProgress = i / totalSections
+      this.updateResearchProgress(jobId, researchProgress)
+
+      console.log(`[DeepResearch] Generating section ${i + 1}: ${sectionPlan.heading}`)
+
+      // Find most relevant sources for this section
+      const relevantSources = numberedSources
+        .filter(s => {
+          const heading = sectionPlan.heading.toLowerCase()
+          const content = s.content.toLowerCase()
+          const title = s.title.toLowerCase()
+          return heading.split(' ').some((word: string) => 
+            word.length > 3 && (content.includes(word) || title.includes(word))
+          )
+        })
+        .slice(0, 15)
+
+      // If not enough relevant sources, add some top sources
+      const sourcesToUse = relevantSources.length >= 5 
+        ? relevantSources 
+        : [...relevantSources, ...numberedSources.slice(0, 10 - relevantSources.length)]
+
+      const sectionSourceContext = sourcesToUse
+        .map(s => `[${s.num}] ${s.title} (${s.domain})\n${s.content}`)
+        .join('\n\n---\n\n')
+
+      const sectionPrompt = `Write a comprehensive section for a research document.
+
+RESEARCH TOPIC: "${query}"
+DOCUMENT TITLE: ${researchStructure.title}
+
+SECTION TO WRITE: ${sectionPlan.heading}
+This is section ${i + 1} of ${totalSections}.
+
+CONTEXT (other sections in this document):
+${researchStructure.sections.map((s: any, idx: number) => `${idx + 1}. ${s.heading}${idx === i ? ' ← YOU ARE WRITING THIS' : ''}`).join('\n')}
+
+SOURCES TO CITE (use [N] format for inline citations):
+${sectionSourceContext}
+
+REQUIREMENTS:
+- Write 500-700 words for this section
+- MUST include at least 4-6 inline citations using [N] format matching source numbers above
+- Use **bold** for key terms and concepts
+- Include specific data, statistics, or quotes from sources
+- Use bullet points or numbered lists where appropriate
+- Maintain academic/professional tone
+- Be comprehensive and analytical
+
+Write the section content now. Do NOT include the heading, just the body text.`
+
+      let sectionContent = ''
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: 'You are an expert research writer. Write detailed, well-cited academic content. Always use inline citations [N] to reference sources.' },
+              { role: 'user', content: sectionPrompt }
+            ],
+            temperature: 0.4,
+            max_tokens: 2000
+          })
+        })
+
+        if (response.ok) {
+          const data: any = await response.json()
+          sectionContent = data.choices[0].message.content || ''
+        }
+      } catch (e) {
+        console.error(`[DeepResearch] Section ${i + 1} generation failed:`, e)
+        sectionContent = `This section on "${sectionPlan.heading}" is being generated...`
+      }
+
+      // Extract citation numbers from content and map to actual sources
+      const citationMatches = sectionContent.match(/\[(\d+)\]/g) || []
+      const citationNums = [...new Set(citationMatches.map(m => parseInt(m.replace(/[\[\]]/g, ''))))]
+      
+      // Map citation numbers to actual source objects
+      const sectionCitations = citationNums
+        .map(num => numberedSources.find(s => s.num === num))
+        .filter(Boolean)
+        .map(s => ({
+          id: String(s!.num),
+          url: s!.url,
+          title: s!.title,
+          domain: s!.domain,
+          snippet: s!.content.substring(0, 200)
+        }))
+
+      // Get images from cited sources
+      const sectionImages = citationNums
+        .map(num => numberedSources.find(s => s.num === num))
+        .filter(s => s && s.image)
+        .slice(0, 2)
+        .map(s => ({
+          url: s!.image!,
+          title: s!.title,
+          sourceUrl: s!.url
+        }))
+
+      parsedSections.push({
+        id: sectionId,
+        heading: sectionPlan.heading,
+        content: sectionContent,
+        wordCount: sectionContent.split(/\s+/).filter(Boolean).length,
+        status: 'completed',
+        citations: citationMatches.slice(0, 15),
+        sectionCitations,
+        sectionImages
+      })
+
+      // Small delay between sections to avoid rate limiting
+      if (i < totalSections - 1) {
+        await new Promise(r => setTimeout(r, 500))
+      }
+    }
+
+    console.log(`[DeepResearch] Phase 4 complete: ${parsedSections.length} sections generated`)
+
+    // =========================================================================
+    // FINALIZE
+    // Build complete surface state
+    // =========================================================================
+    researchProgress.phase = 'complete'
+    researchProgress.message = 'Research complete!'
+    researchProgress.estimatedRemaining = 0
+    researchProgress.generationProgress = 1
+    this.updateResearchProgress(jobId, researchProgress)
+
+    const totalWordCount = parsedSections.reduce((acc, s) => acc + (s.wordCount || 0), 0)
     const estimatedReadTime = Math.ceil(totalWordCount / 200)
 
+    // Build all citations from numbered sources (IDs match what LLM uses)
+    const allCitations = numberedSources.map(s => ({
+      id: String(s.num),
+      url: s.url,
+      title: s.title,
+      domain: s.domain,
+      snippet: s.content.substring(0, 200),
+      sourceType: allGatheredSources.find(g => g.url === s.url)?.sourceType === 'semantic_scholar' ? 'academic' : 'web'
+    }))
+
+    // Collect hero images from sources that have images
+    const heroImages = numberedSources
+      .filter(s => s.image)
+      .slice(0, 4)
+      .map(s => ({ url: s.image!, title: s.title, sourceUrl: s.url }))
+
     const surfaceState = {
-      ...workingSkeleton,
+      surfaceType: 'research',
       isSkeleton: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
       metadata: {
-        ...workingSkeleton?.metadata,
-        sections: completedSections,
+        type: 'research',
+        title: researchStructure.title,
+        query,
+        abstract: researchStructure.abstract,
+        keyFindings: researchStructure.keyFindings,
+        methodology: researchStructure.methodology || 'Multi-source web and academic research',
+        limitations: [
+          'Research is based on publicly available sources',
+          'May not include the latest developments',
+          'Academic sources limited to open access papers'
+        ],
+        generatedAt: Date.now(),
+        verticals: verticals.map((v: any) => ({
+          ...v,
+          status: 'completed',
+          sourcesCount: allGatheredSources.filter(s => s.verticalId === v.id).length
+        })),
+        sections: parsedSections,
+        allCitations,
+        heroImages,
+        totalSources: allGatheredSources.length,
         totalWordCount,
         estimatedReadTime
       }
     }
 
-    onProgress({ current: 6, total: 6, message: 'Complete!', step: 'complete' })
+    // Store skeleton for progressive display
+    this.updateSkeleton(jobId, surfaceState)
+
+    console.log(`[DeepResearch] Complete: ${totalWordCount} words, ${allGatheredSources.length} sources, ${parsedSections.length} sections`)
 
     return {
       surfaceState,
