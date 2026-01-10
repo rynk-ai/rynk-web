@@ -256,10 +256,10 @@ export async function getProjects() {
   return await cloudDb.getProjects(session.user.id)
 }
 
-export async function createProject(name: string, description: string, instructions?: string, attachments?: any[]) {
+export async function createProject(name: string, description: string, instructions?: string, attachments?: any[], useChatsAsKnowledge: boolean = true) {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
-  const project = await cloudDb.createProject(session.user.id, name, description, instructions, attachments)
+  const project = await cloudDb.createProject(session.user.id, name, description, instructions, attachments, useChatsAsKnowledge)
   
   // Process attachments through knowledge base
   if (attachments && attachments.length > 0) {

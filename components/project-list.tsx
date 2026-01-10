@@ -20,7 +20,7 @@ interface ProjectListProps {
   projects: Project[]
   activeProjectId?: string
   onSelectProject: (projectId: string) => void
-  onCreateProject: (name: string, description: string, instructions: string, attachments: File[]) => Promise<any>
+  onCreateProject: (name: string, description: string, instructions: string, attachments: File[], useChatsAsKnowledge: boolean) => Promise<any>
   onUpdateProject: (id: string, updates: Partial<Project>) => Promise<void>
   onDeleteProject: (id: string) => Promise<void>
   className?: string
@@ -61,9 +61,9 @@ export function ProjectList({
     }
   }
 
-  const handleCreateProject = async (name: string, description: string, instructions: string, attachments: File[]) => {
+  const handleCreateProject = async (name: string, description: string, instructions: string, attachments: File[], useChatsAsKnowledge: boolean) => {
     // Create project and get back the files to enqueue
-    const result = await onCreateProject(name, description, instructions, attachments)
+    const result = await onCreateProject(name, description, instructions, attachments, useChatsAsKnowledge)
     
     // If there are uploaded files, enqueue them for background indexing
     if (result.uploadedFiles && result.uploadedFiles.length > 0 && result.uploadResults) {
@@ -85,9 +85,9 @@ export function ProjectList({
     return result.project.id
   }
 
-  const handleUpdateProject = async (name: string, description: string, instructions: string, attachments: File[]) => {
+  const handleUpdateProject = async (name: string, description: string, instructions: string, attachments: File[], useChatsAsKnowledge: boolean) => {
     if (editingProject) {
-      await onUpdateProject(editingProject.id, { name, description, instructions, attachments })
+      await onUpdateProject(editingProject.id, { name, description, instructions, attachments, useChatsAsKnowledge })
       setEditingProject(null)
     }
   }

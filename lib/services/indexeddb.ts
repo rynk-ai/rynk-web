@@ -54,6 +54,7 @@ export interface Project {
   description: string
   instructions?: string
   attachments?: File[]
+  useChatsAsKnowledge?: boolean  // When false, only instructions/files are used; defaults to true
   createdAt: number
   updatedAt: number
 }

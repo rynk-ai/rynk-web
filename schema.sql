@@ -227,6 +227,7 @@ CREATE TABLE projects (
   description TEXT,
   instructions TEXT,
   attachments TEXT, -- JSON array of file metadata
+  useChatsAsKnowledge INTEGER DEFAULT 1, -- When 0, only instructions/files are used as context
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE

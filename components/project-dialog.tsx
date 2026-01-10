@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
 import { PiX, PiUploadSimple, PiFileText, PiImage as ImageIcon, PiSpinner, PiCheckCircle } from "react-icons/pi"
 import { IndexingJob } from "@/lib/hooks/use-indexing-queue"
 import { Project } from "@/lib/services/indexeddb"
@@ -14,7 +15,7 @@ import { Project } from "@/lib/services/indexeddb"
 interface ProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (name: string, description: string, instructions: string, attachments: File[]) => Promise<string | void>
+  onSubmit: (name: string, description: string, instructions: string, attachments: File[], useChatsAsKnowledge: boolean) => Promise<string | void>
   initialData?: Project
   mode: 'create' | 'edit'
   indexingJobs?: IndexingJob[]
@@ -38,6 +39,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
   const [uploadProgress, setUploadProgress] = useState<FileProgress[]>([])
   const [currentStep, setCurrentStep] = useState<'form' | 'uploading' | 'processing' | 'complete'>('form')
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
+  const [useChatsAsKnowledge, setUseChatsAsKnowledge] = useState(true)
 
   useEffect(() => {
     if (open) {
@@ -46,11 +48,13 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
         setDescription(initialData.description)
         setInstructions(initialData.instructions || "")
         setAttachments(initialData.attachments || [])
+        setUseChatsAsKnowledge(initialData.useChatsAsKnowledge ?? true)
       } else {
         setName("")
         setDescription("")
         setInstructions("")
         setAttachments([])
+        setUseChatsAsKnowledge(true)
       }
       setCurrentStep('form')
       setUploadProgress([])
@@ -108,7 +112,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
     }
 
     try {
-      const projectId = await onSubmit(name, description, instructions, attachments)
+      const projectId = await onSubmit(name, description, instructions, attachments, useChatsAsKnowledge)
       
       if (attachments.length > 0 && projectId) {
         // Switch to processing state
@@ -193,49 +197,66 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
         </DialogHeader>
 
         {currentStep === 'form' && (
-          <form onSubmit={handleSubmit} className="space-y-6 py-4">
-            <div className="space-y-2">
+          <form onSubmit={handleSubmit} className="space-y-5 py-4">
+            <div className="space-y-1.5">
               <Label htmlFor="name">Project Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Q4 Marketing Campaign"
+                className="h-10"
                 required
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Briefly describe the project..."
-                className="min-h-[80px]"
+                className="min-h-[80px] resize-none"
               />
-              <p className="text-xs text-muted-foreground">
-                This description will be used to provide context to the AI.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This description helps the AI understand your project's context.
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="instructions">Custom Instructions</Label>
               <Textarea
                 id="instructions"
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder="Specific instructions for the AI when working on this project..."
-                className="min-h-[100px]"
+                placeholder="Add specific guidelines for the AI when working on this project..."
+                className="min-h-[120px] max-h-[300px] resize-y"
               />
-              <p className="text-xs text-muted-foreground">
-                These instructions will be injected as system prompts for all chats in this project.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                These instructions are automatically added as system prompts for all chats.
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/40 p-4 bg-muted/30">
+              <div className="space-y-1 flex-1">
+                <Label htmlFor="useChatsAsKnowledge" className="cursor-pointer font-medium">
+                  Use chats as knowledge base
+                </Label>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  When enabled, all project chats contribute to the AI's context.
+                </p>
+              </div>
+              <Switch
+                id="useChatsAsKnowledge"
+                checked={useChatsAsKnowledge}
+                onCheckedChange={setUseChatsAsKnowledge}
+              />
+            </div>
+
+            <div className="space-y-3">
               <Label>Attachments</Label>
-              <div className="border border-dashed border-border/60 rounded-xl p-4 text-center hover:bg-secondary/30 transition-colors cursor-pointer relative">
+              <div className="border border-dashed border-border/50 rounded-lg p-6 text-center hover:bg-muted/30 hover:border-border transition-all cursor-pointer relative">
                 <input
                   type="file"
                   multiple
@@ -244,14 +265,18 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
                   disabled={isSubmitting}
                 />
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <PiUploadSimple className="h-8 w-8" />
-                  <span className="text-sm">Click or drag files to attach project context</span>
-                  <span className="text-xs">PDFs, code files, markdown, JSON, etc.</span>
+                  <div className="p-3 rounded-full bg-secondary/50">
+                    <PiUploadSimple className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium text-foreground/80">Drop files here or click to browse</p>
+                    <p className="text-xs">PDFs, code files, markdown, JSON, etc.</p>
+                  </div>
                 </div>
               </div>
 
               {attachments.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="space-y-1.5">
                   {attachments.map((file, i) => {
                     // Handle both File objects and attachment metadata
                     const isFileObject = file instanceof File
@@ -259,24 +284,49 @@ export function ProjectDialog({ open, onOpenChange, onSubmit, initialData, mode,
                     const fileSize = isFileObject ? file.size : (file as any).size || 0
                     const fileType = isFileObject ? file.type : (file as any).type || ''
                     
+                    // Smart file size formatting
+                    const formatSize = (bytes: number) => {
+                      if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+                      return `${(bytes / 1024).toFixed(1)} KB`
+                    }
+
+                    // Middle truncation for filenames
+                    const truncateMiddle = (str: string, maxLength: number = 24) => {
+                      if (str.length <= maxLength) return str
+                      const start = str.slice(0, Math.ceil(maxLength / 2) - 2)
+                      const end = str.slice(-Math.floor(maxLength / 2) + 1)
+                      return `${start}...${end}`
+                    }
+                    
                     return (
-                      <div key={i} className="flex items-center gap-2 p-2.5 border border-border/40 rounded-lg bg-secondary/30 text-sm group relative">
-                        {fileType.startsWith('image/') ? (
-                          <ImageIcon className="h-4 w-4 text-blue-500" />
-                        ) : (
-                          <PiFileText className="h-4 w-4 text-orange-500" />
-                        )}
-                        <span className="truncate flex-1">{fileName}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {(fileSize / 1024).toFixed(1)} KB
+                      <div 
+                        key={i} 
+                        className="flex items-center gap-3 px-3 py-2 rounded-md bg-secondary/40 border border-border/30 group hover:bg-secondary/60 transition-colors"
+                      >
+                        <div className="shrink-0">
+                          {fileType.startsWith('image/') ? (
+                            <ImageIcon className="h-4 w-4 text-blue-500" />
+                          ) : fileType === 'application/pdf' ? (
+                            <PiFileText className="h-4 w-4 text-red-500" />
+                          ) : (
+                            <PiFileText className="h-4 w-4 text-orange-500" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-none" title={fileName}>
+                            {truncateMiddle(fileName)}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {formatSize(fileSize)}
                         </span>
                         <button
                           type="button"
                           onClick={() => removeAttachment(i)}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-all"
+                          className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
                           disabled={isSubmitting}
                         >
-                          <PiX className="h-3 w-3" />
+                          <PiX className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )

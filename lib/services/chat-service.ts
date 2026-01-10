@@ -219,7 +219,7 @@ export class ChatService {
               messageContent,
               messageRefs.referencedConversations,
               messageRefs.referencedFolders,
-              project?.id,
+              project,  // Pass full project object
               undefined,  // onProgress
               queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
             )
@@ -579,17 +579,19 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
     query: string,
     referencedConversations: any[],
     referencedFolders: any[],
-    projectId?: string,
+    project?: { id: string; useChatsAsKnowledge?: boolean } | null,  // Accept project object
     onProgress?: (message: string) => void,
     precomputedQueryVector?: number[]  // OPTIMIZATION: Reuse pre-computed embedding
   ): Promise<{ contextText: string; retrievedChunks: { content: string; source: string; score: number }[] }> {
+    const projectId = project?.id
     console.log('📥 [buildContext] Called with:', {
       userId: userId.substring(0, 20),
       currentConversationId,
       queryPreview: query.substring(0, 50),
       referencedConversations: referencedConversations?.length || 0,
       referencedFolders: referencedFolders?.length || 0,
-      projectId: projectId || 'none'
+      projectId: projectId || 'none',
+      useChatsAsKnowledge: project?.useChatsAsKnowledge ?? true
     });
     
     let contextText = ''
@@ -738,8 +740,10 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
         currentConversationId, queryVector, { limit: 5, minScore: 0.5 }
       );
       
-      // SCOPE 2: Project memory (if applicable)
-      const projectPromise = projectId 
+      // SCOPE 2: Project memory (if applicable AND useChatsAsKnowledge is enabled)
+      // When useChatsAsKnowledge is false, skip searching other project chats
+      const shouldSearchProjectChats = projectId && project?.useChatsAsKnowledge !== false
+      const projectPromise = shouldSearchProjectChats
         ? vectorDb.searchProjectMemory(projectId, queryVector, { 
             minScore: 0.5,
             excludeConversationId: currentConversationId 
@@ -815,8 +819,9 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
             score: m.score
           });
         });
-      } else if (projectId) {
+      } else if (projectId && project?.useChatsAsKnowledge !== false) {
         // --- D1 FALLBACK: Vectorize hasn't indexed yet, query D1 directly ---
+        // Only use fallback if useChatsAsKnowledge is enabled
         console.log('⚠️ [buildContext] Vectorize returned 0 results, using D1 fallback...');
         const recentMessages = await cloudDb.getRecentProjectMessages(
           projectId,

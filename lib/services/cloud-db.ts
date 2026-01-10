@@ -102,6 +102,7 @@ export interface Project {
   description: string
   instructions?: string
   attachments?: any[]
+  useChatsAsKnowledge: boolean  // When false, only instructions/files are used; defaults to true
   createdAt: number
   updatedAt: number
 }
@@ -1288,6 +1289,7 @@ export const cloudDb = {
       description: p.description as string,
       instructions: p.instructions as string | undefined,
       attachments: p.attachments ? JSON.parse(p.attachments as string) : undefined,
+      useChatsAsKnowledge: p.useChatsAsKnowledge !== 0,  // Default true for backward compatibility
       createdAt: new Date(p.createdAt as string).getTime(),
       updatedAt: new Date(p.updatedAt as string).getTime()
     }))
@@ -1305,18 +1307,19 @@ export const cloudDb = {
       description: result.description as string,
       instructions: result.instructions as string | undefined,
       attachments: result.attachments ? JSON.parse(result.attachments as string) : undefined,
+      useChatsAsKnowledge: result.useChatsAsKnowledge !== 0,  // Default true for backward compatibility
       createdAt: new Date(result.createdAt as string).getTime(),
       updatedAt: new Date(result.updatedAt as string).getTime()
     }
   },
 
-  async createProject(userId: string, name: string, description: string, instructions?: string, attachments?: any[]): Promise<Project> {
+  async createProject(userId: string, name: string, description: string, instructions?: string, attachments?: any[], useChatsAsKnowledge: boolean = true): Promise<Project> {
     const db = getDB()
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
     
     await db.prepare(
-      'INSERT INTO projects (id, userId, name, description, instructions, attachments, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO projects (id, userId, name, description, instructions, attachments, useChatsAsKnowledge, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       id,
       userId,
@@ -1324,6 +1327,7 @@ export const cloudDb = {
       description,
       instructions || null,
       attachments ? JSON.stringify(attachments) : null,
+      useChatsAsKnowledge ? 1 : 0,
       now,
       now
     ).run()
@@ -1335,6 +1339,7 @@ export const cloudDb = {
       description,
       instructions,
       attachments,
+      useChatsAsKnowledge,
       createdAt: new Date(now).getTime(),
       updatedAt: new Date(now).getTime()
     }
@@ -1362,6 +1367,10 @@ export const cloudDb = {
     if (updates.attachments !== undefined) {
       fields.push('attachments = ?')
       values.push(JSON.stringify(updates.attachments))
+    }
+    if (updates.useChatsAsKnowledge !== undefined) {
+      fields.push('useChatsAsKnowledge = ?')
+      values.push(updates.useChatsAsKnowledge ? 1 : 0)
     }
     
     fields.push('updatedAt = ?')
