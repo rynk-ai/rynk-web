@@ -61,9 +61,11 @@ import { AddToFolderDialog } from "@/components/add-to-folder-dialog";
 import { RenameDialog } from "@/components/rename-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader } from "@/components/ui/loader";
+import { ProjectDialog } from "@/components/project-dialog";
 import type {
   CloudConversation as Conversation,
   Folder,
+  Project,
 } from "@/lib/services/cloud-db";
 
 const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
@@ -129,6 +131,8 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
   const [conversationToRename, setConversationToRename] = useState<
     string | null
   >(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isProjectEditOpen, setIsProjectEditOpen] = useState(false);
 
   const scrollableRef = useRef<HTMLDivElement>(null);
 
@@ -305,6 +309,33 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
     setSelectedFolder(null);
   };
 
+  const handleEditActiveProject = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const project = projects.find((p) => p.id === activeProjectId);
+    if (project) {
+      setEditingProject(project);
+      setIsProjectEditOpen(true);
+    }
+  };
+
+  const handleDeleteActiveProject = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeProjectId) return;
+    
+    if (confirm('Are you sure you want to delete this project?')) {
+      await deleteProject(activeProjectId);
+      router.push('/chat');
+    }
+  };
+
+  const handleUpdateActiveProject = async (name: string, description: string, instructions: string, attachments: File[], useChatsAsKnowledge: boolean) => {
+    if (editingProject) {
+      await updateProject(editingProject.id, { name, description, instructions, attachments, useChatsAsKnowledge });
+      setEditingProject(null);
+      // setIsProjectEditOpen(false) handled by dialog onOpenChange
+    }
+  };
+
   // Helper to wrap selectConversation with Next.js router navigation
   const handleSelectConversation = (id: string | null, conversation?: Conversation) => {
     // ✅ STATE FIRST: Update conversation immediately (no URL change)
@@ -444,12 +475,40 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
                 <PiCaretLeft className="mr-1 h-4 w-4" />
                 Back to all chats
               </Button>
-              <div className="flex items-center gap-2 py-1 px-1">
-                <PiFolder className="h-4 w-4 text-primary/70" />
-                <h2 className="font-medium text-base tracking-tight">
-                  {projects.find((p) => p.id === activeProjectId)?.name ||
-                    "Project"}
-                </h2>
+              <div className="flex items-center justify-between gap-2 py-1 px-1 group">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <PiFolder className="h-4 w-4 text-primary/70 shrink-0" />
+                  <h2 className="font-medium text-base tracking-tight truncate">
+                    {projects.find((p) => p.id === activeProjectId)?.name ||
+                      "Project"}
+                  </h2>
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <PiDotsThree className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleEditActiveProject}>
+                      <PiPencil className="mr-2 h-3.5 w-3.5" />
+                      Edit Project
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive"
+                      onClick={handleDeleteActiveProject}
+                    >
+                      <PiTrash className="mr-2 h-3.5 w-3.5" />
+                      Delete Project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           )}
@@ -642,6 +701,18 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           isLoading={isDeleting}
         />
       )}
+
+      {/* Project Edit Dialog */}
+      <ProjectDialog
+        open={isProjectEditOpen}
+        onOpenChange={(open) => {
+          setIsProjectEditOpen(open);
+          if (!open) setEditingProject(null);
+        }}
+        onSubmit={handleUpdateActiveProject}
+        initialData={editingProject || undefined}
+        mode="edit"
+      />
     </Sidebar>
   );
 };
