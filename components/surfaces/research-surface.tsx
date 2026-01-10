@@ -164,19 +164,18 @@ export const ResearchSurface = memo(function ResearchSurface({
             <span>{estimatedReadTime} min read</span>
           </div>
         </div>
-        <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 font-display text-foreground">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-foreground">
           {title}
         </h1>
       </div>
 
-      {/* Abstract Box */}
+      {/* Abstract */}
       {abstract && (
-        <div className="mb-10 p-8 bg-card/60 backdrop-blur-sm border border-border/40 rounded-2xl shadow-sm">
-          <h2 className="text-sm font-bold mb-4 flex items-center gap-2 uppercase tracking-wide text-primary">
-            <PiQuotes className="h-5 w-5" />
+        <div className="mb-10 pl-4 border-l-2 border-primary/30">
+          <h2 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground">
             Abstract
           </h2>
-          <p className="text-lg text-foreground/80 leading-relaxed font-serif italic">
+          <p className="text-base text-foreground/90 leading-relaxed">
             {abstract}
           </p>
         </div>
@@ -184,18 +183,18 @@ export const ResearchSurface = memo(function ResearchSurface({
 
       {/* Key Findings */}
       {keyFindings.length > 0 && (
-        <div className="mb-12 p-8 bg-primary/5 border border-primary/10 rounded-2xl">
-          <h2 className="text-sm font-bold mb-6 flex items-center gap-2 uppercase tracking-wide text-primary">
-            <PiCheckCircle className="h-5 w-5" />
+        <div className="mb-10">
+          <h2 className="text-xs font-semibold mb-4 uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <PiCheckCircle className="h-4 w-4 text-primary" />
             Key Findings
           </h2>
-          <ul className="grid gap-4 md:grid-cols-2">
+          <ul className="space-y-2">
             {keyFindings.map((finding, idx) => (
-              <li key={idx} className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border/20">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5 border border-primary/20">
+              <li key={idx} className="flex items-start gap-3 text-sm text-foreground/90 leading-relaxed">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center mt-0.5">
                   {idx + 1}
                 </span>
-                <span className="text-base text-foreground/90 leading-snug">{finding}</span>
+                <span>{finding}</span>
               </li>
             ))}
           </ul>
@@ -205,11 +204,10 @@ export const ResearchSurface = memo(function ResearchSurface({
       {/* Main Layout: Sidebar + Content */}
       <div className="flex gap-12 relative">
         {/* Sticky Table of Contents */}
-        <aside className="hidden lg:block w-72 shrink-0">
+        <aside className="hidden lg:block w-64 shrink-0">
           <div className="sticky top-24 space-y-6">
-            <div className="border border-border/40 rounded-2xl p-5 shadow-sm bg-card/40 backdrop-blur-md">
-              <h3 className="text-xs font-bold text-muted-foreground mb-4 flex items-center gap-2 uppercase tracking-wider pl-1">
-                <PiHash className="h-4 w-4" />
+            <div className="rounded-lg border border-border/30 bg-muted/5 p-4">
+              <h3 className="text-[10px] font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
                 Contents
               </h3>
               <nav className="space-y-0.5">
@@ -246,19 +244,12 @@ export const ResearchSurface = memo(function ResearchSurface({
             </div>
 
             {/* Stats */}
-            <div className="p-5 bg-secondary/30 rounded-2xl border border-border/30 text-xs font-medium space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground uppercase tracking-wide">Words</span>
-                <span className="bg-background px-2 py-0.5 rounded border border-border/50 font-mono text-foreground/80">{totalWordCount.toLocaleString()}</span>
+            <div className="text-xs text-muted-foreground space-y-2 pt-4 border-t border-border/20">
+              <div className="flex justify-between">
+                <span>{totalWordCount.toLocaleString()} words</span>
+                <span>{totalSources} sources</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground uppercase tracking-wide">Sources</span>
-                <span className="bg-background px-2 py-0.5 rounded border border-border/50 font-mono text-foreground/80">{totalSources}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground uppercase tracking-wide">Sections</span>
-                <span className="bg-background px-2 py-0.5 rounded border border-border/50 font-mono text-foreground/80">{sections.length}</span>
-              </div>
+              <div className="text-[10px]">{sections.length} sections • {estimatedReadTime} min read</div>
             </div>
           </div>
         </aside>
@@ -266,7 +257,7 @@ export const ResearchSurface = memo(function ResearchSurface({
         {/* Main Content */}
         <main className="flex-1 min-w-0" ref={contentRef}>
           {/* Sections */}
-          <article className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-display prose-p:leading-relaxed prose-li:leading-relaxed">
+          <article className="prose prose-slate dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:leading-relaxed">
             {sections.map((section, idx) => {
               // Check if section content is still loading (progressive loading)
               const isLoading = !section.content || 
@@ -281,7 +272,7 @@ export const ResearchSurface = memo(function ResearchSurface({
                   className="mb-16 scroll-mt-28"
                 >
                   <h2 className="text-2xl font-bold flex items-center gap-4 mb-6 pb-3 border-b border-border/40 group">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary text-primary font-mono text-sm shadow-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                    <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary text-primary text-sm font-semibold shadow-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     {section.heading}
@@ -322,7 +313,7 @@ export const ResearchSurface = memo(function ResearchSurface({
                         disabled={!onSubChatSelect}
                       >
                         <Markdown 
-                          className="!bg-transparent !p-0 font-serif md:font-sans md:text-base leading-7"
+                          className="!bg-transparent !p-0 md:text-base leading-7"
                           citations={section.sectionCitations?.map((c: any, i: number) => ({
                             id: i + 1,
                             url: c.url,
@@ -370,28 +361,28 @@ export const ResearchSurface = memo(function ResearchSurface({
 
           {/* Methodology */}
           {methodology && (
-            <div className="mt-16 pt-10 border-t border-border/40">
-              <h3 className="text-sm font-bold mb-4 flex items-center gap-2 uppercase tracking-wide text-amber-600 dark:text-amber-500">
-                <PiLightbulb className="h-4 w-4" />
+            <div className="mt-12 pt-8 border-t border-border/40">
+              <h3 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <PiLightbulb className="h-3.5 w-3.5" />
                 Methodology
               </h3>
-              <div className="text-sm text-foreground/80 bg-amber-500/5 p-6 rounded-xl border border-amber-500/10 leading-relaxed font-serif italic">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 {methodology}
-              </div>
+              </p>
             </div>
           )}
 
           {/* Limitations */}
           {limitations.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-sm font-bold mb-4 flex items-center gap-2 uppercase tracking-wide text-orange-600 dark:text-orange-500">
-                <PiWarningCircle className="h-4 w-4" />
+            <div className="mt-6">
+              <h3 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <PiWarningCircle className="h-3.5 w-3.5" />
                 Limitations
               </h3>
-              <ul className="text-sm text-muted-foreground space-y-2 bg-orange-500/5 p-6 rounded-xl border border-orange-500/10">
+              <ul className="text-sm text-muted-foreground space-y-1.5">
                 {limitations.map((limit, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5">
-                    <span className="text-orange-500 mt-1.5 h-1.5 w-1.5 rounded-full bg-orange-500/50"></span>
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-muted-foreground/50 mt-1.5">•</span>
                     <span className="leading-relaxed">{limit}</span>
                   </li>
                 ))}
@@ -409,7 +400,7 @@ export const ResearchSurface = memo(function ResearchSurface({
               <ol className="grid gap-3">
                 {allCitations.map((citation) => (
                   <li key={citation.id} className="text-sm flex items-start gap-4 p-3 hover:bg-muted/30 rounded-lg transition-colors border border-transparent hover:border-border/30">
-                    <span className="flex-shrink-0 w-6 h-6 rounded bg-muted text-[10px] font-bold flex items-center justify-center text-muted-foreground font-mono">
+                    <span className="flex-shrink-0 w-6 h-6 rounded bg-muted text-[10px] font-bold flex items-center justify-center text-muted-foreground tabular-nums">
                       {citation.id}
                     </span>
                     <div className="flex-1 min-w-0">
