@@ -3,7 +3,7 @@
  * Handles text extraction, chunking, and embedding on the server
  */
 
-import { chunkWithParentChild } from '@/lib/utils/chunking'
+import { chunkWithParentChild } from '../utils/chunking'
 
 export interface PDFJob {
   id: string
