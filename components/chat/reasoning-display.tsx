@@ -2,11 +2,12 @@
 
 import { useMemo } from "react";
 import { LiveSourcePills, type DiscoveredSource } from "@/components/chat/live-source-pills";
-import { ProcessingTimeline } from "@/components/chat/processing-timeline";
+import { ProcessingTimeline, type PDFJob } from "@/components/chat/processing-timeline";
 import { getFaviconUrl, getDomainName } from "@/lib/types/citation";
 import { cn } from "@/lib/utils";
 import type { StatusPill } from "@/lib/utils/stream-parser";
 import type { IndexingJob } from "@/lib/hooks/use-indexing-queue";
+import { usePdfJobs } from "@/lib/hooks/use-pdf-jobs";
 
 interface SearchSource {
   type: "exa" | "perplexity" | "wikipedia";
@@ -45,6 +46,9 @@ export function ReasoningDisplay({
   isStreaming = false,
   hasContent = false,
 }: ReasoningDisplayProps) {
+  // Get PDF jobs from global hook - no props needed!
+  const { jobs: pdfJobs } = usePdfJobs();
+
   // Extract discovered sources for live pills display
   const discoveredSources = useMemo(() => {
     if (!searchResults?.sources) return [];
@@ -98,6 +102,7 @@ export function ReasoningDisplay({
         <ProcessingTimeline
           statusPills={effectiveStatuses}
           indexingJobs={indexingJobs}
+          pdfJobs={pdfJobs}
           isStreaming={isStreaming}
           hasContent={hasContent}
           searchResults={searchResults}

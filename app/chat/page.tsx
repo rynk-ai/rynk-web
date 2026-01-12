@@ -53,7 +53,7 @@ import { FocusModeToggle } from "@/components/focus-mode";
 import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
 import { TagSection } from "@/components/chat/tag-section";
 import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
-import { IndexingProgressBadge, type IndexingJob } from "@/components/chat/indexing-progress-badge";
+
 import { MessagesLoadingSkeleton } from "@/components/chat/messages-loading-skeleton";
 import { ChatInputSection } from "@/components/chat/chat-input-section";
 
@@ -949,7 +949,6 @@ const ChatContent = memo(
               )}
             >
               <div className="relative h-full flex flex-col">
-                <IndexingProgressBadge jobs={jobs as IndexingJob[]} />
 
                 {/* Saved Surfaces Indicator - Show when conversation has saved surfaces */}
                 {currentConversationId  && (

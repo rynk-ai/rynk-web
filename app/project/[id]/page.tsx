@@ -58,7 +58,7 @@ import { processStreamChunk } from "@/lib/utils/stream-parser";
 import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
 import { TagSection } from "@/components/chat/tag-section";
 import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
-import { IndexingProgressBadge, type IndexingJob } from "@/components/chat/indexing-progress-badge";
+
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -890,7 +890,6 @@ const ChatContent = memo(
               )}
             >
               <div className="relative h-full flex flex-col">
-                <IndexingProgressBadge jobs={jobs as IndexingJob[]} />
                 {/* Sticky content at top */}
                 <div className="flex-shrink-0 space-y-4">
                   {/* Indexing Progress Badge */}

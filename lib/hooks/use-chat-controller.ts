@@ -19,6 +19,8 @@ import {
   completeMultipartUpload as completeMultipartUploadAction,
 } from "@/app/actions";
 import { detectSurfaces } from "@/lib/services/surface-detector";
+import { usePdfJobs } from "@/lib/hooks/use-pdf-jobs";
+import type { PDFJob } from "@/components/chat/processing-timeline";
 
 interface UseChatControllerProps {
   chatId?: string;
@@ -89,6 +91,9 @@ export function useChatController({
   const [isSending, setIsSending] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  
+  // PDF jobs - global hook for server-side processing status
+  const { addJob: addPdfJob, updateJob: updatePdfJob } = usePdfJobs();
 
   // Refs for stable access in callbacks
   // Stream Handler
@@ -272,9 +277,10 @@ export function useChatController({
           }
 
           const processingPromises = files.map(async (file) => {
-            const isLargePDF =
-              file.type === "application/pdf" && file.size >= 500 * 1024;
+            // Index ALL PDFs regardless of size (Small-to-Big: small PDFs were being skipped entirely)
+            const isPDF = file.type === "application/pdf";
 
+            // Upload to R2 first
             const uploadPromise = (async () => {
               const CHUNK_SIZE = 6 * 1024 * 1024;
               if (file.size <= CHUNK_SIZE) {
@@ -302,17 +308,88 @@ export function useChatController({
               }
             })();
 
-            let indexingPromise: Promise<void> | undefined;
-            if (isLargePDF && effectiveConversationId) {
-              const jobId = await enqueueFileRef.current(
-                file,
-                effectiveConversationId,
-                tempUserMessageId,
-                uploadPromise,
-              );
-              if (jobId) {
-                indexingPromise = waitForIndexingRef.current(jobId);
-              }
+            let serverProcessingPromise: Promise<void> | undefined;
+            
+            // SERVER-SIDE PDF PROCESSING: Use /api/pdf/process instead of client-side Web Worker
+            if (isPDF && effectiveConversationId) {
+              serverProcessingPromise = (async () => {
+                try {
+                  const r2Url = await uploadPromise;
+                  // Extract R2 key from URL
+                  const r2Key = r2Url.split('/').slice(-2).join('/'); // e.g., "uploads/filename.pdf"
+                  
+                  console.log(`📤 [Controller] Triggering server-side PDF processing: ${file.name}`);
+                  
+                  // Trigger server-side processing
+                  const processRes = await fetch('/api/pdf/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      r2Key,
+                      conversationId: effectiveConversationId,
+                      messageId: tempUserMessageId,
+                      fileName: file.name
+                    })
+                  });
+                  
+                  if (!processRes.ok) {
+                    const err = await processRes.json() as { error?: string };
+                    throw new Error(err.error || 'Failed to process PDF');
+                  }
+                  
+                  const { jobId, status: initialStatus } = await processRes.json() as { jobId: string; status: string };
+                  
+                  // Add job to tracking state
+                  const newJob: PDFJob = {
+                    jobId,
+                    fileName: file.name,
+                    status: initialStatus === 'completed' ? 'completed' : 'processing',
+                    progress: initialStatus === 'completed' ? 100 : 0
+                  };
+                  addPdfJob(newJob);
+                  
+                  // If processing completed synchronously (fallback mode), we're done
+                  if (initialStatus === 'completed') {
+                    console.log(`✅ [Controller] PDF processed synchronously: ${file.name}`);
+                    return;
+                  }
+                  
+                  // Poll for completion (async queue mode)
+                  console.log(`⏳ [Controller] Polling for PDF job completion: ${jobId}`);
+                  const maxAttempts = 60; // 60 * 2s = 2 minutes max
+                  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    await new Promise(r => setTimeout(r, 2000)); // Poll every 2s
+                    
+                    const statusRes = await fetch(`/api/pdf/status/${jobId}`);
+                    const { status, progress, error } = await statusRes.json() as { status: string; progress: number; error?: string };
+                    
+                    // Update job state for UI
+                    updatePdfJob(jobId, { 
+                      status: status as PDFJob['status'], 
+                      progress, 
+                      error 
+                    });
+                    
+                    if (status === 'completed') {
+                      console.log(`✅ [Controller] PDF processing complete: ${file.name}`);
+                      return;
+                    } else if (status === 'failed') {
+                      throw new Error(error || 'PDF processing failed');
+                    }
+                    
+                    // Log progress periodically
+                    if (attempt % 5 === 0) {
+                      console.log(`📊 [Controller] PDF progress: ${progress}% (${file.name})`);
+                    }
+                  }
+                  
+                  console.warn(`⚠️ [Controller] PDF processing timed out: ${file.name}`);
+
+                } catch (err) {
+                  console.error(`❌ [Controller] Server PDF processing failed:`, err);
+                  // Don't throw - allow message to be sent even if indexing fails
+                }
+              })();
             }
 
             try {
@@ -324,9 +401,9 @@ export function useChatController({
                   name: file.name,
                   type: file.type,
                   size: file.size,
-                  isLargePDF,
+                  isPDF,  // Was isLargePDF - now all PDFs are indexed
                 },
-                indexingPromise,
+                serverProcessingPromise,
               };
             } catch (e) {
               console.error("Upload failed for", file.name, e);
@@ -338,14 +415,16 @@ export function useChatController({
           const validResults = results.filter(Boolean) as any[];
           uploadedAttachments = validResults.map((r) => r.attachment);
 
-          const indexingPromises = validResults
-            .map((r) => r.indexingPromise)
+          // Wait for server-side PDF processing to complete
+          const serverPromises = validResults
+            .map((r) => r.serverProcessingPromise)
             .filter(Boolean);
-          if (indexingPromises.length > 0) {
-            console.log(`⏳ [Controller] Waiting for ${indexingPromises.length} indexing jobs...`);
-            await Promise.all(indexingPromises);
-            console.log("✅ [Controller] Indexing complete");
+          if (serverPromises.length > 0) {
+            console.log(`⏳ [Controller] Waiting for ${serverPromises.length} server PDF jobs...`);
+            await Promise.all(serverPromises);
+            console.log("✅ [Controller] Server PDF processing complete");
           }
+
         }
 
         // 3. Send Chat Request

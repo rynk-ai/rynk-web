@@ -5,6 +5,7 @@ import { textToFile, LONG_TEXT_THRESHOLD } from "@/lib/utils/text-to-file-conver
 import { Attachment } from "@/components/file-preview";
 import { ContextItem } from "@/lib/hooks/use-context-search";
 import type { SurfaceType } from "@/lib/services/domain-types";
+import { suggestSurface } from "@/app/actions";
 
 // Debounce delay for surface suggestion API calls
 const SURFACE_SUGGESTION_DEBOUNCE_MS = 600;
@@ -98,34 +99,23 @@ export function useSmartInput({
       if (suggestionTimeoutRef.current) {
         clearTimeout(suggestionTimeoutRef.current);
       }
-      
-      // Abort previous request
-      if (suggestionAbortRef.current) {
-        suggestionAbortRef.current.abort();
-      }
 
-      // Debounced API call
+      // Cancel previous request (server actions don't support abort, but we track request ID)
+      const currentRequestId = Date.now();
+      suggestionAbortRef.current = { signal: { aborted: false } } as AbortController;
+
+      // Debounced server action call
       suggestionTimeoutRef.current = setTimeout(async () => {
+        const requestId = currentRequestId;
         try {
           setIsFetchingSuggestion(true);
-          suggestionAbortRef.current = new AbortController();
           
-          const response = await fetch('/api/suggest-surface', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: value }),
-            signal: suggestionAbortRef.current.signal
-          });
+          const data = await suggestSurface(value);
           
-          if (!response.ok) {
-            setSuggestedSurface(null);
+          // Ignore if a newer request has been made
+          if (suggestionAbortRef.current?.signal.aborted) {
             return;
           }
-          
-          const data = await response.json() as { 
-            suggestedSurface?: SurfaceType | null; 
-            reason?: string; 
-          };
           
           if (data.suggestedSurface && data.suggestedSurface !== dismissedSuggestion) {
             // Check guest restrictions
@@ -139,9 +129,7 @@ export function useSmartInput({
             setSuggestedSurface(null);
           }
         } catch (error: any) {
-          if (error.name !== 'AbortError') {
-            console.error('Surface suggestion error:', error);
-          }
+          console.error('Surface suggestion error:', error);
           setSuggestedSurface(null);
         } finally {
           setIsFetchingSuggestion(false);

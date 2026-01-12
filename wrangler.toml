@@ -39,6 +39,16 @@ remote=true
 [ai]
 binding = "AI"
 
+# Cloudflare Queue for async PDF processing
+[[queues.producers]]
+queue = "pdf-processing-queue"
+binding = "PDF_QUEUE"
+
+[[queues.consumers]]
+queue = "pdf-processing-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+
 [observability]
 [observability.logs]
 enabled = true

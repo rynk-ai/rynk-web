@@ -22,6 +22,15 @@ import { getFaviconUrl, getDomainName } from "@/lib/types/citation"
 import type { StatusPill, StatusMetadata } from '@/lib/utils/stream-parser'
 import type { IndexingJob } from '@/lib/hooks/use-indexing-queue'
 
+// Server-side PDF job status (from /api/pdf/status)
+export interface PDFJob {
+  jobId: string
+  fileName: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  progress: number
+  error?: string
+}
+
 export interface ProcessingStage {
   id: 'files' | 'context' | 'search' | 'generate'
   label: string
@@ -29,6 +38,7 @@ export interface ProcessingStage {
   description?: string
   metadata?: StatusMetadata & {
     jobs?: IndexingJob[]
+    pdfJobs?: PDFJob[]  // Server-side PDF jobs
   }
 }
 
@@ -45,6 +55,7 @@ interface SearchResults {
 interface ProcessingTimelineProps {
   statusPills: StatusPill[]
   indexingJobs?: IndexingJob[]
+  pdfJobs?: PDFJob[]  // Server-side PDF processing jobs
   isStreaming: boolean
   hasContent: boolean
   searchResults?: SearchResults | null
@@ -55,6 +66,7 @@ interface ProcessingTimelineProps {
 function deriveStages(
   statusPills: StatusPill[],
   indexingJobs: IndexingJob[] = [],
+  pdfJobs: PDFJob[] = [],
   isStreaming: boolean,
   hasContent: boolean
 ): ProcessingStage[] {
@@ -73,22 +85,29 @@ function deriveStages(
   const hasBuiltContext = statusPills.some(s => s.status === 'building_context')
   const contextPill = statusPills.find(s => s.status === 'building_context')
   
-  // 1. Files stage - only show if there are indexing jobs
+  // 1. Files stage - show if there are indexing jobs OR PDF jobs
   const activeJobs = indexingJobs.filter(j => j.status !== 'completed' && j.status !== 'failed')
-  const hasFiles = indexingJobs.length > 0
+  const activePdfJobs = pdfJobs.filter(j => j.status !== 'completed' && j.status !== 'failed')
+  const hasFiles = indexingJobs.length > 0 || pdfJobs.length > 0
   
   if (hasFiles) {
-    const allComplete = indexingJobs.every(j => j.status === 'completed')
+    const allIndexingComplete = indexingJobs.every(j => j.status === 'completed')
+    const allPdfComplete = pdfJobs.every(j => j.status === 'completed')
+    const allComplete = allIndexingComplete && allPdfComplete
+    const totalFiles = indexingJobs.length + pdfJobs.length
+    const completedFiles = indexingJobs.filter(j => j.status === 'completed').length + 
+                          pdfJobs.filter(j => j.status === 'completed').length
     
     stages.push({
       id: 'files',
       label: allComplete ? 'Files processed' : 'Processing files',
-      status: allComplete ? 'complete' : (activeJobs.length > 0 ? 'active' : 'pending'),
-      description: `${indexingJobs.filter(j => j.status === 'completed').length}/${indexingJobs.length} files indexed`,
+      status: allComplete ? 'complete' : (activeJobs.length > 0 || activePdfJobs.length > 0 ? 'active' : 'pending'),
+      description: `${completedFiles}/${totalFiles} files indexed`,
       metadata: {
         jobs: indexingJobs,
-        filesProcessed: indexingJobs.filter(j => j.status === 'completed').length,
-        totalFiles: indexingJobs.length
+        pdfJobs: pdfJobs,
+        filesProcessed: completedFiles,
+        totalFiles: totalFiles
       }
     })
   }
@@ -195,6 +214,7 @@ function StageIcon({
 export const ProcessingTimeline = memo(function ProcessingTimeline({
   statusPills,
   indexingJobs = [],
+  pdfJobs = [],
   isStreaming,
   hasContent,
   searchResults,
@@ -202,8 +222,8 @@ export const ProcessingTimeline = memo(function ProcessingTimeline({
 }: ProcessingTimelineProps) {
   // Derive stages from status pills and indexing jobs
   const stages = useMemo(
-    () => deriveStages(statusPills, indexingJobs, isStreaming, hasContent),
-    [statusPills, indexingJobs, isStreaming, hasContent]
+    () => deriveStages(statusPills, indexingJobs, pdfJobs, isStreaming, hasContent),
+    [statusPills, indexingJobs, pdfJobs, isStreaming, hasContent]
   )
   
   // Only show stages that are active or complete (not pending/future stages)
@@ -282,6 +302,28 @@ export const ProcessingTimeline = memo(function ProcessingTimeline({
                   ))}
                 </>
               )}
+              
+              {/* Server-side PDF jobs */}
+              {stage.id === 'files' && stage.metadata?.pdfJobs && (
+                <>
+                  {stage.metadata.pdfJobs.map(job => (
+                    <ChainOfThoughtItem key={job.jobId} className="flex items-center gap-2">
+                      <PiFile className="size-3.5 shrink-0" />
+                      <span className="truncate">{job.fileName}</span>
+                      {job.status === 'completed' ? (
+                        <PiCheck className="size-3.5 text-primary shrink-0" />
+                      ) : job.status === 'failed' ? (
+                        <span className="text-destructive text-xs">Failed</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {job.progress}%
+                        </span>
+                      )}
+                    </ChainOfThoughtItem>
+                  ))}
+                </>
+              )}
+
               
               {/* Source pills for search stage */}
               {stage.id === 'search' && discoveredSources.length > 0 && (

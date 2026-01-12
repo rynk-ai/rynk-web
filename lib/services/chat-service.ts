@@ -163,13 +163,14 @@ export class ChatService {
                 conversationId, 
                 userId, 
                 messageContent,
-                project?.id
+                project?.id,
+                'user'  // Q&A PAIRS: Mark as user message
               ).catch(err => console.error('❌ [chatService] User message vectorization failed:', err))
             )
           } catch (e) {
             // Fallback: if waitUntil not available, still try fire-and-forget
             this.generateEmbeddingInBackground(
-              userMessage.id, conversationId, userId, messageContent, project?.id
+              userMessage.id, conversationId, userId, messageContent, project?.id, 'user'
             ).catch(err => console.error('❌ [chatService] User message vectorization failed:', err))
           }
 
@@ -200,8 +201,8 @@ export class ChatService {
           streamManager.sendStatus('building_context', 'Building context...')
           
           const [kbContextResult, buildContextResult] = await Promise.all([
-            // KB Context (with error handling)
-            knowledgeBase.getContext(
+            // KB Context with Small-to-Big retrieval (parent expansion)
+            knowledgeBase.getContextSmallToBig(
               conversationId, 
               messageContent,
               undefined, 
@@ -211,6 +212,7 @@ export class ChatService {
               console.error('❌ [chatService] Failed to retrieve KB context:', error)
               return '' // Return empty on error
             }),
+
             
             // Build legacy context
             this.buildContext(
@@ -536,6 +538,7 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
           })
 
           // Vectorize Assistant Response (Background with waitUntil)
+          // Q&A PAIRS: Link assistant response to user question via responseToId
           try {
             const cfContext = getCloudflareContext()
             cfContext.ctx.waitUntil(
@@ -544,13 +547,15 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
                 conversationId, 
                 userId, 
                 fullResponse,
-                project?.id
+                project?.id,
+                'assistant',  // Q&A PAIRS: Mark as assistant message
+                userMessage.id  // Q&A PAIRS: Link to user question
               ).catch(err => console.error('❌ [chatService] Assistant message vectorization failed:', err))
             )
           } catch (e) {
             // Fallback: if waitUntil not available, still try fire-and-forget
             this.generateEmbeddingInBackground(
-              assistantMessage.id, conversationId, userId, fullResponse, project?.id
+              assistantMessage.id, conversationId, userId, fullResponse, project?.id, 'assistant', userMessage.id
             ).catch(err => console.error('❌ [chatService] Assistant message vectorization failed:', err))
           }
 
@@ -1343,7 +1348,9 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
     conversationId: string, 
     userId: string, 
     content: string,
-    projectId?: string  // Accept projectId directly to avoid DB race condition
+    projectId?: string,
+    role?: 'user' | 'assistant',  // Q&A PAIRS: Track message role
+    responseToId?: string  // Q&A PAIRS: Link assistant responses to user questions
   ) {
     try {
       if (!content || !content.trim()) return
@@ -1358,10 +1365,12 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
         conversationId, 
         content, 
         vector,
-        projectId
+        projectId,
+        role,  // Q&A PAIRS: Pass role for filtering
+        responseToId  // Q&A PAIRS: Link to user question if this is assistant response
       )
       
-      console.log('✅ [chatService] Vectorized message:', { messageId, projectId: projectId || 'none' })
+      console.log('✅ [chatService] Vectorized message:', { messageId, role, responseToId: responseToId || 'none' })
     } catch (error) {
       console.error('❌ [chatService] Failed to generate embedding:', error)
       throw error  // Re-throw so caller can log it
@@ -1381,7 +1390,7 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
     
     // Get base URL from environment or use default
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
+      ? `https://${process.env.NEXT_PUBLIC_APP_URL}`
       : 'http://localhost:8788'
     
     // Remove leading slash if present to avoid double slashes

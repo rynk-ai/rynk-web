@@ -219,19 +219,20 @@ export const vectorDb = {
   },
 
   // 2. Knowledge Chunks
-async addKnowledgeChunk(data: { sourceId: string; content: string; vector: number[]; chunkIndex: number; metadata?: any }, options?: { waitForIndexing?: boolean }) {
+  // SMALL-TO-BIG: Updated to support parentId for child->parent expansion
+async addKnowledgeChunk(data: { sourceId: string; content: string; vector: number[]; chunkIndex: number; metadata?: any; parentId?: string }, options?: { waitForIndexing?: boolean }) {
   const db = getDB()
   const id = crypto.randomUUID()
 
-  // 1. Store content in D1 (no vector column)
+  // 1. Store content in D1 (with optional parentId for Small-to-Big)
   await db.prepare(`
-    INSERT INTO knowledge_chunks (id, sourceId, content, chunkIndex, metadata)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO knowledge_chunks (id, sourceId, content, chunkIndex, metadata, parentId)
+    VALUES (?, ?, ?, ?, ?, ?)
   `).bind(
-    id, data.sourceId, data.content, data.chunkIndex, JSON.stringify(data.metadata || {})
+    id, data.sourceId, data.content, data.chunkIndex, JSON.stringify(data.metadata || {}), data.parentId || null
   ).run()
 
-  console.log(`✅ [vectorDb] Stored chunk ${id} in D1 (sourceId: ${data.sourceId})`);
+  console.log(`✅ [vectorDb] Stored chunk ${id} in D1 (sourceId: ${data.sourceId}, parentId: ${data.parentId || 'none'})`);
 
   // 2. Store vector in Vectorize (required, not optional)
   const index = getCloudflareContext().env.VECTORIZE_INDEX;
@@ -240,10 +241,11 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
   }
 
   const vectorMetadata = {
-    type: 'knowledge_chunk',
+    type: data.parentId ? 'child_chunk' : 'knowledge_chunk',  // SMALL-TO-BIG: Mark as child if has parent
     sourceId: data.sourceId,
     chunkIndex: data.chunkIndex.toString(),
     content: data.content.substring(0, 800),
+    parentId: data.parentId || '',  // SMALL-TO-BIG: Store parentId for expansion
   };
 
   // console.log(`🧠 [vectorDb] Upserting to Vectorize: ID=${id}, SourceID=${data.sourceId}, VectorDim=${data.vector.length}`);
@@ -253,6 +255,7 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
     values: data.vector,
     metadata: vectorMetadata
   }]);
+
 
   // console.log(`✅ [vectorDb] Upserted vector to Vectorize for chunk ${id}`);
 
@@ -312,7 +315,58 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
     }))
   },
 
+  // --- SMALL-TO-BIG: Parent Chunks (D1 storage for large context) ---
+  
+  async addParentChunk(data: {
+    id: string,
+    sourceId: string,
+    content: string,
+    chunkIndex: number,
+    metadata?: any
+  }) {
+    const db = getDB()
+    const now = Date.now()
+    
+    await db.prepare(`
+      INSERT INTO parent_chunks (id, sourceId, content, chunkIndex, metadata, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      data.id,
+      data.sourceId,
+      data.content,
+      data.chunkIndex,
+      JSON.stringify(data.metadata || {}),
+      now
+    ).run()
+    
+    console.log(`✅ [vectorDb] Added parent chunk ${data.id} for source ${data.sourceId}`)
+    return data.id
+  },
+
+  async getParentChunk(parentId: string) {
+    const db = getDB()
+    const row = await db.prepare('SELECT * FROM parent_chunks WHERE id = ?').bind(parentId).first()
+    
+    if (!row) return null
+    
+    return {
+      ...row,
+      metadata: JSON.parse((row as any).metadata as string || '{}')
+    }
+  },
+
+  async getParentChunksForSource(sourceId: string) {
+    const db = getDB()
+    const results = await db.prepare('SELECT * FROM parent_chunks WHERE sourceId = ? ORDER BY chunkIndex ASC').bind(sourceId).all()
+    
+    return results.results.map((row: any) => ({
+      ...row,
+      metadata: JSON.parse(row.metadata as string || '{}')
+    }))
+  },
+
   // 3. Conversation Links
+
   async linkSourceToConversation(conversationId: string, sourceId: string, messageId?: string) {
     const db = getDB()
 
@@ -419,7 +473,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
   // Search across multiple sources (Vectorize-first)
   async searchKnowledgeBase(sourceIds: string[], queryVector: number[], options: { limit?: number, minScore?: number } = {}) {
-    const { limit = 10, minScore = 0.5 } = options
+    // SMALL-TO-BIG: Lower minScore for bge-base-en-v1.5 (scores typically 0.3-0.6)
+    const { limit = 10, minScore = 0.25 } = options
     console.log('🔍 [searchKnowledgeBase] Searching sources:', sourceIds.length, 'MinScore:', minScore);
 
     if (sourceIds.length === 0) return []
@@ -523,7 +578,9 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
     conversationId: string,
     content: string,
     vector: number[],
-    projectId?: string
+    projectId?: string,
+    role?: 'user' | 'assistant',  // Q&A PAIRS: Role for search filtering
+    responseToId?: string  // Q&A PAIRS: Link assistant responses to user questions
   ) {
     try {
       const index = getCloudflareContext().env.VECTORIZE_INDEX;
@@ -532,16 +589,19 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         return;
       }
 
-      console.log('🧠 [vectorDb] Upserting to Vectorize:', { messageId, conversationId, projectId });
+      console.log('🧠 [vectorDb] Upserting to Vectorize:', { messageId, conversationId, projectId, role, responseToId });
 
       await index.upsert([{
         id: messageId,
         values: vector,
         metadata: {
           conversationId: String(conversationId),
-          content: String(content || '').substring(0, 1000),
+          // SMALL-TO-BIG: Increased from 1000 to 2000 chars for better context
+          content: String(content || '').substring(0, 2000),
           type: 'message',
           projectId: String(projectId || 'none'),
+          role: role || 'user',  // Q&A PAIRS: Store role for filtering
+          responseToId: responseToId || '',  // Q&A PAIRS: Link to user question
           timestamp: Date.now().toString()
         }
       }]);
@@ -549,6 +609,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
       console.error('❌ [vectorDb] Failed to upsert to Vectorize:', error);
     }
   },
+
+
 
   async searchProjectMemory(
     projectId: string,
@@ -569,7 +631,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
       const { 
         limit = parseInt(process.env.PROJECT_MEMORY_LIMIT || '10'), 
-        minScore = parseFloat(process.env.PROJECT_MEMORY_MIN_SCORE || '0.4'), 
+        // SMALL-TO-BIG: Lower minScore for bge-base-en-v1.5
+        minScore = parseFloat(process.env.PROJECT_MEMORY_MIN_SCORE || '0.25'), 
         excludeConversationId,
         recencyWeight = parseFloat(process.env.RECENCY_WEIGHT || '0.3')
       } = options;
@@ -645,7 +708,8 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
         return [];
       }
 
-      const { limit = 10, minScore = 0.4 } = options;
+      // SMALL-TO-BIG: Lower minScore for bge-base-en-v1.5
+      const { limit = 10, minScore = 0.25 } = options;
 
       console.log('🧠 [vectorDb] Searching Conversation Memory:', { conversationId });
 

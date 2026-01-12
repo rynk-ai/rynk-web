@@ -11,6 +11,59 @@ export interface KnowledgeSource {
 }
 
 export class KnowledgeBaseService {
+
+  /**
+   * QUERY REWRITING: Contextualize follow-up questions
+   * "What about its population?" → "What is the population of Paris, France?"
+   */
+  async rewriteQueryForContext(
+    query: string,
+    recentMessages: { role: string; content: string }[]
+  ): Promise<string> {
+    // Skip rewriting if query seems self-contained (has specific nouns)
+    const hasSpecificContext = /\b(the|this|that|it|its|their)\b/i.test(query) === false
+    if (hasSpecificContext || recentMessages.length === 0) {
+      return query  // Already self-contained
+    }
+
+    try {
+      // Use last 4 messages for context (2 Q&A pairs)
+      const context = recentMessages.slice(-4).map(m => 
+        `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.substring(0, 300)}`
+      ).join('\n')
+
+      const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+      const aiProvider = getCloudflareAI()
+      
+      // Use fast model for query rewriting
+      const prompt = `Given this conversation context:
+${context}
+
+Rewrite this follow-up question to be self-contained and search-friendly.
+Only output the rewritten question, nothing else.
+
+Follow-up: ${query}
+Rewritten:`
+
+      // Use embeddings model's text capability or fall back to simple heuristic
+      // For now, use a simple heuristic approach to avoid extra LLM call
+      const lastAssistantMsg = recentMessages.filter(m => m.role === 'assistant').pop()
+      if (lastAssistantMsg) {
+        // Extract likely topic from last assistant message (first sentence)
+        const topicMatch = lastAssistantMsg.content.match(/^[^.!?]+[.!?]/)
+        if (topicMatch) {
+          const topic = topicMatch[0].substring(0, 100)
+          console.log('🔄 [KnowledgeBase] Query rewriting: adding context from last response')
+          return `${query} (context: ${topic})`
+        }
+      }
+      
+      return query
+    } catch (error) {
+      console.error('⚠️ [KnowledgeBase] Query rewriting failed:', error)
+      return query  // Return original on error
+    }
+  }
   
   /**
    * Ingest a source that has already been chunked (e.g. from frontend).
@@ -247,6 +300,95 @@ export class KnowledgeBaseService {
     } catch (error) {
       console.error('❌ [KnowledgeBase] Failed to get context:', error)
       // Return empty string instead of crashing
+      return ''
+    }
+  }
+
+  /**
+   * SMALL-TO-BIG: Retrieve context with parent expansion
+   * Searches child chunks for precision, returns parent chunks for rich context
+   */
+  async getContextSmallToBig(
+    conversationId: string, 
+    query: string, 
+    targetMessageId?: string,
+    projectId?: string,
+    precomputedQueryVector?: number[]
+  ): Promise<string> {
+    console.log('🔍 [KnowledgeBase] Getting Small-to-Big context for:', query.substring(0, 50))
+    
+    try {
+      // 1. Get all source IDs
+      const conversationSourceIds = await this.getActiveSourcesForPath(conversationId, targetMessageId)
+      let projectSourceIds: string[] = []
+      if (projectId) {
+        const projectSources = await vectorDb.getSourcesForProject(projectId)
+        projectSourceIds = projectSources.map((s: any) => s.sourceId)
+      }
+      const allSourceIds = Array.from(new Set([...conversationSourceIds, ...projectSourceIds]))
+      
+      if (allSourceIds.length === 0) {
+        console.log('⚠️ [KnowledgeBase] No active sources found')
+        return ''
+      }
+
+      // 2. Get query embedding
+      let queryVector: number[]
+      if (precomputedQueryVector && precomputedQueryVector.length > 0) {
+        queryVector = precomputedQueryVector
+      } else {
+        const { getCloudflareAI } = await import('@/lib/services/cloudflare-ai')
+        const aiProvider = getCloudflareAI()
+        queryVector = await aiProvider.getEmbeddings(query)
+      }
+
+      // 3. Search for child chunks (small, precise embeddings)
+      const childChunks = await vectorDb.searchKnowledgeBase(allSourceIds, queryVector, { limit: 20, minScore: 0.2 })
+      console.log(`📍 [KnowledgeBase] Found ${childChunks.length} matching child chunks`)
+
+      if (childChunks.length === 0) return ''
+
+      // 4. SMALL-TO-BIG: Expand children to parents
+      const parentContents = new Map<string, { content: string; score: number }>()
+      const directContents: { content: string; score: number }[] = []
+
+      for (const chunk of childChunks) {
+        const parentId = (chunk as any).metadata?.parentId || (chunk as any).parentId
+        
+        if (parentId && parentId !== '') {
+          // Child chunk with parent - fetch parent if not already fetched
+          if (!parentContents.has(parentId)) {
+            const parent = await vectorDb.getParentChunk(parentId)
+            if (parent) {
+              parentContents.set(parentId, { 
+                content: (parent as any).content, 
+                score: chunk.score 
+              })
+              console.log(`📦 [KnowledgeBase] Expanded child to parent: ${parentId}`)
+            }
+          }
+        } else {
+          // Legacy chunk without parent - use directly
+          directContents.push({ content: chunk.content, score: chunk.score })
+        }
+      }
+
+      // 5. Combine parent and direct content, sorted by score
+      const allContents = [
+        ...Array.from(parentContents.values()),
+        ...directContents
+      ].sort((a, b) => b.score - a.score)
+
+      // 6. Format context with better structure
+      const contextParts = allContents.slice(0, 10).map((item, i) => {
+        return `[Knowledge Context ${i + 1}]\n${item.content}`
+      })
+
+      console.log(`✅ [KnowledgeBase] Small-to-Big: ${parentContents.size} parents + ${directContents.length} direct chunks`)
+      return contextParts.join('\n\n---\n\n')
+      
+    } catch (error) {
+      console.error('❌ [KnowledgeBase] Failed to get Small-to-Big context:', error)
       return ''
     }
   }
