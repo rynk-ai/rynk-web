@@ -402,9 +402,11 @@ export function useChatController({
                   type: file.type,
                   size: file.size,
                   isPDF,  // Was isLargePDF - now all PDFs are indexed
+                  useRAG: isPDF,  // Signal that PDF content is available via RAG/KB
                 },
                 serverProcessingPromise,
               };
+
             } catch (e) {
               console.error("Upload failed for", file.name, e);
               return null;
