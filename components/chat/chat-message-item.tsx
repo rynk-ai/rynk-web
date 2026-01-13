@@ -39,7 +39,10 @@ import { AssistantSkeleton } from "@/components/ui/assistant-skeleton";
 import { cn } from "@/lib/utils";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 import { ReasoningDisplay } from "@/components/chat/reasoning-display";
+import { ProcessingTimeline } from "@/components/chat/processing-timeline";
+import { usePdfJobs } from "@/lib/hooks/use-pdf-jobs";
 import { SourcesFooter } from "@/components/chat/sources-footer";
+
 import { SourceImages, type SourceImage } from "@/components/chat/source-images";
 import {
   formatCitationsFromSearchResults,
@@ -542,8 +545,33 @@ export const ChatMessageItem = memo(
         !hasReasoning;
 
       if (showSkeleton) {
-        return <AssistantSkeleton />;
+        // Check for active PDF jobs - show ProcessingTimeline with progress
+        const PdfProgressSkeleton = () => {
+          const { jobs: pdfJobs } = usePdfJobs();
+          const hasActivePdfJobs = pdfJobs.some(j => j.status === 'processing' || j.status === 'queued');
+          
+          if (hasActivePdfJobs) {
+            return (
+              <div className="w-full px-3">
+                <div className="py-0.5 mx-auto flex w-auto max-w-3xl flex-col gap-0 px-0 items-start">
+                  <ProcessingTimeline
+                    statusPills={[]}
+                    pdfJobs={pdfJobs}
+                    indexingJobs={[]}
+                    isStreaming={false}
+                    hasContent={false}
+                  />
+                </div>
+              </div>
+            );
+          }
+          
+          return <AssistantSkeleton />;
+        };
+        
+        return <PdfProgressSkeleton />;
       }
+
 
       return (
         <div className="w-full px-3 animate-in-up">
