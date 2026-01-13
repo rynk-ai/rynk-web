@@ -62,9 +62,9 @@
         --muted: 0 0% 96%;
         --muted-foreground: 0 0% 45%;
 
-        /* ====== ACCENT - Swiss Blue ====== */
-        --accent: 221 83% 53%;
-        --accent-foreground: 0 0% 100%;
+        /* ====== ACCENT - Neutral Hover ====== */
+        --accent: 0 0% 94%;
+        --accent-foreground: 0 0% 6%;
 
         /* ====== DESTRUCTIVE ====== */
         --destructive: 0 84% 60%;
@@ -124,8 +124,8 @@
         --muted-foreground: 0 0% 55%;
 
         /* ====== ACCENT ====== */
-        --accent: 225 70% 60%;
-        --accent-foreground: 0 0% 100%;
+        --accent: 0 0% 12%;
+        --accent-foreground: 0 0% 94%;
 
         /* ====== BORDERS ====== */
         --border: 0 0% 14%;
@@ -193,7 +193,8 @@
     }
 
     ::selection {
-        @apply bg-foreground text-background;
+        background-color: #B4D5FE; /* Buildspace-ish Blue */
+        color: #000000;
     }
 }
 
