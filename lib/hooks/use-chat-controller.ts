@@ -251,11 +251,14 @@ export function useChatController({
         let effectiveConversationId = currentConversationId;
 
         if (files.length > 0) {
-          const hasLargePDFs = files.some(
-            (f) => f.type === "application/pdf" && f.size >= 500 * 1024,
+          // Check if ANY PDFs exist (not just large ones) - small PDFs also need processing
+          const hasPDFs = files.some(
+            (f) => f.type === "application/pdf",
           );
 
-          if (hasLargePDFs && !effectiveConversationId) {
+          // Create conversation if we have PDFs and no existing conversation
+          if (hasPDFs && !effectiveConversationId) {
+
             console.log("🆕 [Controller] Creating new conversation for PDF indexing...");
             try {
               const newConversationId = await createConversation();
