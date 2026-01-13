@@ -39,7 +39,6 @@ import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
 import { PiPlus, PiMagnifyingGlass, PiCaretDown as ChevronDown } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
-import { SavedSurfacesPill } from "@/components/surfaces";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
@@ -107,8 +106,7 @@ const ChatContent = memo(
     const editState = useMessageEdit();
     // const streamingState = useStreaming(); // REMOVED
 
-    // Surface mode state for prompt input dropdown
-    const [surfaceMode, setSurfaceMode] = useState<'chat' | 'learning' | 'guide' | 'research'>('chat');
+
 
     // Keyboard awareness for mobile
     const keyboardHeight = useKeyboardAwarePosition();
@@ -146,6 +144,9 @@ const ChatContent = memo(
       }[]
     >([]);
     
+    // Deep Research State
+    const [isDeepResearch, setIsDeepResearch] = useState(false);
+
     // Indexing Queue (Unified) - Moved up for Controller
     const indexingState = useIndexingQueue(); 
     const { jobs } = indexingState;
@@ -173,8 +174,7 @@ const ChatContent = memo(
       }
     } = useChatController({
       chatId,
-      surfaceMode,
-      setSurfaceMode,
+
       localContext,
       setLocalContext,
       setQuotedMessage,
@@ -950,13 +950,7 @@ const ChatContent = memo(
             >
               <div className="relative h-full flex flex-col">
 
-                {/* Saved Surfaces Indicator - Show when conversation has saved surfaces */}
-                {currentConversationId  && (
-                  <SavedSurfacesPill
-                    conversationId={currentConversationId}
-                    surfaceStates={currentConversation?.surfaceStates}
-                  />
-                )}
+                {/* Saved Surfaces Indicator - REMOVED */}
 
                 <div className="flex-1 relative">
                   {/* Tag Section - Show when conversation is loaded */}
@@ -1085,8 +1079,8 @@ const ChatContent = memo(
                   // Quote props
                   quotedMessage={quotedMessage}
                   onClearQuote={handleClearQuote}
-                  surfaceMode={surfaceMode}
-                  onSurfaceModeChange={(mode) => setSurfaceMode(mode as 'chat' | 'learning' | 'guide' | 'research')}
+                  isDeepResearch={isDeepResearch}
+                  onDeepResearchChange={setIsDeepResearch} 
                   className={cn(
                     "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                     !currentConversationId

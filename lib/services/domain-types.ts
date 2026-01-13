@@ -306,38 +306,10 @@ export function getDisclaimerText(domain: Domain): string {
  */
 export type SurfaceType = 
   | 'chat'         // 💬 Default conversational response
-  | 'learning'     // 📚 Course with chapters (legacy)
-  | 'course'       // 🎓 Education Machine - comprehensive courses
   | 'guide'        // ✅ Step-by-step instructions
   | 'research'     // 🔬 Evidence cards, citations
-  | 'wiki'         // 📖 Wikipedia-style structured info
-  | 'quiz'         // 🎯 Interactive Q&A
-  | 'comparison'   // ⚖️ Side-by-side analysis
-  | 'flashcard'    // 🃏 Study cards
-  | 'timeline'     // 📅 Chronological events
-  | 'events'       // 📰 News cards
-  | 'professional' // 💼 Executive summary, data viz
-  | 'creative'     // ✨ Canvas, variations
-  | 'finance'      // 📈 Financial dashboard, charts
 
-/**
- * Metadata for Learning surface (course structure)
- */
-export interface LearningMetadata {
-  type: 'learning'
-  title: string
-  description: string
-  depth: 'basic' | 'intermediate' | 'advanced' | 'expert'
-  estimatedTime: number // minutes
-  prerequisites: string[]
-  chapters: {
-    id: string
-    title: string
-    description: string
-    estimatedTime: number
-    status: 'locked' | 'available' | 'in-progress' | 'completed'
-  }[]
-}
+
 
 /**
  * Metadata for Guide surface (sequential checklist)
@@ -365,267 +337,6 @@ export interface GuideMetadata {
  */
 export interface ChatMetadata {
   type: 'chat'
-}
-
-/**
- * Metadata for Quiz surface
- */
-export interface QuizMetadata {
-  type: 'quiz'
-  topic: string
-  description: string
-  questionCount: number
-  difficulty: 'easy' | 'medium' | 'hard'
-  format: 'multiple-choice' | 'true-false' | 'open-ended' | 'mixed'
-  questions: {
-    id: string
-    question: string
-    options?: string[]          // For multiple-choice
-    correctAnswer: string | number  // Index for MC, string for open-ended
-    explanation: string
-  }[]
-}
-
-/**
- * Metadata for Comparison surface - Decision Dashboard Style
- */
-export interface ComparisonMetadata {
-  type: 'comparison'
-  title: string
-  description: string
-  lastUpdated?: string
-  targetAudience?: string
-  
-  // Quick verdict section - visible at top
-  verdict?: {
-    winnerId: string
-    bottomLine: string  // 1-2 sentence summary
-    confidence: 'high' | 'medium' | 'situational'
-  }
-  
-  // Scenario-based recommendations ("Best for X")
-  scenarios?: {
-    label: string        // e.g. "Best for startups", "Best value"
-    itemId: string
-    reason: string
-  }[]
-  
-  items: {
-    id: string
-    name: string
-    tagline?: string     // What it's known for
-    description: string
-    pricing?: string     // Price or pricing model
-    idealFor?: string[]  // Who should choose this
-    notIdealFor?: string[]  // When not to choose this
-    uniqueFeatures?: string[]  // What sets it apart
-    pros: string[]
-    cons: string[]
-    scores?: Record<string, number>  // criterionId -> 0-100
-  }[]
-  
-  criteria: {
-    id: string
-    name: string
-    weight: number  // 0-1 importance
-    description?: string
-    category?: 'pricing' | 'performance' | 'features' | 'usability' | 'support' | 'other'
-    winnerId?: string | 'tie'  // Which item wins on this criterion
-    analysis?: string  // 2-3 sentences comparing on this criterion
-  }[]
-  
-  recommendation?: {
-    itemId: string
-    reason: string
-  }
-  
-  // Web search sources
-  sources?: {
-    url: string
-    title: string
-    snippet?: string
-  }[]
-}
-
-/**
- * Metadata for Flashcard surface
- */
-export interface FlashcardMetadata {
-  type: 'flashcard'
-  topic: string
-  description: string
-  cardCount: number
-  cards: {
-    id: string
-    front: string    // Question or term
-    back: string     // Answer or definition
-    hints?: string[]
-    difficulty: 'easy' | 'medium' | 'hard'
-  }[]
-}
-
-/**
- * Metadata for Timeline surface
- */
-export interface TimelineMetadata {
-  type: 'timeline'
-  title: string
-  description: string
-  startDate?: string
-  endDate?: string
-  events: {
-    id: string
-    date: string
-    title: string
-    description: string
-    category?: string
-    importance: 'minor' | 'moderate' | 'major'
-  }[]
-}
-
-/**
- * Metadata for Wiki surface (encyclopedic reference)
- */
-export interface WikiMetadata {
-  type: 'wiki'
-  title: string
-  summary: string  // 1-2 sentence overview
-  infobox: {
-    image?: string
-    facts: { label: string; value: string }[]
-  }
-  sections: {
-    id: string
-    heading: string
-    content: string  // Markdown content
-    subsections?: { 
-      id: string
-      heading: string
-      content: string 
-    }[]
-    // Per-section sources from web search
-    citations?: Array<{ url: string; title: string; snippet?: string }>
-    images?: Array<{ url: string; title: string; sourceUrl?: string; sourceTitle?: string }>
-    // Generation status for parallel generation
-    status?: 'pending' | 'generating' | 'completed' | 'failed'
-    error?: string
-  }[]
-  relatedTopics: string[]
-  references: { 
-    id: string
-    title: string
-    url?: string 
-  }[]
-  availableImages?: Array<{ url: string; title: string; sourceUrl?: string; sourceTitle?: string }>
-  categories: string[]
-  lastUpdated?: string
-}
-
-/**
- * Metadata for Finance surface (comprehensive financial analysis)
- */
-export interface FinanceMetadata {
-  type: 'finance'
-  query: string
-  generatedAt: number
-  
-  // Asset Info
-  asset: {
-    symbol: string
-    name: string
-    type: 'stock' | 'crypto' | 'index' | 'etf' | 'commodity'
-    logo?: string
-    sector?: string
-    industry?: string
-  }
-  
-  // Live Data (cached from APIs)
-  liveData: {
-    price: number
-    change24h: number
-    changePercent24h: number
-    high24h: number
-    low24h: number
-    volume: number
-    marketCap: number
-    lastUpdated: string
-  }
-  
-  // LLM Executive Summary
-  summary: {
-    headline: string
-    analysis: string
-    sentiment: 'bullish' | 'neutral' | 'bearish'
-  }
-  
-  // Fundamentals
-  fundamentals: {
-    available: boolean
-    verdict: 'undervalued' | 'fairly-valued' | 'overvalued'
-    metrics: {
-      name: string
-      value: string
-      benchmark?: string
-      signal: 'positive' | 'neutral' | 'negative'
-      explanation: string
-    }[]
-    analysis: string
-  }
-  
-  // Technicals
-  technicals: {
-    trend: 'strong-uptrend' | 'uptrend' | 'sideways' | 'downtrend' | 'strong-downtrend'
-    support: { level: number; strength: 'weak' | 'moderate' | 'strong' }[]
-    resistance: { level: number; strength: 'weak' | 'moderate' | 'strong' }[]
-    indicators: {
-      name: string
-      value: string
-      signal: 'buy' | 'neutral' | 'sell'
-      explanation: string
-    }[]
-    patterns: { name: string; implication: string }[]
-    analysis: string
-  }
-  
-  // Market Cycles
-  cycles: {
-    phase: 'accumulation' | 'markup' | 'distribution' | 'decline'
-    sentiment: number  // 0-100
-    sentimentLabel: string
-    macroContext: string
-    seasonality?: string
-  }
-  
-  // Research
-  research: {
-    thesis: {
-      bull: string[]
-      bear: string[]
-    }
-    risks: { risk: string; severity: 'low' | 'medium' | 'high' }[]
-    catalysts: { event: string; date?: string; impact: string }[]
-    comparables: { symbol: string; name: string; note: string }[]
-  }
-  
-  // News (from web search)
-  news: {
-    headlines: { title: string; source: string; url: string; date: string }[]
-    summary: string
-  }
-  
-  // Generic Dashboard fallback
-  isGeneric: boolean
-  genericData?: {
-    indices: { name: string; symbol: string; value: number; change: number }[]
-    topGainers: { symbol: string; name: string; change: number }[]
-    topLosers: { symbol: string; name: string; change: number }[]
-    topCryptos: { symbol: string; name: string; price: number; change: number }[]
-    trending: string[]
-    // Enhanced fallback context
-    searchedTerms?: string[]
-    partialMatches?: { symbol: string; name: string; type: string }[]
-    failureReason?: string
-  }
 }
 
 /**
@@ -707,190 +418,11 @@ export interface ResearchMetadata {
 // ============================================================================
 
 /**
- * Subject interpretation option shown to user before generating course
- */
-export interface SubjectInterpretation {
-  id: string
-  title: string
-  description: string
-  approach: 'conceptual' | 'practical' | 'theoretical' | 'applied' | 'historical'
-  targetAudience: string
-  estimatedDuration: string  // e.g., "4-6 hours"
-  suggestedPrerequisites: string[]
-  keyTopics: string[]  // Main areas that will be covered
-}
-
-/**
- * Academic citation from external sources
- */
-export interface AcademicCitation {
-  id: string
-  source: 'semantic_scholar' | 'crossref' | 'pubmed' | 'google_books' | 
-          'open_library' | 'hathi_trust' | 'wikidata' | 'exa' | 'wikipedia'
-  title: string
-  authors?: string[]
-  year?: number
-  doi?: string
-  url: string
-  abstract?: string
-  citationCount?: number
-  relevanceScore?: number
-  snippet?: string  // Relevant excerpt
-}
-
-/**
- * Individual section within a chapter
- */
-export interface CourseSection {
-  id: string
-  title: string
-  description: string
-  estimatedTime: number  // minutes
-  content?: string  // Generated on-demand, markdown
-  citations: AcademicCitation[]
-  status: 'pending' | 'generating' | 'ready'
-  furtherReading?: Array<{ title: string; url: string; type: 'paper' | 'book' | 'article' }>
-}
-
-/**
- * Chapter containing multiple sections
- */
-export interface CourseChapter {
-  id: string
-  title: string
-  description: string
-  estimatedTime: number  // total minutes
-  learningObjectives: string[]
-  sections: CourseSection[]
-  status: 'locked' | 'available' | 'in-progress' | 'completed'
-  assessmentType?: 'quiz' | 'short_answer' | 'coding' | 'project' | 'mixed'
-}
-
-/**
- * Unit containing multiple chapters
- */
-export interface CourseUnit {
-  id: string
-  title: string
-  description: string
-  chapters: CourseChapter[]
-  milestone?: string  // What learner achieves after completing this unit
-}
-
-/**
- * Badge earned through course activities
- */
-export interface CourseBadge {
-  id: string
-  name: string
-  description: string
-  icon: string  // emoji or icon name
-  tier: 'bronze' | 'silver' | 'gold' | 'platinum'
-  earnedAt?: number
-}
-
-/**
- * Assessment result for a chapter
- */
-export interface CourseAssessmentResult {
-  chapterId: string
-  assessmentType: 'quiz' | 'short_answer' | 'coding' | 'project' | 'mixed'
-  score?: number  // 0-100 for graded
-  passed: boolean
-  completedAt: number
-  answers?: Record<string, any>  // Question ID -> Answer
-  feedback?: string  // AI-generated feedback
-}
-
-/**
- * User's progress through a course
- */
-export interface CourseProgress {
-  // Current position
-  currentUnitIndex: number
-  currentChapterIndex: number
-  currentSectionIndex: number
-  
-  // Completion tracking
-  completedSections: string[]  // Section IDs
-  completedChapters: string[]  // Chapter IDs
-  completedUnits: string[]     // Unit IDs
-  
-  // Generated content cache
-  sectionContent: Record<string, string>  // Section ID -> Content
-  sectionQuickChecks?: Record<string, any[]> // Section ID -> QuickCheckQuestion[]
-  
-  // Assessment tracking
-  assessmentResults: CourseAssessmentResult[]
-  
-  // Gamification - Streak is a MUST
-  streak: {
-    currentStreak: number
-    longestStreak: number
-    lastActivityDate: string  // ISO date string
-  }
-  xp: number
-  level: number
-  badges: CourseBadge[]
-  
-  // Bookmarks and navigation
-  bookmarks: Array<{ sectionId: string; note?: string; createdAt: number }>
-  lastPosition: { unitId: string; chapterId: string; sectionId: string }
-  
-  // Time tracking
-  totalTimeSpent: number  // minutes
-  startedAt: number
-  lastActivityAt: number
-}
-
-/**
- * Metadata for Course surface (Education Machine)
- */
-export interface CourseMetadata {
-  type: 'course'
-  title: string
-  subtitle?: string
-  description: string
-  
-  // Selected subject interpretation
-  subject: SubjectInterpretation
-  
-  // Hierarchical structure: Units > Chapters > Sections
-  units: CourseUnit[]
-  
-  // Primary academic sources backing this course
-  primarySources: AcademicCitation[]
-  
-  // Course metadata
-  totalEstimatedTime: number  // minutes
-  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert'
-  prerequisites: string[]
-  learningOutcomes: string[]
-  
-  // Stats
-  totalUnits: number
-  totalChapters: number
-  totalSections: number
-  
-  // Generation metadata
-  generatedAt: number
-  lastUpdated: number
-}
-
-/**
  * Union type for all surface metadata
  */
 export type SurfaceMetadata = 
-  | LearningMetadata 
   | GuideMetadata 
-  | QuizMetadata 
-  | ComparisonMetadata
-  | FlashcardMetadata
-  | TimelineMetadata
-  | WikiMetadata
-  | FinanceMetadata
   | ResearchMetadata
-  | CourseMetadata
   | ChatMetadata
 
 /**
@@ -901,37 +433,13 @@ export interface SurfaceState {
   metadata: SurfaceMetadata
   createdAt: number
   updatedAt: number
-  // Learning-specific state
-  learning?: {
-    currentChapter: number
-    completedChapters: number[]
-    chaptersContent: Record<number, string>
-    notes: Array<{ chapterId: number; content: string; createdAt: number }>
-  }
-  // Guide-specific state (sequential checklist)
+
   guide?: {
     currentCheckpoint: number          // Index of current checkpoint
     completedCheckpoints: number[]     // Completed checkpoint indices
     checkpointContent: Record<number, string>  // Generated "Learn more" content
   }
-  // Quiz-specific state
-  quiz?: {
-    currentQuestion: number
-    answers: Record<number, string | number>  // questionIndex -> answer
-    correctCount: number
-    incorrectCount: number
-    completed: boolean
-    startedAt: number
-    completedAt?: number
-  }
-  // Flashcard-specific state
-  flashcard?: {
-    currentCard: number
-    knownCards: number[]     // Indices of cards marked as known
-    unknownCards: number[]   // Indices of cards marked as need review
-    completed: boolean
-    shuffleOrder?: number[]  // Custom order if shuffled
-  }
+
   // Research-specific state
   research?: {
     expandedSections: string[]      // IDs of expanded sections
@@ -946,8 +454,7 @@ export interface SurfaceState {
       message: string
     }
   }
-  // Course-specific state (Education Machine)
-  course?: CourseProgress
+
   // Available images from web search (for hero display and inline embedding)
   availableImages?: Array<{
     url: string
@@ -986,13 +493,29 @@ export interface MessageSurfaceState {
   // Available versions for this message
   versions: {
     chat: { content: string; generated: true }
-    learning?: { generated: boolean; state: SurfaceState }
     guide?: { generated: boolean; state: SurfaceState }
-    quiz?: { generated: boolean; state: SurfaceState }
   }
   // Currently displayed version
   activeVersion: SurfaceType
   // Version currently being generated (null if none)
   generatingVersion: SurfaceType | null
+}
+
+// ============================================================================
+// ACADEMIC SOURCES
+// ============================================================================
+
+export interface AcademicCitation {
+  id: string
+  source: 'semantic_scholar' | 'crossref' | 'open_library' | 'wikidata' | 'wikipedia' | 'pubmed' | 'google_books' | 'hathi_trust' | 'exa'
+  title: string
+  authors?: string[]
+  year?: number
+  doi?: string
+  url?: string
+  abstract?: string
+  snippet?: string
+  citationCount?: number
+  relevanceScore?: number
 }
 

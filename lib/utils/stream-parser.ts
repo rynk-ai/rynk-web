@@ -19,6 +19,8 @@ export interface StatusPill {
     | "searching"
     | "reading_sources"
     | "synthesizing"
+    | "planning"       // Deep Research
+    | "researching"    // Deep Research
     | "complete";
   message: string;
   timestamp: number;

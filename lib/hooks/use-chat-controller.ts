@@ -18,14 +18,11 @@ import {
   uploadPart as uploadPartAction,
   completeMultipartUpload as completeMultipartUploadAction,
 } from "@/app/actions";
-import { detectSurfaces } from "@/lib/services/surface-detector";
 import { usePdfJobs } from "@/lib/hooks/use-pdf-jobs";
 import type { PDFJob } from "@/components/chat/processing-timeline";
 
 interface UseChatControllerProps {
   chatId?: string;
-  surfaceMode: 'chat' | 'learning' | 'guide' | 'research';
-  setSurfaceMode: (mode: 'chat' | 'learning' | 'guide' | 'research') => void;
   localContext: {
     type: "conversation" | "folder";
     id: string;
@@ -46,8 +43,6 @@ interface UseChatControllerProps {
 
 export function useChatController({
   chatId,
-  surfaceMode,
-  setSurfaceMode,
   localContext,
   setLocalContext,
   setQuotedMessage,
@@ -177,7 +172,7 @@ export function useChatController({
   // --- Handlers ---
 
   const handleSubmit = useCallback(
-    async (text: string, files: File[]) => {
+    async (text: string, files: File[], options?: { deepResearch?: boolean }) => {
       if (!text.trim() && files.length === 0) return;
 
       setIsSending(true);
@@ -429,13 +424,13 @@ export function useChatController({
             await Promise.all(serverPromises);
             console.log("✅ [Controller] Server PDF processing complete");
           }
-
         }
 
         // 3. Send Chat Request
+        const chatOptions = { deepResearch: options?.deepResearch };
         isCreatingConversationRef.current = !currentConversationId;
 
-        const result = await sendChatRequestRef.current(
+        const result = await sendChatRequest(
           text,
           uploadedAttachments,
           referencedConversationsList,
@@ -443,6 +438,7 @@ export function useChatController({
           effectiveConversationId || undefined,
           tempUserMessageId,
           tempAssistantMessageId,
+          chatOptions // Pass options
         );
 
         if (!result) {
@@ -450,12 +446,11 @@ export function useChatController({
           removeMessageRef.current(tempAssistantMessageId);
           return;
         }
-
         const {
-          streamReader,
           conversationId,
           userMessageId,
           assistantMessageId,
+          streamReader
         } = result;
 
         console.log("📦 [Controller] Got result from sendChatRequest", {
@@ -471,32 +466,10 @@ export function useChatController({
         ) {
           console.log("🆕 [Controller] New conversation created, navigating:", conversationId);
           
-          if (surfaceMode !== 'chat') {
-            console.log(`🎯 [Controller] Surface mode "${surfaceMode}" selected, navigating to surface`);
-            const query = encodeURIComponent(text.slice(0, 500));
-            // Surface routes are typically /surface/..., but for projects might be different?
-            // Assuming surface routes are global for now, or we might need surfaceRoutePrefix too.
-            // But let's stick to /surface for now as it seems global.
-            router.push(`/surface/${surfaceMode}/${conversationId}?q=${query}`);
-            setSurfaceMode('chat');
-            return;
-          } else {
-            isCreatingConversationRef.current = true;
-            router.push(`${routePrefix}?id=${encodeURIComponent(conversationId)}`);
-          }
+          isCreatingConversationRef.current = true;
+          router.push(`${routePrefix}?id=${encodeURIComponent(conversationId)}`);
         }
         
-        if (surfaceMode !== 'chat' && currentConversationId) {
-            console.log(`🎯 [Controller] Surface mode "${surfaceMode}" selected mid-conversation, navigating to surface`);
-            const targetConversationId = conversationId || currentConversationId;
-            const query = encodeURIComponent(text.slice(0, 500));
-            router.push(`/surface/${surfaceMode}/${targetConversationId}?q=${query}`);
-            setSurfaceMode('chat');
-            removeMessageRef.current(tempUserMessageId);
-            removeMessageRef.current(tempAssistantMessageId);
-            return;
-        }
-
         // Replace optimistic messages with real ones
         if (userMessageId && userMessageId !== tempUserMessageId) {
           const realUserMessage = {
@@ -545,49 +518,6 @@ export function useChatController({
           
           setIsSending(false);
 
-          // 🚀 Trigger Surface Detection (Background)
-          if (assistantMessageId && fullContent && fullContent.length > 200) {
-            // Determine user query for context
-            const userQuery = text; 
-            
-            detectSurfaces({
-                content: fullContent,
-                messageId: assistantMessageId,
-                role: 'assistant',
-                userQuery: userQuery
-            }).then(async (surfaces) => {
-                if (surfaces && surfaces.length > 0) {
-                    console.log('✨ [Controller] Detected surfaces:', surfaces);
-                    
-                    // 1. Update Local State
-                    // We need to fetch fresh message state as refs might be stale? 
-                    // No, messageStateRef is stable. But we need to find the message in the current list.
-                    const currentMsg = messageStateRef.current.messages.find(m => m.id === assistantMessageId);
-                    const currentMetadata = currentMsg?.reasoning_metadata || { 
-                          statusPills: statusPillsRef.current, 
-                          searchResults: searchResultsRef.current 
-                    };
-                    
-                    const newMetadata = {
-                        ...currentMetadata,
-                        detectedSurfaces: surfaces
-                    };
-
-                    messageStateRef.current.updateMessage(assistantMessageId, {
-                        reasoning_metadata: newMetadata
-                    });
-
-                    // 2. Persist to Server
-                    try {
-                        await updateMessage(assistantMessageId, {
-                            reasoning_metadata: newMetadata
-                        });
-                    } catch (err) {
-                        console.error('❌ [Controller] Failed to persist surfaces:', err);
-                    }
-                }
-            });
-          }
         } catch (err) {
           console.error("❌ [Controller] Error reading stream:", err);
           setIsSending(false);
@@ -606,13 +536,9 @@ export function useChatController({
       localContext,
       reasoningMode,
       router,
-      surfaceMode,
-      setSurfaceMode,
       setLocalContext,
       setQuotedMessage,
       setStatusPills,
-      setSearchResults,
-      setContextCards,
       setSearchResults,
       setContextCards,
       // streamingState removed dep

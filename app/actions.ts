@@ -431,8 +431,7 @@ function checkRateLimit(identifier: string): boolean {
 }
 
 const VALID_SURFACE_TYPES = [
-  'chat', 'learning', 'guide', 'quiz', 'comparison',
-  'flashcard', 'timeline', 'wiki', 'finance', 'research'
+  'chat', 'guide', 'research'
 ] as const
 
 type SurfaceSuggestionType = typeof VALID_SURFACE_TYPES[number]
@@ -488,26 +487,13 @@ export async function suggestSurface(query: string): Promise<SurfaceSuggestionRe
 
 Available formats:
 - "chat" - General conversation, opinions, quick questions
-- "learning" - Educational courses with chapters, structured curriculum
 - "guide" - Step-by-step instructions, how-to tutorials
-- "quiz" - Test knowledge, practice questions
-- "comparison" - Compare 2+ things side-by-side (A vs B)
-- "flashcard" - Memorization, study cards
-- "timeline" - Historical events, chronological sequences
-- "wiki" - Encyclopedia-style comprehensive overview
-- "finance" - Stock prices, crypto, market data
 - "research" - Deep-dive analysis with citations
 
 Respond ONLY with JSON:
 {"surface": "type", "confidence": "high|medium|low", "reason": "brief 5-word reason"}
 
 Rules:
-- If query mentions "compare", "vs", "versus", "or which" → comparison
-- If query asks for price/stock/crypto → finance  
-- If query starts with "teach me", "learn", "explain" → learning or wiki
-- If query has "quiz", "test me", "assess" → quiz
-- If query has "timeline", "history of", "chronology" → timeline
-- If query has "flashcard", "memorize" → flashcard
 - If query has "how to", "step by step", "guide" → guide
 - If unclear or simple question → chat (default)
 - confidence: high = clear match, medium = reasonable guess, low = defaulting`

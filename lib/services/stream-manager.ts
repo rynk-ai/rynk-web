@@ -10,7 +10,7 @@ export interface StatusMetadata {
 
 export interface StatusUpdate {
   type: 'status'
-  status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete' | 'error'
+  status: 'analyzing' | 'planning' | 'researching' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete' | 'error'
   message: string
   timestamp: number
   metadata?: StatusMetadata

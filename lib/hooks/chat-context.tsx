@@ -38,7 +38,8 @@ interface ChatContextValue {
     referencedFolders?: { id: string; name: string }[],
     conversationIdParam?: string,
     userMessageIdParam?: string,
-    assistantMessageIdParam?: string
+    assistantMessageIdParam?: string,
+    options?: { deepResearch?: boolean }
   ) => Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>
     conversationId: string
@@ -90,7 +91,7 @@ interface ChatContextValue {
   reasoningMode: 'auto' | 'on' | 'online' | 'off'
   toggleReasoningMode: () => void
   statusPills: Array<{
-    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
+    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'planning' | 'researching' | 'complete'
     message: string
     timestamp: number
     metadata?: {
@@ -113,7 +114,7 @@ const ChatContext = createContext<ChatContextValue | null>(null)
 
 // Type for status pills
 type StatusPill = {
-  status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
+  status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'planning' | 'researching' | 'complete'
   message: string
   timestamp: number
   metadata?: {

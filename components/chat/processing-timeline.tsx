@@ -134,27 +134,47 @@ function deriveStages(
     })
   }
   
-  // 3. Search stage - only show if search was triggered
-  if (hasSearched) {
-    const searchPill = statusPills.find(s => s.status === 'reading_sources' || s.status === 'searching')
+  // 3. Search / Deep Research stage
+  const hasDeepResearch = statusPills.some(s => s.status === 'planning' || s.status === 'researching');
+  
+  if (hasSearched || hasDeepResearch) {
+    const searchPill = statusPills.find(s => 
+      s.status === 'reading_sources' || 
+      s.status === 'searching' ||
+      s.status === 'planning' ||
+      s.status === 'researching'
+    )
     const isSearchComplete = currentStatus === 'synthesizing' || hasContent
     const sourceCount = searchPill?.metadata?.sourceCount
     
+    // Determine label and description based on mode
+    let label = hasDeepResearch ? 'Deep Research' : 'Web Search';
+    let description = 'Finding relevant sources';
+    
+    if (isSearchComplete) {
+       label = hasDeepResearch 
+         ? `Researched ${sourceCount || ''} sources` 
+         : `Found ${sourceCount || ''} sources`;
+       description = `Gathered information from ${sourceCount || 0} sources`;
+    } else {
+       if (currentStatus === 'planning') {
+         description = 'Formulating research strategy...';
+       } else if (currentStatus === 'researching') {
+         description = searchPill?.message || 'Conducting deep research...';
+       } else if (searchPill?.metadata?.currentSource) {
+         description = `Reading: ${searchPill.metadata.currentSource}`;
+       }
+    }
+
     stages.push({
       id: 'search',
-      label: isSearchComplete 
-        ? `Found ${sourceCount || ''} sources` 
-        : 'Searching the web',
+      label: label,
       status: isSearchComplete 
         ? 'complete' 
-        : (currentStatus === 'searching' || currentStatus === 'reading_sources')
+        : (currentStatus === 'searching' || currentStatus === 'reading_sources' || currentStatus === 'planning' || currentStatus === 'researching')
           ? 'active'
           : 'pending',
-      description: searchPill?.metadata?.currentSource 
-        ? `Currently reading: ${searchPill.metadata.currentSource}`
-        : sourceCount 
-          ? `Gathered information from ${sourceCount} web sources`
-          : 'Finding relevant sources from the web',
+      description: description,
       metadata: searchPill?.metadata
     })
   }

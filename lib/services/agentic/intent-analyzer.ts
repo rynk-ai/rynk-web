@@ -31,7 +31,7 @@ const PLAN_RESEARCH_TOOL = {
           type: 'array',
           items: {
             type: 'string',
-            enum: ['exa', 'perplexity', 'wikipedia', 'financial']
+            enum: ['exa', 'perplexity', 'wikipedia']
           },
           description: 'List of sources to query'
         },
@@ -47,13 +47,6 @@ const PLAN_RESEARCH_TOOL = {
             wikipedia: { 
               type: 'array',
               items: { type: 'string' }
-            },
-            financial: {
-              type: 'object',
-              properties: {
-                type: { type: 'string', enum: ['stock', 'crypto'] },
-                symbols: { type: 'array', items: { type: 'string' } }
-              }
             }
           },
           description: 'Specific queries for each selected source'
@@ -106,22 +99,8 @@ Available sources:
 - exa: Semantic web search, excellent for finding specific articles, technical content, recent information
 - perplexity: AI-powered search with real-time web data and automatic citations
 - wikipedia: Encyclopedic knowledge, definitions, historical facts, established information
-- financial: Real-time stock and cryptocurrency data (prices, charts, market data)
-
-Guidelines:
-- For current events (2024-2025): Use exa + perplexity
-- For historical facts: Use wikipedia
-- For technical deep-dives: Use exa
 - For comparisons: Use all sources
-- For simple facts: Use wikipedia
-- For stock prices/analysis: Use financial (extract ticker symbols like AAPL, MSFT, GOOGL)
-- For crypto prices: Use financial (use coin IDs like bitcoin, ethereum, solana)
-- For market questions: Combine financial + perplexity for context
-
-IMPORTANT: For financial queries:
-- Extract ticker symbols (e.g., "Apple stock" → AAPL, "Tesla" → TSLA)
-- For crypto, use lowercase coin IDs (bitcoin, ethereum, solana, dogecoin)
-- Indian stocks use .NS suffix (e.g., RELIANCE.NS, TCS.NS)`
+- For simple facts: Use wikipedia`
         }, {
           role: 'user',
           content: `${context}User query: <user_input>${escapeDelimiters(query)}</user_input>`

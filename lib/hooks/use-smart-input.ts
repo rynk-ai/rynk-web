@@ -11,7 +11,7 @@ import { suggestSurface } from "@/app/actions";
 const SURFACE_SUGGESTION_DEBOUNCE_MS = 600;
 
 // Surfaces allowed for guest users
-const GUEST_ALLOWED_SURFACES: (SurfaceType | 'chat')[] = ['chat', 'wiki', 'quiz'];
+const GUEST_ALLOWED_SURFACES: (SurfaceType | 'chat')[] = ['chat'];
 
 export interface UseSmartInputProps {
   initialValue?: string;

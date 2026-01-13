@@ -49,7 +49,6 @@ import {
   type Citation,
 } from "@/lib/types/citation";
 import { ContextCardList, type ContextCardData } from "@/components/chat/context-card";
-import { SurfaceTrigger } from "@/components/surfaces/surface-trigger";
 
 import { VersionIndicator } from "@/components/ui/version-indicator";
 import { InlineCreditIndicator } from "@/components/credit-warning";
@@ -614,16 +613,6 @@ export const ChatMessageItem = memo(
                 {/* Search Sources - Show after content if available */}
                 {citations && citations.length > 0 && !isStreaming && (
                   <SourcesFooter citations={citations} variant="compact" />
-                )}
-
-                {/* Surface Trigger - Open as Course/Guide buttons */}
-                {conversationId && !isStreaming && parsedMetadata?.detectedSurfaces && parsedMetadata.detectedSurfaces.length > 0 && (
-                  <SurfaceTrigger
-                    surfaces={parsedMetadata.detectedSurfaces}
-                    conversationId={conversationId}
-                    userQuery={userQuery}
-                    aiResponseContent={message.content}
-                  />
                 )}
 
                 {/* Upgrade Footer - For free users, every 8th message (subscription check is internal) */}

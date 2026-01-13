@@ -4,7 +4,7 @@ import { vectorDb } from "@/lib/services/vector-db" // Import vectorDb
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getAIProvider } from "@/lib/services/ai-factory"
 import { type Message as ApiMessage } from "@/lib/services/ai-provider"
-import { searchEmbeddings } from "@/lib/utils/vector"
+
 import { 
   isTextFile, 
   isCodeFile, 
@@ -27,6 +27,7 @@ import { formatSearchResultsSafely, sanitize, detectInjection } from '@/lib/secu
 import { validateOutput, quickRedact } from '@/lib/security/output-guard'
 import { analyzeIntent } from './agentic/intent-analyzer'
 import { SourceOrchestrator } from './agentic/source-orchestrator'
+import { analyzeResearchQuery, searchAllVerticals } from '@/lib/services/research/research-orchestrator'
 
 
 
@@ -41,7 +42,7 @@ export class ChatService {
     referencedFolders: any[] = [],
     providedUserMessageId?: string | null,
     providedAssistantMessageId?: string | null,
-    useReasoning: 'auto' | 'on' | 'online' | 'off' = 'auto'
+    useReasoning: 'auto' | 'on' | 'online' | 'deep_research' | 'off' = 'auto'
   ) {
     console.log('🚀 [chatService.handleChatRequest] Starting:', {
       userId,
@@ -309,19 +310,18 @@ export class ChatService {
             const { quickAnalysis, sourcePlan: plannedSourcePlan } = await analyzeIntent(messageContent, historyForIntent)
             
             // 2. Determine modes from analysis
-            if (useReasoning === 'on' || useReasoning === 'online') {
+            if (useReasoning === 'on' || useReasoning === 'online' || useReasoning === 'deep_research') {
               shouldUseReasoning = true
             } else {
               shouldUseReasoning = quickAnalysis.needsReasoning
             }
             
-            if (useReasoning === 'online') {
+            if (useReasoning === 'online' || useReasoning === 'deep_research') {
               shouldUseWebSearch = true
             } else {
               shouldUseWebSearch = quickAnalysis.needsWebSearch
             }
             
-            // 3. Setup context for execution
             // 3. Setup context for execution
             // We must construct a full EnhancedDetectionResult to avoid formatter errors
             detectionResult = {
@@ -369,43 +369,95 @@ export class ChatService {
               category: quickAnalysis.category,
               needsReasoning: shouldUseReasoning,
               needsWebSearch: shouldUseWebSearch,
-              confidence: quickAnalysis.confidence
+              confidence: quickAnalysis.confidence,
+              deepResearch: useReasoning === 'deep_research'
             })
             
             // 4. Executing Web Search (if needed) RIGHT HERE since we have the plan!
             if (shouldUseWebSearch) {
-              streamManager.sendStatus('searching', `Searching ${plannedSourcePlan.sources.join(', ')}...`)
-              
-              const orchestrator = new SourceOrchestrator()
-              const sourceResults = await orchestrator.executeSourcePlan(plannedSourcePlan)
-              
-              // Map results to legacy format
-              const allSources: any[] = []
-              sourceResults.forEach(res => {
-                if (res.citations) {
-                  res.citations.forEach(cit => {
-                    allSources.push({
-                      type: res.source,
-                      url: cit.url,
-                      title: cit.title,
-                      snippet: cit.snippet || '',
-                      image: cit.image,
-                      images: cit.images || []
-                    })
+              if (useReasoning === 'deep_research') {
+                // === DEEP RESEARCH MODE ===
+                streamManager.sendStatus('planning', 'Planning deep research verticals...')
+                const verticals = await analyzeResearchQuery(messageContent, process.env.GROQ_API_KEY || '')
+                
+                streamManager.sendStatus('researching', `Exploring ${verticals.length} research angles: ${verticals.map(v => v.name).join(', ')}...`)
+                
+                // Execute parallel searches
+                const sourcesByVertical = await searchAllVerticals(
+                  verticals,
+                  process.env.EXA_API_KEY,
+                  process.env.PERPLEXITY_API_KEY,
+                  (id, status, count) => {
+                     // We could stream partial progress here if supported
+                  }
+                )
+                
+                // Flatten results
+                const allSources: any[] = []
+                sourcesByVertical.forEach((sources) => {
+                  sources.forEach(src => {
+                    if (src.citations) {
+                      src.citations.forEach(c => {
+                        allSources.push({
+                          type: src.source,
+                          url: c.url,
+                          title: c.title,
+                          snippet: c.snippet || '',
+                          image: c.image,
+                          images: c.images || []
+                        })
+                      })
+                    }
                   })
+                })
+                
+                // Deduplicate sources
+                const uniqueSources = Array.from(
+                  new Map(allSources.map(s => [s.url, s])).values()
+                )
+
+                searchResults = {
+                  query: messageContent,
+                  sources: uniqueSources,
+                  searchStrategy: verticals.map(v => v.name),
+                  totalResults: uniqueSources.length
                 }
-              })
-              
-              // Deduplicate sources
-              const uniqueSources = Array.from(
-                new Map(allSources.map(s => [s.url, s])).values()
-              )
-  
-              searchResults = {
-                query: plannedSourcePlan.searchQueries.exa || plannedSourcePlan.searchQueries.perplexity || messageContent,
-                sources: uniqueSources,
-                searchStrategy: plannedSourcePlan.sources,
-                totalResults: uniqueSources.length
+
+              } else {
+                // === STANDARD SEARCH MODE ===
+                streamManager.sendStatus('searching', `Searching ${plannedSourcePlan.sources.join(', ')}...`)
+                
+                const orchestrator = new SourceOrchestrator()
+                const sourceResults = await orchestrator.executeSourcePlan(plannedSourcePlan)
+                
+                // Map results to legacy format
+                const allSources: any[] = []
+                sourceResults.forEach(res => {
+                  if (res.citations) {
+                    res.citations.forEach(cit => {
+                      allSources.push({
+                        type: res.source,
+                        url: cit.url,
+                        title: cit.title,
+                        snippet: cit.snippet || '',
+                        image: cit.image,
+                        images: cit.images || []
+                      })
+                    })
+                  }
+                })
+                
+                // Deduplicate sources
+                const uniqueSources = Array.from(
+                  new Map(allSources.map(s => [s.url, s])).values()
+                )
+    
+                searchResults = {
+                  query: plannedSourcePlan.searchQueries.exa || plannedSourcePlan.searchQueries.perplexity || messageContent,
+                  sources: uniqueSources,
+                  searchStrategy: plannedSourcePlan.sources,
+                  totalResults: uniqueSources.length
+                }
               }
               
               if (searchResults) {
@@ -432,9 +484,12 @@ export class ChatService {
                 )
               }
             }
-          }
 
 
+
+
+
+          } // Closes if (messageContent && useReasoning !== 'off')
 
           // --- PHASE 3: SYNTHESIS ---
           streamManager.sendStatus('synthesizing', 'Synthesizing response...')
@@ -467,7 +522,7 @@ ${availableImages}
 
 ` : ''}<synthesis_instructions>
 You have access to the search results above. Follow these rules STRICTLY:
-1. **Synthesize**: Cross-reference facts from multiple sources to build a complete picture. Do NOT simply list sources.
+1. **Synthesize**: Cross reference facts from multiple sources to build a complete picture. Do NOT simply list sources.
 2. **Cite**: Use [1], [2] format immediately after each claim. Every factual statement must be cited.
 3. **NEVER include raw URLs in your response**. The citation numbers are enough.
 4. **NEVER repeat the search results or source snippets verbatim**. Synthesize the information naturally.
@@ -534,9 +589,14 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
           // We can reconstruct what we sent.
           if (shouldUseReasoning || shouldUseWebSearch) {
              statusPills.push({ status: 'analyzing', message: 'Analyzing request...', timestamp: Date.now() })
-             if (shouldUseWebSearch) {
+             
+             if (useReasoning === 'deep_research') {
+               statusPills.push({ status: 'planning', message: 'Planning deep research...', timestamp: Date.now() })
+               statusPills.push({ status: 'researching', message: 'Conducting deep research...', timestamp: Date.now() })
+             } else if (shouldUseWebSearch) {
                statusPills.push({ status: 'searching', message: 'Searching...', timestamp: Date.now() })
              }
+             
              statusPills.push({ status: 'synthesizing', message: 'Synthesizing response...', timestamp: Date.now() })
              statusPills.push({ status: 'complete', message: 'Reasoning complete', timestamp: Date.now() })
           }

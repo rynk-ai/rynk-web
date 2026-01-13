@@ -5,7 +5,7 @@ import {
   type VirtualizedMessageListRef,
 } from "@/components/chat/virtualized-message-list";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
-import type { SurfaceType } from "@/lib/services/domain-types";
+
 import { Button } from "@/components/ui/button";
 import {
   GuestChatProvider,
@@ -166,8 +166,7 @@ const GuestChatContent = memo(function GuestChatContent({
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
 
-  // Surface mode state (for guest, only wiki/quiz are allowed)
-  const [surfaceMode, setSurfaceMode] = useState<'chat' | SurfaceType>('chat');
+
 
   // Pagination state
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -604,8 +603,7 @@ const GuestChatContent = memo(function GuestChatContent({
               onClearQuote={handleClearQuote}
               hideFileUpload={true}
               isGuest={true}
-              surfaceMode={surfaceMode}
-              onSurfaceModeChange={(mode) => setSurfaceMode(mode as 'chat' | SurfaceType)}
+
               className={cn(
                 "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                 !currentConversationId ? "shadow-xl" : "shadow-sm hover:shadow-md"

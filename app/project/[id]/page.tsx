@@ -51,7 +51,7 @@ import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
 import { NoCreditsOverlay } from "@/components/credit-warning";
 import { FocusModeToggle } from "@/components/focus-mode";
-import { SavedSurfacesPill } from "@/components/surfaces";
+
 import { processStreamChunk } from "@/lib/utils/stream-parser";
 
 // Extracted shared components
@@ -155,8 +155,7 @@ const ChatContent = memo(
         streamingState,
     } = useChatController({
         chatId: currentConversationId || undefined,
-        surfaceMode: 'chat',
-        setSurfaceMode: () => {},
+
         localContext: [],
         setLocalContext: () => {},
         setQuotedMessage: () => {},
@@ -189,6 +188,7 @@ const ChatContent = memo(
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [messageCursor, setMessageCursor] = useState<string | null>(null);
+    const [isDeepResearch, setIsDeepResearch] = useState(false);
     const [tagDialogOpen, setTagDialogOpen] = useState(false);
     const [allTags, setAllTags] = useState<string[]>([]);
 
@@ -893,14 +893,7 @@ const ChatContent = memo(
                 {/* Sticky content at top */}
                 <div className="flex-shrink-0 space-y-4">
                   {/* Indexing Progress Badge */}
-
-                  {/* Saved Surfaces Pill - Finance, Learning, etc. */}
-                  {currentConversationId && (
-                    <SavedSurfacesPill
-                      conversationId={currentConversationId}
-                      surfaceStates={currentConversation?.surfaceStates}
-                    />
-                  )}
+                  {/* Saved Surfaces Pill - REMOVED */}
 
                   {/* Tags Section - Fixed Top Right */}
                   {currentConversationId && (
@@ -1014,6 +1007,9 @@ const ChatContent = memo(
                   // Quote props
                   quotedMessage={quotedMessage}
                   onClearQuote={handleClearQuote}
+                  hideFileUpload={false}
+                  isDeepResearch={isDeepResearch}
+                  onDeepResearchChange={setIsDeepResearch}
                   className={cn(
                     "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                     !currentConversationId

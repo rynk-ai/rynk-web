@@ -100,7 +100,7 @@ export function useChat(initialConversationId?: string | null) {
   const [agenticMode, setAgenticMode] = useState<boolean>(false)
   const [reasoningMode, setReasoningMode] = useState<'auto' | 'on' | 'online' | 'off'>('auto')
   const [statusPills, setStatusPills] = useState<Array<{
-    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
+    status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'planning' | 'researching' | 'complete'
     message: string
     timestamp: number
     metadata?: {
@@ -474,7 +474,8 @@ export function useChat(initialConversationId?: string | null) {
     referencedFolders: { id: string; name: string }[] = [],
     conversationIdParam?: string, // Optional override
     userMessageIdParam?: string, // Optional override
-    assistantMessageIdParam?: string // Optional override
+    assistantMessageIdParam?: string, // Optional override
+    options?: { deepResearch?: boolean }
   ): Promise<{
     streamReader: ReadableStreamDefaultReader<Uint8Array>;
     conversationId: string;
@@ -550,7 +551,8 @@ export function useChat(initialConversationId?: string | null) {
           attachments: attachments, // Pass processed attachments
           referencedConversations,
           referencedFolders,
-          useReasoning: reasoningMode // Pass current reasoning mode
+          useReasoning: options?.deepResearch ? 'deep_research' : reasoningMode, // Pass current reasoning mode or deep_research override
+          deepResearch: options?.deepResearch
         })
       })
 

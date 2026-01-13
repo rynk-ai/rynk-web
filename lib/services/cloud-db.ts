@@ -51,7 +51,7 @@ export interface CloudMessage {
   reasoning_content?: string
   reasoning_metadata?: {
     statusPills: Array<{
-      status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'complete'
+      status: 'analyzing' | 'building_context' | 'searching' | 'reading_sources' | 'synthesizing' | 'planning' | 'researching' | 'complete'
       message: string
       timestamp: number
       metadata?: {
