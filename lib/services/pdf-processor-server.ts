@@ -49,7 +49,7 @@ export async function processPDFFromR2(
   conversationId?: string,
   projectId?: string,
   messageId?: string
-): Promise<{ success: boolean; error?: string; chunksProcessed?: number; extractedText?: string }> {
+): Promise<{ success: boolean; error?: string; chunksProcessed?: number }> {
   const db = env.DB
   
   try {
@@ -88,14 +88,23 @@ export async function processPDFFromR2(
     const fileName = r2Key.split('/').pop() || 'document.pdf'
     const hash = await generateHash(`${r2Key}:${conversationId}:${messageId}`)
     
+    // Store extracted text as fallback (first 15K chars for small PDFs)
+    // This ensures AI can access content even if Vectorize retrieval fails
+    const extractedTextFallback = text.substring(0, 15000)
+    
     await db.prepare(`
       INSERT INTO sources (id, hash, type, name, metadata, createdAt)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       sourceId, hash, 'pdf', fileName,
-      JSON.stringify({ r2Key, pageCount: parents.length }),
+      JSON.stringify({ 
+        r2Key, 
+        pageCount: parents.length,
+        extractedText: extractedTextFallback 
+      }),
       Date.now()
     ).run()
+
 
     // 5. Store parent chunks in D1
     console.log(`📄 [PDFProcessor] Storing ${parents.length} parent chunks...`)
@@ -176,24 +185,12 @@ export async function processPDFFromR2(
       `).bind(linkId, sourceId, projectId, Date.now()).run()
     }
 
-    // SMALL FILE OPTIMIZATION: Return text if < 50KB (~10-15 pages)
-    const shouldReturnText = text.length < 50000
-    
-    // 8. Mark complete (and save extracted text if small)
-    if (shouldReturnText) {
-      await db.prepare('UPDATE pdf_jobs SET status = ?, sourceId = ?, completedAt = ?, extractedText = ? WHERE id = ?')
-        .bind('completed', sourceId, Date.now(), text, jobId).run()
-    } else {
-      await db.prepare('UPDATE pdf_jobs SET status = ?, sourceId = ?, completedAt = ? WHERE id = ?')
-        .bind('completed', sourceId, Date.now(), jobId).run()
-    }
+    // 8. Mark complete
+    await db.prepare('UPDATE pdf_jobs SET status = ?, sourceId = ?, completedAt = ? WHERE id = ?')
+      .bind('completed', sourceId, Date.now(), jobId).run()
 
     console.log(`✅ [PDFProcessor] PDF processing complete: ${children.length} chunks`)
-    return { 
-      success: true, 
-      chunksProcessed: children.length,
-      extractedText: shouldReturnText ? text : undefined
-    }
+    return { success: true, chunksProcessed: children.length }
 
   } catch (error: any) {
     console.error(`❌ [PDFProcessor] Processing failed:`, error)

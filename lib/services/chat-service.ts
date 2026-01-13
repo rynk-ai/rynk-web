@@ -230,9 +230,33 @@ export class ChatService {
           const kbContext = kbContextResult
           const { contextText: legacyContext, retrievedChunks } = buildContextResult
           console.log('✅ [chatService] Parallel context retrieval complete')
+          console.log(`📊 [chatService] kbContext length: ${kbContext?.length || 0}, retrievedChunks: ${retrievedChunks.length}`)
+          
+          // FALLBACK: If KB returns empty but we have PDF attachments, fetch extracted text from source metadata
+          let pdfFallbackContext = ''
+          const pdfAttachments = attachments.filter(a => a.useRAG && (a.type === 'application/pdf' || a.name?.endsWith('.pdf')))
+          
+          if (!kbContext && pdfAttachments.length > 0) {
+            console.log('⚠️ [chatService] KB empty but PDF attachments exist, fetching fallback text...')
+            try {
+              // Get sources for this conversation
+              const sources = await vectorDb.getSourcesForConversation(conversationId)
+              const pdfSources = sources.filter((s: any) => s.type === 'pdf')
+              
+              for (const source of pdfSources.slice(0, 3)) { // Limit to 3 PDFs
+                const metadata = source.metadata || {}
+                if (metadata.extractedText) {
+                  console.log(`📄 [chatService] Using fallback text from ${source.name} (${metadata.extractedText.length} chars)`)
+                  pdfFallbackContext += `\n\n=== CONTENT FROM ${source.name} ===\n${metadata.extractedText}`
+                }
+              }
+            } catch (fallbackErr) {
+              console.error('❌ [chatService] PDF fallback failed:', fallbackErr)
+            }
+          }
           
           // Send status update with context chunk count
-          const totalContextChunks = retrievedChunks.length + (kbContext ? 1 : 0)
+          const totalContextChunks = retrievedChunks.length + (kbContext ? 1 : 0) + (pdfFallbackContext ? 1 : 0)
           if (totalContextChunks > 0) {
             streamManager.sendStatus('building_context', `Found ${totalContextChunks} relevant context chunks`, { contextChunks: totalContextChunks })
           }
@@ -248,7 +272,8 @@ export class ChatService {
             )
           }
           
-          const finalContext = `${legacyContext}\n\n${kbContext ? `=== RELEVANT KNOWLEDGE BASE CONTEXT ===\n${kbContext}` : ''}`.trim()
+          const finalContext = `${legacyContext}\n\n${kbContext ? `=== RELEVANT KNOWLEDGE BASE CONTEXT ===\n${kbContext}` : ''}${pdfFallbackContext}`.trim()
+
 
           // Prepare Messages
           const messages = await this.prepareMessagesForAI(conversationId, finalContext, project)
