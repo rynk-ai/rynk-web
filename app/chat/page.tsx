@@ -44,8 +44,8 @@ import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
 import { CommandBar } from "@/components/ui/command-bar";
 import { ShareDialog } from "@/components/share-dialog";
 import { NoCreditsOverlay } from "@/components/credit-warning";
-import { OnboardingTour } from "@/components/onboarding-tour";
 import { FocusModeToggle } from "@/components/focus-mode";
+import { ONBOARDING_CONVERSATION_TITLE } from "@/lib/services/onboarding-content";
 // createStreamProcessor removed - moved to useChatController
 
 // Extracted shared components
@@ -266,6 +266,22 @@ const ChatContent = memo(
     // Track conversation ID for message loading optimization
     // NOTE: URL-to-state sync is handled by ChatContentWithProvider, not here
     const lastConversationIdRef = useRef(currentConversationId);
+
+    // Auto-redirect new users to the onboarding conversation
+    useEffect(() => {
+      // Only run if:
+      // 1. We are on the "New Chat" page (no current ID)
+      // 2. We have exactly 1 conversation loaded
+      // 3. That conversation is the Onboarding conversation
+      if (!currentConversationId && conversations.length === 1) {
+        const onlyConvo = conversations[0];
+        if (onlyConvo.title === ONBOARDING_CONVERSATION_TITLE) {
+           console.log("🚀 Redirecting new user to Onboarding Conversation:", onlyConvo.id);
+           selectConversation(onlyConvo.id);
+           router.replace(`/chat?id=${onlyConvo.id}`);
+        }
+      }
+    }, [currentConversationId, conversations, selectConversation, router]);
     
 
 
@@ -1004,6 +1020,7 @@ const ChatContent = memo(
                       savedSurfaces={currentConversation?.surfaceStates}
                       // Credit indicator
                       userCredits={userCredits}
+                      isOnboarding={currentConversation?.title === ONBOARDING_CONVERSATION_TITLE}
                     />
                   )}
                 </div>
@@ -1190,7 +1207,6 @@ function ChatContentWithProvider() {
 
   return (
     <>
-      <OnboardingTour />
       <>
         <AppSidebar />
         <SidebarInset>

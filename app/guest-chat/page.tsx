@@ -565,6 +565,7 @@ const GuestChatContent = memo(function GuestChatContent({
                   statusPills={activeStatusPills}
                   searchResults={activeSearchResults}
                   onIsAtBottomChange={setIsScrolledUp}
+                  isOnboarding={!currentConversationId && messages.length > 0}
                 />
               </div>
 

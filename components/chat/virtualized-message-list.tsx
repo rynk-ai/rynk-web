@@ -34,6 +34,8 @@ interface VirtualizedMessageListProps {
   savedSurfaces?: Record<string, any>
   // Credit indicator
   userCredits?: number | null
+  // Onboarding flag
+  isOnboarding?: boolean
 }
 
 export interface VirtualizedMessageListRef {
@@ -70,6 +72,8 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
   savedSurfaces,
   // Credit indicator
   userCredits,
+  // Onboarding flag
+  isOnboarding = false,
 }, ref) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const isAtBottom = useRef(true)
@@ -266,7 +270,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
           hasUserScrolledRef.current = true
         }
       }}
-      initialTopMostItemIndex={messages.length - 1}
+      initialTopMostItemIndex={isOnboarding ? 0 : messages.length - 1}
       className="h-full scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40"
       atBottomThreshold={50}
       startReached={onLoadMore}
@@ -302,7 +306,8 @@ const compareProps = (prevProps: VirtualizedMessageListProps, nextProps: Virtual
     prevProps.onDeleteSubChat === nextProps.onDeleteSubChat &&
     prevProps.onSwitchVersion === nextProps.onSwitchVersion &&
     prevProps.onLoadMore === nextProps.onLoadMore &&
-    prevProps.onIsAtBottomChange === nextProps.onIsAtBottomChange
+    prevProps.onIsAtBottomChange === nextProps.onIsAtBottomChange &&
+    prevProps.isOnboarding === nextProps.isOnboarding
   )
 }
 

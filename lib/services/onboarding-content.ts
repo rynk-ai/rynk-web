@@ -71,9 +71,27 @@ Try dragging a file here or use the attachment button. I'll extract the key insi
 
 Every claim I make is cited. You get the raw truth, organized and ready to use. 
 
-![Deep Research](/onboarding-images/deep-research.png)
+![Deep Research](/onboarding-images/deep-research.png)`
+  },
+  {
+    role: 'user',
+    content: "Where can I change my settings?"
+  },
+  {
+    role: 'assistant',
+    content: `The **User Menu** (bottom left) controls your experience.
 
-Ready to start? Just ask anything.`
+From here you can:
+- **Humanize Text**: Toggle the AI humanizer.
+- **Theme**: Switch between Light/Dark mode.
+- **Chat Backgrounds**: Customize your view.
+- **Subscription**: Manage your plan.
+
+![User Menu](/onboarding-images/user-dropdown.png)`
+  },
+  {
+    role: 'assistant',
+    content: `Ready to start? Just ask anything.`
   }
 ]
 

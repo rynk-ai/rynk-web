@@ -1,26 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { PiArrowRight } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import { useSession } from "next-auth/react";
 import gsap from "gsap";
 import Link from "next/link";
 
 export function LandingHero() {
-  const router = useRouter();
-  const [query, setQuery] = useState("");
   const containerRef = useRef(null);
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated" && !!session;
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    router.push(query.trim() ? `/chat?q=${encodeURIComponent(query)}` : "/chat");
-  };
 
   useGSAP(() => {
     const tl = gsap.timeline();
@@ -33,7 +24,7 @@ export function LandingHero() {
       ease: "power3.out",
       delay: 0.2
     })
-    .from(".hero-search", {
+    .from(".hero-cta", {
         y: 20,
         opacity: 0,
         duration: 0.8,
@@ -80,29 +71,16 @@ export function LandingHero() {
             </p>
           </div>
           
-          {/* Search Input */}
-          <div className="hero-search w-full max-w-md">
-            <form onSubmit={handleSearch} className="relative group">
-              <div className="relative flex items-center bg-background border border-border hover:border-foreground/20 transition-colors">
-                <Input 
-                  placeholder="Ask anything..." 
-                  className="h-14 rounded-none pl-5 pr-14 bg-transparent border-0 focus-visible:ring-0 text-base placeholder:text-muted-foreground/50"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <Button 
-                  type="submit"
-                  size="icon"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-10 w-10 rounded-none bg-foreground text-background hover:bg-foreground/90"
-                >
-                  <PiArrowRight className="h-4 w-4" />
-                  <span className="sr-only">Go</span>
-                </Button>
-              </div>
-            </form>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Free to try. No account needed.
-            </p>
+          {/* Subtle CTA Button */}
+          <div className="hero-cta w-full max-w-md">
+            <Link href="/chat">
+               <Button 
+                 variant="outline" 
+                 className="rounded-none h-12 px-8 font-medium text-sm uppercase tracking-wider border-foreground/30 text-foreground hover:bg-foreground hover:text-background transition-colors"
+               >
+                 Try now
+               </Button>
+            </Link>
           </div>
 
         </div>
@@ -110,4 +88,3 @@ export function LandingHero() {
     </section>
   );
 }
-
