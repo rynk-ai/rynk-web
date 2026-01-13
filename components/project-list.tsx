@@ -96,7 +96,7 @@ export function ProjectList({
     <div className={cn("flex flex-col", className)}>
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-muted-foreground tracking-tight">Projects</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground tracking-normal">Projects</h2>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-4 w-4">

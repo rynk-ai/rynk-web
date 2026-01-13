@@ -194,7 +194,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       
       <body
-        className={`${manrope.variable} font-sans antialiased tracking-tight bg-background text-foreground`}
+        className={`${manrope.variable} font-sans antialiased tracking-normal bg-background text-foreground`}
       >
         <AuthProvider>
           <FontProviderWrapper defaultFont="geist">

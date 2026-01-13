@@ -1155,7 +1155,7 @@ function FullChatApp() {
                   <TextShimmer
                     spread={5}
                     duration={4}
-                    className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-foreground/80 mb-10 leading-tight animate-in-up"
+                    className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-normal text-foreground/80 mb-10 leading-tight animate-in-up"
                   >
                     rynk.
                   </TextShimmer>

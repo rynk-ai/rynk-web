@@ -63,7 +63,7 @@ export function LandingHero() {
           
           {/* Direct, confident copy - rynk's own voice */}
           <div className="mb-12 space-y-6">
-            <h1 className="hero-line text-5xl md:text-7xl font-bold tracking-tighter text-foreground leading-[0.9]">
+            <h1 className="hero-line text-5xl md:text-7xl font-bold tracking-normal text-foreground leading-[0.9]">
               rynk
             </h1>
             <p className="hero-line text-xl md:text-2xl text-muted-foreground leading-relaxed max-w-md">

@@ -164,32 +164,32 @@ function createCitationAwareComponents(citations: Citation[]): Partial<Component
   return {
     // Minimal headings with subtle styling
     h1: ({ children }) => (
-      <h1 className="text-2xl font-bold tracking-tight mb-3 mt-6 first:mt-0 text-foreground">
+      <h1 className="text-2xl font-bold tracking-normal mb-3 mt-6 first:mt-0 text-foreground">
         {processChildrenForCitations(children, citations)}
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="text-xl font-semibold tracking-tight mb-3 mt-6 first:mt-0 text-foreground">
+      <h2 className="text-xl font-semibold tracking-normal mb-3 mt-6 first:mt-0 text-foreground">
         {processChildrenForCitations(children, citations)}
       </h2>
     ),
     h3: ({ children }) => (
-      <h3 className="text-lg font-semibold tracking-tight mb-2 mt-5 text-foreground">
+      <h3 className="text-lg font-semibold tracking-normal mb-2 mt-5 text-foreground">
         {processChildrenForCitations(children, citations)}
       </h3>
     ),
     h4: ({ children }) => (
-      <h4 className="text-base font-semibold tracking-tight mb-2 mt-4 text-foreground">
+      <h4 className="text-base font-semibold tracking-normal mb-2 mt-4 text-foreground">
         {processChildrenForCitations(children, citations)}
       </h4>
     ),
     h5: ({ children }) => (
-      <h5 className="text-sm font-semibold tracking-tight mb-2 mt-4 text-foreground">
+      <h5 className="text-sm font-semibold tracking-normal mb-2 mt-4 text-foreground">
         {processChildrenForCitations(children, citations)}
       </h5>
     ),
     h6: ({ children }) => (
-      <h6 className="text-sm font-semibold tracking-tight mb-2 mt-4 text-muted-foreground">
+      <h6 className="text-sm font-semibold tracking-normal mb-2 mt-4 text-muted-foreground">
         {processChildrenForCitations(children, citations)}
       </h6>
     ),

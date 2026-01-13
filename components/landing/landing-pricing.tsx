@@ -62,7 +62,7 @@ export function LandingPricing() {
         <div className="max-w-3xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-[0.9] text-foreground mb-4 font-display">
+            <h2 className="text-4xl md:text-6xl font-bold tracking-normal leading-[0.9] text-foreground mb-4 font-display">
               Pricing
             </h2>
             <p className="text-lg text-muted-foreground">
@@ -80,7 +80,7 @@ export function LandingPricing() {
                 <div className="mb-8">
                   <h3 className="text-sm font-mono uppercase tracking-widest text-muted-foreground mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-5xl font-bold tracking-tighter">{plan.price}</span>
+                    <span className="text-5xl font-bold tracking-normal">{plan.price}</span>
                     {plan.period !== "forever" && <span className="text-sm text-muted-foreground">/mo</span>}
                   </div>
                   <p className="mt-3 text-lg text-foreground font-medium">{plan.queries}</p>

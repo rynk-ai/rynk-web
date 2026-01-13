@@ -18,14 +18,16 @@ interface SourcesFooterProps {
   maxVisible?: number
 }
 
+// ... (keeping imports)
+
 /**
- * Sources footer showing all citations as cards after the response
+ * Sources footer showing all citations as pills after the response
  */
 export function SourcesFooter({ 
   citations, 
   className,
   variant = 'compact',
-  maxVisible = 6
+  maxVisible = 8 // Increased default for pills as they are smaller
 }: SourcesFooterProps) {
   const [expanded, setExpanded] = useState(false)
   
@@ -35,11 +37,11 @@ export function SourcesFooter({
   const hasMore = citations.length > maxVisible
 
   return (
-    <div className={cn("mt-5 pt-4 border-t border-border/40", className)}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+    <div className={cn("mt-4 pt-3 border-t border-border/40", className)}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           Sources
-          <span className="bg-muted px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
+          <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
             {citations.length}
           </span>
         </span>
@@ -47,7 +49,7 @@ export function SourcesFooter({
           <Button 
             variant="ghost" 
             size="sm" 
-            className="text-xs h-6 px-2"
+            className="text-xs h-6 px-2 hover:bg-secondary/80"
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
@@ -58,7 +60,7 @@ export function SourcesFooter({
             ) : (
               <>
                 <PiCaretDown className="h-3 w-3 mr-1" />
-                Show all ({citations.length})
+                Show all
               </>
             )}
           </Button>
@@ -66,20 +68,55 @@ export function SourcesFooter({
       </div>
       
       <div className={cn(
-        "grid gap-2",
-        variant === 'detailed' 
-          ? "grid-cols-1" 
-          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        "flex flex-wrap gap-2",
+        variant === 'detailed' && "grid grid-cols-1 gap-2" // Keep grid for detailed if ever used
       )}>
         {visibleCitations.map((citation) => (
-          <SourceCard 
-            key={citation.id} 
-            citation={citation} 
-            variant={variant}
-          />
+          variant === 'detailed' ? (
+             <SourceCard 
+              key={citation.id} 
+              citation={citation} 
+              variant={variant}
+            />
+          ) : (
+            <SourcePill 
+              key={citation.id}
+              citation={citation}
+            />
+          )
         ))}
       </div>
     </div>
+  )
+}
+
+function SourcePill({ citation }: { citation: Citation }) {
+  return (
+    <a
+      href={citation.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/50 hover:bg-secondary border border-transparent hover:border-border/50 transition-all duration-200"
+    >
+      <div className="flex-shrink-0 w-4 h-4 rounded-full bg-background flex items-center justify-center text-[9px] font-bold text-muted-foreground border border-border/20 group-hover:border-primary/20 group-hover:text-primary transition-colors">
+        {citation.id}
+      </div>
+      
+      {citation.favicon && (
+        <img 
+          src={citation.favicon} 
+          className="h-3.5 w-3.5 rounded-sm opacity-70 group-hover:opacity-100 transition-opacity" 
+          alt=""
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      )}
+      
+      <span className="text-xs text-muted-foreground group-hover:text-foreground truncate max-w-[180px] transition-colors">
+        {new URL(citation.url).hostname.replace('www.', '')}
+      </span>
+    </a>
   )
 }
 
@@ -89,6 +126,8 @@ interface SourceCardProps {
 }
 
 function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
+  // ... (keep detailed implementation for reference/fallback if needed)
+
   const formattedDate = citation.publishedDate 
     ? new Date(citation.publishedDate).toLocaleDateString('en-US', { 
         month: 'short', 

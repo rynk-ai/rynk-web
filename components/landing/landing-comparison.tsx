@@ -42,7 +42,7 @@ export function LandingComparison() {
       
       <div className="container px-4 mx-auto">
         <div className="comp-header mb-20 max-w-4xl">
-           <h2 className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.9] mb-8 text-foreground">
+           <h2 className="text-5xl md:text-7xl font-bold tracking-normal leading-[0.9] mb-8 text-foreground">
               STOP READING
               <span className="block text-muted-foreground">WALLS OF TEXT.</span>
            </h2>
@@ -58,7 +58,7 @@ export function LandingComparison() {
           <div className="comp-card bg-secondary/30 border border-border p-8 md:p-12 flex flex-col h-full relative overflow-hidden group">
              <div className="mb-10">
                 <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">Standard Model</span>
-                <h3 className="text-2xl font-bold tracking-tight opacity-50">Unstructured Output</h3>
+                <h3 className="text-2xl font-bold tracking-normal opacity-50">Unstructured Output</h3>
              </div>
 
              <div className="flex-1 relative z-10">
@@ -82,7 +82,7 @@ export function LandingComparison() {
           <div className="comp-card bg-background border border-foreground p-0 md:p-0 flex flex-col h-full relative overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,0.05)] dark:shadow-[10px_10px_0px_0px_white]">
             <div className="p-8 md:p-12 border-b border-border">
                 <span className="text-xs font-mono uppercase tracking-widest text-accent block mb-2">rynk.</span>
-                <h3 className="text-2xl font-bold tracking-tight">Structured Comparison</h3>
+                <h3 className="text-2xl font-bold tracking-normal">Structured Comparison</h3>
             </div>
 
             <div className="flex-1 p-8 md:p-12 bg-secondary/20">

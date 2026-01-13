@@ -12,7 +12,7 @@ export default function DataDeletionPage() {
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-semibold tracking-tight hover:opacity-80 transition-opacity">
+          <Link href="/" className="text-xl font-semibold tracking-normal hover:opacity-80 transition-opacity">
             rynk.
           </Link>
           <nav className="flex gap-4 text-sm text-muted-foreground">
@@ -25,7 +25,7 @@ export default function DataDeletionPage() {
       {/* Content */}
       <main className="max-w-4xl mx-auto px-6 py-12">
         <article className="prose dark:prose-invert max-w-none">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Data Deletion</h1>
+          <h1 className="text-3xl font-bold tracking-normal mb-2">Data Deletion</h1>
           <p className="text-muted-foreground text-sm mb-8">Instructions for deleting your account and data from rynk.</p>
 
           {/* Overview */}

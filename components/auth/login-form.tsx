@@ -56,7 +56,7 @@ export function LoginForm() {
             <PiEnvelope className="h-6 w-6 text-primary" />
           </div>
           <div className="flex flex-col items-center space-y-2 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
+            <h1 className="text-2xl font-bold tracking-normal">Check your email</h1>
             <p className="text-sm text-muted-foreground">
               We sent a magic link to <span className="font-medium text-foreground">{email}</span>
             </p>
@@ -83,7 +83,7 @@ export function LoginForm() {
     <div className="flex h-screen w-full items-center justify-center bg-background">
       <div className="flex w-full max-w-sm flex-col items-center space-y-6 rounded-lg border bg-card p-8 shadow-lg">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+          <h1 className="text-2xl font-bold tracking-normal">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to your account to continue
           </p>

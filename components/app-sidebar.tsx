@@ -462,7 +462,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
               <div className="flex items-center justify-between gap-2 py-1 px-1 group">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <PiFolder className="h-4 w-4 text-primary/70 shrink-0" />
-                  <h2 className="font-medium text-base tracking-tight truncate">
+                  <h2 className="font-medium text-base tracking-normal truncate">
                     {projects.find((p) => p.id === activeProjectId)?.name ||
                       "Project"}
                   </h2>

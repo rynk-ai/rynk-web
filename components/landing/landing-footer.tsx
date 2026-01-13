@@ -8,7 +8,7 @@ export function LandingFooter() {
           
           {/* Brand */}
           <Link href="/" className="inline-block">
-            <span className="font-display font-bold text-xl tracking-tighter">rynk.</span>
+            <span className="font-display font-bold text-xl tracking-normal">rynk.</span>
           </Link>
 
           {/* Links */}

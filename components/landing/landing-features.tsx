@@ -52,7 +52,7 @@ export function LandingFeatures() {
               <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-4">
                 {feature.id}
               </span>
-              <h3 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 uppercase">
+              <h3 className="text-2xl md:text-3xl font-bold tracking-normal mb-4 uppercase">
                 {feature.title}
               </h3>
               <p className="text-muted-foreground text-lg leading-relaxed">

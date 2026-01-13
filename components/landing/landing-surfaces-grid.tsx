@@ -38,7 +38,7 @@ export function LandingSurfacesGrid() {
         {/* Header */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-y-12 md:gap-x-12 mb-20 text-center md:text-left">
            <div className="md:col-span-8">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-[0.9] mb-6 text-foreground uppercase font-display">
+                <h2 className="text-4xl md:text-6xl font-bold tracking-normal leading-[0.9] mb-6 text-foreground uppercase font-display">
                     Pick your format. <br/>
                     <span className="text-muted-foreground">We'll build the interface.</span>
                 </h2>
@@ -58,7 +58,7 @@ export function LandingSurfacesGrid() {
              <div className="flex justify-between items-start mb-12">
                  <div className="flex flex-col gap-2">
                      <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">01</span>
-                     <h3 className="text-2xl font-bold tracking-tight uppercase">Deep Research</h3>
+                     <h3 className="text-2xl font-bold tracking-normal uppercase">Deep Research</h3>
                  </div>
                  <div className="w-10 h-10 border border-foreground flex items-center justify-center bg-transparent group-hover:bg-foreground group-hover:text-background transition-colors">
                     <PiMagnifyingGlass className="h-5 w-5" />
@@ -96,7 +96,7 @@ export function LandingSurfacesGrid() {
               <div className="flex justify-between items-start mb-12">
                  <div className="flex flex-col gap-2">
                      <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">02</span>
-                     <h3 className="text-2xl font-bold tracking-tight uppercase">Instant Wiki</h3>
+                     <h3 className="text-2xl font-bold tracking-normal uppercase">Instant Wiki</h3>
                  </div>
                  <div className="w-10 h-10 border border-foreground flex items-center justify-center bg-transparent group-hover:bg-foreground group-hover:text-background transition-colors">
                     <PiList className="h-5 w-5" />
@@ -128,7 +128,7 @@ export function LandingSurfacesGrid() {
              <div className="mb-8 flex justify-between items-start">
                  <div>
                     <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">03</span>
-                    <h3 className="text-xl font-bold tracking-tight uppercase">Timeline</h3>
+                    <h3 className="text-xl font-bold tracking-normal uppercase">Timeline</h3>
                  </div>
                  <div className="w-8 h-8 border border-foreground/50 flex items-center justify-center">
                     <PiClock className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function LandingSurfacesGrid() {
              <div className="mb-8 flex justify-between items-start">
                  <div>
                     <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">04</span>
-                    <h3 className="text-xl font-bold tracking-tight uppercase">Study Mode</h3>
+                    <h3 className="text-xl font-bold tracking-normal uppercase">Study Mode</h3>
                  </div>
                  <div className="w-8 h-8 border border-foreground/50 flex items-center justify-center">
                     <PiGraduationCap className="h-4 w-4" />
@@ -168,7 +168,7 @@ export function LandingSurfacesGrid() {
              <div className="mb-8 flex justify-between items-start">
                  <div>
                     <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-2">05</span>
-                    <h3 className="text-xl font-bold tracking-tight uppercase">Market</h3>
+                    <h3 className="text-xl font-bold tracking-normal uppercase">Market</h3>
                  </div>
                  <div className="w-8 h-8 border border-foreground/50 flex items-center justify-center">
                     <PiTrendUp className="h-4 w-4" />

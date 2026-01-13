@@ -42,7 +42,7 @@ export function LandingModelRouting() {
       <div className="container px-4 mx-auto">
         <div className="text-center mb-24 max-w-3xl mx-auto route-header">
            <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-6">Autonomous Orchestration</span>
-           <h2 className="text-4xl md:text-6xl font-bold tracking-tighter leading-[0.9] text-foreground mb-8">
+           <h2 className="text-4xl md:text-6xl font-bold tracking-normal leading-[0.9] text-foreground mb-8">
              WE SWITCH AI MODELS <br/>
              <span className="text-muted-foreground">SO YOU DON'T HAVE TO.</span>
            </h2>
@@ -58,7 +58,7 @@ export function LandingModelRouting() {
                         <span className="absolute top-4 left-4 text-xs font-mono uppercase text-muted-foreground">Path A</span>
                         <div className="mb-4">
                              <div className="w-2 h-2 bg-green-500 rounded-none mb-2 mx-auto"></div>
-                             <h3 className="text-2xl font-bold uppercase tracking-tight">Speed</h3>
+                             <h3 className="text-2xl font-bold uppercase tracking-normal">Speed</h3>
                         </div>
                         <p className="text-sm text-muted-foreground px-4">Llama 3 70B<br/>800+ Tokens/sec</p>
                     </div>
@@ -78,7 +78,7 @@ export function LandingModelRouting() {
                         <span className="absolute top-4 left-4 text-xs font-mono uppercase text-muted-foreground">Path B</span>
                         <div className="mb-4">
                              <div className="w-2 h-2 bg-accent rounded-none mb-2 mx-auto"></div>
-                             <h3 className="text-2xl font-bold uppercase tracking-tight">Logic</h3>
+                             <h3 className="text-2xl font-bold uppercase tracking-normal">Logic</h3>
                         </div>
                         <p className="text-sm text-muted-foreground px-4">Claude 3.5 Sonnet<br/>Complex Reasoning</p>
                     </div>

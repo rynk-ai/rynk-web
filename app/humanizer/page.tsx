@@ -234,7 +234,7 @@ export default function HumanizerPage() {
       <header className=" bg-background sticky top-0 z-50 w-full max-w-7xl mx-auto">
         <div className="w-full px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <span className="font-semibold text-lg tracking-tight">rynk</span>
+            <span className="font-semibold text-lg tracking-normal">rynk</span>
             <span className="text-muted-foreground hidden sm:inline">/</span>
             <span className="text-muted-foreground font-normal hidden sm:inline">humanizer</span>
           </Link>
@@ -273,7 +273,7 @@ export default function HumanizerPage() {
       <main className="flex-1 w-full px-3 sm:px-4 py-4 sm:py-6 w-full max-w-7xl mx-auto">
         {/* Hero - Compact on mobile */}
         <div className="text-center mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mb-1">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-normal mb-1">
             AI Humanizer
           </h1>
           <p className="text-sm text-muted-foreground hidden sm:block">

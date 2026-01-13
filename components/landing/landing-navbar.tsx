@@ -67,7 +67,7 @@ export function LandingNavbar() {
           {/* Brand - Left */}
           <div className="flex-shrink-0">
             <Link href="/" className="nav-brand group block">
-              <span className="font-display font-bold text-3xl tracking-tighter leading-none group-hover:opacity-70 transition-opacity">
+              <span className="font-display font-bold text-3xl tracking-normal leading-none group-hover:opacity-70 transition-opacity">
                 rynk.
               </span>
             </Link>
@@ -133,7 +133,7 @@ export function LandingNavbar() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[300px] p-0 rounded-none border-border bg-background shadow-none border-l border-b">
                          <div className="p-4 border-b border-border bg-secondary/50">
-                            <span className="font-display font-bold text-lg tracking-tight">Menu</span>
+                            <span className="font-display font-bold text-lg tracking-normal">Menu</span>
                         </div>
                         <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
                             <Link href="#features" className="w-full text-base font-medium uppercase tracking-wide">Features</Link>

@@ -28,7 +28,7 @@ export function LandingSocialProof() {
                 key={idx} 
                 className="flex items-center justify-center grayscale opacity-40 hover:opacity-100 transition-opacity cursor-pointer mx-4"
               >
-                <span className="text-xl font-bold font-mono tracking-tighter">{logo}</span>
+                <span className="text-xl font-bold font-mono tracking-normal">{logo}</span>
               </div>
             ))}
           </div>
