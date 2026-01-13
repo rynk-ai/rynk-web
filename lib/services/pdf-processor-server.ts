@@ -49,7 +49,7 @@ export async function processPDFFromR2(
   conversationId?: string,
   projectId?: string,
   messageId?: string
-): Promise<{ success: boolean; error?: string; chunksProcessed?: number }> {
+): Promise<{ success: boolean; error?: string; chunksProcessed?: number; extractedText?: string }> {
   const db = env.DB
   
   try {
@@ -176,12 +176,24 @@ export async function processPDFFromR2(
       `).bind(linkId, sourceId, projectId, Date.now()).run()
     }
 
-    // 8. Mark complete
-    await db.prepare('UPDATE pdf_jobs SET status = ?, sourceId = ?, completedAt = ? WHERE id = ?')
-      .bind('completed', sourceId, Date.now(), jobId).run()
+    // SMALL FILE OPTIMIZATION: Return text if < 50KB (~10-15 pages)
+    const shouldReturnText = text.length < 50000
+    
+    // 8. Mark complete (and save extracted text if small)
+    if (shouldReturnText) {
+      await db.prepare('UPDATE pdf_jobs SET status = ?, sourceId = ?, completedAt = ?, extractedText = ? WHERE id = ?')
+        .bind('completed', sourceId, Date.now(), text, jobId).run()
+    } else {
+      await db.prepare('UPDATE pdf_jobs SET status = ?, sourceId = ?, completedAt = ? WHERE id = ?')
+        .bind('completed', sourceId, Date.now(), jobId).run()
+    }
 
     console.log(`✅ [PDFProcessor] PDF processing complete: ${children.length} chunks`)
-    return { success: true, chunksProcessed: children.length }
+    return { 
+      success: true, 
+      chunksProcessed: children.length,
+      extractedText: shouldReturnText ? text : undefined
+    }
 
   } catch (error: any) {
     console.error(`❌ [PDFProcessor] Processing failed:`, error)

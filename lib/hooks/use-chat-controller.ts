@@ -308,7 +308,7 @@ export function useChatController({
               }
             })();
 
-            let serverProcessingPromise: Promise<void> | undefined;
+            let serverProcessingPromise: Promise<{ extractedText?: string }> | undefined;
             
             // SERVER-SIDE PDF PROCESSING: Use /api/pdf/process instead of client-side Web Worker
             if (isPDF && effectiveConversationId) {
@@ -348,10 +348,11 @@ export function useChatController({
                   };
                   addPdfJob(newJob);
                   
-                  // If processing completed synchronously (fallback mode), we're done
+                  // If processing completed synchronously (fallback mode)
                   if (initialStatus === 'completed') {
                     console.log(`✅ [Controller] PDF processed synchronously: ${file.name}`);
-                    return;
+                    // Check for extracted text in the same response (won't be there for queue mode)
+                    return { extractedText: undefined };
                   }
                   
                   // Poll for completion (async queue mode)
@@ -361,7 +362,12 @@ export function useChatController({
                     await new Promise(r => setTimeout(r, 2000)); // Poll every 2s
                     
                     const statusRes = await fetch(`/api/pdf/status/${jobId}`);
-                    const { status, progress, error } = await statusRes.json() as { status: string; progress: number; error?: string };
+                    const { status, progress, error, extractedText } = await statusRes.json() as { 
+                      status: string; 
+                      progress: number; 
+                      error?: string;
+                      extractedText?: string;
+                    };
                     
                     // Update job state for UI
                     updatePdfJob(jobId, { 
@@ -372,7 +378,8 @@ export function useChatController({
                     
                     if (status === 'completed') {
                       console.log(`✅ [Controller] PDF processing complete: ${file.name}`);
-                      return;
+                      // Return extracted text if available (small files)
+                      return { extractedText };
                     } else if (status === 'failed') {
                       throw new Error(error || 'PDF processing failed');
                     }
@@ -384,10 +391,12 @@ export function useChatController({
                   }
                   
                   console.warn(`⚠️ [Controller] PDF processing timed out: ${file.name}`);
+                  return { extractedText: undefined };
 
                 } catch (err) {
                   console.error(`❌ [Controller] Server PDF processing failed:`, err);
                   // Don't throw - allow message to be sent even if indexing fails
+                  return { extractedText: undefined };
                 }
               })();
             }
@@ -417,14 +426,32 @@ export function useChatController({
           const validResults = results.filter(Boolean) as any[];
           uploadedAttachments = validResults.map((r) => r.attachment);
 
-          // Wait for server-side PDF processing to complete
+          // Wait for server-side PDF processing to complete and capture results
           const serverPromises = validResults
             .map((r) => r.serverProcessingPromise)
-            .filter(Boolean);
+            .filter(Boolean) as Promise<{ extractedText?: string }>[];
+          
           if (serverPromises.length > 0) {
             console.log(`⏳ [Controller] Waiting for ${serverPromises.length} server PDF jobs...`);
-            await Promise.all(serverPromises);
+            const serverResults = await Promise.all(serverPromises);
             console.log("✅ [Controller] Server PDF processing complete");
+            
+            // Update attachments with extracted text for small files
+            let resultIndex = 0;
+            for (const validResult of validResults) {
+              if (validResult.serverProcessingPromise) {
+                const result = serverResults[resultIndex];
+                if (result?.extractedText) {
+                  console.log(`📄 [Controller] Using extracted text for small PDF: ${validResult.attachment.name}`);
+                  validResult.attachment.extractedContent = result.extractedText;
+                  validResult.attachment.useRAG = false; // Disable RAG, use direct content
+                }
+                resultIndex++;
+              }
+            }
+            
+            // Refresh uploadedAttachments reference
+            uploadedAttachments = validResults.map((r) => r.attachment);
           }
 
         }
