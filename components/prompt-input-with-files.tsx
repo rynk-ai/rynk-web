@@ -314,7 +314,7 @@ export const PromptInputWithFiles = memo(function
           onValueChange={handlePromptChange}
           onSubmit={handleSubmit}
           disabled={disabled || isSubmittingEdit}
-          className="bg-card/50 shadow-none rounded-xl border border-border/30 ring-0 backdrop-blur-sm"
+          className="bg-card/50 shadow-none rounded-xl border border-border ring-0 backdrop-blur-sm"
         >
           <div className="flex flex-col">
             <PromptInputTextarea
