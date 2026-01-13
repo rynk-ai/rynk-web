@@ -906,7 +906,16 @@ const ChatContent = memo(
     useEffect(() => {
       // Use ref to get the latest conversation ID, avoiding stale closures
       const conversationId = currentConversationIdRef.current;
-      if (!conversationId) return;
+      
+      // FIX: Handle null/undefined conversation ID
+      if (!conversationId) {
+          // Explicitly clear the tracking ref so pending requests for the old ID are discarded
+          if (messagesConversationIdRef.current) {
+              console.log("[ChatPage] Clearing conversation tracking ref (preventing stale load)");
+              messagesConversationIdRef.current = null;
+          }
+          return;
+      }
 
       // CRITICAL FIX: Update the ref BEFORE the early returns!
       // This prevents reloadMessages from being called after streaming completes.
