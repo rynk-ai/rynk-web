@@ -620,6 +620,7 @@ const GuestChatContent = memo(function GuestChatContent({
               onClearQuote={handleClearQuote}
               hideFileUpload={true}
               isGuest={true}
+              hideEmptyState={messages.length > 0}
 
               className={cn(
                 "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",

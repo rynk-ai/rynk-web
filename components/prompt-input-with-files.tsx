@@ -97,11 +97,13 @@ type PromptInputWithFilesProps = {
   // Deep Research
   isDeepResearch?: boolean;
   onDeepResearchChange?: (enabled: boolean) => void;
+  // Hide empty state branding
+  hideEmptyState?: boolean;
 };
 
 
 
-export const PromptInputWithFiles = memo(function
+   export const PromptInputWithFiles = memo(function
   PromptInputWithFiles({
   onSubmit,
   isLoading = false,
@@ -128,7 +130,8 @@ export const PromptInputWithFiles = memo(function
   onClearQuote,
   isGuest = false,
   isDeepResearch = false,
-  onDeepResearchChange
+  onDeepResearchChange,
+  hideEmptyState = false
 }: PromptInputWithFilesProps) {
   // Use the new smart input hook
   const {
@@ -226,7 +229,7 @@ export const PromptInputWithFiles = memo(function
                   <div
                     className={cn(
                       "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
-                      (!currentConversationId && !isLoading)
+                      (!currentConversationId && !isLoading && !hideEmptyState)
                         ? "opacity-100 translate-y-0 pointer-events-auto -top-50 lg:-top-40"
                         : "opacity-0 -translate-y-10 pointer-events-none",
                     )}
@@ -481,6 +484,7 @@ export const PromptInputWithFiles = memo(function
     prevProps.hideActions === nextProps.hideActions &&
     prevProps.quotedMessage?.messageId === nextProps.quotedMessage?.messageId &&
     prevProps.quotedMessage?.quotedText === nextProps.quotedMessage?.quotedText &&
-    prevProps.isDeepResearch === nextProps.isDeepResearch
+    prevProps.isDeepResearch === nextProps.isDeepResearch &&
+    prevProps.hideEmptyState === nextProps.hideEmptyState
   ); 
 });
