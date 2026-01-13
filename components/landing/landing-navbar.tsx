@@ -77,7 +77,6 @@ export function LandingNavbar() {
           <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 gap-12">
             <Link href="#features" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Features</Link>
             <Link href="#pricing" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Pricing</Link>
-            <Link href="/learning" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Learning</Link>
           </div>
 
           {/* Right Actions */}
@@ -138,9 +137,6 @@ export function LandingNavbar() {
                         </div>
                         <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
                             <Link href="#features" className="w-full text-base font-medium uppercase tracking-wide">Features</Link>
-                        </DropdownMenuItem>
-                         <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
-                            <Link href="/learning" className="w-full text-base font-medium uppercase tracking-wide">Learning</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
                             <Link href="#pricing" className="w-full text-base font-medium uppercase tracking-wide">Pricing</Link>

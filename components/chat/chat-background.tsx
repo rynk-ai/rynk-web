@@ -27,7 +27,7 @@ export function ChatBackground({ className }: ChatBackgroundProps) {
     >
       {/* Background image with gradient overlay for better text readability */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.08] dark:opacity-[0.12] transition-opacity duration-1000"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.18] dark:opacity-[0.12] transition-opacity duration-1000"
         style={{
           backgroundImage: `url(${currentBackground.src})`,
         }}
