@@ -44,6 +44,7 @@ import { PiPlus } from "react-icons/pi";
 // import { createStreamProcessor } from "@/lib/utils/stream-parser"; // Removed
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
+import { ONBOARDING_MESSAGES } from "@/lib/services/onboarding-content";
 
 // Extracted shared components
 import { filterActiveVersionsGeneric } from "@/lib/utils/filter-active-versions";
@@ -263,7 +264,19 @@ const GuestChatContent = memo(function GuestChatContent({
     
     if (!currentConversationId) {
       if (!chatId) {
-        setMessages([]);
+        // Show onboarding messages as default state for guest
+        const now = Date.now();
+        const onboardingMessages = ONBOARDING_MESSAGES.map((msg, index) => ({
+          id: `onboarding-${index}`,
+          conversationId: 'preview',
+          role: msg.role,
+          content: msg.content,
+          timestamp: now + (index * 100),
+          versionNumber: 1,
+          createdAt: new Date(now + (index * 100)).toISOString()
+        })) as any; // Cast to avoid strict type checks for missing optional fields that aren't needed for display
+
+        setMessages(onboardingMessages);
         setMessageVersions(new Map());
         setQuotedMessage(null);
         setLocalContext([]);

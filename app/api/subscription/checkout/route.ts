@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine success URL based on tier
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:8788";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://rynk.io";
     const successUrl = `${baseUrl}/subscription?success=true&tier=${tier}`;
 
     // Create checkout session using products array

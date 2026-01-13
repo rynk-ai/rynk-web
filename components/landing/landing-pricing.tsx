@@ -115,7 +115,7 @@ export function LandingPricing() {
           {/* Promo */}
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
-              Use code <span className="font-mono font-bold text-foreground">FEEDBACK</span> for 1st month free.
+              Use code <span className="font-mono font-bold text-foreground">M5WD0UWR</span> for 1st month free.
             </p>
           </div>
         </div>

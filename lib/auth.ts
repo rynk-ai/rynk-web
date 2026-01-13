@@ -4,6 +4,7 @@ import Resend from "next-auth/providers/resend"
 import { D1Adapter } from "@auth/d1-adapter"
 import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { sendMagicLinkEmail } from "@/lib/email/resend"
+import { createOnboardingConversation } from "@/lib/services/onboarding"
 
 export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
   // Try to get D1 binding from Cloudflare context
@@ -65,6 +66,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
           try {
             await db.prepare('UPDATE users SET credits = 100 WHERE id = ?').bind(user.id).run()
             console.log('✅ Set initial credits to 100 for new user:', user.id)
+            
+            // Create onboarding conversation for new user
+            await createOnboardingConversation(db, user.id)
           } catch (error) {
             console.error('Failed to set initial credits for user:', error)
           }
