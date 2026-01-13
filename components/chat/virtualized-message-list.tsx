@@ -246,7 +246,7 @@ const VirtualizedMessageList = forwardRef<VirtualizedMessageListRef, Virtualized
 }
 
   const Footer = () => {
-    return <div style={{ height: '20rem' }} />
+    return <div style={{ height: '10rem' }} />
   }
 
   return (

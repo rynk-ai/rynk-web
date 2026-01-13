@@ -76,37 +76,6 @@ export const ConversationListItem = memo(
                 {conversation.title}
               </span>
               
-              {/* Surface Icons */}
-              {/* Surface Icons */}
-              {(conversation as any).surfaceStates && (
-                <div className="flex items-center gap-0.5 shrink-0">
-                  {Object.entries({
-                    learning: { icon: PiBookOpen, color: "text-blue-500", label: "Has Course" },
-                    guide: { icon: PiListChecks, color: "text-green-500", label: "Has Guide" },
-                    quiz: { icon: PiTarget, color: "text-pink-500", label: "Has Quiz" },
-                    comparison: { icon: PiScales, color: "text-indigo-500", label: "Has Comparison" },
-                    flashcard: { icon: PiCards, color: "text-teal-500", label: "Has Flashcards" },
-                    timeline: { icon: PiCalendar, color: "text-amber-500", label: "Has Timeline" },
-                    wiki: { icon: PiBookOpen, color: "text-orange-500", label: "Has Wiki" },
-                    finance: { icon: PiTrendUp, color: "text-emerald-500", label: "Has Finance" },
-                    research: { icon: PiMagnifyingGlass, color: "text-purple-500", label: "Has Research" },
-                  }).map(([type, config]) => {
-                    if (!(conversation as any).surfaceStates[type]) return null;
-                    const Icon = config.icon;
-                    return (
-                      <Tooltip key={type}>
-                        <TooltipTrigger asChild>
-                          <span className={config.color}>
-                            <Icon className="h-3 w-3" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">{config.label}</TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              )}
-              
               {conversation.isPinned && (
                 <PiPushPin className="h-3 w-3 fill-primary/60 text-primary/60 shrink-0" />
               )}

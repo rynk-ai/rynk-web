@@ -763,7 +763,7 @@ export const ChatMessageItem = memo(
             <div className="flex flex-col items-end w-full">
               <MessageContent
                 className={cn(
-                  "text-foreground bg-secondary hover:bg-secondary/80 rounded-lg px-3 py-1.5 prose prose-slate dark:prose-invert transition-all duration-200 border border-border/50 selection:bg-primary/10",
+                  "text-foreground bg-secondary/30 hover:bg-secondary/50 rounded-2xl px-4 py-2 prose prose-slate dark:prose-invert transition-all duration-200 border-none selection:bg-primary/10",
                   isEditing && "opacity-50",
                 )}
                 onMouseUp={handleTextSelection}

@@ -1082,10 +1082,10 @@ const ChatContent = memo(
                   isDeepResearch={isDeepResearch}
                   onDeepResearchChange={setIsDeepResearch} 
                   className={cn(
-                    "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
+                    "relative z-10 w-full transition-all duration-300",
                     !currentConversationId
-                      ? "shadow-xl"
-                      : "shadow-sm hover:shadow-md",
+                      ? ""
+                      : "",
                     userCredits !== null && userCredits <= 0 && "opacity-50 pointer-events-none"
                   )}
                 />
@@ -1301,7 +1301,7 @@ const ChatHeaderWithCommandBar = memo(function ChatHeaderWithCommandBar({
 
   return (
     <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 animate-in-down">
-      <div className="flex items-center gap-0.5 bg-background border border-border shadow-sm rounded-md p-0.5 transition-all duration-300 hover:shadow-md">
+      <div className="flex items-center gap-0.5 p-0.5 transition-all duration-300">
         <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button

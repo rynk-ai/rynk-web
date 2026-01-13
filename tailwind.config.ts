@@ -12,8 +12,8 @@ export default {
         'xs': '475px',
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui"],
-        display: ["var(--font-outfit)", "var(--font-inter)", "sans-serif"],
+        sans: ["var(--font-manrope)", "ui-sans-serif", "system-ui"],
+        display: ["var(--font-manrope)", "sans-serif"],
         mono: ["'SF Mono'", "'Fira Code'", "ui-monospace", "monospace"],
       },
       colors: {

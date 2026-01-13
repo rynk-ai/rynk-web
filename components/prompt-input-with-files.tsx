@@ -314,7 +314,7 @@ export const PromptInputWithFiles = memo(function
           onValueChange={handlePromptChange}
           onSubmit={handleSubmit}
           disabled={disabled || isSubmittingEdit}
-          className="bg-card shadow-lg rounded-xl border border-border/40 ring-0"
+          className="bg-card/50 shadow-none rounded-xl border border-border/30 ring-0 backdrop-blur-sm"
         >
           <div className="flex flex-col">
             <PromptInputTextarea
@@ -328,7 +328,7 @@ export const PromptInputWithFiles = memo(function
                       ? "Ask anything"
                       : "Ask anything (Shift+Enter for new line)"
               }
-              className="min-h-[44px] pt-3 pl-3 text-base leading-[1.5] sm:text-base md:text-base overscroll-contain bg-card border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
+              className="min-h-[44px] pt-3 pl-3 text-base leading-[1.5] sm:text-base md:text-base overscroll-contain bg-transparent border-none focus:ring-0 resize-none placeholder:text-muted-foreground/40"
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
             />

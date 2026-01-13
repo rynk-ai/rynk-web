@@ -29,7 +29,7 @@ export const InputAttachmentList = memo(function InputAttachmentList({
         {context.map((item) => (
           <div 
             key={item.id}
-            className="flex items-center gap-2 bg-secondary/50 border border-border/50 rounded-md px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
+            className="flex items-center gap-2 bg-secondary/30 border border-border/10 rounded-lg px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
           >
             {item.type === 'folder' ? (
               <PiFolder className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -73,7 +73,7 @@ export const InputAttachmentList = memo(function InputAttachmentList({
           return (
             <div 
               key={`${name}-${index}`}
-              className="flex items-center gap-2 bg-secondary/50 border border-border/50 rounded-md px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
+              className="flex items-center gap-2 bg-secondary/30 border border-border/10 rounded-lg px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
             >
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <div className="min-w-0 flex-1">

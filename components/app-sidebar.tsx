@@ -375,7 +375,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("open-command-bar"))}
-              className="group flex-1 flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted-foreground/70 bg-secondary/50 hover:bg-secondary/80 hover:text-foreground rounded-md transition-all duration-200"
+              className="group flex-1 flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted-foreground/70 hover:bg-secondary/50 hover:text-foreground rounded-md transition-all duration-200"
             >
               <PiMagnifyingGlass className="h-3.5 w-3.5 shrink-0 opacity-50 group-hover:opacity-100" />
               <span className="truncate">Search</span>
@@ -419,23 +419,7 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
           </div>
         </div>
         <div className="flex-1 overflow-auto no-scrollbar" ref={scrollableRef}>
-          {/* Learning Section - Quick access to Education Machine */}
-          {!activeProjectId && (
-            <div className="px-3 mb-2">
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-2 px-2 py-1.5 h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-md transition-all",
-                  pathname === '/learning' && "bg-secondary/80 text-foreground"
-                )}
-                onClick={() => router.push('/learning')}
-              >
-                <PiGraduationCap className="h-3.5 w-3.5" />
-                <span>Learning</span>
-              </Button>
-            </div>
-          )}
-          
+                    
           {!activeProjectId ? (
             <div className="mb-4">
               {isLoadingProjects ? (

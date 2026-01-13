@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
-import { Outfit, Inter } from "next/font/google"; // [MODIFIED]
+import { Manrope } from "next/font/google"; // [MODIFIED]
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
@@ -11,15 +11,9 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const outfit = Outfit({ // [MODIFIED]
+const manrope = Manrope({ // [MODIFIED]
   subsets: ["latin"],
-  variable: "--font-outfit", // [MODIFIED]
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-manrope", // [MODIFIED]
   display: "swap",
 });
 
@@ -199,7 +193,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       
       <body
-        className={`${outfit.variable} ${inter.variable} font-sans antialiased tracking-tight bg-background text-foreground`}
+        className={`${manrope.variable} font-sans antialiased tracking-tight bg-background text-foreground`}
       >
         <AuthProvider>
           <FontProviderWrapper defaultFont="geist">
