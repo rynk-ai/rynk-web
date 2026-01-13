@@ -179,21 +179,8 @@ function deriveStages(
     })
   }
   
-  // 4. Generate stage - always show when streaming or has content
-  if (isStreaming || hasContent || currentStatus === 'synthesizing') {
-    stages.push({
-      id: 'generate',
-      label: hasContent ? 'Response complete' : 'Generating response',
-      status: hasContent 
-        ? 'complete' 
-        : isStreaming || currentStatus === 'synthesizing'
-          ? 'active'
-          : 'pending',
-      description: hasContent 
-        ? undefined
-        : 'Synthesizing information into a comprehensive answer'
-    })
-  }
+  // 4. Generate stage - REMOVED: No longer showing "Generating response" status
+  // The response will just appear without a status indicator
   
   return stages
 }

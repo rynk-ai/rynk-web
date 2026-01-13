@@ -523,9 +523,10 @@ export const ChatMessageItem = memo(
     }, [effectiveSearchResults, isAssistant]);
 
     if (isAssistant) {
-      // Use message.content if available, otherwise streaming content, otherwise cached content
-      // This prevents flicker when transitioning from streaming to final state
-      const displayContent = message.content || streamingContent || lastStreamingContentRef.current;
+      // Use message.content if available, otherwise streaming content (only if this message is actively streaming)
+      // This prevents showing stale content from the previous message's streaming session
+      // The lastStreamingContentRef is only used to bridge the gap during the same message's stream completion
+      const displayContent = message.content || (isStreaming ? streamingContent : '') || lastStreamingContentRef.current;
 
       // Debug logging removed - was causing console clutter on every render
 
