@@ -8,6 +8,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { FontProviderWrapper } from "@/components/providers/font-provider-wrapper";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { ChatBackgroundProvider } from "@/lib/hooks/use-chat-background";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -205,7 +206,9 @@ export default function RootLayout({
             >
               <QueryProvider>
                 <ChatProvider>
-                  <SidebarProvider>{children}</SidebarProvider>
+                  <ChatBackgroundProvider>
+                    <SidebarProvider>{children}</SidebarProvider>
+                  </ChatBackgroundProvider>
                 </ChatProvider>
                 <Toaster
                   position="top-center"

@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { filterActiveVersionsGeneric } from "@/lib/utils/filter-active-versions";
 import { TagSection } from "@/components/chat/tag-section";
 import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
+import { ChatBackground } from "@/components/chat/chat-background";
 
 // Context Item type
 type ContextItem = {
@@ -501,10 +502,12 @@ const GuestChatContent = memo(function GuestChatContent({
         }}
       />
 
+      {/* Chat Background */}
+      <ChatBackground />
+
       <div className="flex flex-1 flex-col relative overflow-hidden">
         {/* Top Section: Messages & Title */}
         <div className="flex-1 overflow-y-auto w-full relative">
-          
 
           {/* Messages Container */}
           <div

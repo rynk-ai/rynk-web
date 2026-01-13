@@ -58,7 +58,7 @@ import { processStreamChunk } from "@/lib/utils/stream-parser";
 import { filterActiveVersions } from "@/lib/utils/filter-active-versions";
 import { TagSection } from "@/components/chat/tag-section";
 import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button";
-
+import { ChatBackground } from "@/components/chat/chat-background";
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -879,6 +879,9 @@ const ChatContent = memo(
 
     return (
       <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
+        {/* Chat Background */}
+        <ChatBackground />
+
         <div className="flex flex-1 flex-col relative overflow-hidden">
           {/* Top Section: Messages & Title */}
           <div className="flex-1 overflow-y-auto w-full relative">

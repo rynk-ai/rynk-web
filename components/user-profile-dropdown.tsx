@@ -13,7 +13,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { PiSignOut, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiHouse, PiDiscordLogo, PiXLogo, PiTextAa } from "react-icons/pi";
+import { PiSignOut, PiCoins, PiMoon, PiSun, PiCreditCard, PiSparkle, PiLightning, PiCrown, PiHouse, PiDiscordLogo, PiXLogo, PiTextAa, PiImage, PiCheck } from "react-icons/pi";
+import { useChatBackground, CHAT_BACKGROUNDS, type BackgroundPreference } from "@/lib/hooks/use-chat-background";
 import { useEffect, useState } from "react";
 import { getUserCredits } from "@/app/actions";
 import { useTheme } from "next-themes";
@@ -57,6 +58,7 @@ function UserProfileSkeleton() {
 export function UserProfileDropdown() {
   const { data: session, status } = useSession();
   const { setTheme } = useTheme();
+  const { preference: bgPreference, setPreference: setBgPreference, backgrounds } = useChatBackground();
 
   const router = useRouter();
   const [credits, setCredits] = useState<number | null>(null);
@@ -182,6 +184,41 @@ export function UserProfileDropdown() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("system")} className="focus:bg-muted dark:focus:bg-muted/50">
               System
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="focus:bg-muted dark:focus:bg-muted/50 data-[state=open]:bg-muted dark:data-[state=open]:bg-muted/50">
+            <PiImage className="mr-2 h-4 w-4" />
+            <span>Background</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-[180px]">
+            <DropdownMenuItem 
+              onClick={() => setBgPreference("auto")} 
+              className="focus:bg-muted dark:focus:bg-muted/50 justify-between"
+            >
+              <span>Auto (24h rotation)</span>
+              {bgPreference === "auto" && <PiCheck className="h-4 w-4 text-primary" />}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {backgrounds.map((bg) => (
+              <DropdownMenuItem 
+                key={bg.id}
+                onClick={() => setBgPreference(bg.id)} 
+                className="focus:bg-muted dark:focus:bg-muted/50 justify-between"
+              >
+                <span>{bg.name}</span>
+                {bgPreference === bg.id && <PiCheck className="h-4 w-4 text-primary" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => setBgPreference("none")} 
+              className="focus:bg-muted dark:focus:bg-muted/50 justify-between"
+            >
+              <span>No background</span>
+              {bgPreference === "none" && <PiCheck className="h-4 w-4 text-primary" />}
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>

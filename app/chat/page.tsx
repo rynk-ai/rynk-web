@@ -55,6 +55,7 @@ import { ScrollToBottomButton } from "@/components/chat/scroll-to-bottom-button"
 
 import { MessagesLoadingSkeleton } from "@/components/chat/messages-loading-skeleton";
 import { ChatInputSection } from "@/components/chat/chat-input-section";
+import { ChatBackground } from "@/components/chat/chat-background";
 
 interface ChatContentProps {
   onMenuClick?: () => void;
@@ -936,10 +937,12 @@ const ChatContent = memo(
 
     return (
       <main className="flex h-full flex-col overflow-hidden relative overscroll-none">
+        {/* Chat Background */}
+        <ChatBackground />
+
         <div className="flex flex-1 flex-col relative overflow-hidden">
           {/* Top Section: Messages & Title */}
           <div className="flex-1 overflow-y-auto w-full relative">
-           
 
             {/* Messages Container - Fades in/Visible when conversation active OR when sending (optimistic messages) */}
             <div
