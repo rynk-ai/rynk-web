@@ -23,6 +23,7 @@ AI interface designed for research, verification, and structured learning aggreg
   <img
     src="https://console.groq.com/powered-by-groq-dark.svg"
     alt="Powered by Groq for fast inference."
+    height="30"
   />
 </a>
 
