@@ -612,6 +612,68 @@ async addKnowledgeChunk(data: { sourceId: string; content: string; vector: numbe
 
 
 
+  /**
+   * Search messages across MULTIPLE conversations
+   * Used by the Composable Knowledge Blocks architecture to query
+   * the full resolved KB (current + referenced + transitive conversations)
+   */
+  async searchMultipleConversations(
+    conversationIds: string[],
+    queryVector: number[],
+    options: { limit?: number, minScore?: number } = {}
+  ): Promise<Array<{ messageId: string; conversationId: string; content: string; score: number }>> {
+    if (conversationIds.length === 0) return [];
+    
+    try {
+      const index = getCloudflareContext().env.VECTORIZE_INDEX;
+      if (!index) {
+        console.warn('⚠️ [vectorDb] Vectorize index not bound, skipping search');
+        return [];
+      }
+
+      const { limit = 15, minScore = 0.25 } = options;
+
+      console.log(`🧠 [vectorDb] Searching across ${conversationIds.length} conversations`);
+
+      // Parallel query for each conversationId
+      const searchPromises = conversationIds.map(convId =>
+        index.query(queryVector, {
+          topK: Math.ceil(limit / conversationIds.length) + 3, // Distribute limit + buffer
+          filter: { conversationId: convId },
+          returnMetadata: true
+        }).catch(err => {
+          console.error(`❌ [vectorDb] Query failed for conversation ${convId}:`, err);
+          return { matches: [], count: 0 };
+        })
+      );
+
+      const results = await Promise.all(searchPromises);
+      
+      // Flatten, deduplicate, filter, and sort
+      const allMatches = results.flatMap(r => r.matches);
+      const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
+      
+      const filtered = uniqueMatches
+        .filter(match => match.score >= minScore)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(match => ({
+          messageId: match.id,
+          conversationId: match.metadata?.conversationId as string,
+          content: match.metadata?.content as string,
+          score: match.score
+        }));
+
+      console.log(`✅ [vectorDb] Found ${filtered.length} messages across ${conversationIds.length} conversations`);
+      
+      return filtered;
+
+    } catch (error) {
+      console.error('❌ [vectorDb] Failed to search multiple conversations:', error);
+      return [];
+    }
+  },
+
   async searchProjectMemory(
     projectId: string,
     queryVector: number[],

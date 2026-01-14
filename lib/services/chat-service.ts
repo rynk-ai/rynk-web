@@ -26,8 +26,11 @@ import { detectEnhanced, resolveReasoningMode, getReasoningModel } from './reaso
 import { formatSearchResultsSafely, sanitize, detectInjection } from '@/lib/security/prompt-sanitizer'
 import { validateOutput, quickRedact } from '@/lib/security/output-guard'
 import { analyzeIntent } from './agentic/intent-analyzer'
+import { analyzeIntentEnhanced } from './agentic/enhanced-intent-analyzer'
 import { SourceOrchestrator } from './agentic/source-orchestrator'
 import { analyzeResearchQuery, searchAllVerticals } from '@/lib/services/research/research-orchestrator'
+import { resolveKnowledgeBase, searchResolvedKnowledgeBase } from '@/lib/services/knowledge-resolver'
+import { getGroundingConfig, getSourcesForDomain, getDisclaimerText } from '@/lib/services/domain-types'
 
 
 
@@ -201,7 +204,18 @@ export class ChatService {
           console.log('⚡ [chatService] Starting parallel context retrieval...')
           streamManager.sendStatus('building_context', 'Building context...')
           
-          const [kbContextResult, buildContextResult] = await Promise.all([
+          // === COMPOSABLE KNOWLEDGE BLOCKS ===
+          // Resolve the full KB for this conversation (includes transitive refs)
+          // This replaces the per-message reference handling with accumulated references
+          let resolvedKB: Awaited<ReturnType<typeof resolveKnowledgeBase>> | null = null
+          try {
+            resolvedKB = await resolveKnowledgeBase(conversationId)
+            console.log(`📚 [chatService] Resolved KB: ${resolvedKB.conversationIds.length} convos, ${resolvedKB.sourceIds.length} sources`)
+          } catch (kbResErr) {
+            console.error('❌ [chatService] Failed to resolve KB:', kbResErr)
+          }
+          
+          const [kbContextResult, buildContextResult, resolvedKBResult] = await Promise.all([
             // KB Context with Small-to-Big retrieval (parent expansion)
             knowledgeBase.getContextSmallToBig(
               conversationId, 
@@ -215,7 +229,7 @@ export class ChatService {
             }),
 
             
-            // Build legacy context
+            // Build legacy context (still useful for project memory, current convo memory)
             this.buildContext(
               userId,
               conversationId,
@@ -225,13 +239,46 @@ export class ChatService {
               project,  // Pass full project object
               undefined,  // onProgress
               queryEmbedding  // OPTIMIZATION: Reuse pre-computed embedding
-            )
+            ),
+            
+            // Search resolved KB (composable knowledge blocks)
+            // Includes current conversation + all referenced conversations
+            (resolvedKB && queryEmbedding.length > 0)
+              ? searchResolvedKnowledgeBase(resolvedKB, queryEmbedding, { 
+                  messageLimit: 15, 
+                  sourceLimit: 10 
+                }).catch(err => {
+                  console.error('❌ [chatService] Failed to search resolved KB:', err)
+                  return { messages: [], chunks: [] }
+                })
+              : Promise.resolve({ messages: [], chunks: [] })
           ])
           
           const kbContext = kbContextResult
           const { contextText: legacyContext, retrievedChunks } = buildContextResult
           console.log('✅ [chatService] Parallel context retrieval complete')
           console.log(`📊 [chatService] kbContext length: ${kbContext?.length || 0}, retrievedChunks: ${retrievedChunks.length}`)
+          
+          // === MERGE RESOLVED KB RESULTS INTO RETRIEVED CHUNKS ===
+          if (resolvedKBResult) {
+            // Add message results from resolved KB
+            for (const msg of resolvedKBResult.messages) {
+              retrievedChunks.push({
+                content: msg.content,
+                source: `Referenced Conversation`,
+                score: msg.score
+              })
+            }
+            // Add file chunk results from resolved KB
+            for (const chunk of resolvedKBResult.chunks) {
+              retrievedChunks.push({
+                content: chunk.content,
+                source: `Referenced File`,
+                score: chunk.score
+              })
+            }
+            console.log(`📚 [chatService] Added ${resolvedKBResult.messages.length} msgs + ${resolvedKBResult.chunks.length} chunks from resolved KB`)
+          }
           
           // FALLBACK: If KB returns empty but we have PDF attachments, fetch extracted text from source metadata
           let pdfFallbackContext = ''
@@ -303,73 +350,38 @@ export class ChatService {
           let detectionResult: any = null
 
           if (messageContent && useReasoning !== 'off') {
-            console.log('⚡ [chatService] Using optimized unified intent analysis')
+            console.log('⚡ [chatService] Using enhanced LLM intent analyzer')
             
-            // 1. Unified Intent Analysis (Detection + Planning in one go)
+            // 1. Enhanced Intent Analysis - returns full EnhancedDetectionResult + SourcePlan
             const historyForIntent = messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '' }))
-            const { quickAnalysis, sourcePlan: plannedSourcePlan } = await analyzeIntent(messageContent, historyForIntent)
+            const { detection, sourcePlan: plannedSourcePlan } = await analyzeIntentEnhanced(messageContent, historyForIntent)
             
-            // 2. Determine modes from analysis
+            // 2. Determine modes from analysis (with user override support)
             if (useReasoning === 'on' || useReasoning === 'online' || useReasoning === 'deep_research') {
               shouldUseReasoning = true
             } else {
-              shouldUseReasoning = quickAnalysis.needsReasoning
+              shouldUseReasoning = detection.needsReasoning
             }
             
             if (useReasoning === 'online' || useReasoning === 'deep_research') {
               shouldUseWebSearch = true
             } else {
-              shouldUseWebSearch = quickAnalysis.needsWebSearch
+              shouldUseWebSearch = detection.needsWebSearch
             }
             
-            // 3. Setup context for execution
-            // We must construct a full EnhancedDetectionResult to avoid formatter errors
-            detectionResult = {
-              needsReasoning: shouldUseReasoning,
-              needsWebSearch: shouldUseWebSearch,
-              confidence: quickAnalysis.confidence,
-              reasoning: 'Unified intent analysis',
-              
-              domain: quickAnalysis.category === 'technical' ? 'technology' : 'general',
-              subDomain: null,
-              informationType: quickAnalysis.category === 'current_events' ? 'current_events' :
-                              quickAnalysis.category === 'technical' ? 'conceptual' :
-                              quickAnalysis.category === 'complex' ? 'analytical' : 'factual',
-              
-              // vital: provide safe defaults for requirements
-              responseRequirements: {
-                needsDiagrams: false,
-                needsRealTimeData: quickAnalysis.category === 'current_events',
-                needsCitations: shouldUseWebSearch,
-                needsStepByStep: quickAnalysis.category === 'technical',
-                needsDisclaimer: false,
-                needsComparison: false,
-                needsCode: quickAnalysis.category === 'technical'
-              },
-              
-              queryContext: {
-                isUrgent: false,
-                isAcademic: false,
-                isProfessional: false,
-                complexityLevel: quickAnalysis.category === 'complex' ? 'advanced' : 'basic'
-              },
-              
-              detectedTypes: {
-                math: false,
-                code: quickAnalysis.category === 'technical',
-                logic: quickAnalysis.category === 'complex',
-                analysis: quickAnalysis.category === 'complex',
-                currentEvents: quickAnalysis.category === 'current_events'
-              }
-            }
+            // 3. Use the full detection result directly (no more manual construction!)
+            detectionResult = detection
             
             selectedModel = getReasoningModel(shouldUseReasoning, false)
             
-            console.log('🎯 [chatService] Analysis result:', {
-              category: quickAnalysis.category,
+            console.log('🎯 [chatService] Enhanced analysis result:', {
+              domain: detection.domain,
+              subDomain: detection.subDomain,
+              informationType: detection.informationType,
               needsReasoning: shouldUseReasoning,
               needsWebSearch: shouldUseWebSearch,
-              confidence: quickAnalysis.confidence,
+              needsDisclaimer: detection.responseRequirements.needsDisclaimer,
+              confidence: detection.confidence,
               deepResearch: useReasoning === 'deep_research'
             })
             
@@ -425,10 +437,25 @@ export class ChatService {
 
               } else {
                 // === STANDARD SEARCH MODE ===
-                streamManager.sendStatus('searching', `Searching ${plannedSourcePlan.sources.join(', ')}...`)
+                // Use domain-specific grounding to select sources
+                const groundingConfig = getGroundingConfig(detection.domain)
+                // Get domain-specific sources and filter to only web-searchable ones
+                const domainSources = getSourcesForDomain(detection.domain)
+                const webSources = domainSources.filter(s => s === 'exa' || s === 'perplexity' || s === 'wikipedia') as ('exa' | 'perplexity' | 'wikipedia')[]
+                
+                // Override source plan with domain-specific sources if grounding requires verification
+                const effectiveSources = groundingConfig.requireVerification && webSources.length > 0
+                  ? webSources
+                  : (plannedSourcePlan.sources as ('exa' | 'perplexity' | 'wikipedia')[])
+                
+                console.log(`🎯 [chatService] Domain grounding: ${detection.domain} → sources: ${effectiveSources.join(', ')}`)
+                streamManager.sendStatus('searching', `Searching ${effectiveSources.join(', ')}...`)
                 
                 const orchestrator = new SourceOrchestrator()
-                const sourceResults = await orchestrator.executeSourcePlan(plannedSourcePlan)
+                const sourceResults = await orchestrator.executeSourcePlan({
+                  ...plannedSourcePlan,
+                  sources: effectiveSources
+                })
                 
                 // Map results to legacy format
                 const allSources: any[] = []
@@ -566,6 +593,23 @@ ${availableImages ? `8. **IMAGES**: If images are available above and relevant t
                 role: 'system',
                 content: formatInstructions
               })
+            }
+            
+            // === DISCLAIMER INJECTION (for high-stakes domains) ===
+            if (detectionResult.responseRequirements?.needsDisclaimer) {
+              const disclaimerText = getDisclaimerText(detectionResult.domain)
+              if (disclaimerText) {
+                console.log(`⚠️ [chatService] Injecting ${detectionResult.domain} disclaimer`)
+                const disclaimerInstruction = `\n<disclaimer_required>\nIMPORTANT: You MUST include the following disclaimer at the END of your response:\n\n${disclaimerText}\n</disclaimer_required>`
+                
+                const sysIdx = finalMessages.findIndex(m => m.role === 'system')
+                if (sysIdx >= 0) {
+                  finalMessages[sysIdx] = {
+                    ...finalMessages[sysIdx],
+                    content: (finalMessages[sysIdx].content as string) + disclaimerInstruction
+                  }
+                }
+              }
             }
           }
 

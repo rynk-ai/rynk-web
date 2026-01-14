@@ -519,3 +519,195 @@ export interface AcademicCitation {
   relevanceScore?: number
 }
 
+// ============================================================================
+// GROUNDING CONFIGURATION (Anti-Hallucination)
+// ============================================================================
+
+export type SourceType = 'exa' | 'perplexity' | 'wikipedia' | 'academic' | 'rag'
+
+/**
+ * Grounding configuration for a domain
+ * Determines source selection, citation requirements, and verification rules
+ */
+export interface GroundingConfig {
+  /** Whether web search is required for this domain */
+  requireWebSearch: boolean | 'auto'
+  
+  /** Preferred sources for this domain, in priority order */
+  preferredSources: SourceType[]
+  
+  /** Whether academic sources are required */
+  academicRequired: boolean
+  
+  /** Citation style for responses */
+  citationStyle: 'inline' | 'footnote' | 'none'
+  
+  /** Whether multiple sources should be cross-referenced for verification */
+  requireVerification: boolean
+  
+  /** Whether code blocks are typically expected */
+  codeBlockRequired: boolean
+  
+  /** Freshness threshold for time-sensitive domains (null = not time-sensitive) */
+  freshnessThreshold: '1h' | '24h' | '7d' | '30d' | null
+}
+
+/**
+ * Domain-specific grounding rules
+ * These rules determine how responses are grounded to prevent hallucination
+ */
+export const DOMAIN_GROUNDING_RULES: Record<Domain, GroundingConfig> = {
+  science: {
+    requireWebSearch: 'auto',
+    preferredSources: ['wikipedia', 'academic', 'exa'],
+    academicRequired: true,
+    citationStyle: 'inline',
+    requireVerification: true,
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  },
+  
+  medicine: {
+    requireWebSearch: true,
+    preferredSources: ['wikipedia', 'academic', 'exa'],
+    academicRequired: true,
+    citationStyle: 'inline',
+    requireVerification: true, // Critical: cross-reference medical info
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  },
+  
+  technology: {
+    requireWebSearch: 'auto',
+    preferredSources: ['exa', 'perplexity', 'rag'],
+    academicRequired: false,
+    citationStyle: 'inline',
+    requireVerification: false,
+    codeBlockRequired: true,
+    freshnessThreshold: '30d' // Tech changes frequently
+  },
+  
+  business: {
+    requireWebSearch: 'auto',
+    preferredSources: ['exa', 'perplexity', 'wikipedia'],
+    academicRequired: false,
+    citationStyle: 'inline',
+    requireVerification: true, // Financial info needs verification
+    codeBlockRequired: false,
+    freshnessThreshold: '24h' // Market data changes daily
+  },
+  
+  law: {
+    requireWebSearch: true,
+    preferredSources: ['exa', 'wikipedia', 'academic'],
+    academicRequired: true,
+    citationStyle: 'inline',
+    requireVerification: true, // Legal info is critical
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  },
+  
+  arts: {
+    requireWebSearch: 'auto',
+    preferredSources: ['wikipedia', 'exa'],
+    academicRequired: false,
+    citationStyle: 'inline',
+    requireVerification: false,
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  },
+  
+  journalism: {
+    requireWebSearch: true,
+    preferredSources: ['perplexity', 'exa'],
+    academicRequired: false,
+    citationStyle: 'inline',
+    requireVerification: true, // News needs multiple sources
+    codeBlockRequired: false,
+    freshnessThreshold: '1h' // News is very time-sensitive
+  },
+  
+  design: {
+    requireWebSearch: 'auto',
+    preferredSources: ['exa', 'perplexity'],
+    academicRequired: false,
+    citationStyle: 'none',
+    requireVerification: false,
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  },
+  
+  social: {
+    requireWebSearch: 'auto',
+    preferredSources: ['wikipedia', 'academic', 'exa'],
+    academicRequired: true,
+    citationStyle: 'inline',
+    requireVerification: false,
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  },
+  
+  environment: {
+    requireWebSearch: true,
+    preferredSources: ['academic', 'exa', 'wikipedia'],
+    academicRequired: true,
+    citationStyle: 'inline',
+    requireVerification: true, // Climate data needs verification
+    codeBlockRequired: false,
+    freshnessThreshold: '7d'
+  },
+  
+  general: {
+    requireWebSearch: 'auto',
+    preferredSources: ['perplexity', 'rag'],
+    academicRequired: false,
+    citationStyle: 'none',
+    requireVerification: false,
+    codeBlockRequired: false,
+    freshnessThreshold: null
+  }
+}
+
+/**
+ * Get grounding configuration for a domain
+ */
+export function getGroundingConfig(domain: Domain): GroundingConfig {
+  return DOMAIN_GROUNDING_RULES[domain] || DOMAIN_GROUNDING_RULES.general
+}
+
+/**
+ * Determine if web search should be used based on domain and info type
+ */
+export function shouldUseWebSearch(
+  domain: Domain, 
+  informationType: InformationType
+): boolean {
+  const config = getGroundingConfig(domain)
+  
+  if (config.requireWebSearch === true) return true
+  if (config.requireWebSearch === false) return false
+  
+  // 'auto' mode - decide based on information type
+  const webSearchTypes: InformationType[] = [
+    'current_events', 'market_data', 'research'
+  ]
+  return webSearchTypes.includes(informationType)
+}
+
+/**
+ * Get the list of sources to query for a domain
+ */
+export function getSourcesForDomain(
+  domain: Domain,
+  includeAcademic: boolean = false
+): SourceType[] {
+  const config = getGroundingConfig(domain)
+  const sources = [...config.preferredSources]
+  
+  // Add academic if required or explicitly requested
+  if ((config.academicRequired || includeAcademic) && !sources.includes('academic')) {
+    sources.push('academic')
+  }
+  
+  return sources
+}
