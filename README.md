@@ -1,6 +1,6 @@
 # Rynk
 
-AI interface designed for research, verification, and structured learning aggregating data from multiple sources and presenting it through specialized interactive surfaces.
+AI without the noise. Deep research and projects without the fluff. An AI that stays out of your way.
 
 ![Rynk](/public/og-image.png)
 
@@ -12,10 +12,10 @@ AI interface designed for research, verification, and structured learning aggreg
 
 <div align="center">
 
-|          [Cloudflare for Startups](https://workers.cloudflare.com/)          |                [Exa AI](https://exa.ai)                |
-| :--------------------------------------------------------------------------: | :----------------------------------------------------: |
-| <img src="https://avatars.githubusercontent.com/u/314135?s=200&v=4" alt="Cloudflare" height="40" /> | <img src="/public/exa.png" alt="Exa AI" height="40" /> |
-|            Supported by Cloudflare for Startups program             |          Supported by Exa AI Labs           |
+|          [Cloudflare for Startups](https://workers.cloudflare.com/)          |                [Exa AI](https://exa.ai)                |      [Perplexity](https://perplexity.ai)      |
+| :--------------------------------------------------------------------------: | :----------------------------------------------------: | :-------------------------------------------: |
+| <img src="https://avatars.githubusercontent.com/u/314135?s=200&v=4" alt="Cloudflare" height="40" /> | <img src="/public/exa.png" alt="Exa AI" height="40" /> | <img src="/public/perplexity.png" alt="Perplexity" height="40" /> |
+|            Supported by Cloudflare for Startups program             |          Supported by Exa AI Labs           |        Real-time knowledge        |
 
 <br />
 
@@ -31,28 +31,18 @@ AI interface designed for research, verification, and structured learning aggreg
 
 ## Features
 
-### Research & Verification
+### Research
+- **Deep Research**: Pulls from multiple sources, synthesizes answers, and provides citations.
+- **Knowledge Engine**: Semantic search across your conversation history and uploaded files.
 
-- **Agentic Research**: Orchestrates parallel searches across Exa, Perplexity, and Wikipedia to synthesize comprehensive answers with citations.
-- **Deep Dive**: Deep research capabilities with multiple source verification and analysis.
-- **Knowledge Engine**: Vector-based semantic search across conversation history.
+### Projects
+- **Workspaces**: Group chats and files into projects.
+- **Shared Context**: AI remembers context across all conversations in a project.
 
-### Finance & Analysis
-
-- **Real-time Data**: Access live market data and technical signals.
-- **Interactive Charts**: Dynamic visualizations for stocks and cryptocurrencies.
-- **Code Execution**: Run Python code for complex data analysis and chart generation.
-
-### Education & Learning
-
-- **Learning Engine**: Generates structured courses, quizzes, and flashcards on any topic with progress tracking.
-- **Structured Learning**: Adaptive learning paths personalized to your knowledge level.
-
-### Core Core Experience
-
-- **Context-aware Chat**: Supports message branching, versioning, and thread management.
-- **File Uploads**: Drag and drop support for PDFs, images, and code files with semantic search integration.
-- **Message Versioning**: Branch conversations to explore different potential outcomes.
+### Core Experience
+- **Minimal Design**: No distractions. Just you and the AI.
+- **File Analysis**: Drag and drop support for PDFs, images, and code files.
+- **Message Versioning**: Branch conversations to explore different outcomes.
 
 ## Built with
 
