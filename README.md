@@ -17,6 +17,15 @@ AI interface designed for research, verification, and structured learning aggreg
 | <img src="https://avatars.githubusercontent.com/u/314135?s=200&v=4" alt="Cloudflare" height="40" /> | <img src="/public/exa.png" alt="Exa AI" height="40" /> |
 |            Supported by Cloudflare for Startups program             |          Supported by Exa AI Labs           |
 
+<br />
+
+<a href="https://groq.com" target="_blank" rel="noopener noreferrer">
+  <img
+    src="https://console.groq.com/powered-by-groq-dark.svg"
+    alt="Powered by Groq for fast inference."
+  />
+</a>
+
 </div>
 
 ## Features
