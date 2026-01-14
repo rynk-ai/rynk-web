@@ -337,32 +337,28 @@ const ChatContent = memo(
           console.log("[ChatPage] Skipping message clear - currently sending new conversation");
           return;
         }
-        if (!chatId) {
-          // Only clear if we actually have data to clear - prevents redundant re-renders
-          let clearedSomething = false;
+        // Clear messages immediately when conversation is null (trust state, not URL)
+        let clearedSomething = false;
 
-          if (messages.length > 0) {
-            messageState.setMessages([]);
-            clearedSomething = true;
-          }
-          if (messageVersions.size > 0) {
-            messageState.setMessageVersions(new Map());
-             clearedSomething = true;
-          }
-          if (quotedMessage) {
-             setQuotedMessage(null);
-             clearedSomething = true;
-          }
-          if (localContext.length > 0) {
-             setLocalContext([]);
-             clearedSomething = true;
-          }
+        if (messages.length > 0) {
+          messageState.setMessages([]);
+          clearedSomething = true;
+        }
+        if (messageVersions.size > 0) {
+          messageState.setMessageVersions(new Map());
+          clearedSomething = true;
+        }
+        if (quotedMessage) {
+          setQuotedMessage(null);
+          clearedSomething = true;
+        }
+        if (localContext.length > 0) {
+          setLocalContext([]);
+          clearedSomething = true;
+        }
 
-          if (clearedSomething) {
-             console.log("[ChatPage] New chat - state cleared");
-          }
-        } else {
-          console.log("[ChatPage] Waiting for conversation to load from URL:", chatId);
+        if (clearedSomething) {
+          console.log("[ChatPage] New chat - state cleared (ignoring URL)");
         }
         return;
       }

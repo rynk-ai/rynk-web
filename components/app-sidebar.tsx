@@ -354,11 +354,9 @@ const AppSidebarBase = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
         router.push(newUrl);
       }
     } else {
-      // New chat - clear URL
+      // New chat - ALWAYS clear URL to ensure clean state
       const newUrl = activeProjectId ? `/project/${activeProjectId}` : '/chat';
-      if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== newUrl) {
-        router.push(newUrl);
-      }
+      router.replace(newUrl); // Use replace (no new history) and always execute
     }
   };
 
