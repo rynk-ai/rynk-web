@@ -5,12 +5,10 @@ import { NextResponse } from "next/server";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-import { setCorsHeaders, handleOptions } from "@/lib/utils/cors";
+import { setCorsHeaders, handleOptionsWithCors } from "@/lib/utils/cors";
 
-export const runtime = 'edge';
-
-export async function OPTIONS() {
-  return handleOptions();
+export async function OPTIONS(req: Request) {
+  return handleOptionsWithCors(req);
 }
 
 export async function POST(req: Request) {
