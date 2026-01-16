@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { PiCaretDown, PiSparkle, PiYoutubeLogo } from "react-icons/pi";
 
 export function LandingNavbar() {
   const { scrollY } = useScroll();
@@ -75,6 +76,37 @@ export function LandingNavbar() {
 
           {/* Center Nav - Desktop */}
           <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 gap-12">
+            {/* Tools Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors outline-none flex items-center gap-1 group">
+                Tools <PiCaretDown className="h-3 w-3 group-data-[state=open]:rotate-180 transition-transform" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-56 p-1 rounded-xl bg-background border-border shadow-lg">
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                  <Link href="/humanizer" className="flex items-center gap-3 w-full">
+                    <div className="p-1.5 bg-green-500/10 rounded-md">
+                      <PiSparkle className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium">AI Humanizer</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Free Tool</span>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                  <Link href="/tools/youtube-title-generator" className="flex items-center gap-3 w-full">
+                    <div className="p-1.5 bg-red-500/10 rounded-md">
+                      <PiYoutubeLogo className="h-4 w-4 text-red-500" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium">Viral Title Gen</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Research Agent</span>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Link href="#features" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Features</Link>
             <Link href="#pricing" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Pricing</Link>
           </div>

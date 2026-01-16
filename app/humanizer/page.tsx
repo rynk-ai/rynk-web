@@ -12,10 +12,9 @@ import {
   PiFileText,
   PiX,
   PiArrowRight,
-  PiWarning,
-  PiInfinity
 } from "react-icons/pi";
-import Link from "next/link";
+import { ToolLayout } from "@/components/tools/tool-layout";
+import { RateLimitResult } from "@/lib/tools/rate-limit";
 
 export default function HumanizerPage() {
   const [inputText, setInputText] = useState("");
@@ -25,11 +24,10 @@ export default function HumanizerPage() {
   const [progress, setProgress] = useState(0);
   const [currentChunk, setCurrentChunk] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
-  const [rateLimitInfo, setRateLimitInfo] = useState<{
-    remaining?: number;
-    resetAt?: string;
-    unlimited?: boolean;
-  } | null>(null);
+  
+  // Rate limit state
+  const [limitInfo, setLimitInfo] = useState<RateLimitResult | null>(null);
+  
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   
@@ -49,10 +47,10 @@ export default function HumanizerPage() {
 
   const fetchRateLimitInfo = async () => {
     try {
-      const response = await fetch("/api/humanizer");
+      const response = await fetch("/api/humanizer?info=true");
       if (response.ok) {
-        const data = await response.json() as { remaining?: number; resetAt?: string; unlimited?: boolean };
-        setRateLimitInfo(data);
+        const data = await response.json() as RateLimitResult;
+        setLimitInfo(data);
       }
     } catch (error) {
       console.error("Failed to fetch rate limit info:", error);
@@ -87,7 +85,7 @@ export default function HumanizerPage() {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-  }, []);
+    }, []);
 
   const clearFile = useCallback(() => {
     setUploadedFile(null);
@@ -123,10 +121,8 @@ export default function HumanizerPage() {
         const errorData = await response.json() as { message?: string; error?: string; resetAt?: string };
         if (response.status === 429) {
           toast.error(errorData.message || "Rate limit exceeded");
-          setRateLimitInfo({
-            remaining: 0,
-            resetAt: errorData.resetAt || new Date().toISOString(),
-          });
+          // Refresh limit info to show 0
+          fetchRateLimitInfo();
         } else {
           toast.error(errorData.error || "Failed to humanize text");
         }
@@ -155,14 +151,10 @@ export default function HumanizerPage() {
             const data = JSON.parse(line.slice(6));
             
             if (data.type === "meta") {
-              if (data.unlimited) {
-                setRateLimitInfo({ unlimited: true });
-              } else {
-                setRateLimitInfo({
-                  remaining: data.remaining,
-                  resetAt: data.resetAt,
-                });
-              }
+               // Update limit info if returned in meta
+               if (data.remaining !== undefined) {
+                 setLimitInfo(prev => prev ? { ...prev, remaining: data.remaining } : null);
+               }
             } else if (data.type === "progress") {
               setCurrentChunk(data.chunkIndex + 1);
               setTotalChunks(data.totalChunks);
@@ -180,6 +172,8 @@ export default function HumanizerPage() {
 
       setProgress(100);
       toast.success("Humanization complete!");
+      // Refresh limits after successful run
+      fetchRateLimitInfo();
     } catch (error) {
       if (error instanceof Error && error.name !== "AbortError") {
         toast.error(error.message || "Failed to humanize text");
@@ -203,76 +197,17 @@ export default function HumanizerPage() {
     toast.info("Humanization cancelled");
   };
 
-  const formatResetTime = (resetAt: string) => {
-    const reset = new Date(resetAt);
-    const now = new Date();
-    const diffMs = reset.getTime() - now.getTime();
-    const diffMins = Math.ceil(diffMs / 60000);
-    
-    if (diffMins <= 0) return "now";
-    if (diffMins < 60) return `${diffMins} min`;
-    return `${Math.ceil(diffMins / 60)} hr`;
-  };
-
   const wordCount = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
   const outputWordCount = outputText.trim() ? outputText.trim().split(/\s+/).length : 0;
-  const isUnlimited = rateLimitInfo?.unlimited;
+  
+  // Calculate if allowed based on limitInfo
+  const isAllowed = limitInfo ? limitInfo.remaining > 0 : true;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col w-full">
-      {/* Top Promo Banner */}
-      <div className="w-full bg-foreground">
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-2 text-xs sm:text-sm">
-          <span className="text-background/80">Want more AI tools?</span>
-          <Link href="/" className="text-background hover:underline font-medium">
-            Try Rynk AI →
-          </Link>
-        </div>
-      </div>
-
-      {/* Header */}
-      <header className=" bg-background sticky top-0 z-50 w-full max-w-7xl mx-auto">
-        <div className="w-full px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="font-semibold text-lg tracking-normal">rynk</span>
-            <span className="text-muted-foreground hidden sm:inline">/</span>
-            <span className="text-muted-foreground font-normal hidden sm:inline">humanizer</span>
-          </Link>
-          
-          <div className="flex items-center gap-2 sm:gap-3">
-            {rateLimitInfo && (
-              isUnlimited ? (
-                <span className="flex items-center gap-1.5 text-xs sm:text-sm text-accent">
-                  <PiInfinity className="h-4 w-4" />
-                  <span className="hidden sm:inline">Unlimited</span>
-                </span>
-              ) : (
-                <span className={cn(
-                  "text-xs sm:text-sm",
-                  rateLimitInfo.remaining === 0 ? "text-destructive" : "text-muted-foreground"
-                )}>
-                  {rateLimitInfo.remaining === 0 
-                    ? `Resets ${formatResetTime(rateLimitInfo.resetAt || "")}`
-                    : `${rateLimitInfo.remaining} left`
-                  }
-                </span>
-              )
-            )}
-            {!isUnlimited && (
-              <Link href="/login?callbackUrl=/humanizer">
-                <Button variant="secondary" size="sm">
-                  Sign in
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 w-full px-3 sm:px-4 py-4 sm:py-6 w-full max-w-7xl mx-auto">
+    <ToolLayout toolId="humanizer" userLimitInfo={limitInfo}>
+      <div className="flex flex-col gap-6 w-full">
         {/* Hero - Compact on mobile */}
-        <div className="text-center mb-4 sm:mb-6">
+        <div className="text-center">
           <h1 className="text-xl sm:text-2xl font-semibold tracking-normal mb-1">
             AI Humanizer
           </h1>
@@ -349,7 +284,7 @@ export default function HumanizerPage() {
               </div>
               <Button
                 onClick={isProcessing ? handleCancel : handleHumanize}
-                disabled={!inputText.trim() || (!isUnlimited && rateLimitInfo?.remaining === 0 && !isProcessing)}
+                disabled={!inputText.trim() || (!isAllowed && !isProcessing)}
                 size="sm"
                 className="gap-1.5 min-h-[36px] px-4"
               >
@@ -449,24 +384,6 @@ export default function HumanizerPage() {
           </div>
         </div>
 
-        {/* Rate Limit Warning - only show for unauthenticated users */}
-        {!isUnlimited && rateLimitInfo?.remaining === 0 && (
-          <div className="flex items-start gap-3 p-3 sm:p-4 rounded-lg border border-border bg-secondary/30 mb-6">
-            <PiWarning className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="text-foreground">
-                You&apos;ve used all 30 free requests. 
-              </p>
-              <p className="text-muted-foreground mt-0.5">
-                <Link href="/login?callbackUrl=/humanizer" className="text-accent hover:underline">
-                  Sign in for unlimited
-                </Link>
-                {" "}or wait {formatResetTime(rateLimitInfo.resetAt || "")}.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Features - Horizontal scroll on mobile */}
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 sm:grid sm:grid-cols-3 sm:overflow-visible sm:mx-0 sm:px-0">
           {[
@@ -481,19 +398,7 @@ export default function HumanizerPage() {
             </div>
           ))}
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="w-full max-w-7xl mx-auto mt-auto">
-        <div className="w-full px-4 py-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-          <span>{isUnlimited ? "Unlimited access" : "30 free / 2 hours"}</span>
-          {!isUnlimited && (
-            <Link href="/login?callbackUrl=/humanizer" className="text-accent hover:underline">
-              Unlimited →
-            </Link>
-          )}
-        </div>
-      </footer>
-    </div>
+      </div>
+    </ToolLayout>
   );
 }

@@ -15,7 +15,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
-      'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:8788',
       'X-Title': 'SimpleChat',
     },
     body: JSON.stringify({

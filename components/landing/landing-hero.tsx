@@ -41,22 +41,7 @@ export function LandingHero() {
       {/* Gradient Mesh Background */}
       <div className="gradient-mesh" />
 
-      {/* Top right auth button */}
-      <div className="absolute top-6 right-6 z-20">
-        {isAuthenticated ? (
-          <Link href="/chat">
-            <Button size="sm" className="rounded-none h-9 px-5 font-medium text-xs uppercase tracking-wider bg-foreground text-background hover:bg-foreground/90">
-              Dashboard <PiArrowRight className="ml-2 h-3 w-3" />
-            </Button>
-          </Link>
-        ) : (
-          <Link href="/login">
-            <Button size="sm" variant="outline" className="rounded-none h-9 px-5 font-medium text-xs uppercase tracking-wider border-foreground/20 hover:bg-secondary">
-              Log in
-            </Button>
-          </Link>
-        )}
-      </div>
+      {/* Top right auth button - REMOVED (Moved to LandingNavbar) */}
       
       <div className="container px-4 md:px-6 mx-auto relative z-10">
         <div className="max-w-2xl mx-auto">

@@ -1,48 +1,33 @@
 import { NextRequest } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { auth } from '@/lib/auth'
-import { 
-  checkHumanizerRateLimit, 
-  incrementHumanizerUsage,
-  HUMANIZER_RATE_LIMIT,
-  HUMANIZER_WINDOW_HOURS 
-} from '@/lib/humanizer'
+import { checkAndConsumeToolLimit, getToolLimitInfo } from '@/lib/tools/rate-limit'
 import { humanizerService } from '@/lib/services/humanizer-service'
 
 export async function POST(request: NextRequest) {
   try {
     const { env } = getCloudflareContext()
     
-    // Check if user is authenticated
-    const session = await auth()
-    const isAuthenticated = !!session?.user?.id
+    // Check Rate Limit (Unified)
+    const result = await checkAndConsumeToolLimit(env.DB, request, 'humanizer')
     
-    // Only check rate limit for unauthenticated users
-    if (!isAuthenticated) {
-      const rateLimitResult = await checkHumanizerRateLimit(env.DB, request)
-      
-      if (!rateLimitResult.allowed) {
-        return new Response(
-          JSON.stringify({
-            error: 'Rate limit exceeded',
-            message: `You have exceeded the limit of ${HUMANIZER_RATE_LIMIT} requests per ${HUMANIZER_WINDOW_HOURS} hours. Sign in for unlimited access.`,
-            resetAt: rateLimitResult.resetAt.toISOString(),
-            remaining: 0
-          }),
-          { 
-            status: 429, 
-            headers: { 
-              'Content-Type': 'application/json',
-              'X-RateLimit-Limit': String(HUMANIZER_RATE_LIMIT),
-              'X-RateLimit-Remaining': '0',
-              'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString()
-            } 
-          }
-        )
-      }
-      
-      // Increment usage for unauthenticated users
-      await incrementHumanizerUsage(env.DB, request)
+    if (!result.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          message: result.error || 'Rate limit exceeded',
+          resetAt: result.resetAt?.toISOString(),
+          remaining: 0
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': result.resetAt?.toISOString() || ''
+          } 
+        }
+      )
     }
     
     const { text } = await request.json() as { text: string }
@@ -65,7 +50,8 @@ export async function POST(request: NextRequest) {
             encoder.encode(
               `data: ${JSON.stringify({ 
                 type: 'meta', 
-                unlimited: isAuthenticated
+                unlimited: !result.isGuest,
+                remaining: result.remaining
               })}\n\n`
             )
           )
@@ -107,40 +93,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint to check rate limit status and auth
+// GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
   try {
     const { env } = getCloudflareContext()
-    
-    // Check if user is authenticated
-    const session = await auth()
-    const isAuthenticated = !!session?.user?.id
-    
-    // Authenticated users have unlimited access
-    if (isAuthenticated) {
-      return new Response(
-        JSON.stringify({
-          unlimited: true,
-          isAuthenticated: true
-        }),
-        { 
-          status: 200, 
-          headers: { 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-    
-    // Unauthenticated users get rate limit info
-    const rateLimitResult = await checkHumanizerRateLimit(env.DB, request)
+    const result = await getToolLimitInfo(env.DB, request, 'humanizer')
     
     return new Response(
       JSON.stringify({
-        unlimited: false,
-        isAuthenticated: false,
-        limit: HUMANIZER_RATE_LIMIT,
-        remaining: rateLimitResult.remaining,
-        resetAt: rateLimitResult.resetAt.toISOString(),
-        windowHours: HUMANIZER_WINDOW_HOURS
+        unlimited: !result.isGuest,
+        remaining: result.remaining,
+        resetAt: result.resetAt?.toISOString(),
       }),
       { 
         status: 200, 

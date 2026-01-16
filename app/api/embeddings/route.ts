@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
           "HTTP-Referer":
-            request.headers.get("origin") || "http://localhost:3000",
+            request.headers.get("origin") || "http://localhost:8788",
           "X-Title": "SimpleChat",
         },
         body: JSON.stringify({
