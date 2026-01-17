@@ -10,23 +10,23 @@ gsap.registerPlugin(ScrollTrigger);
 
 const STEPS = [
   {
-    title: "You ask",
-    description: "Type a complex question or upload a document.",
+    title: "Query / Ingest",
+    description: "Input complex queries or upload comprehensive datasets.",
     icon: PiMagnifyingGlass,
   },
   {
-    title: "We analyze",
-    description: "The agent plans 4-6 parallel research paths.",
+    title: "Semantic Planning",
+    description: "The agent constructs parallel search strategies.",
     icon: PiExcludeSquare,
   },
   {
-    title: "We find",
-    description: "Scanning millions of verified academic sources.",
+    title: "Retrieval & Verification",
+    description: "Scans millions of academic nodes. Evaluates source credibility.",
     icon: PiDatabase,
   },
   {
-    title: "You read",
-    description: "A final report grounded in verified sources.",
+    title: "Synthesis",
+    description: "Compiles a fully cited, hallucination-free report.",
     icon: PiFileText,
   },
 ];
@@ -52,15 +52,15 @@ export function LandingHowItWorks() {
     <section
       ref={containerRef}
       id="how-it-works"
-      className="py-32 bg-background border-b border-border"
+      className="py-16 bg-background border-b border-border"
     >
       <div className="container px-4 md:px-6 mx-auto">
-        <div className="flex flex-col items-center text-center mb-24">
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-balance">
-                How we dig deeper.
+        <div className="flex flex-col items-center text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3 text-balance">
+                The Verification Pipeline.
             </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl text-pretty">
-                Most AI chats guess. Rynk reads the actual papers.
+            <p className="text-muted-foreground text-base max-w-xl text-pretty">
+                From raw data to verified intelligence. The Rynk engine at work.
             </p>
         </div>
 

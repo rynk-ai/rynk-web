@@ -56,13 +56,10 @@ export function LandingNavbar() {
     <header 
       ref={navRef}
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b",
-        scrolled 
-            ? "bg-background/80 backdrop-blur-md border-border shadow-sm" 
-            : "bg-transparent border-transparent py-4"
+        "sticky top-0 z-50 transition-all duration-300 border-b w-full bg-background/80 backdrop-blur-md border-border",
       )}
     >
-      <div className="container mx-auto px-4 md:px-6">
+      <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between h-14">
           
           {/* Brand */}
@@ -75,7 +72,7 @@ export function LandingNavbar() {
           </div>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 gap-8 items-center bg-card/50 px-6 py-2 rounded-full border border-border/40 backdrop-blur-sm shadow-sm">
+          <div className="hidden md:flex items-center gap-6">
             {/* Tools Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger className="nav-item text-sm font-medium text-muted-foreground hover:text-foreground transition-colors outline-none flex items-center gap-1.5 focus:text-foreground">

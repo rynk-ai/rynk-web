@@ -45,12 +45,12 @@ export function LandingHero() {
   return (
     <section 
       ref={containerRef}
-      className="relative min-h-[85vh] flex flex-col items-center justify-center pt-32 pb-20 bg-background overflow-hidden"
+      className="relative min-h-[50vh] flex flex-col items-center justify-center pt-24 pb-12 bg-background overflow-hidden"
     >
         {/* Subtle Background Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
 
-        <div className="container px-4 md:px-6 mx-auto relative z-10 flex flex-col items-center text-center max-w-4xl">
+        <div className="container px-4 md:px-6 mx-auto relative z-10 flex flex-col items-center text-center max-w-2xl">
             
             {/* Badge */}
             <div className="hero-badge mb-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border">
@@ -64,15 +64,14 @@ export function LandingHero() {
             </div>
 
             {/* Headline */}
-            <h1 className="hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground mb-8 text-balance">
-                Research, <br className="hidden md:block"/>
-                <span className="text-muted-foreground">not search.</span>
+            <h1 className="hero-title text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-4 text-balance">
+                Synthesize the <br className="hidden md:block"/>
+                <span className="text-muted-foreground">world's knowledge.</span>
             </h1>
 
             {/* Subhead */}
-            <p className="hero-sub text-lg md:text-xl text-muted-foreground max-w-2xl mb-12 leading-relaxed text-pretty">
-                Stop drowning in tabs. Rynk reads millions of papers, verifies the facts, and writes the report for you. 
-                Every claim cited. 100% verifiable.
+            <p className="hero-sub text-base text-muted-foreground max-w-lg mb-8 leading-relaxed text-pretty">
+                Rynk is an autonomous research agent. It reads millions of sources, verifies facts, and writes cited reports. No hallucinations. 100% verifiable.
             </p>
 
             {/* Simulated Input / CTA */}
@@ -83,8 +82,8 @@ export function LandingHero() {
                     {/* Fake Input Area */}
                     <div className="flex items-center gap-4 px-4 py-3">
                         <PiMagnifyingGlass className="w-5 h-5 text-muted-foreground" />
-                        <span className="text-muted-foreground/50 text-lg flex-1 text-left">
-                            e.g., How do solid state batteries degrade?
+                        <span className="text-muted-foreground/50 text-lg flex-1 text-left line-clamp-1">
+                            e.g., Economic implications of quantum computing.
                         </span>
                         <Link href="/chat">
                              <button className="bg-foreground text-background px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity flex items-center gap-2">
@@ -106,15 +105,15 @@ export function LandingHero() {
             </div>
 
             {/* Trust / Social Proof */}
-            <div className="mt-16 pt-8 border-t border-border/50 flex flex-col items-center gap-4 opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500 fill-mode-forwards">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+            <div className="mt-10 pt-6 border-t border-border/50 flex flex-col items-center gap-3 opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500 fill-mode-forwards scale-90">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                     Powered by verified sources
                 </p>
-                <div className="flex items-center gap-8 grayscale opacity-50">
-                   <span className="font-serif font-bold text-lg">Semantic Scholar</span>
-                   <span className="font-serif font-bold text-lg">PubMed</span>
-                   <span className="font-serif font-bold text-lg">Crossref</span>
-                   <span className="font-serif font-bold text-lg">arXiv</span>
+                <div className="flex items-center gap-6 grayscale opacity-50">
+                   <span className="font-serif font-bold text-sm">Semantic Scholar</span>
+                   <span className="font-serif font-bold text-sm">PubMed</span>
+                   <span className="font-serif font-bold text-sm">Crossref</span>
+                   <span className="font-serif font-bold text-sm">arXiv</span>
                 </div>
             </div>
 

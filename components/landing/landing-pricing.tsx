@@ -36,11 +36,11 @@ export function LandingPricing() {
   }, { scope: containerRef });
 
   return (
-    <section ref={containerRef} id="pricing" className="py-24 bg-background">
+    <section ref={containerRef} id="pricing" className="py-16 bg-background">
       <div className="container px-4 md:px-6 mx-auto">
         
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight mb-4">Simple Pricing</h2>
+        <div className="text-center mb-12">
+          <h2 className="text-2xl font-bold tracking-tight mb-3">Simple Pricing</h2>
           <p className="text-muted-foreground text-lg">
             Start for free. Upgrade when you need more power.
           </p>
