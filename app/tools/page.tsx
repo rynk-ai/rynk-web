@@ -1,6 +1,6 @@
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import Link from "next/link"
-import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type, Gavel, GitBranch, Flame } from "lucide-react"
+import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type, Gavel, GitBranch, Flame, MessageSquare, FileSearch } from "lucide-react"
 
 export default function ToolsPage() {
   const tools = [
@@ -93,6 +93,24 @@ export default function ToolsPage() {
       icon: Flame,
       color: "text-orange-500",
       bg: "bg-orange-500/10",
+      badge: "New",
+    },
+    {
+      title: "HN Inspector",
+      description: "Analyze the sentiment of the intellectual crowd on HackerNews.",
+      href: "/tools/hackernews-inspector",
+      icon: MessageSquare,
+      color: "text-orange-500",
+      bg: "bg-orange-500/10",
+      badge: "Beta",
+    },
+    {
+      title: "Resume Roaster",
+      description: "Get a brutal 6-second critique from a FAANG recruiter persona.",
+      href: "/tools/resume-roaster",
+      icon: FileSearch,
+      color: "text-violet-500",
+      bg: "bg-violet-500/10",
       badge: "New",
     },
     {

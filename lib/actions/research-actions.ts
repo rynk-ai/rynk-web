@@ -129,7 +129,7 @@ Return ONLY valid JSON.`
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: 'You are a research methodology expert. Create comprehensive, domain-appropriate research plans.' },
           { role: 'user', content: prompt }
@@ -434,7 +434,7 @@ Return ONLY valid JSON.`
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: 'You are a research analyst. Synthesize findings accurately and specifically.' },
           { role: 'user', content: prompt }
@@ -533,7 +533,7 @@ Return ONLY the section content in markdown format with inline citations.`
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: 'You are a research writer producing well-cited, professional content. Always include inline citations [1], [2], etc.' },
           { role: 'user', content: prompt }

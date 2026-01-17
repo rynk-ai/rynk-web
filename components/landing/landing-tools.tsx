@@ -12,6 +12,7 @@ import {
   PiGavel,
   PiGitBranch,
   PiFire,
+  PiChatTeardropText,
 } from "react-icons/pi";
 
 const TOOLS = [
@@ -79,6 +80,22 @@ const TOOLS = [
     href: "/tools/landing-page-roaster",
     icon: PiFire,
     color: "text-orange-600 bg-orange-100 dark:bg-orange-900/20",
+    badge: "New"
+  },
+  {
+    title: "HN Inspector",
+    description: "Sentiment analysis for HackerNews topics.",
+    href: "/tools/hackernews-inspector",
+    icon: PiChatTeardropText,
+    color: "text-orange-600 bg-orange-100 dark:bg-orange-900/20",
+    badge: "Beta"
+  },
+  {
+    title: "Resume Roaster",
+    description: "Get a brutal 6-second critique from a FAANG recruiter persona.",
+    href: "/tools/resume-roaster",
+    icon: PiFileText,
+    color: "text-violet-600 bg-violet-100 dark:bg-violet-900/20",
     badge: "New"
   },
 ];

@@ -1252,7 +1252,7 @@ Return ONLY valid JSON.`
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: 'You are a research analyst synthesizing findings from multiple sources.' },
             { role: 'user', content: structurePrompt }
@@ -1393,7 +1393,7 @@ Write the section content now. Do NOT include the heading, just the body text.`
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'openai/gpt-oss-120b',
             messages: [
               { role: 'system', content: 'You are an expert research writer. Write detailed, well-cited academic content. Always use inline citations [N] to reference sources.' },
               { role: 'user', content: sectionPrompt }

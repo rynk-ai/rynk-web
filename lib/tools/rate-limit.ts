@@ -111,6 +111,18 @@ export const TOOL_CONFIG: Record<string, ToolConfig> = {
     creditCost: 3,
     windowHours: 24,
   },
+  "resume-roaster": {
+    name: "Resume Roaster",
+    guestDailyLimit: 3,
+    creditCost: 2,
+    windowHours: 24,
+  },
+  "hn-inspector": {
+    name: "HN Sentiment Inspector",
+    guestDailyLimit: 5,
+    creditCost: 2,
+    windowHours: 24,
+  },
 };
 
 
