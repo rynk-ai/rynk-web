@@ -62,11 +62,11 @@ export function LandingPricing() {
         <div className="max-w-3xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-6xl font-bold tracking-normal leading-[0.9] text-foreground mb-4 font-display">
+            <h2 className="text-4xl md:text-6xl font-bold tracking-normal leading-[0.9] text-foreground mb-4 font-display uppercase">
               Pricing
             </h2>
             <p className="text-lg text-muted-foreground">
-              Same features. Different limits.
+              Same everything. Only the usage limit changes.
             </p>
           </div>
 

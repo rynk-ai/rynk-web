@@ -10,20 +10,21 @@ gsap.registerPlugin(ScrollTrigger);
 const FEATURES = [
   {
     id: "01",
-    title: "Structured Output",
-    description: "Tables, timelines, quizzes—not walls of text.",
+    title: "Deep Research",
+    description: "4-6 research angles. Parallel searches. Full document with abstract, sections, and citations.",
   },
   {
     id: "02",
-    title: "Infinite Memory",
-    description: "Project context that persists across sessions.",
+    title: "Your Documents",
+    description: "Upload PDFs. We chunk them into searchable pieces. Ask anything, get the exact passage.",
   },
   {
     id: "03",
-    title: "File Analysis",
-    description: "Drop PDFs and CSVs. Instant understanding.",
+    title: "5 Academic APIs",
+    description: "Semantic Scholar, Crossref, Open Library, Wikidata, Wikipedia. Peer-reviewed sources, auto-cited.",
   },
 ];
+
 
 export function LandingFeatures() {
   const containerRef = useRef(null);
