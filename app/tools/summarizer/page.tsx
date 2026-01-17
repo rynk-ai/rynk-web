@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ToolLayout } from "@/components/tools/tool-layout";
+import { ConversionBanner } from "@/components/tools/conversion-banner";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PiTextAlignLeft, PiCopy, PiCheck, PiListBullets, PiListNumbers, PiParagraph } from "react-icons/pi";
@@ -207,6 +208,8 @@ export default function SummarizerPage() {
             </div>
           </div>
         )}
+
+        <ConversionBanner />
       </div>
     </ToolLayout>
   );

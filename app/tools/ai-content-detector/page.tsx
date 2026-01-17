@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ToolLayout } from "@/components/tools/tool-layout";
+import { ConversionBanner } from "@/components/tools/conversion-banner";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PiRobot, PiUser, PiWarningCircle, PiCheckCircle, PiSparkle } from "react-icons/pi";
@@ -211,6 +212,8 @@ export default function AIDetectorPage() {
             )}
           </div>
         )}
+        
+        <ConversionBanner />
       </div>
     </ToolLayout>
   );

@@ -1,6 +1,6 @@
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import Link from "next/link"
-import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type } from "lucide-react"
+import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type, Gavel, GitBranch, Flame } from "lucide-react"
 
 export default function ToolsPage() {
   const tools = [
@@ -67,6 +67,33 @@ export default function ToolsPage() {
       icon: Type,
       color: "text-pink-500",
       bg: "bg-pink-500/10",
+    },
+    {
+      title: "The Devil's Advocate",
+      description: "A ruthless logical critique of your arguments and ideas. Not for the faint of heart.",
+      href: "/tools/devils-advocate",
+      icon: Gavel,
+      color: "text-zinc-500",
+      bg: "bg-zinc-500/10",
+      badge: "New",
+    },
+    {
+      title: "Repo Visualizer",
+      description: "Understand any codebase instantly with interactive node graphs.",
+      href: "/tools/github-repo-visualizer",
+      icon: GitBranch,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+      badge: "Beta",
+    },
+    {
+      title: "Landing Roaster",
+      description: "Get a brutal, data-driven audit of your landing page's conversion killers.",
+      href: "/tools/landing-page-roaster",
+      icon: Flame,
+      color: "text-orange-500",
+      bg: "bg-orange-500/10",
+      badge: "New",
     },
     {
       title: "Viral Title Gen",

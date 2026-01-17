@@ -4,14 +4,24 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PiInfinity, PiWarning } from "react-icons/pi";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ToolId, TOOL_CONFIG, RateLimitResult } from "@/lib/tools/rate-limit";
+import { UsageProgress } from "./usage-progress";
+import { AppPromoCard } from "./app-promo-card";
+import { ModeToggle } from "@/components/ui/mode-toggle";
+
 
 interface ToolLayoutProps {
   toolId: ToolId;
   children: React.ReactNode;
   userLimitInfo?: RateLimitResult | null; 
 }
+
+export const ToolLimitContext = React.createContext<{
+  limitInfo: RateLimitResult | null;
+  config: typeof TOOL_CONFIG[keyof typeof TOOL_CONFIG];
+} | null>(null);
+
 
 export function ToolLayout({ toolId, children, userLimitInfo: initialLimitInfo }: ToolLayoutProps) {
   const config = TOOL_CONFIG[toolId];
@@ -51,47 +61,41 @@ export function ToolLayout({ toolId, children, userLimitInfo: initialLimitInfo }
       {/* Header */}
       <header className=" bg-background sticky top-0 z-50 w-full max-w-7xl mx-auto">
         <div className="w-full px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="font-semibold text-lg tracking-normal">rynk</span>
-            <span className="text-muted-foreground hidden sm:inline">/</span>
-            <span className="text-muted-foreground font-normal hidden sm:inline">{config.name.toLowerCase()}</span>
-          </Link>
-          
-          <div className="flex items-center gap-2 sm:gap-3">
-            {limitInfo && (
-              !limitInfo.isGuest ? (
-                // Authenticated User
-                <span className="flex items-center gap-1.5 text-xs sm:text-sm text-accent">
-                   <span className="font-medium">{limitInfo.remaining}</span> credits
-                </span>
-              ) : (
-                // Guest
-                <span className={cn(
-                  "text-xs sm:text-sm",
-                  limitInfo.remaining === 0 ? "text-destructive" : "text-muted-foreground"
-                )}>
-                  {limitInfo.remaining === 0 
-                    ? `Resets ${formatResetTime(limitInfo.resetAt)}`
-                    : `${limitInfo.remaining} free left`
-                  }
-                </span>
-              )
-            )}
-
-            {limitInfo?.isGuest && (
-              <Link href={`/login?callbackUrl=/tools/${toolId}`}>
-                <Button variant="secondary" size="sm">
-                  Sign in
-                </Button>
-              </Link>
-            )}
+          <div className="flex items-center gap-2 text-sm sm:text-base">
+            <Link href="/" className="font-semibold tracking-normal hover:opacity-70 transition-opacity">rynk</Link>
+            <span className="text-muted-foreground text-xs">/</span>
+            <Link href="/tools" className="text-muted-foreground hover:text-foreground transition-colors">tools</Link>
+            <span className="text-muted-foreground text-xs">/</span>
+            <span className="font-medium text-foreground">{config.name.toLowerCase()}</span>
           </div>
+          
+            <div className="flex items-center gap-2 sm:gap-3">
+              <ModeToggle />
+              {limitInfo && (
+                <UsageProgress 
+                  current={TOOL_CONFIG[toolId].guestDailyLimit - limitInfo.remaining} 
+                  max={TOOL_CONFIG[toolId].guestDailyLimit} 
+                  isGuest={limitInfo.isGuest}
+                />
+              )}
+
+              {limitInfo?.isGuest && (
+                <Link href={`/login?callbackUrl=/tools/${toolId}`}>
+                  <Button variant="secondary" size="sm">
+                    Sign in
+                  </Button>
+                </Link>
+              )}
+            </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 w-full px-3 sm:px-4 py-4 sm:py-6 w-full max-w-7xl mx-auto flex flex-col">
-        {children}
+          <ToolLimitContext.Provider value={{ limitInfo, config }}>
+            {children}
+            <AppPromoCard variant="minimal" />
+          </ToolLimitContext.Provider>
       </main>
 
       {/* Footer */}
@@ -112,3 +116,4 @@ export function ToolLayout({ toolId, children, userLimitInfo: initialLimitInfo }
     </div>
   );
 }
+

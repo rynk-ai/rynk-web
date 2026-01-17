@@ -75,7 +75,44 @@ export const TOOL_CONFIG: Record<string, ToolConfig> = {
     creditCost: 1,
     windowHours: 24,
   },
+  "youtube-script": {
+    name: 'YouTube Script Generator',
+    guestDailyLimit: 2,
+    creditCost: 5,
+    windowHours: 24,
+  },
+  "instagram-caption": {
+    name: 'Instagram Caption Generator',
+    guestDailyLimit: 5,
+    creditCost: 1,
+    windowHours: 24,
+  },
+  "email-subject": {
+    name: 'Email Subject Line Generator',
+    guestDailyLimit: 5,
+    creditCost: 1,
+    windowHours: 24,
+  },
+  "devils-advocate": {
+    name: "The Devil's Advocate",
+    guestDailyLimit: 3,
+    creditCost: 2,
+    windowHours: 24,
+  },
+  "repo-visualizer": {
+    name: "GitHub Visualizer",
+    guestDailyLimit: 2,
+    creditCost: 3,
+    windowHours: 24,
+  },
+  "landing-roaster": {
+    name: "Landing Page Roaster",
+    guestDailyLimit: 3,
+    creditCost: 3,
+    windowHours: 24,
+  },
 };
+
 
 export type ToolId = keyof typeof TOOL_CONFIG
 

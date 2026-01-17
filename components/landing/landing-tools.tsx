@@ -9,8 +9,9 @@ import {
   PiCheckCircle,
   PiHash,
   PiPencilLine,
-  PiTextAa,
-  PiYoutubeLogo,
+  PiGavel,
+  PiGitBranch,
+  PiFire,
 } from "react-icons/pi";
 
 const TOOLS = [
@@ -56,23 +57,60 @@ const TOOLS = [
     icon: PiHash,
     color: "text-rose-600 bg-rose-100 dark:bg-rose-900/20",
   },
+  {
+    title: "The Devil's Advocate",
+    description: "Rigorous logical stress-testing for your ideas.",
+    href: "/tools/devils-advocate",
+    icon: PiGavel,
+    color: "text-zinc-600 bg-zinc-100 dark:bg-zinc-800/50",
+    badge: "New"
+  },
+  {
+    title: "Repo Visualizer",
+    description: "Interactive architecture maps from GitHub URLs.",
+    href: "/tools/github-repo-visualizer",
+    icon: PiGitBranch,
+    color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/20",
+    badge: "Beta"
+  },
+  {
+    title: "Landing Audit",
+    description: "Brutal, conversion-focused roasting.",
+    href: "/tools/landing-page-roaster",
+    icon: PiFire,
+    color: "text-orange-600 bg-orange-100 dark:bg-orange-900/20",
+    badge: "New"
+  },
 ];
 
+// Add badges logic
+const TOOLS_WITH_BADGES = TOOLS.map(t => ({
+  ...t,
+  // Badge logic is now inline in TOOLS or can be dynamic here if needed.
+  badge: t.badge
+}));
+
 export function LandingTools() {
+
   return (
     <section id="tools" className="py-16 bg-background">
       <div className="container px-4 md:px-6 mx-auto">
         <div className="flex flex-col items-center text-center mb-12">
             <h2 className="text-2xl font-bold tracking-tight mb-3">Free AI Tools</h2>
             <p className="text-muted-foreground text-lg max-w-xl">
-                No sign-up required. Just helpful utilities for your daily workflow.
+                Powerful utilities for your daily workflow. <span className="text-foreground font-medium">No sign-up required</span> for guests.
             </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TOOLS.map((tool) => (
+          {TOOLS_WITH_BADGES.map((tool) => (
             <Link key={tool.title} href={tool.href} className="group block h-full">
-              <div className="h-full p-6 rounded-2xl border border-border bg-card hover:shadow-md transition-all duration-200 hover:-translate-y-1">
+               <div className="h-full p-6 rounded-2xl border border-border bg-card hover:shadow-md transition-all duration-200 hover:-translate-y-1 relative overflow-hidden">
+                 {tool.badge && (
+                    <span className="absolute top-0 right-0 bg-primary/10 text-primary text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+                      {tool.badge}
+                    </span>
+                 )}
                  <div className="flex items-start gap-4">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${tool.color}`}>
                        <tool.icon className="w-5 h-5" />
