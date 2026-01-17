@@ -33,6 +33,48 @@ export const TOOL_CONFIG: Record<string, ToolConfig> = {
     creditCost: 1,
     windowHours: 24,
   },
+  "ai-detector": {
+    name: 'AI Content Detector',
+    guestDailyLimit: 5,
+    creditCost: 1,
+    windowHours: 24,
+  },
+  paraphraser: {
+    name: 'Paraphrasing Tool',
+    guestDailyLimit: 5,
+    creditCost: 1,
+    windowHours: 24,
+  },
+  summarizer: {
+    name: 'Text Summarizer',
+    guestDailyLimit: 5,
+    creditCost: 1,
+    windowHours: 24,
+  },
+  grammar: {
+    name: 'Grammar Polisher',
+    guestDailyLimit: 10,
+    creditCost: 1,
+    windowHours: 24,
+  },
+  "word-counter": {
+    name: 'Word Counter',
+    guestDailyLimit: 999, // Unlimited - no API cost
+    creditCost: 0,
+    windowHours: 24,
+  },
+  "case-converter": {
+    name: 'Case Converter',
+    guestDailyLimit: 999, // Unlimited - no API cost
+    creditCost: 0,
+    windowHours: 24,
+  },
+  "blog-title": {
+    name: 'Blog Title Generator',
+    guestDailyLimit: 3,
+    creditCost: 1,
+    windowHours: 24,
+  },
 };
 
 export type ToolId = keyof typeof TOOL_CONFIG

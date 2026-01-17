@@ -1,6 +1,6 @@
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import Link from "next/link"
-import { ArrowUpRight, Sparkles, Youtube, Chrome } from "lucide-react"
+import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type } from "lucide-react"
 
 export default function ToolsPage() {
   const tools = [
@@ -13,8 +13,64 @@ export default function ToolsPage() {
       bg: "bg-purple-500/10",
     },
     {
+      title: "AI Content Detector",
+      description: "Analyze text to determine if it was written by AI or a human.",
+      href: "/tools/ai-content-detector",
+      icon: ScanSearch,
+      color: "text-violet-500",
+      bg: "bg-violet-500/10",
+    },
+    {
+      title: "Paraphrasing Tool",
+      description: "Rewrite text in different styles while preserving meaning.",
+      href: "/tools/paraphraser",
+      icon: RefreshCcw,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+    },
+    {
+      title: "Text Summarizer",
+      description: "Condense long articles into clear, concise summaries.",
+      href: "/tools/summarizer",
+      icon: FileText,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+    },
+    {
+      title: "Grammar Polisher",
+      description: "Fix grammar, spelling, and punctuation with explanations.",
+      href: "/tools/grammar",
+      icon: CheckCircle,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10",
+    },
+    {
+      title: "Word Counter",
+      description: "Count words, characters, sentences, and reading time.",
+      href: "/tools/word-counter",
+      icon: Hash,
+      color: "text-cyan-500",
+      bg: "bg-cyan-500/10",
+    },
+    {
+      title: "Blog Title Generator",
+      description: "Generate click-worthy blog titles that drive traffic.",
+      href: "/tools/blog-title-generator",
+      icon: PenTool,
+      color: "text-orange-500",
+      bg: "bg-orange-500/10",
+    },
+    {
+      title: "Case Converter",
+      description: "Convert text between different cases instantly.",
+      href: "/tools/case-converter",
+      icon: Type,
+      color: "text-pink-500",
+      bg: "bg-pink-500/10",
+    },
+    {
       title: "Viral Title Gen",
-      description: "Generate click-worthy YouTube titles backed by deep research.",
+      description: "Generate YouTube titles backed by deep research.",
       href: "/tools/youtube-title-generator",
       icon: Youtube,
       color: "text-red-500",
@@ -22,37 +78,38 @@ export default function ToolsPage() {
     },
     {
       title: "Rynk Companion",
-      description: "The AI grammar and tone fixer that lives in your browser.",
+      description: "AI grammar and tone fixer in your browser.",
       href: "https://github.com/rynk-ai/rynk-companion",
       icon: Chrome,
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
+      color: "text-sky-500",
+      bg: "bg-sky-500/10",
       badge: "Extension",
     },
   ]
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+    <div className="flex-1 w-full min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <LandingNavbar />
 
-      <main className="container mx-auto px-4 pt-32 pb-20">
-        <div className="max-w-2xl mx-auto text-center mb-16 space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-balance">
-            Powerful AI Tools for <br />
-            <span className="text-muted-foreground">Every Creator</span>
-          </h1>
-          <p className="text-lg text-muted-foreground text-balance">
-            A suite of precision-engineered tools to supercharge your workflow. 
-            Free to use, designed for impact.
-          </p>
-        </div>
+      <main className="w-full pt-28 sm:pt-32 pb-16 sm:pb-20">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 sm:mb-16 space-y-4">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-balance">
+              Powerful AI Tools for{" "}
+              <span className="text-muted-foreground">Every Creator</span>
+            </h1>
+            <p className="text-base sm:text-lg text-muted-foreground text-balance max-w-lg mx-auto">
+              A suite of precision-engineered tools to supercharge your workflow. 
+              Free to use, designed for impact.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {tools.map((tool) => (
             <Link 
               key={tool.title} 
               href={tool.href}
-              className="group relative flex flex-col p-6 bg-card border border-border hover:border-foreground/20 hover:shadow-lg transition-all duration-300"
+              className="group relative flex flex-col p-5 bg-card border border-border rounded-xl hover:border-foreground/20 hover:shadow-lg transition-all duration-300"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className={`p-3 rounded-lg ${tool.bg} ${tool.color}`}>
@@ -74,6 +131,7 @@ export default function ToolsPage() {
               </p>
             </Link>
           ))}
+        </div>
         </div>
       </main>
     </div>

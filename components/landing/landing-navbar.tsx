@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { PiCaretDown, PiSparkle, PiYoutubeLogo } from "react-icons/pi";
+import { PiCaretDown, PiSparkle, PiYoutubeLogo, PiTextAa, PiArrowsClockwise, PiTextAlignLeft, PiMagnifyingGlass } from "react-icons/pi";
 
 export function LandingNavbar() {
   const { scrollY } = useScroll();
@@ -81,29 +81,69 @@ export function LandingNavbar() {
               <DropdownMenuTrigger className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors outline-none flex items-center gap-1 group">
                 Tools <PiCaretDown className="h-3 w-3 group-data-[state=open]:rotate-180 transition-transform" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-56 p-1 rounded-xl bg-background border-border shadow-lg">
+              <DropdownMenuContent align="center" sideOffset={8} className="w-72 p-2 rounded-xl bg-background border-border shadow-xl">
                 <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
                   <Link href="/humanizer" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-green-500/10 rounded-md">
-                      <PiSparkle className="h-4 w-4 text-green-500" />
+                    <div className="p-1.5 bg-purple-500/10 rounded-md">
+                      <PiSparkle className="h-4 w-4 text-purple-500" />
                     </div>
                     <div className="flex flex-col gap-0.5">
                         <span className="text-sm font-medium">AI Humanizer</span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Free Tool</span>
+                        <span className="text-[10px] text-muted-foreground">Make AI text undetectable</span>
                     </div>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                  <Link href="/tools/youtube-title-generator" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-red-500/10 rounded-md">
-                      <PiYoutubeLogo className="h-4 w-4 text-red-500" />
+                  <Link href="/tools/ai-content-detector" className="flex items-center gap-3 w-full">
+                    <div className="p-1.5 bg-violet-500/10 rounded-md">
+                      <PiMagnifyingGlass className="h-4 w-4 text-violet-500" />
                     </div>
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">Viral Title Gen</span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Research Agent</span>
+                        <span className="text-sm font-medium">AI Detector</span>
+                        <span className="text-[10px] text-muted-foreground">Check if text is AI</span>
                     </div>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                  <Link href="/tools/paraphraser" className="flex items-center gap-3 w-full">
+                    <div className="p-1.5 bg-emerald-500/10 rounded-md">
+                      <PiArrowsClockwise className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium">Paraphraser</span>
+                        <span className="text-[10px] text-muted-foreground">Rewrite in any style</span>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                  <Link href="/tools/grammar" className="flex items-center gap-3 w-full">
+                    <div className="p-1.5 bg-amber-500/10 rounded-md">
+                      <PiTextAa className="h-4 w-4 text-amber-500" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium">Grammar Polisher</span>
+                        <span className="text-[10px] text-muted-foreground">Fix grammar & spelling</span>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                  <Link href="/tools/summarizer" className="flex items-center gap-3 w-full">
+                    <div className="p-1.5 bg-blue-500/10 rounded-md">
+                      <PiTextAlignLeft className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium">Summarizer</span>
+                        <span className="text-[10px] text-muted-foreground">Condense long text</span>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <div className="border-t border-border mt-1 pt-1">
+                  <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                    <Link href="/tools" className="flex items-center justify-center gap-2 w-full text-sm font-medium text-muted-foreground hover:text-foreground">
+                      View All Tools <PiArrowRight className="h-3 w-3" />
+                    </Link>
+                  </DropdownMenuItem>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
