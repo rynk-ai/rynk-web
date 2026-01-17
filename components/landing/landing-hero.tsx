@@ -1,138 +1,203 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { PiArrowRight } from "react-icons/pi";
+import { PiArrowRight, PiTerminalWindow } from "react-icons/pi";
+import { cn } from "@/lib/utils";
 
 gsap.registerPlugin();
 
-const HEADLINE = "Research that shows its work.";
+const LOG_LINES = [
+  { text: "> INITIALIZING_AGENT [RUNNING]", color: "text-emerald-500" },
+  { text: "> QUERY: \"Future of solid state batteries\"", color: "text-foreground" },
+  { text: "> ANALYZING_INTENT: [DEEP_RESEARCH]", color: "text-blue-500" },
+  { text: "> SEARCHING: Semantic Scholar... [FOUND 3 PAPERS]", color: "text-purple-500" },
+  { text: "> READING: \"Nature_Energy_Vol4.pdf\" (p. 45)", color: "text-amber-500" },
+  { text: "> CROSS_REFERENCING: [SUCCESS]", color: "text-emerald-500" },
+  { text: "> EXTRACTING_CITATIONS: [4 ADDED]", color: "text-blue-500" },
+  { text: "> GENERATING_REPORT: [SECTIONS: 6]", color: "text-foreground" },
+  { text: "> FINALIZING_OUTPUT [COMPLETE]", color: "text-emerald-500" },
+];
+
+function ResearchLog() {
+  const [lines, setLines] = useState<typeof LOG_LINES>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (currentIndex >= LOG_LINES.length) return;
+
+    const timeout = setTimeout(() => {
+      setLines(prev => [...prev, LOG_LINES[currentIndex]]);
+      setCurrentIndex(prev => prev + 1);
+    }, 800); // Add line every 800ms
+
+    return () => clearTimeout(timeout);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  return (
+    <div className="w-full max-w-md mx-auto md:mr-0 font-mono text-xs md:text-sm bg-secondary/30 border border-border rounded-none p-4 h-[300px] flex flex-col relative overflow-hidden group">
+      {/* Terminal Header */}
+      <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-2">
+         <div className="flex items-center gap-2">
+            <PiTerminalWindow className="w-4 h-4 text-muted-foreground" />
+            <span className="uppercase tracking-widest text-[10px] text-muted-foreground">System_Log</span>
+         </div>
+         <div className="flex gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-border" />
+            <div className="w-2 h-2 rounded-full bg-border" />
+         </div>
+      </div>
+
+      {/* Log Content */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 scrollbar-none">
+        {lines.map((line, i) => (
+          <div key={i} className={cn("break-all animate-in fade-in slide-in-from-bottom-2 duration-300", line.color)}>
+             {line.text}
+          </div>
+        ))}
+        {currentIndex < LOG_LINES.length && (
+           <div className="animate-pulse text-muted-foreground">_</div>
+        )}
+      </div>
+
+       {/* Scanline Effect */}
+       <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[length:100%_4px]" />
+    </div>
+  );
+}
 
 export function LandingHero() {
-  const heroRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
     const tl = gsap.timeline();
 
-    tl.from(".hero-char", {
-      y: 60,
-      opacity: 0,
-      stagger: 0.02,
-      duration: 0.6,
-      ease: "power4.out",
+    // Left Column Animation
+    tl.from(".hero-marker", {
+      opacity: 0, 
+      x: -20,
+      duration: 0.8,
+      ease: "power3.out"
     })
-      .from(
-        ".hero-subheadline",
-        {
-          y: 30,
-          opacity: 0,
-          duration: 0.6,
-          ease: "power3.out",
-        },
-        "-=0.3"
-      )
-      .from(
-        ".hero-cta",
-        {
-          scale: 0.9,
-          opacity: 0,
-          duration: 0.5,
-          ease: "back.out(1.7)",
-        },
-        "-=0.2"
-      )
-      .from(
-        ".hero-secondary",
-        {
-          opacity: 0,
-          y: 10,
-          duration: 0.4,
-          ease: "power2.out",
-        },
-        "-=0.2"
-      )
-      .from(
-        ".hero-stats",
-        {
-          opacity: 0,
-          y: 20,
-          duration: 0.5,
-          ease: "power2.out",
-        },
-        "-=0.1"
-      );
-  }, { scope: heroRef });
+    .from(".hero-line", {
+      scaleX: 0,
+      transformOrigin: "left",
+      duration: 0.8,
+      ease: "power3.out"
+    }, "-=0.6")
+    .from(".hero-title-line", {
+      y: 100,
+      opacity: 0,
+      rotateX: -20,
+      stagger: 0.1,
+      duration: 1,
+      ease: "power4.out"
+    }, "-=0.4")
+    .from(".hero-subhead", {
+      opacity: 0,
+      y: 20,
+      duration: 0.8,
+      ease: "power3.out"
+    }, "-=0.6")
+    .from(".hero-cta", {
+      opacity: 0,
+      scale: 0.95,
+      duration: 0.6,
+      ease: "back.out(1.5)"
+    }, "-=0.4");
+
+    // Right Column Animation
+    gsap.from(".hero-log", {
+      opacity: 0,
+      x: 40,
+      duration: 1,
+      ease: "power3.out",
+      delay: 0.5
+    });
+
+  }, { scope: containerRef });
 
   return (
     <section 
-      ref={heroRef} 
-      className="relative min-h-[90vh] flex items-center justify-center pt-20 pb-24 overflow-hidden"
+      ref={containerRef}
+      className="relative min-h-[90vh] flex items-center border-b border-border overflow-hidden bg-background"
     >
-      {/* Subtle grid background */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-40" />
-      
-      <div className="container px-4 md:px-6 mx-auto relative z-10">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Headline - Pre-split for animation */}
-          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[0.95] mb-8 uppercase">
-            {HEADLINE.split("").map((char, i) => (
-              <span 
-                key={i} 
-                className="hero-char inline-block"
-                style={{ display: char === " " ? "inline" : "inline-block" }}
-              >
-                {char === " " ? "\u00A0" : char}
-              </span>
-            ))}
-          </h1>
+        {/* Background Grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:6rem_6rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_110%)] opacity-[0.15] pointer-events-none" />
 
-          {/* Subheadline - Direct, specific */}
-          <p className="hero-subheadline text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed font-light">
-            Ask a question. We search academic databases, the web, and your documents.{" "}
-            <span className="text-foreground font-normal">Every answer has a citation.</span>
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/chat">
-              <motion.button
-                className="hero-cta group inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-bold uppercase tracking-wide text-sm hover:bg-foreground/90 transition-colors"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              >
-                Try it free
-                <PiArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </motion.button>
-            </Link>
+        <div className="container px-4 md:px-6 mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10 pt-20 pb-20">
             
-            <a 
-              href="#how-it-works" 
-              className="hero-secondary text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
-            >
-              See how it works
-            </a>
-          </div>
+            {/* Left Col: The Promise */}
+            <div className="flex flex-col gap-8 md:gap-12 relative">
+                {/* Technical Markers */}
+                <div className="flex items-center gap-4 text-[10px] font-mono tracking-widest text-muted-foreground hero-marker">
+                    <span>[SYS_READY]</span>
+                    <span className="w-12 h-px bg-border hero-line" />
+                    <span>V.2.0.4</span>
+                </div>
 
-          {/* Honest stats - no fluff */}
-          <div className="hero-stats mt-16 pt-8 border-t border-border/50">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-4 font-mono">
-              What you get for free
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
-              <span>100 queries/month</span>
-              <span className="hidden sm:inline text-border">|</span>
-              <span>All features</span>
-              <span className="hidden sm:inline text-border">|</span>
-              <span>No credit card</span>
+                {/* Massive Typography */}
+                <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold leading-[0.85] tracking-tight uppercase flex flex-col gap-2">
+                    <span className="hero-title-line block">Research</span>
+                    <span className="hero-title-line block text-muted-foreground">That Shows</span>
+                    <span className="hero-title-line block">Its Work.</span>
+                </h1>
+
+                {/* Brutalist Subhead */}
+                <div className="hero-subhead max-w-md pl-1 border-l-2 border-primary/50">
+                    <p className="text-lg md:text-xl text-muted-foreground leading-relaxed pl-6">
+                        No black boxes. No hallucinations. <br/>
+                        Just verifiable facts from 200M+ papers.
+                    </p>
+                </div>
+
+                {/* CTA */}
+                <div className="hero-cta flex flex-wrap gap-6 items-center">
+                    <Link href="/chat">
+                        <motion.button
+                            className="group relative inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-bold uppercase tracking-wider text-sm overflow-hidden"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <span className="relative z-10 flex items-center gap-2">
+                                Start Researching
+                                <PiArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                            </span>
+                            <div className="absolute inset-0 bg-primary/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                        </motion.button>
+                    </Link>
+                    
+                    <a href="#how-it-works" className="text-sm font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors border-b border-transparent hover:border-foreground pb-0.5">
+                        View Pipeline_Log
+                    </a>
+                </div>
             </div>
-          </div>
+
+            {/* Right Col: The Proof (Log) */}
+            <div className="hero-log relative">
+                 <div className="absolute -inset-1 bg-gradient-to-tr from-primary/20 via-transparent to-transparent opacity-50 blur-xl" />
+                 <ResearchLog />
+                 
+                 {/* Decorative Elements */}
+                 <div className="absolute -right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 opacity-50">
+                    <div className="w-1 h-2 bg-border" />
+                    <div className="w-1 h-2 bg-border" />
+                    <div className="w-1 h-8 bg-primary/50" />
+                    <div className="w-1 h-2 bg-border" />
+                 </div>
+            </div>
+
         </div>
-      </div>
     </section>
   );
 }
-

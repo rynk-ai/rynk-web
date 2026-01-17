@@ -20,8 +20,8 @@ const FEATURES = [
   },
   {
     id: "03",
-    title: "5 Academic APIs",
-    description: "Semantic Scholar, Crossref, Open Library, Wikidata, Wikipedia. Peer-reviewed sources, auto-cited.",
+    title: "Modular Context",
+    description: "Every conversation is a building block. Reference past chats in new ones. Build a knowledge base that grows, instead of starting from zero.",
   },
 ];
 
