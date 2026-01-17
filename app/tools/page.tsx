@@ -1,6 +1,17 @@
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import Link from "next/link"
 import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type, Gavel, GitBranch, Flame, MessageSquare, FileSearch } from "lucide-react"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Free AI Tools Suite | rynk.",
+  description: "A collection of powerful, free AI tools for content creators, developers, and writers. Includes Instagram caption generator, content detector, and more.",
+  openGraph: {
+    title: "Free AI Tools Suite | rynk.",
+    description: "Supercharge your workflow with our free AI tools. No sign-up required for basic use.",
+    url: "https://rynk.io/tools",
+  }
+}
 
 export default function ToolsPage() {
   const tools = [
