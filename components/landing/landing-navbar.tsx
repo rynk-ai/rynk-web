@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useScroll, useMotionValueEvent, AnimatePresence } from "motion/react";
+import { useScroll, useMotionValueEvent } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -58,88 +58,67 @@ export function LandingNavbar() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b",
         scrolled 
-            ? "bg-background/80 backdrop-blur-md border-border" 
-            : "bg-transparent border-transparent py-2"
+            ? "bg-background/80 backdrop-blur-md border-border shadow-sm" 
+            : "bg-transparent border-transparent py-4"
       )}
     >
       <div className="container mx-auto px-4 md:px-6">
-        <nav className="flex items-center justify-between h-16">
+        <nav className="flex items-center justify-between h-14">
           
-          {/* Brand - Left */}
+          {/* Brand */}
           <div className="flex-shrink-0">
             <Link href="/" className="nav-brand group block">
-              <span className="font-display font-bold text-3xl tracking-normal leading-none group-hover:opacity-70 transition-opacity">
+              <span className="font-bold text-2xl tracking-tight leading-none text-foreground">
                 rynk.
               </span>
             </Link>
           </div>
 
-          {/* Center Nav - Desktop */}
-          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 gap-12">
+          {/* Desktop Nav */}
+          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 gap-8 items-center bg-card/50 px-6 py-2 rounded-full border border-border/40 backdrop-blur-sm shadow-sm">
             {/* Tools Dropdown */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors outline-none flex items-center gap-1 group">
-                Tools <PiCaretDown className="h-3 w-3 group-data-[state=open]:rotate-180 transition-transform" />
+              <DropdownMenuTrigger className="nav-item text-sm font-medium text-muted-foreground hover:text-foreground transition-colors outline-none flex items-center gap-1.5 focus:text-foreground">
+                Tools <PiCaretDown className="h-3 w-3 opacity-50" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" sideOffset={8} className="w-72 p-2 rounded-xl bg-background border-border shadow-xl">
+              <DropdownMenuContent align="center" sideOffset={8} className="w-80 p-2 rounded-xl bg-background border-border shadow-lg ring-1 ring-black/5">
                 <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                  <Link href="/humanizer" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-purple-500/10 rounded-md">
-                      <PiSparkle className="h-4 w-4 text-purple-500" />
+                  <Link href="/humanizer" className="flex items-start gap-3 w-full group">
+                    <div className="mt-0.5 p-1.5 bg-purple-500/10 rounded-md group-hover:bg-purple-500/20 transition-colors">
+                      <PiSparkle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">AI Humanizer</span>
-                        <span className="text-[10px] text-muted-foreground">Make AI text undetectable</span>
+                        <span className="text-sm font-semibold text-foreground">AI Humanizer</span>
+                        <span className="text-xs text-muted-foreground">Make AI text undetectable</span>
                     </div>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                  <Link href="/tools/ai-content-detector" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-violet-500/10 rounded-md">
-                      <PiMagnifyingGlass className="h-4 w-4 text-violet-500" />
+                  <Link href="/tools/ai-content-detector" className="flex items-start gap-3 w-full group">
+                    <div className="mt-0.5 p-1.5 bg-violet-500/10 rounded-md group-hover:bg-violet-500/20 transition-colors">
+                      <PiMagnifyingGlass className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                     </div>
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">AI Detector</span>
-                        <span className="text-[10px] text-muted-foreground">Check if text is AI</span>
+                        <span className="text-sm font-semibold text-foreground">AI Detector</span>
+                        <span className="text-xs text-muted-foreground">Check if text is AI</span>
                     </div>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                  <Link href="/tools/paraphraser" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-emerald-500/10 rounded-md">
-                      <PiArrowsClockwise className="h-4 w-4 text-emerald-500" />
+                  <Link href="/tools/paraphraser" className="flex items-start gap-3 w-full group">
+                    <div className="mt-0.5 p-1.5 bg-emerald-500/10 rounded-md group-hover:bg-emerald-500/20 transition-colors">
+                      <PiArrowsClockwise className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">Paraphraser</span>
-                        <span className="text-[10px] text-muted-foreground">Rewrite in any style</span>
+                        <span className="text-sm font-semibold text-foreground">Paraphraser</span>
+                        <span className="text-xs text-muted-foreground">Rewrite in any style</span>
                     </div>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                  <Link href="/tools/grammar" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-amber-500/10 rounded-md">
-                      <PiTextAa className="h-4 w-4 text-amber-500" />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">Grammar Polisher</span>
-                        <span className="text-[10px] text-muted-foreground">Fix grammar & spelling</span>
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                  <Link href="/tools/summarizer" className="flex items-center gap-3 w-full">
-                    <div className="p-1.5 bg-blue-500/10 rounded-md">
-                      <PiTextAlignLeft className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">Summarizer</span>
-                        <span className="text-[10px] text-muted-foreground">Condense long text</span>
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
+                
                 <div className="border-t border-border mt-1 pt-1">
-                  <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
-                    <Link href="/tools" className="flex items-center justify-center gap-2 w-full text-sm font-medium text-muted-foreground hover:text-foreground">
+                  <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary justify-center">
+                    <Link href="/tools" className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground">
                       View All Tools <PiArrowRight className="h-3 w-3" />
                     </Link>
                   </DropdownMenuItem>
@@ -147,81 +126,70 @@ export function LandingNavbar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link href="#features" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Features</Link>
-            <Link href="#pricing" className="nav-item swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">Pricing</Link>
+            <Link href="#features" className="nav-item text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+            <Link href="#pricing" className="nav-item text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             
-            {/* Theme Toggle - Minimal Text/Icon Hybrid */}
+            {/* Theme Toggle */}
             {mounted && (
               <button
                 onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-                className="nav-item hidden md:flex items-center justify-center w-8 h-8 rounded-none hover:bg-secondary transition-colors"
+                className="nav-item w-9 h-9 flex items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
                 aria-label="Toggle Theme"
               >
-                <PiSun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <PiMoon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <PiSun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <PiMoon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               </button>
             )}
 
-            {/* Auth Buttons */}
+            {/* Auth */}
             {isAuthenticated ? (
                <Link href="/chat" className="nav-item hidden md:flex">
-                <Button size="sm" className="rounded-none h-9 px-6 font-medium text-xs uppercase tracking-wider bg-foreground text-background hover:bg-foreground/90">
+                <Button size="sm" className="font-semibold text-xs h-9 px-5 rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-all shadow-sm">
                   Dashboard <PiArrowRight className="ml-2 h-3 w-3" />
                 </Button>
                </Link>
             ) : (
-              <div className="nav-item hidden md:flex items-center gap-6">
-                <Link href="/login" className="swiss-subhead text-sm uppercase hover:text-muted-foreground transition-colors">
+              <div className="nav-item hidden md:flex items-center gap-4">
+                <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                   Log in
                 </Link>
                 <Link href="/chat">
-                    <Button size="sm" className="rounded-none h-9 px-6 font-medium text-xs uppercase tracking-wider bg-foreground text-background hover:bg-foreground/90">
+                    <Button size="sm" className="font-semibold text-xs h-9 px-5 rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-all shadow-sm">
                     Get Started
                     </Button>
                 </Link>
               </div>
             )}
 
-            {/* Mobile Menu */}
-            <div className="md:hidden flex items-center gap-4">
-                 {mounted && (
-                    <button
-                        onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-                        className="w-8 h-8 flex items-center justify-center"
-                    >
-                        <PiSun className="h-5 w-5 dark:hidden" />
-                        <PiMoon className="h-5 w-5 hidden dark:block" />
-                    </button>
-                )}
+            {/* Mobile Menu Trigger */}
+            <div className="md:hidden">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none hover:bg-transparent">
-                            <PiList className="h-6 w-6" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-secondary">
+                            <PiList className="h-5 w-5" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[300px] p-0 rounded-none border-border bg-background shadow-none border-l border-b">
-                         <div className="p-4 border-b border-border bg-secondary/50">
-                            <span className="font-display font-bold text-lg tracking-normal">Menu</span>
+                    <DropdownMenuContent align="end" className="w-[280px] p-2 rounded-xl border-border bg-background shadow-xl">
+                        <div className="px-2 py-2 mb-2 border-b border-border/50">
+                            <span className="font-bold text-sm text-muted-foreground">Menu</span>
                         </div>
-                        <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
-                            <Link href="#features" className="w-full text-base font-medium uppercase tracking-wide">Features</Link>
+                        <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                            <Link href="#features" className="w-full text-sm font-medium">Features</Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none border-b border-border focus:bg-secondary">
-                            <Link href="#pricing" className="w-full text-base font-medium uppercase tracking-wide">Pricing</Link>
+                        <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary">
+                            <Link href="#pricing" className="w-full text-sm font-medium">Pricing</Link>
                         </DropdownMenuItem>
-                        {!isAuthenticated ? (
-                             <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none focus:bg-secondary">
-                                <Link href="/login" className="w-full text-base font-medium uppercase tracking-wide">Log in</Link>
-                            </DropdownMenuItem>
-                        ) : (
-                            <DropdownMenuItem asChild className="p-4 cursor-pointer rounded-none focus:bg-secondary">
-                                <Link href="/chat" className="w-full text-base font-medium uppercase tracking-wide">Enter App</Link>
-                            </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg focus:bg-secondary border-t border-border/50 mt-2 pt-2">
+                             {!isAuthenticated ? (
+                                <Link href="/login" className="w-full text-sm font-semibold">Log in</Link>
+                             ) : (
+                                <Link href="/chat" className="w-full text-sm font-semibold">Dashboard</Link>
+                             )}
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

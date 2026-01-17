@@ -669,7 +669,7 @@ export const ChatMessageItem = memo(
                       <DropdownMenuTrigger asChild>
                         <Button
                           size="sm"
-                          className="h-8 w-8 p-0 rounded-xl shadow-md bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] border border-border/30 transition-all select-none"
+                          className="h-8 w-8 p-0 rounded-xl shadow-md bg-card text-foreground hover:bg-accent border border-border/30 transition-all select-none"
                           title="View sub-chats"
                         >
                           <PiChatTeardropText className="h-4 w-4 text-primary" />
@@ -721,7 +721,7 @@ export const ChatMessageItem = memo(
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
+                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                     onClick={handleCopy}
                   >
                     <PiCopy className="h-3.5 w-3.5" />
@@ -731,7 +731,7 @@ export const ChatMessageItem = memo(
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
+                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                     onClick={handleBranch}
                   >
                     <PiGitBranch className="h-3.5 w-3.5" />

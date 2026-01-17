@@ -14,162 +14,125 @@
 
 @layer base {
     :root {
-        /* ====== SWISS TYPOGRAPHY SCALE ====== */
-        --heading-1: clamp(3.5rem, 8vw, 7rem);
-        --heading-2: clamp(2.5rem, 5vw, 4.5rem);
-        --heading-3: clamp(1.5rem, 3vw, 2rem);
+        /* ====== FUNCTIONAL TYPOGRAPHY ====== */
+        --heading-1: clamp(3rem, 7vw, 5.5rem);
+        --heading-2: clamp(2rem, 5vw, 4rem);
+        --heading-3: clamp(1.5rem, 3vw, 2.5rem);
         --body: 1rem;
-        --caption: 0.75rem;
-
-        /* ====== GRID SYSTEM (8px base) ====== */
-        --grid-unit: 8px;
-        --grid-columns: 12;
-        --container-max: 1400px;
+        --caption: 0.875rem;
 
         /* ====== SPACING SCALE ====== */
-        --space-1: 8px;
-        --space-2: 16px;
-        --space-3: 24px;
-        --space-4: 32px;
-        --space-6: 48px;
-        --space-8: 64px;
-        --space-12: 96px;
-        --space-16: 128px;
+        --space-1: 4px; /* Tighter functional spacing */
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-12: 48px;
+        --space-16: 64px;
+        --space-32: 128px;
 
-        /* ====== BACKGROUNDS ====== */
-        --background: 0 0% 100%; /* Pure White */
+        /* ====== PAPER & INK PALETTE (Light Mode Default) ====== */
+        /* Background: Warm "Canvas" White */
+        --background: 60 5% 98%; 
+        
+        /* Foreground: Soft Charcoal (Not pure black) */
+        --foreground: 0 0% 12%; 
 
-        /* ====== FOREGROUND ====== */
-        --foreground: 0 0% 6%; /* Near Black #0F0F0F */
-
-        /* ====== CARD/SURFACE ====== */
+        /* Surface: Pure White for Cards/Panels */
         --card: 0 0% 100%;
-        --card-foreground: 0 0% 6%;
+        --card-foreground: 0 0% 12%;
 
-        /* ====== POPOVER ====== */
+        /* Popover: Slightly warmer */
         --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 6%;
+        --popover-foreground: 0 0% 12%;
 
-        /* ====== PRIMARY - Swiss Black ====== */
-        --primary: 0 0% 6%;
-        --primary-foreground: 0 0% 100%;
+        /* Primary: "Ink" Black */
+        --primary: 0 0% 12%;
+        --primary-foreground: 60 5% 98%;
 
-        /* ====== SECONDARY - Neutral Grey ====== */
-        --secondary: 0 0% 96%; /* #F5F5F5 */
-        --secondary-foreground: 0 0% 6%;
+        /* Secondary: "Drafting" Grey */
+        --secondary: 0 0% 95%;
+        --secondary-foreground: 0 0% 12%;
 
-        /* ====== MUTED ====== */
+        /* Muted: Subtle annotations */
         --muted: 0 0% 96%;
-        --muted-foreground: 0 0% 45%;
+        --muted-foreground: 0 0% 40%; 
 
-        /* ====== ACCENT - Neutral Hover ====== */
+        /* Accent: Functional highlight (e.g., active rows) */
         --accent: 0 0% 94%;
-        --accent-foreground: 0 0% 6%;
+        --accent-foreground: 0 0% 12%;
 
-        /* ====== DESTRUCTIVE ====== */
+        /* Destructive: "Red Ink" correction */
         --destructive: 0 84% 60%;
         --destructive-foreground: 0 0% 98%;
 
-        /* ====== BORDERS - Crisp ====== */
+        /* Border: Crisp "Pencil" Grey */
         --border: 0 0% 88%;
         --input: 0 0% 88%;
-        --ring: 0 0% 6%;
+        --ring: 0 0% 12%;
 
-        /* ====== RADIUS - Sharp (Swiss) ====== */
-        --radius: 0px;
+        /* Radius: Softer, friendly */
+        --radius: 0.75rem; 
 
-        /* ====== SURFACE SYSTEM ====== */
-        --canvas: 0 0% 100%;
-        --canvas-subtle: 0 0% 98%;
-        --surface: 0 0% 100%;
-        --surface-hover: 0 0% 96%;
-        --surface-active: 0 0% 94%;
-
-        /* ====== SIDEBAR ====== */
-        --sidebar: 0 0% 98%;
-        --sidebar-foreground: 0 0% 6%;
-        --sidebar-primary: 0 0% 6%;
-        --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 0 0% 94%;
-        --sidebar-accent-foreground: 0 0% 6%;
-        --sidebar-border: 0 0% 90%;
-        --sidebar-ring: 0 0% 6%;
+        /* Sidebar similar to paper margin */
+        --sidebar: 60 5% 97%;
+        --sidebar-foreground: 0 0% 12%;
+        --sidebar-primary: 0 0% 12%;
+        --sidebar-primary-foreground: 0 0% 98%;
+        --sidebar-accent: 0 0% 93%;
+        --sidebar-accent-foreground: 0 0% 12%;
+        --sidebar-border: 0 0% 88%;
+        --sidebar-ring: 0 0% 80%;
     }
 
     .dark {
-        /* ====== BACKGROUNDS ====== */
-        --background: 0 0% 4%; /* #0A0A0A - True Black */
+        /* ====== DARK MODE (Inverted Paper) ====== */
+        /* Background: Deep Charcoal */
+        --background: 240 5% 8%; 
+        
+        /* Foreground: Off-white */
+        --foreground: 0 0% 95%;
 
-        /* ====== FOREGROUND ====== */
-        --foreground: 0 0% 94%; /* #F0F0F0 */
+        --card: 240 5% 10%;
+        --card-foreground: 0 0% 95%;
 
-        /* ====== CARD/SURFACE ====== */
-        --card: 0 0% 6%;
-        --card-foreground: 0 0% 94%;
+        --popover: 240 5% 10%;
+        --popover-foreground: 0 0% 95%;
 
-        /* ====== POPOVER ====== */
-        --popover: 0 0% 6%;
-        --popover-foreground: 0 0% 94%;
+        --primary: 0 0% 95%;
+        --primary-foreground: 240 5% 10%;
 
-        /* ====== PRIMARY ====== */
-        --primary: 0 0% 96%;
-        --primary-foreground: 0 0% 4%;
+        --secondary: 240 5% 14%;
+        --secondary-foreground: 0 0% 95%;
 
-        /* ====== SECONDARY ====== */
-        --secondary: 0 0% 10%;
-        --secondary-foreground: 0 0% 94%;
+        --muted: 240 4% 16%;
+        --muted-foreground: 240 5% 60%;
 
-        /* ====== MUTED ====== */
-        --muted: 0 0% 12%;
-        --muted-foreground: 0 0% 55%;
+        --accent: 240 4% 16%;
+        --accent-foreground: 0 0% 95%;
 
-        /* ====== ACCENT ====== */
-        --accent: 0 0% 12%;
-        --accent-foreground: 0 0% 94%;
+        --destructive: 0 62% 30%;
+        --destructive-foreground: 0 0% 95%;
 
-        /* ====== BORDERS ====== */
-        --border: 0 0% 14%;
-        --input: 0 0% 14%;
-        --ring: 0 0% 60%;
-
-        /* ====== SURFACES ====== */
-        --canvas: 0 0% 4%;
-        --canvas-subtle: 0 0% 6%;
-        --surface: 0 0% 6%;
-        --surface-hover: 0 0% 10%;
-        --surface-active: 0 0% 12%;
-
-        /* ====== SIDEBAR ====== */
-        --sidebar: 0 0% 5%;
-        --sidebar-foreground: 0 0% 90%;
-        --sidebar-primary: 0 0% 96%;
-        --sidebar-primary-foreground: 0 0% 4%;
-        --sidebar-accent: 0 0% 10%;
-        --sidebar-accent-foreground: 0 0% 96%;
-        --sidebar-border: 0 0% 14%;
-        --sidebar-ring: 0 0% 60%;
+        --border: 240 5% 18%;
+        --input: 240 5% 18%;
+        --ring: 240 5% 80%;
+        
+        --sidebar: 240 5% 7%;
+        --sidebar-foreground: 0 0% 95%;
+        --sidebar-primary: 0 0% 95%;
+        --sidebar-primary-foreground: 240 5% 10%;
+        --sidebar-accent: 240 4% 16%;
+        --sidebar-accent-foreground: 0 0% 95%;
+        --sidebar-border: 240 5% 18%;
+        --sidebar-ring: 240 5% 80%;
     }
-}
-
-@theme inline {
-    --color-sidebar: var(--sidebar);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-ring: var(--sidebar-ring);
-
-    --radius-sm: 0;
-    --radius-md: 0;
-    --radius-lg: 0;
-    --radius-xl: 0;
 }
 
 @layer base {
     * {
-        @apply border-border outline-ring/50;
+        @apply border-border;
     }
 
     html {
@@ -181,19 +144,19 @@
         font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
 
-    /* ====== SWISS TYPOGRAPHY ====== */
+    /* ====== INTELLECTUAL TYPOGRAPHY ====== */
     h1, h2, h3, h4, h5, h6 {
         @apply font-sans font-bold text-foreground;
-        letter-spacing: -0.03em;
-        line-height: 0.95;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
     }
 
     p {
-        @apply leading-relaxed text-pretty;
+        @apply leading-relaxed text-pretty font-sans;
     }
 
     ::selection {
-        background-color: #B4D5FE; /* Buildspace-ish Blue */
+        background-color: #E2E2E2; /* Subtle highlight */
         color: #000000;
     }
 }

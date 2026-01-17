@@ -361,7 +361,7 @@ type PromptInputWithFilesProps = {
                     {/* Plus Dropdown Menu */}
                     {plusDropdownOpen && (
                       <div className="absolute bottom-full left-0 mb-2 z-[200] animate-in slide-in-from-bottom-2 duration-150">
-                        <div className="bg-[hsl(var(--surface))] border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                        <div className="bg-popover border border-border/40 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
                           <div className="p-1">
                             {/* File Upload Option */}
                             {!hideFileUpload && (

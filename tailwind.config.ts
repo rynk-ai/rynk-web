@@ -12,9 +12,8 @@ export default {
         'xs': '475px',
       },
       fontFamily: {
-        sans: ["var(--font-manrope)", "ui-sans-serif", "system-ui"],
-        display: ["var(--font-manrope)", "sans-serif"],
-        mono: ["'SF Mono'", "'Fira Code'", "ui-monospace", "monospace"],
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       colors: {
         background: "hsl(var(--background))",
@@ -51,12 +50,7 @@ export default {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
       },
-      borderRadius: {
-        lg: "0",
-        md: "0",
-        sm: "0",
-        DEFAULT: "0",
-      },
+
       letterSpacing: {
         swiss: "-0.04em",
         tighter: "-0.03em",

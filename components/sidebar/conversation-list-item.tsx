@@ -61,8 +61,8 @@ export const ConversationListItem = memo(
           className={cn(
             "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-all duration-150 pr-8",
             isActive 
-              ? "bg-[hsl(var(--surface))] text-foreground shadow-sm " 
-              : "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]",
+              ? "bg-sidebar-accent text-foreground shadow-sm " 
+              : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent",
           )}
           onClick={() => onSelect(conversation.id)}
         >

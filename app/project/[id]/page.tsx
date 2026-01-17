@@ -1132,7 +1132,7 @@ const ChatHeader = memo(function ChatHeader({
 
   return (
     <div className="absolute top-3 left-3 z-20 flex items-center gap-2 animate-in-down">
-      <div className="flex items-center gap-1 bg-[hsl(var(--surface))] backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1 transition-all duration-300 hover:bg-[hsl(var(--surface))] hover:shadow-md hover:border-border/50 group">
+      <div className="flex items-center gap-1 bg-card backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1 transition-all duration-300 hover:bg-card hover:shadow-md hover:border-border/50 group">
         <SidebarTrigger className="h-10 w-10 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-5 bg-border/50" />
         <Button

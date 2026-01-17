@@ -141,7 +141,7 @@ function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
         href={citation.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="group flex items-start gap-3 p-3.5 rounded-xl border border-border/30 bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] hover:border-border/50 transition-all duration-150"
+        className="group flex items-start gap-3 p-3.5 rounded-xl border border-border/30 bg-card hover:bg-accent hover:border-border/50 transition-all duration-150"
       >
         <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
           {citation.id}
@@ -188,7 +188,7 @@ function SourceCard({ citation, variant = 'compact' }: SourceCardProps) {
           href={citation.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border/30 bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] hover:border-border/50 transition-all duration-150"
+          className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border/30 bg-card hover:bg-accent hover:border-border/50 transition-all duration-150"
         >
           <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
             {citation.id}
@@ -261,7 +261,7 @@ export function SourcePills({
           href={citation.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--surface))] hover:bg-[hsl(var(--surface-hover))] border border-border/30 text-xs transition-all duration-150"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card hover:bg-accent border border-border/30 text-xs transition-all duration-150"
         >
           {citation.favicon && (
             <img 

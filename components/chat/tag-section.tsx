@@ -42,7 +42,7 @@ export const TagSection = memo(function TagSection({
               <button
                 key={index}
                 onClick={onTagClick}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-hover))] rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-card text-foreground hover:bg-accent rounded-lg border border-border/30 transition-all duration-150 cursor-pointer"
               >
                 <span className="text-primary">#</span>
                 {tag}
@@ -87,8 +87,8 @@ export const TagSection = memo(function TagSection({
           className={cn(
             "h-7 w-7 rounded-lg transition-all duration-150",
             tags.length > 0
-              ? "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
-              : "bg-[hsl(var(--surface))] text-primary hover:bg-[hsl(var(--surface-hover))] border border-border/30"
+              ? "text-muted-foreground hover:text-foreground hover:bg-accent"
+              : "bg-card text-primary hover:bg-accent border border-border/30"
           )}
           onClick={onTagClick}
           title={tags.length > 0 ? "Edit tags" : "Add tags"}

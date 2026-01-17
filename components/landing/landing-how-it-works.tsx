@@ -4,33 +4,29 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { PiMagnifyingGlass, PiTreeStructure, PiDatabase, PiFileText } from "react-icons/pi";
+import { PiMagnifyingGlass, PiExcludeSquare, PiDatabase, PiFileText } from "react-icons/pi";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const STEPS = [
   {
-    number: "01",
     title: "You ask",
-    description: "Type a question. Upload a PDF if you want.",
+    description: "Type a complex question or upload a document.",
     icon: PiMagnifyingGlass,
   },
   {
-    number: "02",
     title: "We analyze",
-    description: "Break your question into 4-6 research angles.",
-    icon: PiTreeStructure,
+    description: "The agent plans 4-6 parallel research paths.",
+    icon: PiExcludeSquare,
   },
   {
-    number: "03",
-    title: "Parallel search",
-    description: "Semantic Scholar, Crossref, Exa, Perplexity—all at once.",
+    title: "We find",
+    description: "Scanning millions of verified academic sources.",
     icon: PiDatabase,
   },
   {
-    number: "04",
-    title: "Full document",
-    description: "Sections, citations, methodology. Not just a paragraph.",
+    title: "You read",
+    description: "A final report grounded in verified sources.",
     icon: PiFileText,
   },
 ];
@@ -39,42 +35,15 @@ export function LandingHowItWorks() {
   const containerRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
-    // Animate steps
-    gsap.from(".pipeline-step", {
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: "top 75%",
-      },
-      y: 50,
-      opacity: 0,
-      stagger: 0.12,
-      duration: 0.7,
-      ease: "power3.out",
-    });
-
-    // Animate connecting lines
-    gsap.from(".pipeline-line", {
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: "top 70%",
-      },
-      scaleX: 0,
-      transformOrigin: "left",
-      stagger: 0.15,
-      duration: 0.5,
-      ease: "power2.out",
-      delay: 0.3,
-    });
-
-    // Animate header
-    gsap.from(".how-header", {
+    gsap.from(".step-card", {
       scrollTrigger: {
         trigger: containerRef.current,
         start: "top 80%",
       },
       y: 30,
       opacity: 0,
-      duration: 0.6,
+      stagger: 0.15,
+      duration: 0.8,
       ease: "power3.out",
     });
   }, { scope: containerRef });
@@ -83,57 +52,38 @@ export function LandingHowItWorks() {
     <section
       ref={containerRef}
       id="how-it-works"
-      className="py-24 md:py-32 bg-background border-t border-border"
+      className="py-32 bg-background border-b border-border"
     >
       <div className="container px-4 md:px-6 mx-auto">
-        {/* Header */}
-        <div className="how-header max-w-3xl mb-20">
-          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-4">
-            How it works
-          </span>
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight leading-[1.1] uppercase">
-            Four steps.{" "}
-            <span className="text-muted-foreground">No magic, just parallel search.</span>
-          </h2>
+        <div className="flex flex-col items-center text-center mb-24">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-balance">
+                How we dig deeper.
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl text-pretty">
+                Most AI chats guess. Rynk reads the actual papers.
+            </p>
         </div>
 
-        {/* Pipeline */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border border-border">
-          {STEPS.map((step, index) => (
-            <div key={step.number} className="relative">
-              {/* Connecting line */}
-              {index < STEPS.length - 1 && (
-                <div className="pipeline-line hidden md:block absolute top-1/2 right-0 w-full h-px bg-border z-0" />
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative">
+           {/* Connecting Line (Desktop) */}
+           <div className="hidden lg:block absolute top-[2.5rem] left-0 right-0 h-px bg-border -z-10" />
 
-              <div className="pipeline-step relative z-10 p-8 md:p-10 bg-background border-r border-border last:border-r-0 h-full flex flex-col group hover:bg-secondary/30 transition-colors">
-                {/* Number */}
-                <span className="text-xs font-mono text-muted-foreground mb-6">
-                  {step.number}
-                </span>
-
-                {/* Icon */}
-                <div className="w-12 h-12 border border-foreground/20 flex items-center justify-center mb-6 group-hover:border-foreground group-hover:bg-foreground group-hover:text-background transition-all">
-                  <step.icon className="h-5 w-5" />
+           {STEPS.map((step, i) => (
+             <div key={i} className="step-card flex flex-col items-center text-center gap-6 bg-background p-4">
+                <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center border border-border shadow-sm">
+                    <step.icon className="w-8 h-8 text-foreground" />
                 </div>
-
-                {/* Content */}
-                <h3 className="text-xl font-bold uppercase tracking-tight mb-3">
-                  {step.title}
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {step.description}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom note */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Average research time: <span className="text-foreground font-medium">45 seconds</span>
-          </p>
+                <div>
+                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
+                        Step 0{i+1}
+                     </span>
+                     <h3 className="text-xl font-bold mb-3 text-foreground">{step.title}</h3>
+                     <p className="text-sm text-muted-foreground leading-relaxed text-balance">
+                        {step.description}
+                     </p>
+                </div>
+             </div>
+           ))}
         </div>
       </div>
     </section>

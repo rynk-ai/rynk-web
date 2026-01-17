@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
-import { Manrope } from "next/font/google"; // [MODIFIED]
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/components/auth-provider";
 import { ChatProvider } from "@/lib/hooks/chat-context";
@@ -12,9 +12,15 @@ import { ChatBackgroundProvider } from "@/lib/hooks/use-chat-background";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const manrope = Manrope({ // [MODIFIED]
+const manrope = Manrope({
   subsets: ["latin"],
-  variable: "--font-manrope", // [MODIFIED]
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -123,7 +129,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       
       <body
-        className={`${manrope.variable} font-sans antialiased tracking-normal bg-background text-foreground`}
+        className={`${manrope.variable} ${jetbrainsMono.variable} font-sans antialiased tracking-normal bg-background text-foreground`}
       >
         <AuthProvider>
           <FontProviderWrapper defaultFont="geist">

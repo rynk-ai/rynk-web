@@ -1,11 +1,6 @@
 "use client";
 
-import { useRef } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Link from "next/link";
-import { motion } from "motion/react";
 import {
   PiSparkle,
   PiMagnifyingGlass,
@@ -16,10 +11,7 @@ import {
   PiPencilLine,
   PiTextAa,
   PiYoutubeLogo,
-  PiArrowUpRight,
 } from "react-icons/pi";
-
-gsap.registerPlugin(ScrollTrigger);
 
 const TOOLS = [
   {
@@ -27,150 +19,86 @@ const TOOLS = [
     description: "Make AI text sound human.",
     href: "/humanizer",
     icon: PiSparkle,
+    color: "text-purple-600 bg-purple-100 dark:bg-purple-900/20",
   },
   {
     title: "AI Detector",
     description: "Check if text is AI-written.",
     href: "/tools/ai-content-detector",
     icon: PiMagnifyingGlass,
+    color: "text-violet-600 bg-violet-100 dark:bg-violet-900/20",
   },
   {
     title: "Paraphraser",
-    description: "Rewrite, preserve meaning.",
+    description: "Rewrite while preserving meaning.",
     href: "/tools/paraphraser",
     icon: PiArrowsClockwise,
+    color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/20",
   },
   {
     title: "Summarizer",
-    description: "Long → short.",
+    description: "Condense long text instantly.",
     href: "/tools/summarizer",
     icon: PiFileText,
+    color: "text-blue-600 bg-blue-100 dark:bg-blue-900/20",
   },
   {
-    title: "Grammar",
-    description: "Fix mistakes, see why.",
+    title: "Grammar Fixer",
+    description: "Correct mistakes with explanations.",
     href: "/tools/grammar",
     icon: PiCheckCircle,
+    color: "text-amber-600 bg-amber-100 dark:bg-amber-900/20",
   },
   {
     title: "Word Counter",
-    description: "Words, chars, read time.",
+    description: "Count words, chars, and time.",
     href: "/tools/word-counter",
     icon: PiHash,
-  },
-  {
-    title: "Blog Titles",
-    description: "Headlines that click.",
-    href: "/tools/blog-title-generator",
-    icon: PiPencilLine,
-  },
-  {
-    title: "Case Converter",
-    description: "Any case, instantly.",
-    href: "/tools/case-converter",
-    icon: PiTextAa,
-  },
-  {
-    title: "YouTube Titles",
-    description: "Research-backed viral titles.",
-    href: "/tools/youtube-title-generator",
-    icon: PiYoutubeLogo,
+    color: "text-rose-600 bg-rose-100 dark:bg-rose-900/20",
   },
 ];
 
 export function LandingTools() {
-  const containerRef = useRef<HTMLElement>(null);
-
-  useGSAP(() => {
-    gsap.from(".tool-card", {
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: "top 75%",
-      },
-      y: 40,
-      opacity: 0,
-      stagger: {
-        amount: 0.5,
-        grid: [3, 3],
-        from: "start",
-      },
-      duration: 0.6,
-      ease: "power3.out",
-    });
-
-    gsap.from(".tools-header", {
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: "top 80%",
-      },
-      y: 30,
-      opacity: 0,
-      duration: 0.6,
-      ease: "power3.out",
-    });
-  }, { scope: containerRef });
-
   return (
-    <section
-      ref={containerRef}
-      id="tools"
-      className="py-24 md:py-32 bg-secondary/20 border-t border-border"
-    >
+    <section id="tools" className="py-24 bg-background">
       <div className="container px-4 md:px-6 mx-auto">
-        {/* Header */}
-        <div className="tools-header flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-16">
-          <div>
-            <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground block mb-4">
-              Free tools
-            </span>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight leading-[1.1] uppercase">
-              9 tools.{" "}
-              <span className="text-muted-foreground">All free.</span>
-            </h2>
-          </div>
-          <p className="text-muted-foreground max-w-sm text-sm leading-relaxed">
-            No login required for any of them. Just paste your text and go.
-          </p>
+        <div className="flex flex-col items-center text-center mb-16">
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Free AI Tools</h2>
+            <p className="text-muted-foreground text-lg max-w-xl">
+                No sign-up required. Just helpful utilities for your daily workflow.
+            </p>
         </div>
 
-        {/* Tools Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border border border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {TOOLS.map((tool) => (
-            <Link key={tool.title} href={tool.href}>
-              <motion.div
-                className="tool-card relative p-6 md:p-8 bg-background h-full flex flex-col group cursor-pointer"
-                whileHover={{ backgroundColor: "hsl(var(--secondary) / 0.5)" }}
-                transition={{ duration: 0.2 }}
-              >
-                {/* Icon */}
-                <div className="w-10 h-10 border border-foreground/20 flex items-center justify-center mb-5 group-hover:border-foreground group-hover:bg-foreground group-hover:text-background transition-all">
-                  <tool.icon className="h-4 w-4" />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors flex items-center gap-2">
-                    {tool.title}
-                    <PiArrowUpRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {tool.description}
-                  </p>
-                </div>
-              </motion.div>
+            <Link key={tool.title} href={tool.href} className="group block h-full">
+              <div className="h-full p-6 rounded-2xl border border-border bg-card hover:shadow-md transition-all duration-200 hover:-translate-y-1">
+                 <div className="flex items-start gap-4">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${tool.color}`}>
+                       <tool.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
+                            {tool.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground leading-snug">
+                            {tool.description}
+                        </p>
+                    </div>
+                 </div>
+              </div>
             </Link>
           ))}
         </div>
-
-        {/* Bottom CTA */}
-        <div className="mt-8 text-center">
-          <Link
-            href="/tools"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
-          >
-            View all tools →
-          </Link>
+        
+        <div className="mt-12 text-center">
+             <Link href="/tools">
+                <button className="px-6 py-2 rounded-full border border-border text-sm font-medium hover:bg-secondary transition-colors">
+                    View all 10 tools
+                </button>
+             </Link>
         </div>
+
       </div>
     </section>
   );
