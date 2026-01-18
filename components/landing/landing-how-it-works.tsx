@@ -10,23 +10,23 @@ gsap.registerPlugin(ScrollTrigger);
 
 const STEPS = [
   {
-    title: "Query / Ingest",
-    description: "Input complex queries or upload comprehensive datasets.",
+    title: "Ask a question",
+    description: "Start with a topic or upload your research materials.",
     icon: PiMagnifyingGlass,
   },
   {
-    title: "Semantic Planning",
-    description: "The agent constructs parallel search strategies.",
+    title: "Create a plan",
+    description: "Rynk analyzes the request and breaks it down into steps.",
     icon: PiExcludeSquare,
   },
   {
-    title: "Retrieval & Verification",
-    description: "Scans millions of academic nodes. Evaluates source credibility.",
+    title: "Research sources",
+    description: "It reads through verified sources to find the answers.",
     icon: PiDatabase,
   },
   {
-    title: "Synthesis",
-    description: "Compiles a fully cited, hallucination-free report.",
+    title: "Generate report",
+    description: "Rynk compiles everything into a clear, cited document.",
     icon: PiFileText,
   },
 ];
@@ -56,8 +56,8 @@ export function LandingHowItWorks() {
     >
       <div className="container px-4 md:px-6 mx-auto">
         <div className="flex flex-col items-center text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3 text-balance">
-                The Verification Pipeline.
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-16 text-center">
+            How it works.
             </h2>
             <p className="text-muted-foreground text-base max-w-xl text-pretty">
                 From raw data to verified intelligence. The Rynk engine at work.

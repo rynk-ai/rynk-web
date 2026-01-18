@@ -64,7 +64,7 @@ export function LandingPricing() {
                 <div className="font-medium text-sm mb-4">Includes:</div>
                 <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-foreground">
-                        <PiCheck className="text-green-600" /> 100 queries / mo
+                        <PiCheck className="text-green-600" /> 20 queries / mo
                     </li>
                      <li className="flex items-center gap-2 text-sm text-foreground">
                         <PiCheck className="text-green-600" /> Basic research depth

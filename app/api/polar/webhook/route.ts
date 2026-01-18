@@ -146,7 +146,7 @@ async function handleSubscriptionCreated(db: D1Database, subscription: any) {
 
   // Determine tier based on product ID
   const tier = getTierFromProductId(productId);
-  const credits = tier === "standard" || tier === "standard_plus" ? 2500 : 100;
+  const credits = tier === "standard" || tier === "standard_plus" ? 2500 : 20;
 
   // Calculate next reset date (1 month from now)
   const nextResetDate = new Date();
@@ -249,7 +249,7 @@ async function handleSubscriptionRevoked(db: D1Database, subscription: any) {
       subscriptionTier = 'free',
       subscriptionStatus = 'none',
       polarSubscriptionId = NULL,
-      credits = 100,
+      credits = 20,
       carryoverCredits = 0,
       updatedAt = CURRENT_TIMESTAMP
     WHERE polarSubscriptionId = ?

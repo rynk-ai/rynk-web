@@ -40,7 +40,7 @@ export function UsageProgress({ current, max, isGuest, className }: UsageProgres
         <TooltipContent side="bottom" className="text-xs max-w-[200px]">
           <p>
             You&apos;ve used {current} of {max} free daily credits. 
-            <span className="block font-bold mt-1 text-primary">Sign up for 10x more.</span>
+            <span className="block font-bold mt-1 text-primary">Sign up for more.</span>
           </p>
         </TooltipContent>
       </Tooltip>

@@ -64,7 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
         // Update credits to 100 immediately after user creation
         if (db && user.id) {
           try {
-            await db.prepare('UPDATE users SET credits = 100 WHERE id = ?').bind(user.id).run()
+            await db.prepare('UPDATE users SET credits = 20 WHERE id = ?').bind(user.id).run()
             console.log('✅ Set initial credits to 100 for new user:', user.id)
             
             // Create onboarding conversation for new user
@@ -82,7 +82,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
             // Database session (with adapter)
             session.user.id = user.id
             // @ts-ignore - credits is a custom field
-            session.user.credits = user.credits || 100
+            session.user.credits = user.credits || 20
             // @ts-ignore - subscriptionTier is a custom field
             session.user.subscriptionTier = user.subscriptionTier || 'free'
             // @ts-ignore - subscriptionStatus is a custom field
@@ -92,7 +92,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
             // @ts-ignore
             session.user.id = token.sub
             // @ts-ignore
-            session.user.credits = 100
+            session.user.credits = 20
             // @ts-ignore - default to free tier for JWT sessions
             session.user.subscriptionTier = 'free'
             // @ts-ignore
@@ -115,7 +115,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) => {
                     session.user.email,
                     session.user.name || null,
                     session.user.image || null,
-                    100,
+                    20,
                     'free',
                     'none'
                   ).run()

@@ -66,9 +66,9 @@ export function GuestUpgradeModal({
             <div className="flex items-start gap-3">
               <PiCheck className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="font-medium">95 more free messages</p>
+                <p className="font-medium">15 more free messages</p>
                 <p className="text-sm text-muted-foreground">
-                  Start with 100 total free credits
+                  Start with 20 total free credits
                 </p>
               </div>
             </div>

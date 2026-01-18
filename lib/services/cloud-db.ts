@@ -1519,7 +1519,7 @@ export const cloudDb = {
       // Free tier: reset to 100
       await db.prepare(`
         UPDATE users SET 
-          credits = 100,
+          credits = 20,
           carryoverCredits = 0,
           creditsResetAt = ?,
           updatedAt = CURRENT_TIMESTAMP

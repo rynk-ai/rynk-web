@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         name: user.name,
         image: user.image,
-        credits: user.credits || 100,
+        credits: user.credits || 20,
         subscriptionTier: user.subscriptionTier || 'free',
         subscriptionStatus: user.subscriptionStatus || 'none',
       },
@@ -202,12 +202,12 @@ export async function POST(request: NextRequest) {
         email,
         name || null,
         image || null,
-        100,
+        20,
         'free',
         'none'
       ).run();
       
-      user = { id: userId, email, name, image, credits: 100, subscriptionTier: 'free', subscriptionStatus: 'none' };
+      user = { id: userId, email, name, image, credits: 20, subscriptionTier: 'free', subscriptionStatus: 'none' };
       console.log('[Mobile Auth] Created new user:', userId);
     }
     
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name || null,
         image: user.image || null,
-        credits: user.credits || 100,
+        credits: user.credits || 20,
         subscriptionTier: user.subscriptionTier || 'free',
         subscriptionStatus: user.subscriptionStatus || 'none',
       },

@@ -22,12 +22,12 @@ const tierConfig: any = {
   free: {
     name: "Free",
     price: 0,
-    queries: 100,
+    queries: 20,
     icon: PiSparkle,
     color: "text-muted-foreground",
     bgColor: "bg-muted",
     features: [
-      "100 queries per month",
+      "20 queries per month",
       "Basic AI chat",
       "File uploads",
       "Credits reset monthly",

@@ -59,19 +59,19 @@ export function LandingHero() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Live: Deep Research Agent
+                    Autonomous Research Agent
                 </span>
             </div>
 
             {/* Headline */}
             <h1 className="hero-title text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-4 text-balance">
-                Synthesize the <br className="hidden md:block"/>
-                <span className="text-muted-foreground">world's knowledge.</span>
+                Deep research. <br className="hidden md:block"/>
+                <span className="text-muted-foreground">Done in minutes.</span>
             </h1>
 
             {/* Subhead */}
             <p className="hero-sub text-base text-muted-foreground max-w-lg mb-8 leading-relaxed text-pretty">
-                Rynk is an autonomous research agent. It reads millions of sources, verifies facts, and writes cited reports. No hallucinations. 100% verifiable.
+                Stop sifting through search results. Rynk is an agent that plans, reads, and writes detailed reports for you. 100% cited.
             </p>
 
             {/* Simulated Input / CTA */}
