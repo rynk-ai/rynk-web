@@ -51,7 +51,7 @@ const tierConfig: any = {
 };
 
 export default function SubscriptionClient() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,11 +78,10 @@ export default function SubscriptionClient() {
           setLoading(false);
           toast.error("Failed to load subscription info");
         });
-    } else if (session === null) {
-      // Session loaded but user is null
+    } else if (status === "unauthenticated") {
       setLoading(false);
     }
-  }, [session?.user?.id, session]);
+  }, [session?.user?.id, session, status]);
 
   const handleUpgrade = async (tier: Tier | "extra") => {
     setCheckoutLoading(tier);
@@ -119,7 +118,7 @@ export default function SubscriptionClient() {
     });
   };
 
-  if (session === undefined || loading) {
+  if (status === "loading" || loading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
         <PiSpinner className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -127,18 +126,7 @@ export default function SubscriptionClient() {
     );
   }
 
-  if (!session?.user) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center flex-col gap-4">
-        <p className="text-muted-foreground">
-          Please sign in to manage your subscription.
-        </p>
-        <Link href="/login?callbackUrl=/subscription" className="underline hover:text-foreground">
-          Sign In
-        </Link>
-      </div>
-    );
-  }
+
 
   const currentTier = subscription?.tier || "free";
   const currentConfig = tierConfig[currentTier];
@@ -164,8 +152,9 @@ export default function SubscriptionClient() {
           </p>
         </div>
 
-        {/* Current Plan Card */}
-        <div className="mb-12 rounded-2xl  p-8 bg-card border border-border">
+        {/* Current Plan Card - Only for logged in users */}
+        {session?.user && (
+          <div className="mb-12 rounded-2xl  p-8 bg-card border border-border">
           {/* Usage Stats */}
           <div className="grid gap-6 sm:grid-cols-3 max-w-lg mx-auto">
             <div className="flex flex-col items-center p-4">
@@ -188,6 +177,7 @@ export default function SubscriptionClient() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Plan Comparison */}
         <h3 className="text-xl font-semibold mb-6">Available Plans</h3>
@@ -243,6 +233,10 @@ export default function SubscriptionClient() {
                   >
                     {checkoutLoading === tier ? (
                       <PiSpinner className="h-4 w-4 animate-spin mx-auto" />
+                    ) : !session?.user ? (
+                      <Link href="/login?callbackUrl=/subscription" className="w-full h-full block">
+                        Login to Subscribe
+                      </Link>
                     ) : isCurrentPlan ? (
                       "Current Plan"
                     ) : config.price > (tierConfig[currentTier]?.price || 0) ? (
