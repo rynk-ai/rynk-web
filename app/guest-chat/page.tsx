@@ -29,6 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { TextShimmer } from "@/components/motion-primitives/text-shimmer";
 import {
+  useMemo,
   useRef,
   useState,
   useEffect,
@@ -258,31 +259,21 @@ const GuestChatContent = memo(function GuestChatContent({
     }
   }, [chatId, currentConversationId, selectConversation]);
 
-  // Reset state for new chat
-  useEffect(() => {
-    if (isSending) return;
-    
-    if (!currentConversationId) {
-      if (!chatId) {
-        // Show onboarding messages as default state for guest
-        const now = Date.now();
-        const onboardingMessages = ONBOARDING_MESSAGES.map((msg, index) => ({
-          id: `onboarding-${index}`,
-          conversationId: 'preview',
-          role: msg.role,
-          content: msg.content,
-          timestamp: now + (index * 100),
-          versionNumber: 1,
-          createdAt: new Date(now + (index * 100)).toISOString()
-        })) as any; // Cast to avoid strict type checks for missing optional fields that aren't needed for display
+  // Onboarding messages logic moved to render time
+  const onboardingMessages = useMemo(() => {
+    const now = Date.now();
+    return ONBOARDING_MESSAGES.map((msg, index) => ({
+      id: `onboarding-${index}`,
+      conversationId: 'preview',
+      role: msg.role,
+      content: msg.content,
+      timestamp: now + (index * 100),
+      versionNumber: 1,
+      createdAt: new Date(now + (index * 100)).toISOString()
+    })) as any; 
+  }, []);
 
-        setMessages(onboardingMessages);
-        setMessageVersions(new Map());
-        setQuotedMessage(null);
-        setLocalContext([]);
-      }
-    }
-  }, [currentConversationId, chatId, isSending, setMessages, setMessageVersions]);
+  const showOnboarding = !currentConversationId && messages.length === 0;
 
   // Reset context when switching conversations
   useEffect(() => {
@@ -541,7 +532,7 @@ const GuestChatContent = memo(function GuestChatContent({
                 )}
                 <VirtualizedMessageList
                   ref={virtuosoRef}
-                  messages={messages as any} // Cast for compatibility with CloudMessage prop type
+                  messages={showOnboarding ? onboardingMessages : (messages as any)}
                   isSending={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}
                   streamingMessageId={streamingMessageId}
                   streamingContent={streamingContent}
@@ -565,7 +556,7 @@ const GuestChatContent = memo(function GuestChatContent({
                   statusPills={activeStatusPills}
                   searchResults={activeSearchResults}
                   onIsAtBottomChange={setIsScrolledUp}
-                  isOnboarding={!currentConversationId && messages.length > 0}
+                  isOnboarding={showOnboarding}
                 />
               </div>
 
@@ -620,7 +611,7 @@ const GuestChatContent = memo(function GuestChatContent({
               onClearQuote={handleClearQuote}
               hideFileUpload={true}
               isGuest={true}
-              hideEmptyState={messages.length > 0}
+              hideEmptyState={showOnboarding || messages.length > 0}
 
               className={cn(
                 "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",

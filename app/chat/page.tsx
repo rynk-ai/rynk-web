@@ -273,10 +273,14 @@ const ChatContent = memo(
       // 1. We are on the "New Chat" page (no current ID)
       // 2. We have exactly 1 conversation loaded
       // 3. That conversation is the Onboarding conversation
-      if (!currentConversationId && conversations.length === 1) {
+      // 4. We haven't already redirected them in this session (allows "New Chat")
+      const hasRedirected = sessionStorage.getItem("hasRedirectedToOnboarding");
+      
+      if (!currentConversationId && conversations.length === 1 && !hasRedirected) {
         const onlyConvo = conversations[0];
         if (onlyConvo.title === ONBOARDING_CONVERSATION_TITLE) {
            console.log("🚀 Redirecting new user to Onboarding Conversation:", onlyConvo.id);
+           sessionStorage.setItem("hasRedirectedToOnboarding", "true");
            selectConversation(onlyConvo.id);
            router.replace(`/chat?id=${onlyConvo.id}`);
         }
