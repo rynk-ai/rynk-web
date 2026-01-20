@@ -1329,7 +1329,7 @@ const ChatHeaderWithCommandBar = memo(function ChatHeaderWithCommandBar({
 
   return (
     <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 animate-in-down">
-      <div className="flex items-center gap-0.5 p-0.5 transition-all duration-300">
+      <div className="flex items-center gap-0.5 p-0.5 transition-all duration-300 bg-background/50 backdrop-blur-sm rounded-md sm:bg-transparent sm:backdrop-blur-none">
         <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
         <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button

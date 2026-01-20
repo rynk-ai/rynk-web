@@ -251,7 +251,7 @@ type PromptInputWithFilesProps = {
                   </div>
       {/* Edit mode indicator */}
       {editMode && onCancelEdit && (
-        <div className="absolute -top-8 right-2 z-30">
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-2 z-30 flex gap-2">
           <Button
             size="sm"
             onClick={onCancelEdit}

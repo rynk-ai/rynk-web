@@ -713,8 +713,8 @@ export const ChatMessageItem = memo(
 
               <MessageActions
                 className={cn(
-                  "flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pt-1 pl-1",
-                  isLastMessage && !isStreaming && "opacity-100",
+                  "flex gap-0.5 transition-opacity duration-150 pt-1 pl-1 opacity-100 md:opacity-0 md:group-hover:opacity-100",
+                  isLastMessage && !isStreaming && "md:opacity-100",
                 )}
               >
                 <MessageAction tooltip="Copy" delayDuration={100}>
@@ -774,6 +774,8 @@ export const ChatMessageItem = memo(
                   : message.content}
               </MessageContent>
             </div>
+
+
 
             {/* Floating Quote & SubChat Buttons - Rendered via Portal to avoid positioning issues */}
             {showQuoteButton &&
@@ -921,7 +923,7 @@ export const ChatMessageItem = memo(
 
             {/* Action Buttons */}
             {!isEditing && (
-              <div className="flex items-center gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <div className="flex items-center gap-1.5 mt-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
                 {/* Version Indicator */}
                 {onSwitchVersion && versions.length > 1 && (
                   <VersionIndicator
@@ -932,6 +934,15 @@ export const ChatMessageItem = memo(
                 )}
 
                 <MessageActions className="flex gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]"
+                    onClick={handleCopy}
+                  >
+                    <PiCopy className="h-3.5 w-3.5" />
+                  </Button>
+
                   <Button
                     variant="ghost"
                     size="icon"

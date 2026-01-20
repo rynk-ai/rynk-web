@@ -43,7 +43,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { PromptInputWithFiles } from "@/components/prompt-input-with-files";
 import { TagDialog } from "@/components/tag-dialog";
-import { PiPlus } from "react-icons/pi";
+import { PiPlus, PiMagnifyingGlass } from "react-icons/pi";
 import { useKeyboardAwarePosition } from "@/lib/hooks/use-keyboard-aware-position";
 import { toast } from "sonner";
 import { SubChatSheet } from "@/components/chat/sub-chat-sheet";
@@ -1116,8 +1116,10 @@ function CommandBarWrapper({
 // Memoized ChatHeader to prevent re-renders when parent state changes
 const ChatHeader = memo(function ChatHeader({
   projectId,
+  setCommandBarOpen,
 }: {
   projectId?: string;
+  setCommandBarOpen: (open: boolean) => void;
 }) {
   const { selectConversation } = useChatContext();
   const router = useRouter();
@@ -1131,18 +1133,31 @@ const ChatHeader = memo(function ChatHeader({
   }, [router, projectId, selectConversation]);
 
   return (
-    <div className="absolute top-3 left-3 z-20 flex items-center gap-2 animate-in-down">
-      <div className="flex items-center gap-1 bg-card backdrop-blur-md border border-border/30 shadow-sm rounded-xl p-1 transition-all duration-300 hover:bg-card hover:shadow-md hover:border-border/50 group">
-        <SidebarTrigger className="h-10 w-10 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors" />
-        <Separator orientation="vertical" className="h-5 bg-border/50" />
+    <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 animate-in-down">
+      <div className="flex items-center gap-0.5 p-0.5 transition-all duration-300 bg-background/50 backdrop-blur-sm rounded-md sm:bg-transparent sm:backdrop-blur-none">
+        <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" />
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-lg hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors"
+          className="h-8 w-8 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
           onClick={handleNewChat}
           title="Start new chat"
         >
-          <PiPlus className="h-5 w-5" />
+          <PiPlus className="h-4 w-4" />
+        </Button>
+        <Separator orientation="vertical" className="h-4 bg-border/50" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          onClick={() => setCommandBarOpen(true)}
+          title="Search (⌘K)"
+        >
+          <PiMagnifyingGlass className="h-4 w-4" />
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1 py-0.5 text-[9px] font-medium text-muted-foreground/70 bg-muted/50 border border-border/50 rounded">
+            ⌘K
+          </kbd>
         </Button>
       </div>
     </div>
@@ -1184,7 +1199,7 @@ function ChatContentWithLayout({ projectId }: { projectId: string }) {
       <CommandBarWrapper open={commandBarOpen} onOpenChange={setCommandBarOpen} />
       <AppSidebar />
       <SidebarInset>
-        <ChatHeader projectId={projectId} />
+        <ChatHeader projectId={projectId} setCommandBarOpen={setCommandBarOpen} />
         <ChatContent />
       </SidebarInset>
       <FocusModeToggle />
