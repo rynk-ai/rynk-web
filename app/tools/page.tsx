@@ -1,7 +1,6 @@
 import { LandingNavbar } from "@/components/landing/landing-navbar"
-import Link from "next/link"
-import { ArrowUpRight, Sparkles, Youtube, Chrome, ScanSearch, RefreshCcw, FileText, CheckCircle, Hash, PenTool, Type, Gavel, GitBranch, Flame, MessageSquare, FileSearch } from "lucide-react"
 import type { Metadata } from "next"
+import ToolsBrowser from "./tools-browser"
 
 export const metadata: Metadata = {
   title: "Free AI Tools Suite | rynk.",
@@ -10,139 +9,18 @@ export const metadata: Metadata = {
     title: "Free AI Tools Suite | rynk.",
     description: "Supercharge your workflow with our free AI tools. No sign-up required for basic use.",
     url: "https://rynk.io/tools",
+    images: [
+        {
+            url: "https://og.rynk.io/api/tools?title=Free%20AI%20Tools%20Suite&description=Supercharge%20your%20workflow%20with%20our%20free%20AI%20tools.",
+            width: 1200,
+            height: 630,
+            alt: "rynk. AI Tools Suite",
+        }
+    ]
   }
 }
 
 export default function ToolsPage() {
-  const tools = [
-    {
-      title: "AI Humanizer",
-      description: "Make AI-generated text undetectable and naturally human-like.",
-      href: "/humanizer",
-      icon: Sparkles,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10",
-    },
-    {
-      title: "AI Content Detector",
-      description: "Analyze text to determine if it was written by AI or a human.",
-      href: "/tools/ai-content-detector",
-      icon: ScanSearch,
-      color: "text-violet-500",
-      bg: "bg-violet-500/10",
-    },
-    {
-      title: "Paraphrasing Tool",
-      description: "Rewrite text in different styles while preserving meaning.",
-      href: "/tools/paraphraser",
-      icon: RefreshCcw,
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
-    },
-    {
-      title: "Text Summarizer",
-      description: "Condense long articles into clear, concise summaries.",
-      href: "/tools/summarizer",
-      icon: FileText,
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
-    },
-    {
-      title: "Grammar Polisher",
-      description: "Fix grammar, spelling, and punctuation with explanations.",
-      href: "/tools/grammar",
-      icon: CheckCircle,
-      color: "text-amber-500",
-      bg: "bg-amber-500/10",
-    },
-    {
-      title: "Word Counter",
-      description: "Count words, characters, sentences, and reading time.",
-      href: "/tools/word-counter",
-      icon: Hash,
-      color: "text-cyan-500",
-      bg: "bg-cyan-500/10",
-    },
-    {
-      title: "Blog Title Generator",
-      description: "Generate click-worthy blog titles that drive traffic.",
-      href: "/tools/blog-title-generator",
-      icon: PenTool,
-      color: "text-orange-500",
-      bg: "bg-orange-500/10",
-    },
-    {
-      title: "Case Converter",
-      description: "Convert text between different cases instantly.",
-      href: "/tools/case-converter",
-      icon: Type,
-      color: "text-pink-500",
-      bg: "bg-pink-500/10",
-    },
-    {
-      title: "The Devil's Advocate",
-      description: "A ruthless logical critique of your arguments and ideas. Not for the faint of heart.",
-      href: "/tools/devils-advocate",
-      icon: Gavel,
-      color: "text-zinc-500",
-      bg: "bg-zinc-500/10",
-      badge: "New",
-    },
-    {
-      title: "Repo Visualizer",
-      description: "Understand any codebase instantly with interactive node graphs.",
-      href: "/tools/github-repo-visualizer",
-      icon: GitBranch,
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
-      badge: "Beta",
-    },
-    {
-      title: "Landing Roaster",
-      description: "Get a brutal, data-driven audit of your landing page's conversion killers.",
-      href: "/tools/landing-page-roaster",
-      icon: Flame,
-      color: "text-orange-500",
-      bg: "bg-orange-500/10",
-      badge: "New",
-    },
-    {
-      title: "HN Inspector",
-      description: "Analyze the sentiment of the intellectual crowd on HackerNews.",
-      href: "/tools/hackernews-inspector",
-      icon: MessageSquare,
-      color: "text-orange-500",
-      bg: "bg-orange-500/10",
-      badge: "Beta",
-    },
-    {
-      title: "Resume Roaster",
-      description: "Get a brutal 6-second critique from a FAANG recruiter persona.",
-      href: "/tools/resume-roaster",
-      icon: FileSearch,
-      color: "text-violet-500",
-      bg: "bg-violet-500/10",
-      badge: "New",
-    },
-    {
-      title: "Viral Title Gen",
-      description: "Generate YouTube titles backed by deep research.",
-      href: "/tools/youtube-title-generator",
-      icon: Youtube,
-      color: "text-red-500",
-      bg: "bg-red-500/10",
-    },
-    {
-      title: "Rynk Companion",
-      description: "AI grammar and tone fixer in your browser.",
-      href: "https://github.com/rynk-ai/rynk-companion",
-      icon: Chrome,
-      color: "text-sky-500",
-      bg: "bg-sky-500/10",
-      badge: "Extension",
-    },
-  ]
-
   return (
     <div className="flex-1 w-full min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <LandingNavbar />
@@ -160,34 +38,7 @@ export default function ToolsPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {tools.map((tool) => (
-            <Link 
-              key={tool.title} 
-              href={tool.href}
-              className="group relative flex flex-col p-5 bg-card border border-border rounded-xl hover:border-foreground/20 hover:shadow-lg transition-all duration-300"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-lg ${tool.bg} ${tool.color}`}>
-                  <tool.icon className="w-6 h-6" />
-                </div>
-                {tool.badge && (
-                  <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-secondary text-secondary-foreground rounded-full">
-                    {tool.badge}
-                  </span>
-                )}
-                {!tool.badge && (
-                  <ArrowUpRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                )}
-              </div>
-              
-              <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{tool.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {tool.description}
-              </p>
-            </Link>
-          ))}
-        </div>
+          <ToolsBrowser />
         </div>
       </main>
     </div>

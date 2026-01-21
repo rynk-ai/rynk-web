@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og-image.png',
+        url: 'https://og.rynk.io/api/tools?title=AI%20Humanizer&description=Make%20AI-generated%20text%20undetectable%20and%20naturally%20human-like.',
         width: 1200,
         height: 630,
         alt: 'Rynk AI Humanizer - Transform AI text to human writing',
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Free AI Humanizer - Transform AI Text to Human Writing',
     description: 'Transform ChatGPT, Claude, and AI text into natural human writing. Free, no sign-up required.',
-    images: ['/og-humanizer.png'],
+    images: ['https://og.rynk.io/api/tools?title=AI%20Humanizer&description=Make%20AI-generated%20text%20undetectable%20and%20naturally%20human-like.'],
   },
   alternates: {
     canonical: 'https://rynk.io/humanizer',
