@@ -1111,10 +1111,10 @@ const ChatContent = memo(
                   isDeepResearch={isDeepResearch}
                   onDeepResearchChange={setIsDeepResearch} 
                   className={cn(
-                    "relative z-10 w-full transition-all duration-300",
+                    "relative z-10 w-full rounded-3xl border border-border/60 transition-all duration-300 shadow-lg hover:shadow-xl bg-background",
                     !currentConversationId
-                      ? ""
-                      : "",
+                      ? "shadow-xl"
+                      : "shadow-sm hover:shadow-md",
                     userCredits !== null && userCredits <= 0 && "opacity-50 pointer-events-none"
                   )}
                 />

@@ -26,6 +26,7 @@ import {
   PiChatTeardropText,
   PiDotsThree,
   PiArrowSquareOut,
+  PiCheck,
 } from "react-icons/pi";
 import {
   DropdownMenu,
@@ -186,6 +187,9 @@ export const ChatMessageItem = memo(
     const [showQuoteButton, setShowQuoteButton] = useState(false);
     const [selectedText, setSelectedText] = useState("");
     const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
+    
+    // Copy feedback state
+    const [isCopied, setIsCopied] = useState(false);
 
     // Delete confirmation dialog state
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -198,6 +202,9 @@ export const ChatMessageItem = memo(
       } else {
         navigator.clipboard.writeText(content);
       }
+      
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     }, [message.content, isStreaming, streamingContent, onCopy]);
 
     const handleBranch = useCallback(() => {
@@ -717,14 +724,17 @@ export const ChatMessageItem = memo(
                   isLastMessage && !isStreaming && "md:opacity-100",
                 )}
               >
-                <MessageAction tooltip="Copy" delayDuration={100}>
+                <MessageAction tooltip={isCopied ? "Copied!" : "Copy"} delayDuration={100}>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
+                    className={cn(
+                      "rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent",
+                      isCopied && "text-green-500 hover:text-green-600 bg-green-500/10 hover:bg-green-500/20"
+                    )}
                     onClick={handleCopy}
                   >
-                    <PiCopy className="h-3.5 w-3.5" />
+                    {isCopied ? <PiCheck className="h-3.5 w-3.5" /> : <PiCopy className="h-3.5 w-3.5" />}
                   </Button>
                 </MessageAction>
                 <MessageAction tooltip="Branch from here" delayDuration={100}>
