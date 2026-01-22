@@ -694,12 +694,17 @@ const ChatContent = memo(
         }
 
         try {
+          console.log("🔍 [reloadMessages] Canceling pending queries and calling fetchQuery for:", targetConversationId);
+          // Cancel any in-flight prefetch to ensure we get a fresh, high-priority request
+          await queryClient.cancelQueries({ queryKey: ["messages", targetConversationId] });
+
           const { messages: loadedMessages, nextCursor } =
             await queryClient.fetchQuery({
               queryKey: ["messages", targetConversationId],
               queryFn: () => getMessages(targetConversationId),
               staleTime: 1000 * 60 * 2, // 2 minutes - match prefetch configuration
             });
+            console.log("✅ [reloadMessages] fetchQuery resolved for:", targetConversationId);
           console.log(
             "✅ Loaded",
             loadedMessages.length,
@@ -734,6 +739,7 @@ const ChatContent = memo(
             // SWITCHING CONVERSATIONS: Complete replacement, no merging with old messages
             console.log("🔄 [reloadMessages] Switching conversations - replacing all messages");
             setMessages(filteredMessages);
+            console.log("🏁 [reloadMessages] Clearing loading state (was true)");
             setIsLoadingConversation(false); // Clear loading state
           } else {
             // RELOADING SAME CONVERSATION: Merge to preserve optimistic updates

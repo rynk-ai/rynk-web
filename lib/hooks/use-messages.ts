@@ -259,27 +259,41 @@ export function useMessages(
  * Hook to prefetch messages for a conversation.
  * Use this when hovering over a conversation in the sidebar.
  */
+/**
+ * Hook to prefetch messages for a conversation.
+ * Use this when hovering over a conversation in the sidebar.
+ * Includes debouncing (300ms) to prevent flooding requests.
+ */
 export function usePrefetchMessages() {
   const queryClient = useQueryClient();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   return useCallback(
     (conversationId: string) => {
-      console.log(`[Prefetch] Starting prefetch for ${conversationId}`);
-      queryClient.prefetchQuery({
-        queryKey: ["messages", conversationId],
-        queryFn: async () => {
-          console.log(`[Prefetch] Executing queryFn for ${conversationId}`);
-          try {
-            const result = await getMessagesAction(conversationId, 50);
-            console.log(`[Prefetch] Success for ${conversationId}, loaded ${result.messages.length} messages`);
-            return result;
-          } catch (error) {
-            console.error(`[Prefetch] Error fetching messages for ${conversationId}:`, error);
-            throw error;
-          }
-        },
-        staleTime: 1000 * 60 * 2,
-      });
+      // Clear any pending prefetch
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      // Debounce: Only prefetch if user hovers for 300ms
+      timeoutRef.current = setTimeout(() => {
+        console.log(`[Prefetch] Starting prefetch for ${conversationId}`);
+        queryClient.prefetchQuery({
+          queryKey: ["messages", conversationId],
+          queryFn: async () => {
+            console.log(`[Prefetch] Executing queryFn for ${conversationId}`);
+            try {
+              const result = await getMessagesAction(conversationId, 50);
+              console.log(`[Prefetch] Success for ${conversationId}, loaded ${result.messages.length} messages`);
+              return result;
+            } catch (error) {
+              console.error(`[Prefetch] Error fetching messages for ${conversationId}:`, error);
+              throw error;
+            }
+          },
+          staleTime: 1000 * 60 * 2,
+        });
+      }, 300);
     },
     [queryClient]
   );
