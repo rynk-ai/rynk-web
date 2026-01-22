@@ -1,11 +1,23 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { PiFolder, PiChatCircle, PiX, PiFile, PiFilePdf, PiFileImage, PiFileText, PiFileCode } from "react-icons/pi";
+import { 
+  PiFolder, 
+  PiChatCircle, 
+  PiX, 
+  PiFile, 
+  PiFilePdf, 
+  PiFileImage, 
+  PiFileText, 
+  PiFileCode,
+  PiCaretLeft,
+  PiCaretRight
+} from "react-icons/pi";
 import { formatFileSize, getFileCategory } from "@/lib/utils/file-converter";
 import { Attachment } from "@/components/file-preview";
 import { ContextItem } from "@/lib/hooks/use-context-search";
+import { cn } from "@/lib/utils";
 
 interface InputAttachmentListProps {
   files: (File | Attachment)[];
@@ -20,11 +32,80 @@ export const InputAttachmentList = memo(function InputAttachmentList({
   onRemoveFile,
   onRemoveContext,
 }: InputAttachmentListProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1); // -1 for rounding
+    }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    // Add resize listener
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [files, context]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 200;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+      // Check after scrolling animation (approximate)
+      setTimeout(checkScroll, 300);
+    }
+  };
+
   if (files.length === 0 && context.length === 0) return null;
 
   return (
     <div className="w-full relative group/list">
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 px-3 mask-linear-fade">
+      {/* Left Scroll Button */}
+      {canScrollLeft && (
+        <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center bg-gradient-to-r from-background via-background/80 to-transparent pr-4 pl-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full shadow-sm border border-border/20 bg-background hover:bg-muted text-muted-foreground"
+            onClick={(e) => {
+              e.preventDefault();
+              scroll('left');
+            }}
+          >
+            <PiCaretLeft className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+
+      {/* Right Scroll Button */}
+      {canScrollRight && (
+        <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center bg-gradient-to-l from-background via-background/80 to-transparent pl-4 pr-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full shadow-sm border border-border/20 bg-background hover:bg-muted text-muted-foreground"
+            onClick={(e) => {
+              e.preventDefault();
+              scroll('right');
+            }}
+          >
+            <PiCaretRight className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+
+      <div 
+        ref={scrollContainerRef}
+        className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 px-3 mask-linear-fade"
+        onScroll={checkScroll}
+      >
         {/* Context Pills */}
         {context.map((item) => (
           <div 
@@ -54,7 +135,7 @@ export const InputAttachmentList = memo(function InputAttachmentList({
         {files.map((file, index) => {
           const isFile = file instanceof File;
           const name = file.name;
-          const size = isFile ? formatFileSize(file.size) : '';
+          // const size = isFile ? formatFileSize(file.size) : '';
           
           let Icon = PiFile;
           if (isFile) {
@@ -75,7 +156,6 @@ export const InputAttachmentList = memo(function InputAttachmentList({
                 <span className="text-xs font-medium truncate text-foreground/90 leading-none max-w-[100px]">
                   {name}
                 </span>
-                {/* Optional: Show size if needed, but keeping it compact for now just name */}
               </div>
               <Button
                 variant="ghost"
