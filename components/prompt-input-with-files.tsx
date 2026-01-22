@@ -249,61 +249,9 @@ type PromptInputWithFilesProps = {
                       }}
                     />
                   </div>
-      {/* Edit mode indicator */}
-      {editMode && onCancelEdit && (
-        <div className="absolute -top-8 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-2 z-30 flex gap-2">
-          <Button
-            size="sm"
-            onClick={onCancelEdit}
-            disabled={isLoading || isSubmittingEdit}
-            className="gap-1.5 h-7 px-2 text-xs bg-red-800/50 hover:bg-red-800/70 text-white"
-          >
-            <PiX size={14} />
-            Cancel
-          </Button>
-        </div>
-      )}
-      
-      {/* Quote Preview */}
-      {quotedMessage && onClearQuote && (
-        <div className="px-2.5 mt-2">
-          <div className="flex items-start gap-2 bg-muted/50 border border-border/30 rounded-lg px-3 py-2.5 text-sm">
-            <PiQuotes className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">
-                Replying to {quotedMessage.authorRole === 'assistant' ? 'Assistant' : 'You'}
-              </div>
-              <div className="text-foreground/90 line-clamp-2 italic">
-                {quotedMessage.quotedText}
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-full hover:bg-background/60 flex-shrink-0"
-              onClick={(e) => {
-                e.preventDefault();
-                onClearQuote();
-                // Remove quote from input
-                const lines = prompt.split('\n');
-                const firstNonQuoteLine = lines.findIndex(line => !line.startsWith('>') && line.trim() !== '');
-                const newValue = firstNonQuoteLine >= 0 ? lines.slice(firstNonQuoteLine).join('\n') : '';
-                setPrompt(newValue);
-              }}
-            >
-              <PiX className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-      )}
 
-      {/* Expanded Context and Files Display */}
-      <InputAttachmentList
-        files={files}
-        context={context}
-        onRemoveFile={handleRemoveFile}
-        onRemoveContext={handleRemoveContext}
-      />
+      
+
 
       {/* Prompt input */}
       <FileUpload
@@ -320,6 +268,64 @@ type PromptInputWithFilesProps = {
           className="bg-card/50 shadow-none rounded-xl border border-border ring-0 backdrop-blur-sm"
         >
           <div className="flex flex-col">
+            {/* Edit Mode Banner (Inline) */}
+            {editMode && onCancelEdit && (
+              <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-primary/5 text-primary text-xs font-medium border-b border-primary/10 rounded-t-xl animate-in fade-in slide-in-from-top-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  Editing message
+                </div>
+                <button 
+                  onClick={onCancelEdit}
+                  disabled={isLoading || isSubmittingEdit}
+                  className="text-primary/60 hover:text-primary transition-colors flex items-center gap-1 hover:bg-primary/5 rounded px-1.5 py-0.5"
+                >
+                  <PiX size={12} />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            )}
+
+            {/* Quote Preview (Inline) */}
+            {quotedMessage && onClearQuote && (
+              <div className="px-3 pt-3">
+                <div className="flex items-start gap-2 pl-2 border-l-2 border-primary/40 py-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5 flex items-center gap-1">
+                      <PiQuotes className="h-3 w-3" />
+                      Replying to {quotedMessage.authorRole === 'assistant' ? 'Assistant' : 'You'}
+                    </div>
+                    <div className="text-xs text-foreground/80 line-clamp-1 italic">
+                      {quotedMessage.quotedText}
+                    </div>
+                  </div>
+                  <button
+                    className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-background/50 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onClearQuote();
+                      // Remove quote from input logic
+                      const lines = prompt.split('\n');
+                      const firstNonQuoteLine = lines.findIndex(line => !line.startsWith('>') && line.trim() !== '');
+                      const newValue = firstNonQuoteLine >= 0 ? lines.slice(firstNonQuoteLine).join('\n') : '';
+                      setPrompt(newValue);
+                    }}
+                  >
+                    <PiX className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Attachments List (Inline) */}
+            <div className={cn(editMode ? "" : "rounded-t-xl overflow-hidden")}>
+                <InputAttachmentList
+                  files={files}
+                  context={context}
+                  onRemoveFile={handleRemoveFile}
+                  onRemoveContext={handleRemoveContext}
+                />
+            </div>
             <PromptInputTextarea
               id="main-chat-input"
               placeholder={

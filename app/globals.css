@@ -332,6 +332,10 @@
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
+    .mask-linear-fade {
+        mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+    }
 }
 
 

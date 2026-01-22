@@ -1076,6 +1076,17 @@ const ChatContent = memo(
           >
             {/* Background for input section */}
             <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
+               {/* Scroll to Bottom Button - Absolute atop the input container */}
+               <div className="absolute top-0 left-0 right-0 -translate-y-full pointer-events-none flex justify-center pb-2 z-10">
+                  <div className="pointer-events-auto transition-transform duration-200">
+                    <ScrollToBottomButton
+                      visible={!isScrolledUp && messages.length > 0 && !!currentConversationId}
+                      onClick={() => virtuosoRef.current?.scrollToBottom()}
+                      className="static transform-none shadow-md border border-border/10"
+                    />
+                  </div>
+               </div>
+
               {/* Show editContext when editing, activeContext otherwise */}
 
               {/* Input container with optional no-credits overlay */}
@@ -1122,11 +1133,7 @@ const ChatContent = memo(
             </div>
           </div>
 
-          {/* Scroll to Bottom Button - positioned as sibling to input for correct z-index stacking */}
-          <ScrollToBottomButton
-            visible={!isScrolledUp && messages.length > 0 && !!currentConversationId}
-            onClick={() => virtuosoRef.current?.scrollToBottom()}
-          />
+
         </div>
 
         {/* Sub-Chat Sheet */}

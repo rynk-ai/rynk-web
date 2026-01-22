@@ -23,34 +23,29 @@ export const InputAttachmentList = memo(function InputAttachmentList({
   if (files.length === 0 && context.length === 0) return null;
 
   return (
-    <div className="px-3 pt-3 flex flex-col gap-2">
-      <div className="flex flex-wrap gap-2 items-start">
+    <div className="w-full relative group/list">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 px-3 mask-linear-fade">
         {/* Context Pills */}
         {context.map((item) => (
           <div 
             key={item.id}
-            className="flex items-center gap-2 bg-secondary/30 border border-border/10 rounded-lg px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
+            className="flex items-center gap-1.5 bg-secondary/40 border border-border/20 rounded-md pl-2 pr-1 py-1 shrink-0 max-w-[160px] animate-in fade-in zoom-in-95 duration-200 select-none"
           >
             {item.type === 'folder' ? (
               <PiFolder className="h-3.5 w-3.5 text-blue-500 shrink-0" />
             ) : (
               <PiChatCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             )}
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium truncate text-foreground/90 leading-tight">
-                {item.title}
-              </div>
-              <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                {item.type === 'folder' ? 'Folder' : 'Conversation'}
-              </div>
-            </div>
+            <span className="text-xs font-medium truncate text-foreground/90 leading-none max-w-[100px]">
+              {item.title}
+            </span>
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 rounded-full hover:bg-background/80 shrink-0 -mr-1"
+              className="h-4 w-4 rounded-full hover:bg-background/80 shrink-0 text-muted-foreground hover:text-foreground ml-0.5"
               onClick={() => onRemoveContext(item)}
             >
-              <PiX className="h-3 w-3" />
+              <PiX className="h-2.5 w-2.5" />
             </Button>
           </div>
         ))}
@@ -73,24 +68,22 @@ export const InputAttachmentList = memo(function InputAttachmentList({
           return (
             <div 
               key={`${name}-${index}`}
-              className="flex items-center gap-2 bg-secondary/30 border border-border/10 rounded-lg px-2 py-1 max-w-[200px] group animate-in fade-in zoom-in-95 duration-200"
+              className="flex items-center gap-1.5 bg-secondary/40 border border-border/20 rounded-md pl-2 pr-1 py-1 shrink-0 max-w-[160px] animate-in fade-in zoom-in-95 duration-200 select-none"
             >
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium truncate text-foreground/90 leading-tight">
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-medium truncate text-foreground/90 leading-none max-w-[100px]">
                   {name}
-                </div>
-                <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                  {size || 'Attachment'}
-                </div>
+                </span>
+                {/* Optional: Show size if needed, but keeping it compact for now just name */}
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 rounded-full hover:bg-background/80 shrink-0 -mr-1"
+                className="h-4 w-4 rounded-full hover:bg-background/80 shrink-0 text-muted-foreground hover:text-foreground ml-0.5"
                 onClick={() => onRemoveFile(file)}
               >
-                <PiX className="h-3 w-3" />
+                <PiX className="h-2.5 w-2.5" />
               </Button>
             </div>
           );
