@@ -161,37 +161,29 @@ export function useSmartInput({
       
       const validFiles = results.filter(r => r.validation.valid).map(r => r.file);
       if (validFiles.length > 0) {
-        setFiles(prev => {
-          const updated = [...prev, ...validFiles];
-          onFilesChange?.(updated);
-          return updated;
-        });
+        const updated = [...files, ...validFiles];
+        setFiles(updated);
+        onFilesChange?.(updated);
       }
       return;
     }
     
-    setFiles(prev => {
-      const updated = [...prev, ...newFiles];
-      onFilesChange?.(updated);
-      return updated;
-    });
-  }, [onFilesChange]);
+    const updated = [...files, ...newFiles];
+    setFiles(updated);
+    onFilesChange?.(updated);
+  }, [files, onFilesChange]);
 
   const handleRemoveFile = useCallback((fileToRemove: File | Attachment) => {
-    setFiles(prev => {
-      const updated = prev.filter(f => f !== fileToRemove);
-      onFilesChange?.(updated);
-      return updated;
-    });
-  }, [onFilesChange]);
+    const updated = files.filter(f => f !== fileToRemove);
+    setFiles(updated);
+    onFilesChange?.(updated);
+  }, [files, onFilesChange]);
 
   const handleRemoveContext = useCallback((itemToRemove: ContextItem) => {
-    setContext(prev => {
-      const updated = prev.filter(c => c.id !== itemToRemove.id);
-      onContextChange?.(updated);
-      return updated;
-    });
-  }, [onContextChange]);
+    const updated = context.filter(c => c.id !== itemToRemove.id);
+    setContext(updated);
+    onContextChange?.(updated);
+  }, [context, onContextChange]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData('text/plain');
