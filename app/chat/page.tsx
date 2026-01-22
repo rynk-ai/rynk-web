@@ -695,7 +695,11 @@ const ChatContent = memo(
 
         try {
           const { messages: loadedMessages, nextCursor } =
-            await getMessages(targetConversationId);
+            await queryClient.fetchQuery({
+              queryKey: ["messages", targetConversationId],
+              queryFn: () => getMessages(targetConversationId),
+              staleTime: 1000 * 60 * 2, // 2 minutes - match prefetch configuration
+            });
           console.log(
             "✅ Loaded",
             loadedMessages.length,

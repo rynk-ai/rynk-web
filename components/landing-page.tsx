@@ -17,8 +17,8 @@ export function LandingPage() {
           <LandingHero />
           <LandingHowItWorks />
           <LandingFeatures />
-          <LandingTools />
           <LandingPricing />
+          <LandingTools />
         </main>
         <LandingFooter />
       </div>
