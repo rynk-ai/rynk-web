@@ -573,11 +573,7 @@ const GuestChatContent = memo(function GuestChatContent({
                 />
               )}
 
-              {/* Scroll to Bottom Button */}
-              <ScrollToBottomButton
-                visible={!isScrolledUp && messages.length > 0}
-                onClick={() => virtuosoRef.current?.scrollToBottom()}
-              />
+
             </div>
             <div className="absolute w-full h-32 bg-gradient-to-t from-background/75 to-transparent bottom-0 z-[100] pointer-events-none"></div>
           </div>
@@ -597,6 +593,17 @@ const GuestChatContent = memo(function GuestChatContent({
           }}
         >
           <div className="relative w-full max-w-2xl lg:max-w-3xl mx-auto pb-safe-bottom">
+             {/* Scroll to Bottom Button - Absolute atop the input container */}
+             <div className="absolute top-0 left-0 right-0 -translate-y-full pointer-events-none flex justify-center pb-2 z-10">
+                <div className="pointer-events-auto transition-transform duration-200">
+                  <ScrollToBottomButton
+                    visible={!isScrolledUp && messages.length > 0}
+                    onClick={() => virtuosoRef.current?.scrollToBottom()}
+                    className="static transform-none shadow-md border border-border/10"
+                  />
+                </div>
+             </div>
+
             <PromptInputWithFiles
               onSubmit={(text, files) => handleSubmit(text)}
               isLoading={isSending || (currentConversationId ? loadingConversations.has(currentConversationId) : false)}

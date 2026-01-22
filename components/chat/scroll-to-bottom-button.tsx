@@ -31,7 +31,7 @@ export const ScrollToBottomButton = memo(function ScrollToBottomButton({
     <Button
       variant="ghost"
       className={cn(
-        "absolute bottom-32 z-30 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent transition-all duration-300 animate-in slide-in-from-bottom-2 fade-in right-4 h-9 w-9 p-0 md:right-auto md:left-1/2 md:-translate-x-1/2 md:h-8 md:w-auto md:px-3 md:gap-1.5",
+        "z-30 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent transition-all duration-300 animate-in slide-in-from-bottom-2 fade-in h-9 w-9 p-0 md:h-8 md:w-auto md:px-3 md:gap-1.5 shadow-sm border border-border/10",
         className
       )}
       onClick={onClick}
