@@ -53,23 +53,42 @@ export async function GET(
     
     const path = conversation.path ? JSON.parse(String(conversation.path)) : [];
     
-    if (path.length === 0) {
-      return NextResponse.json({ messages: [], nextCursor: null });
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get('cursor');
+    const limit = parseInt(searchParams.get('limit') || '20');
+
+    // Find the slice end index
+    let endIndex = path.length;
+    if (cursor) {
+      const cursorIndex = path.indexOf(cursor);
+      if (cursorIndex !== -1) {
+        endIndex = cursorIndex;
+      }
     }
+
+    // Calculate start index
+    const startIndex = Math.max(0, endIndex - limit);
     
-    // Fetch messages by IDs (matching cloud-db pattern)
-    const placeholders = path.map(() => '?').join(',');
+    // Get IDs for this page
+    const pageIds = path.slice(startIndex, endIndex);
+    
+    if (pageIds.length === 0) {
+       return NextResponse.json({ messages: [], nextCursor: null });
+    }
+
+    // Fetch messages by IDs
+    const placeholders = pageIds.map(() => '?').join(',');
     const messages = await db.prepare(
       `SELECT * FROM messages WHERE id IN (${placeholders})`
-    ).bind(...path).all();
+    ).bind(...pageIds).all();
     
     // Build a map for ordering
     const msgMap = new Map(
       (messages.results || []).map((m: any) => [m.id, m])
     );
     
-    // Return messages in path order (matching cloud-db.ts getMessages)
-    const orderedMessages = path
+    // Return messages in path order (subset)
+    const orderedMessages = pageIds
       .map((id: string) => {
         const m = msgMap.get(id);
         if (!m) return null;
@@ -92,9 +111,13 @@ export async function GET(
       })
       .filter(Boolean);
     
+    // Next cursor is the ID of the first message in this page (oldest)
+    // If we reached the start (startIndex === 0), no more previous messages
+    const nextCursor = startIndex > 0 ? pageIds[0] : null;
+
     return NextResponse.json({ 
       messages: orderedMessages,
-      nextCursor: null, // Simplified - no pagination for mobile initially
+      nextCursor,
     });
     
   } catch (error: any) {
