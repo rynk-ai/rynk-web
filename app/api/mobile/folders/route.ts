@@ -63,3 +63,47 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// POST /api/mobile/folders - Create new folder
+export async function POST(request: NextRequest) {
+  try {
+    const { env } = getCloudflareContext();
+    const db = env.DB;
+    
+    const user = await getAuthenticatedUser(request, db);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json() as { name: string; description?: string };
+    const { name, description } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await db.prepare(`
+      INSERT INTO folders (id, userId, name, description, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(id, user.id, name, description || null, now, now).run();
+
+    return NextResponse.json({ 
+      folder: {
+        id,
+        userId: user.id,
+        name,
+        description: description || null,
+        createdAt: now,
+        updatedAt: now,
+        conversationIds: [] // Initial empty list for consistency with frontend type
+      }
+    });
+
+  } catch (error: any) {
+    console.error('[Mobile API] POST /folders error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
