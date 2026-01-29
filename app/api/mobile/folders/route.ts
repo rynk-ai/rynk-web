@@ -46,6 +46,25 @@ export async function GET(request: NextRequest) {
     `).bind(user.id).all();
     
     // Format response
+    const folderIds = (folders.results || []).map((f: any) => f.id);
+    const placeholders = folderIds.map(() => '?').join(',');
+    
+    let convsByFolder = new Map<string, string[]>();
+    
+    if (folderIds.length > 0) {
+      const allFolderConvs = await db.prepare(
+        `SELECT folderId, conversationId FROM folder_conversations WHERE folderId IN (${placeholders})`
+      ).bind(...folderIds).all();
+      
+      (allFolderConvs.results || []).forEach((row: any) => {
+        const fid = row.folderId as string;
+        if (!convsByFolder.has(fid)) {
+          convsByFolder.set(fid, []);
+        }
+        convsByFolder.get(fid)!.push(row.conversationId as string);
+      });
+    }
+
     const formattedFolders = (folders.results || []).map((f: any) => ({
       id: f.id,
       userId: f.userId,
@@ -54,6 +73,7 @@ export async function GET(request: NextRequest) {
       description: f.description,
       createdAt: f.createdAt,
       updatedAt: f.updatedAt,
+      conversationIds: convsByFolder.get(f.id) || []
     }));
     
     return NextResponse.json({ folders: formattedFolders });
@@ -75,8 +95,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json() as { name: string; description?: string };
-    const { name, description } = body;
+    const body = await request.json() as { name: string; description?: string; conversationIds?: string[] };
+    const { name, description, conversationIds } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -90,6 +110,18 @@ export async function POST(request: NextRequest) {
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(id, user.id, name, description || null, now, now).run();
 
+    // Add conversations if provided
+    if (conversationIds && conversationIds.length > 0) {
+      console.log(`[Mobile API] Adding ${conversationIds.length} conversations to folder ${id}`);
+      const batch = conversationIds.map(convId =>
+        db.prepare('INSERT INTO folder_conversations (folderId, conversationId) VALUES (?, ?)').bind(id, convId)
+      )
+      const batchResult = await db.batch(batch);
+      console.log('[Mobile API] Batch insert result:', batchResult);
+    } else {
+      console.log(`[Mobile API] No conversations provided for folder ${id}`);
+    }
+
     return NextResponse.json({ 
       folder: {
         id,
@@ -98,7 +130,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         createdAt: now,
         updatedAt: now,
-        conversationIds: [] // Initial empty list for consistency with frontend type
+        conversationIds: conversationIds || []
       }
     });
 
