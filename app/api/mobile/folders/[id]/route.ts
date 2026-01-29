@@ -29,7 +29,7 @@ async function getAuthenticatedUser(request: NextRequest, db: any) {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { env } = getCloudflareContext();
@@ -73,7 +73,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { env } = getCloudflareContext();
